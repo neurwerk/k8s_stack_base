@@ -170,7 +170,7 @@ chart-check: ## Run chart-specific rendered contract tests
 
 platform-check: ## Verify the generated platform release contract
 	@if [ -z "$(UV)" ]; then printf "$(RED)uv is required$(RESET)\n"; exit 1; fi
-	@$(UV) run --frozen python -m unittest discover -s tests/platform -p 'test_*.py' -v
+	@PLATFORM_RELEASE_TEST_TAG="$(TAG)" $(UV) run --frozen python -m unittest discover -s tests/platform -p 'test_*.py' -v
 
 release-manifest: ## Regenerate the platform release manifest
 	@if [ -z "$(UV)" ]; then printf "$(RED)uv is required$(RESET)\n"; exit 1; fi
