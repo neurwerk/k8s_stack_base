@@ -1,0 +1,330 @@
+# IMAGE SOURCE: upstream
+# OpenBao images are controlled by the pinned official subchart.
+
+# --- Wrapper Resources ---
+infraOpenbaoWrapper:
+  tls:
+    secretName: infra-openbao-tls-secret
+    issuerName: infra-cert-manager-internal-ca-issuer
+    clusterDomain: cluster.local
+  kubernetesApi:
+    service:
+      cidr: 10.43.0.1/32
+      port: 443
+    # Client-owned fixed K3s server address. The empty chart default is
+    # intentionally non-functional until client product values supply it.
+    endpoint:
+      address: ""
+      port: 6443
+  monitoring:
+    prometheusRule:
+      enabled: true
+      # No stable snapshot-age metric exists until an upload target is selected.
+      # Enabling this later requires an expression that evaluates to snapshot age in seconds.
+      snapshotAge:
+        enabled: false
+        expression: ""
+        maximumSeconds: 86400
+
+openbao:
+  fullnameOverride: infra-openbao
+
+  global:
+    enabled: true
+    namespace: infra-openbao
+    tlsDisable: false
+    serverTelemetry:
+      prometheusOperator: false
+
+  injector:
+    enabled: false
+
+  csi:
+    enabled: false
+
+  server:
+    enabled: true
+    image:
+      registry: quay.io
+      repository: openbao/openbao
+      tag: "2.6.1"
+      pullPolicy: IfNotPresent
+    logLevel: info
+    logFormat: json
+    updateStrategyType: OnDelete
+    podManagementPolicy: OrderedReady
+    resources:
+      requests:
+        cpu: 250m
+        memory: 512Mi
+      limits:
+        cpu: 1000m
+        memory: 2Gi
+
+    ingress:
+      enabled: false
+    route:
+      enabled: false
+    gateway:
+      tlsRoute:
+        enabled: false
+      httpRoute:
+        enabled: false
+
+    authDelegator:
+      # The official chart binds only this ServiceAccount to system:auth-delegator;
+      # OpenBao performs Kubernetes TokenReview for ESO authentication.
+      enabled: true
+    serviceAccount:
+      create: true
+      name: infra-openbao
+      createSecret: false
+      serviceDiscovery:
+        enabled: true
+
+    service:
+      enabled: true
+      type: ClusterIP
+      port: 8200
+      targetPort: 8200
+      publishNotReadyAddresses: true
+      instanceSelector:
+        enabled: true
+      extraLabels:
+        monitoring.neurwerk.com/openbao: "true"
+      active:
+        enabled: true
+      standby:
+        enabled: true
+
+    dataStorage:
+      enabled: true
+      size: 10Gi
+      mountPath: /openbao/data
+      storageClass: infra-rook-ceph-rbd-openbao
+      accessMode: ReadWriteOnce
+    persistentVolumeClaimRetentionPolicy:
+      whenDeleted: Retain
+      whenScaled: Retain
+    auditStorage:
+      enabled: false
+
+    standalone:
+      enabled: false
+    ha:
+      enabled: true
+      replicas: 1
+      apiAddr: https://infra-openbao-active.infra-openbao.svc:8200
+      disruptionBudget:
+        # A one-replica PDB cannot preserve availability and blocks node drains.
+        # Enable a quorum-aware PDB when the Raft replica count is increased.
+        enabled: false
+      raft:
+        enabled: true
+        setNodeId: true
+        config: |
+          ui = true
+
+          listener "tcp" {
+            address            = "[::]:8200"
+            cluster_address    = "[::]:8201"
+            tls_cert_file      = "/openbao/tls/tls.crt"
+            tls_key_file       = "/openbao/tls/tls.key"
+            tls_client_ca_file = "/openbao/tls/ca.crt"
+
+            telemetry {
+              unauthenticated_metrics_access = "true"
+            }
+          }
+
+          # Recovery shares can generate a temporary root token only through
+          # OpenBao's unauthenticated ceremony. Bind that API to pod loopback
+          # so it is reachable solely through authorized pod port-forwarding.
+          listener "tcp" {
+            address                                  = "127.0.0.1:8203"
+            tls_cert_file                            = "/openbao/tls/tls.crt"
+            tls_key_file                             = "/openbao/tls/tls.key"
+            tls_client_ca_file                       = "/openbao/tls/ca.crt"
+            disable_unauthed_generate_root_endpoints = false
+          }
+
+          storage "raft" {
+            path = "/openbao/data"
+          }
+
+          seal "static" {
+            current_key_id = "infra-openbao-static-seal-v1"
+            current_key    = "file:///openbao/seal/key"
+          }
+
+          service_registration "kubernetes" {}
+
+          telemetry {
+            prometheus_retention_time = "30s"
+            disable_hostname = true
+          }
+
+    volumes:
+      - name: tls
+        secret:
+          secretName: infra-openbao-tls-secret
+          defaultMode: 288
+      # Client-owned. The Secret key named `key` must decode to exactly 32 bytes.
+      - name: static-seal
+        secret:
+          secretName: infra-openbao-static-seal-secret
+          defaultMode: 288
+          items:
+            - key: key
+              path: key
+      - name: tmp
+        emptyDir: {}
+    volumeMounts:
+      - name: tls
+        mountPath: /openbao/tls
+        readOnly: true
+      - name: static-seal
+        mountPath: /openbao/seal
+        readOnly: true
+      - name: tmp
+        mountPath: /tmp
+
+    # Fail closed before OpenBao can initialize if its NetworkPolicy does not
+    # permit the in-cluster Kubernetes API path used by service registration.
+    extraInitContainers:
+      - name: kubernetes-api-connectivity
+        image: quay.io/openbao/openbao:2.6.1
+        imagePullPolicy: IfNotPresent
+        command: ["/bin/sh", "-ec"]
+        args:
+          - |
+            for attempt in $(seq 1 12); do
+              if nc -z -w 5 "${KUBERNETES_SERVICE_HOST}" "${KUBERNETES_SERVICE_PORT}"; then
+                exit 0
+              fi
+              sleep 5
+            done
+            echo "Kubernetes API connectivity check failed" >&2
+            exit 1
+        resources:
+          requests:
+            cpu: 10m
+            memory: 16Mi
+          limits:
+            cpu: 100m
+            memory: 64Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: [ALL]
+
+    statefulSet:
+      securityContext:
+        pod:
+          runAsNonRoot: true
+          runAsUser: 100
+          runAsGroup: 1000
+          fsGroup: 1000
+          fsGroupChangePolicy: OnRootMismatch
+          seccompProfile:
+            type: RuntimeDefault
+        container:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: [ALL]
+
+    # These probes establish process health and deliberately accept sealed (204)
+    # and uninitialized (204) responses. Helm must be able to install the server
+    # before bootstrap; application deployment is gated later by SecretStore Ready.
+    readinessProbe:
+      enabled: true
+      path: /v1/sys/health?standbyok=true&sealedcode=204&uninitcode=204
+      port: 8200
+      initialDelaySeconds: 5
+      periodSeconds: 5
+      timeoutSeconds: 3
+      failureThreshold: 12
+      successThreshold: 1
+    livenessProbe:
+      enabled: true
+      path: /v1/sys/health?standbyok=true&sealedcode=204&uninitcode=204
+      port: 8200
+      initialDelaySeconds: 30
+      periodSeconds: 10
+      # Initialization temporarily blocks the health handler while Raft is
+      # sealed and reopened. Keep normal probing but tolerate this one-time
+      # transaction for up to ten minutes.
+      timeoutSeconds: 5
+      failureThreshold: 60
+      successThreshold: 1
+
+    networkPolicy:
+      enabled: true
+      ingress:
+        - from:
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/name: openbao
+                  app.kubernetes.io/instance: infra-openbao
+          ports:
+            - port: 8200
+              protocol: TCP
+            - port: 8201
+              protocol: TCP
+        - from:
+            - namespaceSelector:
+                matchLabels:
+                  kubernetes.io/metadata.name: infra-external-secrets
+            - namespaceSelector:
+                matchLabels:
+                  kubernetes.io/metadata.name: infra-openbao
+          ports:
+            - port: 8200
+              protocol: TCP
+        - from:
+            - namespaceSelector:
+                matchLabels:
+                  kubernetes.io/metadata.name: monitor-kube-prometheus-stack
+          ports:
+            - port: 8200
+              protocol: TCP
+      egress:
+        - to:
+            - namespaceSelector:
+                matchLabels:
+                  kubernetes.io/metadata.name: kube-system
+              podSelector:
+                matchLabels:
+                  k8s-app: kube-dns
+          ports:
+            - port: 53
+              protocol: UDP
+            - port: 53
+              protocol: TCP
+        - to:
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/name: openbao
+                  app.kubernetes.io/instance: infra-openbao
+          ports:
+            - port: 8201
+              protocol: TCP
+
+  ui:
+    enabled: true
+    activeOpenbaoPodOnly: false
+    serviceType: ClusterIP
+    externalPort: 8200
+    targetPort: 8200
+
+  serverTelemetry:
+    serviceMonitor:
+      enabled: false
+    prometheusRules:
+      enabled: false
+
+  # Snapshot upload remains disabled until its endpoint and credentials are known.
+  snapshotAgent:
+    enabled: false

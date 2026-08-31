@@ -1,0 +1,131 @@
+name: Prepare Release PR
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Strict SemVer without the v prefix
+        required: true
+        type: string
+      previous_tag:
+        description: Exact current platform release tag
+        required: true
+        type: string
+      release_date:
+        description: Release date in strict YYYY-MM-DD format
+        required: true
+        type: string
+      summary:
+        description: Concise release summary
+        required: true
+        type: string
+      fresh_install:
+        description: Fresh installation support
+        required: true
+        type: choice
+        options:
+          - supported
+          - unsupported
+      upgrades_from:
+        description: Comma-separated exact source tags, or empty for none
+        required: false
+        type: string
+      recovery:
+        description: Reviewed recovery action
+        required: true
+        type: choice
+        options:
+          - replacement-restore
+          - configuration-revert
+          - forward-fix
+          - component-native-restore
+
+permissions:
+  contents: read
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    environment: release-preparation
+    steps:
+      - name: Checkout trusted default branch
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Generate repository-scoped GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ secrets.RELEASE_AUTOMATION_APP_ID }}
+          private-key: ${{ secrets.RELEASE_AUTOMATION_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: write
+          permission-pull-requests: write
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: true
+
+      - name: Install Python
+        run: uv python install 3.12
+
+      - name: Prepare release evidence from the signed predecessor
+        env:
+          VERSION: ${{ inputs.version }}
+          PREVIOUS_TAG: ${{ inputs.previous_tag }}
+          RELEASE_DATE: ${{ inputs.release_date }}
+          SUMMARY: ${{ inputs.summary }}
+          FRESH_INSTALL: ${{ inputs.fresh_install }}
+          UPGRADES_FROM: ${{ inputs.upgrades_from }}
+          RECOVERY: ${{ inputs.recovery }}
+          PLATFORM_RELEASE_ALLOWED_SIGNER: ${{ vars.PLATFORM_RELEASE_ALLOWED_SIGNER }}
+        run: |
+          uv lock --check
+          uv run --frozen python scripts/platform_release.py prepare \
+            --version "$VERSION" \
+            --previous-tag "$PREVIOUS_TAG" \
+            --release-date "$RELEASE_DATE" \
+            --summary "$SUMMARY" \
+            --fresh-install "$FRESH_INSTALL" \
+            --upgrades-from "$UPGRADES_FROM" \
+            --recovery "$RECOVERY"
+
+      - name: Open or update the draft release pull request
+        id: release-pr
+        uses: peter-evans/create-pull-request@271a8d0340265f705b14b6d32b9829c1cb33d45e # v7.0.8
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          branch: release/v${{ inputs.version }}
+          commit-message: "chore: prepare platform v${{ inputs.version }}"
+          title: "chore: prepare platform v${{ inputs.version }}"
+          body: |
+            Prepares reviewed release evidence for platform v${{ inputs.version }}.
+
+            The generated changelog and migration scaffolds intentionally contain
+            TODO markers. `make release-check` rejects the proposal until all release
+            prose and evidence are complete.
+
+            This pull request does not authorize tagging, publication, client
+            adoption, deployment, or cluster mutation.
+          draft: always-true
+          delete-branch: false
+          add-paths: |
+            VERSION
+            CHANGELOG.md
+            release/config.yaml
+            release/manifest.yaml
+            release/migrations/v${{ inputs.version }}.md
+
+      - name: Apply platform release classification when configured
+        if: steps.release-pr.outputs.pull-request-number != ''
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          PR_NUMBER: ${{ steps.release-pr.outputs.pull-request-number }}
+        run: |
+          gh pr edit "$PR_NUMBER" --add-label "release: platform"

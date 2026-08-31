@@ -1,0 +1,23 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: infra-cert-manager-internal-ca
+  namespace: infra-cert-manager
+  labels:
+    app.kubernetes.io/name: cert-manager-internal-issuer
+    app.kubernetes.io/instance: infra-cert-manager-internal-issuer
+    app.kubernetes.io/part-of: infra-cert-manager
+spec:
+  isCA: true
+  commonName: Internal CA
+  secretName: infra-cert-manager-internal-ca-secret
+  privateKey:
+    algorithm: RSA
+    size: 2048
+    encoding: PKCS8
+  duration: 87600h # 10 years
+  renewBefore: 8760h # 1 year
+  issuerRef:
+    name: infra-cert-manager-self-signed-issuer
+    kind: ClusterIssuer
+    group: cert-manager.io

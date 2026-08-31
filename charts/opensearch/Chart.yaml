@@ -1,0 +1,20 @@
+apiVersion: v2
+name: monitor-opensearch
+description: |
+  Wrapper chart — OpenSearch (monitor-opensearch namespace).
+
+  Deploys:
+    - OpenSearch (single-node, internal-only, TLS via internal CA)
+    - cert-manager Certificates (admin, transport, HTTP) + CA trust sync
+    - Convergent security bootstrap Job (securityadmin.sh)
+    - Init Jobs to create the fluent-bit-ingest and studio-logs-read users
+    - Init Job for log archiving (ISM snapshot policy to Ceph RGW)
+
+  No Gateway/HTTPRoute — internal-only, no dashboards.
+type: application
+version: 0.6.10
+appVersion: "2.18.0"
+dependencies:
+  - name: opensearch
+    version: "2.27.0"
+    repository: https://opensearch-project.github.io/helm-charts

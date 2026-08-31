@@ -1,0 +1,31 @@
+{{- $security := .Values.frontendLibrechatCodeInterpreter.sandbox.security -}}
+# These ConfigMaps preserve the pinned upstream profiles for node provisioning.
+# Kubernetes Localhost profiles are node files, not ConfigMap mounts. This chart
+# intentionally does not create a privileged hostPath installer.
+{{- if $security.seccomp.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: librechat-code-interpreter-nsjail-seccomp
+  labels:
+    {{- include "librechat-code-interpreter-worker.labels" . | nindent 4 }}
+    app.kubernetes.io/component: security-profile
+data:
+  librechat-code-interpreter-nsjail.json: |
+{{ .Files.Get "files/librechat-code-interpreter-nsjail.json" | indent 4 }}
+{{- end }}
+{{- if and $security.seccomp.enabled $security.appArmor.enabled }}
+---
+{{- end }}
+{{- if $security.appArmor.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: librechat-code-interpreter-nsjail-apparmor
+  labels:
+    {{- include "librechat-code-interpreter-worker.labels" . | nindent 4 }}
+    app.kubernetes.io/component: security-profile
+data:
+  librechat-code-interpreter-nsjail: |
+{{ .Files.Get "files/librechat-code-interpreter-nsjail.apparmor" | indent 4 }}
+{{- end }}

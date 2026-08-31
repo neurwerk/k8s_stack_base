@@ -1,0 +1,51 @@
+# IMAGE SOURCE: upstream
+# External Secrets images are controlled by the pinned official subchart.
+external-secrets:
+  fullnameOverride: infra-external-secrets
+  namespaceOverride: infra-external-secrets
+  installCRDs: true
+  bitwarden-sdk-server:
+    enabled: false
+  systemAuthDelegator: false
+  leaderElect: false
+  openshiftFinalizers: false
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  livenessProbe:
+    enabled: true
+  readinessProbe:
+    enabled: true
+  serviceMonitor:
+    enabled: true
+    renderMode: alwaysRender
+    additionalLabels:
+      release: monitor-kube-prometheus-stack
+  webhook:
+    resources:
+      requests:
+        cpu: 25m
+        memory: 64Mi
+      limits:
+        cpu: 250m
+        memory: 256Mi
+    livenessProbe:
+      enabled: true
+    readinessProbe:
+      enabled: true
+  certController:
+    resources:
+      requests:
+        cpu: 25m
+        memory: 64Mi
+      limits:
+        cpu: 250m
+        memory: 256Mi
+    livenessProbe:
+      enabled: true
+    readinessProbe:
+      enabled: true

@@ -1,0 +1,61 @@
+# IMAGE SOURCE: owned service
+# Built from: ghcr.io/neurwerk/k8s-stack-studio-api.
+# Pinned here (chart defaults).
+# =============================================================================
+# charts/studio/api/values.yaml — chart defaults
+#
+# These defaults are overridden by:
+#   - ConfigMap: base-shared-hostnames-config-map
+#   - ConfigMap: base-shared-resources-config-map
+#   - ConfigMap: base-shared-oidc-clients-config-map
+#   - Client override ConfigMaps
+# =============================================================================
+
+# --- Studio API configuration ---
+frontendStudio:
+  apiImage: "ghcr.io/neurwerk/k8s-stack-studio-api:0.6.2"
+  api:
+    replicas: 1
+    securityContext:
+      runAsUser: 1000
+      runAsNonRoot: true
+      fsGroup: 1000
+    ports:
+      container:
+        http: 4010
+        mgmt: 4090
+      service:
+        http: 80
+        mgmt: 4090
+    resources:
+      requests:
+        cpu: "100m"
+        memory: "128Mi"
+      limits:
+        cpu: "500m"
+        memory: "256Mi"
+
+    # --- PII Engine workload mTLS ---
+    piiEngineUrl: "https://monitor-pii-engine-service.monitor-pii-engine.svc.cluster.local:443"
+    piiEngineCaCert: "/var/run/pii-engine/tls/ca.crt"
+    piiEngineClientCert: "/var/run/pii-engine/tls/tls.crt"
+    piiEngineClientKey: "/var/run/pii-engine/tls/tls.key"
+    piiEngineClientSecretName: frontend-studio-pii-engine-client-tls
+    piiEngineTimeout: 45
+
+    # --- OpenSearch (logs viewer) ---
+    # Password comes from frontend-studio-openbao-secret.
+    opensearchUrl: "https://opensearch-cluster-master.monitor-opensearch.svc.cluster.local:9200"
+    opensearchUser: "studio-logs-read"
+    # Path to the internal CA cert (mounted from the frontend-studio-shared-opensearch-ca ConfigMap)
+    opensearchCaCert: "/certs/ca.crt"
+
+    # --- Langfuse (per-user usage) ---
+    # API keys come from frontend-studio-openbao-secret.
+    langfuseUrl: "http://monitor-langfuse-web.monitor-langfuse.svc.cluster.local:3000"
+    langfuseUsageTimezone: "UTC"
+
+    # --- Keycloak / OIDC (set via client_*/config/client.yaml) ---
+    keycloakServerUrl: ""
+    keycloakRealm: ""
+    keycloakClientId: ""

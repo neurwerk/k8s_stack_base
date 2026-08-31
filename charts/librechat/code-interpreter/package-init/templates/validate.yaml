@@ -1,0 +1,11 @@
+{{- $product := .Values.frontendLibrechatCodeInterpreter -}}
+{{- $init := $product.packages.initJob -}}
+{{- if and $product.validation.production (empty $product.scheduling.nodeSelector) -}}
+  {{- fail "frontendLibrechatCodeInterpreter.scheduling.nodeSelector must be non-empty and client-owned for dedicated worker nodes" -}}
+{{- end -}}
+{{- if and $product.validation.production (empty $product.scheduling.tolerations) -}}
+  {{- fail "frontendLibrechatCodeInterpreter.scheduling.tolerations must be non-empty for dedicated tainted worker nodes" -}}
+{{- end -}}
+{{- if and $product.validation.production (not $init.enabled) -}}
+  {{- fail "frontendLibrechatCodeInterpreter.packages.initJob.enabled must remain true for direct NsJail" -}}
+{{- end -}}

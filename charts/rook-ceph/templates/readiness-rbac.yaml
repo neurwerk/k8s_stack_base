@@ -1,0 +1,110 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: infra-rook-ceph-readiness-service-account
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "infra-rook-ceph.labels" . | nindent 4 }}
+automountServiceAccountToken: true
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: infra-rook-ceph-readiness-role
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "infra-rook-ceph.labels" . | nindent 4 }}
+rules:
+  - apiGroups: ["ceph.rook.io"]
+    resources: ["cephclusters"]
+    resourceNames: [{{ .Values.infraRookCeph.clusterName | quote }}]
+    verbs: ["get"]
+  - apiGroups: ["ceph.rook.io"]
+    resources: ["cephobjectstores"]
+    resourceNames: [{{ .Values.infraRookCeph.objectStore.name | quote }}]
+    verbs: ["get"]
+  - apiGroups: ["ceph.rook.io"]
+    resources: ["cephblockpools"]
+    resourceNames: [{{ .Values.infraRookCeph.blockStorage.poolName | quote }}]
+    verbs: ["get"]
+  - apiGroups: ["ceph.rook.io"]
+    resources: ["cephobjectstoreusers"]
+    resourceNames: [{{ .Values.infraRookCeph.objectStore.piiModels.publisherUser | quote }}]
+    verbs: ["get"]
+  - apiGroups: ["objectbucket.io"]
+    resources: ["objectbucketclaims"]
+    resourceNames: ["monitor-pii-engine-models-object-bucket-claim"]
+    verbs: ["get"]
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    resourceNames:
+      - rook-ceph-operator
+      - ceph-csi-controller-manager
+      - {{ printf "rook-ceph-rgw-%s-a" .Values.infraRookCeph.objectStore.name }}
+    verbs: ["get"]
+  - apiGroups: [""]
+    resources: ["persistentvolumeclaims"]
+    verbs: ["create"]
+  - apiGroups: [""]
+    resources: ["persistentvolumeclaims"]
+    resourceNames: ["infra-rook-ceph-readiness-pvc"]
+    verbs: ["get", "delete"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["create"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    resourceNames:
+      - infra-rook-ceph-readiness-writer-pod
+      - infra-rook-ceph-readiness-reader-pod
+    verbs: ["get", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: infra-rook-ceph-readiness-role-binding
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "infra-rook-ceph.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: infra-rook-ceph-readiness-role
+subjects:
+  - kind: ServiceAccount
+    name: infra-rook-ceph-readiness-service-account
+    namespace: {{ .Release.Namespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: infra-rook-ceph-readiness-role
+  namespace: {{ .Values.infraRookCeph.objectStore.piiModels.consumerNamespace }}
+  labels:
+    {{- include "infra-rook-ceph.labels" . | nindent 4 }}
+rules:
+  - apiGroups: ["ceph.rook.io"]
+    resources: ["cephobjectstoreusers"]
+    resourceNames: [{{ .Values.infraRookCeph.objectStore.piiModels.modelSyncUser | quote }}]
+    verbs: ["get"]
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames:
+      - {{ printf "rook-ceph-object-user-%s-%s" .Values.infraRookCeph.objectStore.name .Values.infraRookCeph.objectStore.piiModels.modelSyncUser }}
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: infra-rook-ceph-readiness-role-binding
+  namespace: {{ .Values.infraRookCeph.objectStore.piiModels.consumerNamespace }}
+  labels:
+    {{- include "infra-rook-ceph.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: infra-rook-ceph-readiness-role
+subjects:
+  - kind: ServiceAccount
+    name: infra-rook-ceph-readiness-service-account
+    namespace: {{ .Release.Namespace }}

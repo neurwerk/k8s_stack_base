@@ -1,0 +1,70 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: snapshot-controller
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "infra-rook-ceph.labels" . | nindent 4 }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: infra-rook-ceph-snapshot-controller
+  labels:
+    {{- include "infra-rook-ceph.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: [persistentvolumes, persistentvolumeclaims, events]
+    verbs: [get, list, watch, update, create, patch]
+  - apiGroups: [snapshot.storage.k8s.io]
+    resources: [volumesnapshotclasses]
+    verbs: [get, list, watch]
+  - apiGroups: [snapshot.storage.k8s.io]
+    resources: [volumesnapshots, volumesnapshotcontents]
+    verbs: [create, get, list, watch, update, delete, patch]
+  - apiGroups: [snapshot.storage.k8s.io]
+    resources: [volumesnapshots/status, volumesnapshotcontents/status]
+    verbs: [update, patch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: infra-rook-ceph-snapshot-controller
+  labels:
+    {{- include "infra-rook-ceph.labels" . | nindent 4 }}
+subjects:
+  - kind: ServiceAccount
+    name: snapshot-controller
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  kind: ClusterRole
+  name: infra-rook-ceph-snapshot-controller
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: snapshot-controller-leader-election
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "infra-rook-ceph.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [coordination.k8s.io]
+    resources: [leases]
+    verbs: [get, list, watch, create, update, delete]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: snapshot-controller-leader-election
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "infra-rook-ceph.labels" . | nindent 4 }}
+subjects:
+  - kind: ServiceAccount
+    name: snapshot-controller
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  kind: Role
+  name: snapshot-controller-leader-election
+  apiGroup: rbac.authorization.k8s.io

@@ -1,0 +1,56 @@
+{{- $store := .Values.infraRookCeph.objectStore -}}
+{{- if $store.externalGateway.enabled }}
+{{- $hostname := required "infraRookCeph.objectStore.publicHostname is required when the object Gateway is enabled" $store.publicHostname }}
+{{- if eq $hostname "place.holder" }}{{ fail "place.holder cannot be used for the object Gateway" }}{{ end }}
+{{- $issuer := ternary "letsencrypt-production-cluster-issuer" "letsencrypt-staging-cluster-issuer" .Values.publicCertificates.useProduction }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: infra-rook-ceph-object-gateway
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "infra-rook-ceph.labels" . | nindent 4 }}
+    app.kubernetes.io/component: object-gateway
+  annotations:
+    cert-manager.io/cluster-issuer: {{ $issuer | quote }}
+    cert-manager.io/duration: "2160h"
+spec:
+  gatewayClassName: traefik
+  listeners:
+    - name: websecure
+      port: {{ $store.externalGateway.port }}
+      protocol: HTTPS
+      hostname: {{ $hostname | quote }}
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - name: infra-rook-ceph-object-gateway-tls
+            kind: Secret
+            group: ""
+      allowedRoutes:
+        namespaces:
+          from: Same
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: infra-rook-ceph-object-gateway
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "infra-rook-ceph.labels" . | nindent 4 }}
+    app.kubernetes.io/component: object-gateway
+spec:
+  parentRefs:
+    - name: infra-rook-ceph-object-gateway
+      sectionName: websecure
+  hostnames:
+    - {{ $hostname | quote }}
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: {{ printf "rook-ceph-rgw-%s" $store.name }}
+          port: {{ $store.port }}
+{{- end }}

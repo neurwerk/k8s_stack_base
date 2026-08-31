@@ -1,0 +1,55 @@
+{{- $product := .Values.frontendLibrechatCodeInterpreter -}}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "librechat-code-interpreter-file-server.fullname" . }}
+  labels:
+    {{- include "librechat-code-interpreter-file-server.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "librechat-code-interpreter-file-server.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: librechat-code-interpreter-api
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: librechat-code-interpreter-egress-gateway
+      ports:
+        - protocol: TCP
+          port: {{ $product.fileServer.port }}
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: librechat-code-interpreter-valkey
+      ports:
+        - protocol: TCP
+          port: {{ $product.valkey.port }}
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ $product.objectStorage.networkPolicy.namespace }}
+          podSelector:
+            matchLabels:
+              {{- toYaml $product.objectStorage.networkPolicy.podLabels | nindent 14 }}
+      ports:
+        - protocol: TCP
+          port: {{ $product.objectStorage.networkPolicy.port }}

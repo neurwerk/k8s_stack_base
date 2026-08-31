@@ -1,0 +1,39 @@
+# IMAGE SOURCE: expected first-party build of the pinned upstream source.
+# ClickHouse/code-interpreter publishes no image at this commit. This mirror
+# reference is an exact-SHA contract but remains unverified until an owned build
+# publishes the package initializer image.
+frontendLibrechatCodeInterpreter:
+  validation:
+    # The platform HelmRelease forces production=true. Standalone defaults stay
+    # synthetic-renderable for chart linting and inspection.
+    production: false
+
+  images:
+    packageInit:
+      repository: ghcr.io/neurwerk/librechat-code-interpreter-package-init
+      tag: fea707467600f3802d65596a6875c7822f25cfd8
+      pullPolicy: IfNotPresent
+
+  scheduling:
+    # Production validation rejects empty values. Clients must select nodes
+    # dedicated to untrusted execution and tolerate only their matching taint.
+    nodeSelector: {}
+    tolerations: []
+
+  packages:
+    initJob:
+      enabled: true
+      forceRebuild: false
+      pythonVersion: 3.14.4
+      nodeVersion: 24.15.0
+      bunVersion: 1.3.14
+      bashPackageVersion: 5.2.0
+      activeDeadlineSeconds: 5100
+      backoffLimit: 2
+      resources:
+        requests:
+          cpu: 500m
+          memory: 1Gi
+        limits:
+          cpu: 2000m
+          memory: 4Gi

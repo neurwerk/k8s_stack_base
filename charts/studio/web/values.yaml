@@ -1,0 +1,50 @@
+# IMAGE SOURCE: owned service
+# Built from: ghcr.io/neurwerk/k8s-stack-studio-web.
+# Pinned here (chart defaults).
+# =============================================================================
+# charts/studio/web/values.yaml — chart defaults
+#
+# These defaults are overridden by:
+#   - ConfigMap: base-shared-hostnames-config-map
+#   - ConfigMap: base-shared-resources-config-map
+#   - ConfigMap: base-shared-oidc-clients-config-map
+#   - Client override ConfigMaps
+# =============================================================================
+
+# --- Studio web configuration ---
+frontendStudio:
+  webImage: "ghcr.io/neurwerk/k8s-stack-studio-web:0.6.2"
+  studio:
+    hostname: ""          # set in client_*/config/client.yaml
+    replicas: 1
+    securityContext:
+      runAsUser: 1000
+      runAsNonRoot: true
+      fsGroup: 1000
+    ports:
+      container:
+        web: 3000
+      service:
+        web: 80
+      gateway:
+        tls: 443
+    resources:
+      requests:
+        cpu: "50m"
+        memory: "64Mi"
+      limits:
+        cpu: "200m"
+        memory: "128Mi"
+
+    # --- OIDC (set via client_*/config/client.yaml) ---
+    oidcAuthority: ""
+    oidcClientId: ""
+
+    # --- API service URL (internal, same namespace) ---
+    apiServiceUrl: "http://frontend-studio-api-service.frontend-studio.svc.cluster.local:80"
+
+externalGateway:
+  enabled: false
+
+publicCertificates:
+  useProduction: false

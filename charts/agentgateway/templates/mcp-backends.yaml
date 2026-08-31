@@ -1,0 +1,54 @@
+{{- if .Values.mcp.enabled }}
+{{- if not .Values.externalGateway.enabled }}{{- fail "mcp.enabled requires externalGateway.enabled so external MCP clients have a public HTTPS route" }}{{- end }}
+{{- range .Values.mcp.servers | default list }}
+{{- $serverName := .name }}
+{{- $backendName := include "infra-agentgateway.mcpResourceName" (dict "id" $serverName "component" "be") }}
+{{- $serviceName := include "infra-agentgateway.mcpResourceName" (dict "id" $serverName "component" "svc") }}
+{{- $secretName := include "infra-agentgateway.mcpResourceName" (dict "id" $serverName "component" "secret") }}
+{{- $approvedHosts := $.Values.mcp.approvedHosts | default list }}
+{{- $permission := printf "mcp:%s:invoke" .name }}
+{{- if not (has $permission ($.Values.authKeycloak.agentgatewayClientRoles | default list)) }}{{- fail (printf "mcp server %q requires %q in authKeycloak.agentgatewayClientRoles" .name $permission) }}{{- end }}
+{{- if and .workload .host }}{{- fail (printf "mcp server %q cannot set both workload and host" .name) }}{{- end }}
+{{- if and (not .workload) (not .host) }}{{- fail (printf "mcp server %q requires workload or host" .name) }}{{- end }}
+{{- if and .workload .upstreamAuth }}{{- fail (printf "mcp server %q workload cannot set upstreamAuth" .name) }}{{- end }}
+{{- if and .host (not (has .host $approvedHosts)) }}{{- fail (printf "mcp server %q host %q is not in mcp.approvedHosts" .name .host) }}{{- end }}
+---
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayBackend
+metadata:
+  name: {{ $backendName }}
+  namespace: infra-agentgateway
+  labels:
+    app.kubernetes.io/name: mcp-{{ $serverName }}
+    app.kubernetes.io/instance: infra-agentgateway
+    app.kubernetes.io/part-of: infra-agentgateway
+spec:
+  mcp:
+    failureMode: FailClosed
+    prefixMode: Always
+    sessionRouting: Stateful
+    targets:
+      - name: {{ .name | quote }}
+        static:
+          {{- if .workload }}
+          backendRef:
+            name: {{ $serviceName }}
+          {{- else }}
+          host: {{ .host | quote }}
+          {{- end }}
+          port: {{ .port | default 8080 }}
+          path: {{ .path | default "/mcp" | quote }}
+          protocol: {{ .protocol | default "StreamableHTTP" }}
+          {{- if .upstreamAuth }}
+          policies:
+            auth:
+              credentials:
+                - location:
+                    header:
+                      name: {{ required (printf "mcp server %q upstreamAuth.header is required" .name) .upstreamAuth.header | quote }}
+                  secretRef:
+                    name: {{ $secretName }}
+                    key: {{ .upstreamAuth.key | default "apiKey" | quote }}
+          {{- end }}
+{{- end }}
+{{- end }}

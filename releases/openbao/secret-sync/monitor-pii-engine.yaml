@@ -1,0 +1,76 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: monitor-pii-engine-external-secrets
+  namespace: monitor-pii-engine
+  labels:
+    app.kubernetes.io/name: external-secrets
+    app.kubernetes.io/instance: monitor-pii-engine-secret-sync
+    app.kubernetes.io/part-of: monitor-pii-engine
+---
+apiVersion: external-secrets.io/v1
+kind: SecretStore
+metadata:
+  name: monitor-pii-engine-openbao-secret-store
+  namespace: monitor-pii-engine
+  labels:
+    app.kubernetes.io/name: external-secrets
+    app.kubernetes.io/instance: monitor-pii-engine-secret-sync
+    app.kubernetes.io/part-of: monitor-pii-engine
+spec:
+  provider:
+    vault:
+      server: https://infra-openbao.infra-openbao.svc:8200
+      path: secret
+      version: v2
+      caProvider:
+        type: ConfigMap
+        name: infra-openbao-ca-bundle
+        key: ca.crt
+      auth:
+        kubernetes:
+          mountPath: kubernetes
+          role: monitor-pii-engine
+          serviceAccountRef:
+            name: monitor-pii-engine-external-secrets
+            audiences:
+              - openbao
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: monitor-pii-engine-secrets
+  namespace: monitor-pii-engine
+  labels:
+    app.kubernetes.io/name: external-secrets
+    app.kubernetes.io/instance: monitor-pii-engine-secret-sync
+    app.kubernetes.io/part-of: monitor-pii-engine
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: monitor-pii-engine-openbao-secret-store
+    kind: SecretStore
+  target:
+    name: monitor-pii-engine-secrets
+    creationPolicy: Owner
+    deletionPolicy: Retain
+    template:
+      engineVersion: v2
+      type: Opaque
+      metadata:
+        labels:
+          reconcile.fluxcd.io/watch: Enabled
+      data:
+        values.yaml: |
+          monitorPiiEngineSecrets:
+            hashKey: {{ .hashKey | quote }}
+            encryptionKey: {{ .encryptionKey | quote }}
+  data:
+    - secretKey: hashKey
+      remoteRef:
+        key: monitor-pii-engine/internal
+        property: hashKey
+    - secretKey: encryptionKey
+      remoteRef:
+        key: monitor-pii-engine/internal
+        property: encryptionKey

@@ -1,0 +1,139 @@
+{{- $image := .Values.frontendLibrechat.ragApi.image -}}
+{{- $repository := required "frontendLibrechat.ragApi.image.variant must select a repository" (index $image.repositories $image.variant) -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend-librechat-rag-api-deployment
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "frontend-librechat-rag-api.labels" . | nindent 4 }}
+  annotations:
+    secret.reloader.stakater.com/reload: frontend-librechat-secret
+spec:
+  replicas: {{ .Values.frontendLibrechat.ragApi.replicas }}
+  selector:
+    matchLabels:
+      {{- include "frontend-librechat-rag-api.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "frontend-librechat-rag-api.labels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "frontend-librechat-rag-api.serviceAccountName" . }}
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: rag-api
+          image: {{ printf "%s/%s:%s" $image.registry $repository $image.tag | quote }}
+          imagePullPolicy: {{ $image.pullPolicy }}
+          command:
+            - /bin/sh
+            - -ec
+          args:
+            - |
+              test -n "$JWT_SECRET" || { echo "JWT_SECRET is required" >&2; exit 1; }
+              test -n "$POSTGRES_USER" || { echo "POSTGRES_USER is required" >&2; exit 1; }
+              test -n "$POSTGRES_PASSWORD" || { echo "POSTGRES_PASSWORD is required" >&2; exit 1; }
+              exec python main.py
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+          ports:
+            - name: http
+              containerPort: {{ .Values.frontendLibrechat.ragApi.service.port }}
+              protocol: TCP
+          env:
+            - name: DB_HOST
+              value: {{ .Values.frontendLibrechat.ragApi.database.host | quote }}
+            - name: DB_PORT
+              value: {{ .Values.frontendLibrechat.ragApi.database.port | quote }}
+            - name: POSTGRES_DB
+              value: {{ .Values.frontendLibrechat.ragApi.database.name | quote }}
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: frontend-librechat-secret
+                  key: RAG_POSTGRES_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: frontend-librechat-secret
+                  key: RAG_POSTGRES_PASSWORD
+            - name: PGSSLMODE
+              value: disable
+            - name: VECTOR_DB_TYPE
+              value: pgvector
+            - name: PGVECTOR_CREATE_EXTENSION
+              value: "true"
+            - name: RAG_HOST
+              value: 0.0.0.0
+            - name: RAG_PORT
+              value: {{ .Values.frontendLibrechat.ragApi.service.port | quote }}
+            - name: RAG_UPLOAD_DIR
+              value: /app/uploads
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: frontend-librechat-secret
+                  key: JWT_SECRET
+            - name: EMBEDDINGS_PROVIDER
+              value: {{ .Values.frontendLibrechat.ragApi.embeddings.provider | quote }}
+            - name: EMBEDDINGS_MODEL
+              value: {{ .Values.frontendLibrechat.ragApi.embeddings.model | quote }}
+            - name: RAG_OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: frontend-librechat-secret
+                  key: RAG_OPENAI_API_KEY
+            {{- with .Values.frontendLibrechat.ragApi.embeddings.openaiBaseUrl }}
+            - name: RAG_OPENAI_BASEURL
+              value: {{ . | quote }}
+            {{- end }}
+            - name: HOME
+              value: /home/rag
+            - name: PYTHONDONTWRITEBYTECODE
+              value: "1"
+          volumeMounts:
+            - name: home
+              mountPath: /home/rag
+            - name: tmp
+              mountPath: /tmp
+            - name: uploads
+              mountPath: /app/uploads
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 10
+            failureThreshold: 6
+          resources:
+            {{- toYaml .Values.frontendLibrechat.ragApi.resources | nindent 12 }}
+      volumes:
+        - name: home
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
+        - name: uploads
+          emptyDir: {}

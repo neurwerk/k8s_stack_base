@@ -1,0 +1,8 @@
+{{- $namespace := .Release.Namespace -}}
+{{- $manifest := .Files.Get "files/upstream/csi-operator-resources.yaml" | replace "namespace: rook-ceph # namespace:operator" (printf "namespace: %s" $namespace) -}}
+{{- range $document := splitList "\n---\n" $manifest }}
+{{- if not (contains "kind: Deployment" $document) }}
+---
+{{ $document }}
+{{- end }}
+{{- end }}

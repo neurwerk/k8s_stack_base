@@ -1,0 +1,114 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-operations-bootstrap
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "postgres-operations.labels" . | nindent 4 }}
+data:
+  bootstrap-admin.sh: |
+    #!/bin/bash
+    set -euo pipefail
+
+    deadline=$((SECONDS + 180))
+    until psql --host=/var/run/postgresql --port="$POSTGRESQL_PORT" --username=documentdb --dbname=postgres --tuples-only --command='SELECT 1' >/dev/null 2>&1; do
+      if [ "$SECONDS" -ge "$deadline" ]; then
+        echo "PostgreSQL did not become ready before the local bootstrap deadline" >&2
+        exit 1
+      fi
+      sleep 2
+    done
+
+    psql --host=/var/run/postgresql --port="$POSTGRESQL_PORT" --username=documentdb --dbname=postgres \
+      --set=ON_ERROR_STOP=1 <<'SQL'
+    \getenv admin_password POSTGRES_ADMIN_PASSWORD
+    SET log_statement = 'none';
+    SET log_min_duration_statement = -1;
+    SET log_min_error_statement = 'panic';
+    SELECT format('ALTER ROLE documentdb WITH LOGIN PASSWORD %L', :'admin_password') \gexec
+    SQL
+    echo "Operations PostgreSQL owner credential initialized."
+  provision-documentdb.js: |
+    const admin = db.getSiblingDB("admin");
+    if (!admin.auth(
+      process.env.DOCUMENTDB_ADMIN_USER,
+      process.env.DOCUMENTDB_ADMIN_PASSWORD,
+    )) {
+      throw new Error("DocumentDB administrator authentication failed");
+    }
+
+    const databaseName = process.env.DOCUMENTDB_DATABASE;
+    const username = process.env.DOCUMENTDB_USER;
+    const specification = {
+      pwd: process.env.DOCUMENTDB_PASSWORD,
+      roles: [
+        { role: "readWriteAnyDatabase", db: "admin" },
+        { role: "clusterAdmin", db: "admin" },
+      ],
+    };
+    function rolesMatch(roles) {
+      return Array.isArray(roles)
+        && roles.length === 2
+        && roles.some(
+          (role) => role.role === "readWriteAnyDatabase" && role.db === "admin",
+        )
+        && roles.some(
+          (role) => role.role === "clusterAdmin" && role.db === "admin",
+        );
+    }
+    function configuredUser() {
+      const result = admin.runCommand({ usersInfo: 1 });
+      if (result.ok !== 1 || !Array.isArray(result.users)) {
+        throw new Error("DocumentDB user inventory failed");
+      }
+      return result.users.find(
+        (user) => user.user === username && user.db === "admin",
+      ) ?? null;
+    }
+
+    const existing = configuredUser();
+    if (existing === null) {
+      admin.createUser({ user: username, ...specification });
+    } else {
+      const existingRoleMatches = rolesMatch(existing.roles);
+      if (!existingRoleMatches) {
+        throw new Error("DocumentDB application user role verification failed");
+      }
+      admin.updateUser(username, { pwd: specification.pwd });
+    }
+
+    const configured = configuredUser();
+    const expectedId = `admin.${username}`;
+    const roleMatches = configured !== null && rolesMatch(configured.roles);
+    if (
+      configured === null
+      || configured._id !== expectedId
+      || configured.user !== username
+      || configured.db !== "admin"
+      || !roleMatches
+    ) {
+      throw new Error("DocumentDB application user verification failed");
+    }
+  verify-documentdb.js: |
+    const admin = db.getSiblingDB("admin");
+    if (!admin.auth(
+      process.env.DOCUMENTDB_USER,
+      process.env.DOCUMENTDB_PASSWORD,
+    )) {
+      throw new Error("DocumentDB application user authentication failed");
+    }
+
+    const target = db.getSiblingDB(process.env.DOCUMENTDB_DATABASE);
+    const collection = target.getCollection("__neurwerk_provisioning_verification");
+    const marker = "librechat-read-write";
+    collection.replaceOne(
+      { _id: marker },
+      { _id: marker, verified: true },
+      { upsert: true },
+    );
+    const configured = collection.findOne({ _id: marker });
+    if (configured === null || configured.verified !== true) {
+      throw new Error("DocumentDB application read/write verification failed");
+    }
+    collection.deleteOne({ _id: marker });
+    collection.drop();

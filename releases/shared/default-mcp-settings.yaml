@@ -1,0 +1,4 @@
+# MCP defaults. Client repositories opt in through config/client.yaml.
+mcp:
+  enabled: false
+  servers: []

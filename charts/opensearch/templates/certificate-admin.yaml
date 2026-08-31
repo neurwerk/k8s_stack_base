@@ -1,0 +1,25 @@
+# Client certificate for securityadmin.sh bootstrap and admin operations.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: monitor-opensearch-admin-certificate
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: opensearch
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: monitor-opensearch
+spec:
+  commonName: opensearch-security-admin
+  secretName: monitor-opensearch-admin-tls
+  privateKey:
+    algorithm: RSA
+    size: 2048
+    encoding: PKCS8
+  duration: 2160h # 90 days
+  renewBefore: 360h # 15 days
+  usages:
+    - client auth
+  issuerRef:
+    name: infra-cert-manager-internal-ca-issuer
+    kind: ClusterIssuer
+    group: cert-manager.io

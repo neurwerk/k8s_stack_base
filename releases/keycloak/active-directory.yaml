@@ -1,0 +1,44 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: keycloak-active-directory
+  namespace: auth-keycloak
+spec:
+  releaseName: auth-keycloak-active-directory
+  interval: 5m
+  timeout: 15m
+  install:
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 1m
+  upgrade:
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 1m
+  dependsOn:
+    - name: keycloak-realm-roles
+      namespace: auth-keycloak
+  chart:
+    spec:
+      chart: ./charts/keycloak/realm-config/active-directory
+      sourceRef:
+        kind: GitRepository
+        name: k8s-stack
+        namespace: flux-system
+      interval: 1m
+  valuesFrom:
+    - kind: ConfigMap
+      name: base-shared-oidc-clients-config-map
+      valuesKey: values.yaml
+    - kind: ConfigMap
+      name: auth-keycloak-app-defaults
+      valuesKey: values.yaml
+    - kind: Secret
+      name: auth-keycloak-secrets
+      valuesKey: values.yaml
+    - kind: ConfigMap
+      name: client-values
+      valuesKey: values.yaml
+    - kind: ConfigMap
+      name: keycloak-product-values
+      valuesKey: values.yaml

@@ -1,0 +1,18 @@
+{{- if .Values.guardrails.llmPolicyEngine.enabled }}
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayBackend
+metadata:
+  name: infra-agentgateway-extproc-backend
+  namespace: infra-agentgateway
+  labels:
+    app.kubernetes.io/name: extproc
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: infra-agentgateway
+spec:
+  static:
+    host: monitor-agentgateway-extproc-service.monitor-agentgateway-extproc.svc.cluster.local
+    port: {{ .Values.guardrails.llmPolicyEngine.extProcPort | default 9000 }}
+  policies:
+    http:
+      requestTimeout: {{ .Values.guardrails.llmPolicyEngine.extProcTimeout | quote }}
+{{- end }}

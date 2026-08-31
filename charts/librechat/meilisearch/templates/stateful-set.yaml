@@ -1,0 +1,109 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: frontend-librechat-meilisearch-stateful-set
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "frontend-librechat-meilisearch.labels" . | nindent 4 }}
+  annotations:
+    secret.reloader.stakater.com/reload: frontend-librechat-secret
+spec:
+  serviceName: frontend-librechat-meilisearch-service
+  replicas: {{ .Values.frontendLibrechat.meilisearch.replicas }}
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: Retain
+    whenScaled: Retain
+  selector:
+    matchLabels:
+      {{- include "frontend-librechat-meilisearch.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "frontend-librechat-meilisearch.labels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "frontend-librechat-meilisearch.serviceAccountName" . }}
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      terminationGracePeriodSeconds: 60
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: meilisearch
+          image: {{ .Values.frontendLibrechat.meilisearch.image | quote }}
+          imagePullPolicy: {{ .Values.frontendLibrechat.meilisearch.imagePullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+          ports:
+            - name: http
+              containerPort: {{ .Values.frontendLibrechat.meilisearch.service.port }}
+              protocol: TCP
+          env:
+            - name: MEILI_DB_PATH
+              value: /meili_data/data.ms
+            - name: MEILI_DUMP_DIR
+              value: /meili_data/dumps
+            - name: MEILI_ENV
+              value: production
+            - name: MEILI_HTTP_ADDR
+              value: {{ printf "0.0.0.0:%v" .Values.frontendLibrechat.meilisearch.service.port | quote }}
+            - name: MEILI_MASTER_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: frontend-librechat-secret
+                  key: MEILI_MASTER_KEY
+            - name: MEILI_NO_ANALYTICS
+              value: "true"
+            - name: MEILI_SNAPSHOT_DIR
+              value: /meili_data/snapshots
+          volumeMounts:
+            - name: frontend-librechat-meilisearch-data
+              mountPath: /meili_data
+            - name: tmp
+              mountPath: /tmp
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.frontendLibrechat.meilisearch.resources | nindent 12 }}
+      volumes:
+        - name: tmp
+          emptyDir: {}
+  volumeClaimTemplates:
+    - metadata:
+        name: frontend-librechat-meilisearch-data
+        labels:
+          {{- include "frontend-librechat-meilisearch.labels" . | nindent 10 }}
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: {{ .Values.frontendLibrechat.meilisearch.persistence.size }}
+        {{- with .Values.frontendLibrechat.meilisearch.persistence.storageClassName }}
+        storageClassName: {{ . | quote }}
+        {{- end }}

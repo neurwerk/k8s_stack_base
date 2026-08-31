@@ -1,0 +1,42 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: postgres-operations
+  namespace: infra-postgres-operations
+spec:
+  releaseName: postgres-operations
+  interval: 5m
+  timeout: 20m
+  install:
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 1m
+  upgrade:
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 1m
+  dependsOn:
+    - name: rook-ceph
+      namespace: infra-rook-ceph
+    - name: cert-manager-internal-issuer
+      namespace: infra-cert-manager
+    - name: trust-manager
+      namespace: infra-trust-manager
+  chart:
+    spec:
+      chart: ./charts/postgres/operations
+      sourceRef:
+        kind: GitRepository
+        name: k8s-stack
+        namespace: flux-system
+      interval: 1m
+  valuesFrom:
+    - kind: Secret
+      name: postgres-operations-values
+      valuesKey: values.yaml
+    - kind: ConfigMap
+      name: client-values
+      valuesKey: values.yaml
+    - kind: ConfigMap
+      name: postgres-product-values
+      valuesKey: values.yaml

@@ -1,0 +1,61 @@
+# =============================================================================
+# cert-manager ClusterIssuers — Let's Encrypt via Route53 DNS01
+#
+# Prerequisites:
+# - IAM user has route53:ChangeResourceRecordSets + route53:ListHostedZones
+# =============================================================================
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-production-cluster-issuer
+  labels:
+    app.kubernetes.io/name: cert-manager-issuers
+    app.kubernetes.io/instance: infra-cert-manager-issuers
+    app.kubernetes.io/part-of: infra-cert-manager
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: {{ .Values.certManager.email | required "certManager.email is required" | quote }}
+    privateKeySecretRef:
+      name: letsencrypt-production-account-key
+    solvers:
+      - dns01:
+          route53:
+            region: {{ .Values.certManager.region | quote }}
+            accessKeyIDSecretRef:
+              name: cert-manager-issuers-route53-secret
+              key: access-key-id
+            secretAccessKeySecretRef:
+              name: cert-manager-issuers-route53-secret
+              key: secret-access-key
+        selector:
+          dnsZones:
+            {{- toYaml (.Values.certManager.dnsZones | required "certManager.dnsZones is required") | nindent 12 }}
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-staging-cluster-issuer
+  labels:
+    app.kubernetes.io/name: cert-manager-issuers
+    app.kubernetes.io/instance: infra-cert-manager-issuers
+    app.kubernetes.io/part-of: infra-cert-manager
+spec:
+  acme:
+    server: https://acme-staging-v02.api.letsencrypt.org/directory
+    email: {{ .Values.certManager.email | required "certManager.email is required" | quote }}
+    privateKeySecretRef:
+      name: letsencrypt-staging-account-key
+    solvers:
+      - dns01:
+          route53:
+            region: {{ .Values.certManager.region | quote }}
+            accessKeyIDSecretRef:
+              name: cert-manager-issuers-route53-secret
+              key: access-key-id
+            secretAccessKeySecretRef:
+              name: cert-manager-issuers-route53-secret
+              key: secret-access-key
+        selector:
+          dnsZones:
+            {{- toYaml (.Values.certManager.dnsZones | required "certManager.dnsZones is required") | nindent 12 }}

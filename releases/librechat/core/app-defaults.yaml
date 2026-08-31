@@ -1,0 +1,10 @@
+# Platform-owned non-secret defaults shared by the LibreChat core releases.
+# Component image pins and resources remain in their leaf chart defaults and
+# the platform shared resource map respectively.
+frontendLibrechat:
+  agentGateway:
+    baseUrl: http://infra-agentgateway-gateway.infra-agentgateway.svc.cluster.local:80/v1
+    hostPort: infra-agentgateway-gateway.infra-agentgateway.svc.cluster.local:80
+  codeInterpreter:
+    namespace: librechat-code-interpreter
+    url: http://librechat-code-interpreter-api.librechat-code-interpreter.svc.cluster.local:3112/v1

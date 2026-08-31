@@ -1,0 +1,22 @@
+# =============================================================================
+# frontend-studio Web Service (Next.js frontend)
+# =============================================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-studio-web-service
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: studio-web
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: {{ .Release.Namespace }}
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: studio-web
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  ports:
+    - port: {{ .Values.frontendStudio.studio.ports.service.web }}
+      targetPort: {{ .Values.frontendStudio.studio.ports.container.web }}
+      protocol: TCP
+      name: http

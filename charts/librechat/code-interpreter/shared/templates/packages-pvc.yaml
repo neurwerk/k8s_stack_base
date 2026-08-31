@@ -1,0 +1,22 @@
+{{- $packages := .Values.frontendLibrechatCodeInterpreter.packages.persistence -}}
+{{- if $packages.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: librechat-code-interpreter-packages
+  annotations:
+    # Direct NsJail language runtimes are retained across uninstall. They are
+    # reproducible, so manual PVC deletion is the explicit cleanup operation.
+    helm.sh/resource-policy: keep
+  labels:
+    {{- include "librechat-code-interpreter-shared.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - {{ required "frontendLibrechatCodeInterpreter.packages.persistence.accessMode is required" $packages.accessMode }}
+  {{- with $packages.storageClassName }}
+  storageClassName: {{ . | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ required "frontendLibrechatCodeInterpreter.packages.persistence.size is required" $packages.size }}
+{{- end }}

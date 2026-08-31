@@ -1,0 +1,96 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: monitor-opensearch-ca-recovery-cron-job
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: ca-recovery
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: {{ .Release.Namespace }}
+spec:
+  schedule: {{ .Values.monitorOpensearchWrapper.recoverySchedule | quote }}
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 300
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 3
+      activeDeadlineSeconds: 600
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: ca-recovery
+            app.kubernetes.io/instance: {{ .Release.Name }}
+            app.kubernetes.io/part-of: {{ .Release.Namespace }}
+        spec:
+          serviceAccountName: monitor-opensearch-ca-recovery-service-account
+          restartPolicy: OnFailure
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            fsGroup: 1000
+          containers:
+            - name: recover
+              image: {{ (.Values.k8sTools).image | quote }}
+              command:
+                - python3
+                - -c
+                - |
+                  import time
+
+                  from kubernetes import client, config
+                  from kubernetes.client.rest import ApiException
+
+                  config.load_incluster_config()
+                  core = client.CoreV1Api()
+                  apps = client.AppsV1Api()
+                  bundle = core.read_namespaced_config_map(
+                      "monitor-opensearch-ca-bundle", "infra-cert-manager"
+                  )
+                  ca_crt = (bundle.data or {}).get("ca.crt")
+                  if not ca_crt:
+                      raise RuntimeError("Public CA bundle does not contain ca.crt")
+
+                  def sync_configmap(name, namespace):
+                      try:
+                          current = core.read_namespaced_config_map(name, namespace)
+                      except ApiException as exc:
+                          if exc.status != 404 or namespace != "monitor-opensearch":
+                              raise
+                          core.create_namespaced_config_map(
+                              namespace,
+                              client.V1ConfigMap(
+                                  metadata=client.V1ObjectMeta(name=name),
+                                  data={"ca.crt": ca_crt},
+                              ),
+                          )
+                          return True
+                      if (current.data or {}).get("ca.crt") == ca_crt:
+                          return False
+                      core.patch_namespaced_config_map(
+                          name, namespace, {"data": {"ca.crt": ca_crt}}
+                      )
+                      return True
+
+                  def restart(kind, name, namespace):
+                      body = {"spec": {"template": {"metadata": {"annotations": {
+                          "kubectl.kubernetes.io/restartedAt": time.strftime(
+                              "%Y-%m-%dT%H:%M:%SZ", time.gmtime()
+                          )
+                      }}}}}
+                      try:
+                          if kind == "Deployment":
+                              apps.patch_namespaced_deployment(name, namespace, body)
+                          else:
+                              apps.patch_namespaced_daemon_set(name, namespace, body)
+                      except ApiException as exc:
+                          if exc.status != 404:
+                              raise
+
+                  sync_configmap("monitor-opensearch-ca-trust", "monitor-opensearch")
+                  if sync_configmap("monitor-fluent-bit-shared-opensearch-ca", "monitor-fluent-bit"):
+                      restart("DaemonSet", "monitor-fluent-bit", "monitor-fluent-bit")
+                  if sync_configmap("frontend-studio-shared-opensearch-ca", "frontend-studio"):
+                      restart("Deployment", "frontend-studio-api-deployment", "frontend-studio")

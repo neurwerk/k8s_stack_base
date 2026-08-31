@@ -1,0 +1,132 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: postgres-auth-provision
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: postgres-auth-provisioning
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: postgres
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "-3"
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 86400
+  activeDeadlineSeconds: {{ .Values.postgresAuth.provisioning.activeDeadlineSeconds }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: postgres-auth-provisioning
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/part-of: postgres
+    spec:
+      serviceAccountName: postgres-auth-provisioning
+      automountServiceAccountToken: false
+      restartPolicy: Never
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 70
+        runAsGroup: 70
+        fsGroup: 70
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: provision
+          image: {{ .Values.postgresAuth.image | quote }}
+          imagePullPolicy: {{ .Values.postgresAuth.imagePullPolicy }}
+          command:
+            - /bin/sh
+            - -ec
+          args:
+            - |
+              deadline=$(($(date +%s) + 180))
+              until psql --tuples-only --command='SELECT 1' >/dev/null 2>&1; do
+                current_time=$(date +%s)
+                if [ "$current_time" -ge "$deadline" ]; then
+                  echo "PostgreSQL did not become ready before the provisioning deadline" >&2
+                  exit 1
+                fi
+                sleep 2
+              done
+
+              psql --set=ON_ERROR_STOP=1 <<'SQL'
+              \getenv keycloak_password KEYCLOAK_PASSWORD
+              SET log_statement = 'none';
+              SET log_min_duration_statement = -1;
+              SET log_min_error_statement = 'panic';
+              SELECT format('CREATE ROLE keycloak LOGIN PASSWORD %L', :'keycloak_password')
+              WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'keycloak') \gexec
+              SELECT format('ALTER ROLE keycloak WITH LOGIN PASSWORD %L', :'keycloak_password') \gexec
+              SELECT 'CREATE DATABASE keycloak OWNER keycloak'
+              WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'keycloak') \gexec
+              ALTER DATABASE keycloak OWNER TO keycloak;
+              REVOKE CONNECT, TEMPORARY ON DATABASE postgres, template1 FROM PUBLIC;
+              REVOKE ALL ON DATABASE keycloak FROM PUBLIC;
+              GRANT CONNECT, TEMPORARY ON DATABASE keycloak TO keycloak;
+              DO $verify$
+              BEGIN
+                IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'keycloak' AND rolcanlogin) THEN
+                  RAISE EXCEPTION 'keycloak role verification failed';
+                END IF;
+                IF NOT EXISTS (
+                  SELECT FROM pg_database d JOIN pg_roles r ON r.oid = d.datdba
+                  WHERE d.datname = 'keycloak' AND r.rolname = 'keycloak'
+                ) THEN
+                  RAISE EXCEPTION 'keycloak database ownership verification failed';
+                END IF;
+              END
+              $verify$;
+              SQL
+
+              PGPASSWORD="$KEYCLOAK_PASSWORD" PGUSER=keycloak PGDATABASE=keycloak \
+                psql --tuples-only --command='SELECT current_user' | grep -qx '[[:space:]]*keycloak'
+              echo "Authentication PostgreSQL provisioning verified."
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+          env:
+            - name: PGHOST
+              value: postgres-auth.{{ .Release.Namespace }}.svc.{{ .Values.postgresAuth.clusterDomain }}
+            - name: PGPORT
+              value: {{ .Values.postgresAuth.service.port | quote }}
+            - name: PGUSER
+              value: postgres
+            - name: PGDATABASE
+              value: postgres
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-auth-secret
+                  key: admin-password
+            - name: KEYCLOAK_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-auth-secret
+                  key: keycloak-password
+            - name: PGSSLMODE
+              value: verify-full
+            - name: PGSSLROOTCERT
+              value: /etc/postgresql/ca/ca.crt
+            - name: PGCONNECT_TIMEOUT
+              value: "5"
+          volumeMounts:
+            - name: ca
+              mountPath: /etc/postgresql/ca
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: ca
+          configMap:
+            name: infra-openbao-ca-bundle
+            items:
+              - key: ca.crt
+                path: ca.crt
+        - name: tmp
+          emptyDir: {}

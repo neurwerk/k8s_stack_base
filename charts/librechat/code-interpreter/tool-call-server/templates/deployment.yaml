@@ -1,0 +1,91 @@
+{{- $product := .Values.frontendLibrechatCodeInterpreter -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "librechat-code-interpreter-tool-call-server.fullname" . }}
+  annotations:
+    secret.reloader.stakater.com/reload: {{ printf "%s,%s" $product.internalAuthSecretName $product.valkey.authSecretName | quote }}
+  labels:
+    {{- include "librechat-code-interpreter-tool-call-server.labels" . | nindent 4 }}
+spec:
+  replicas: {{ $product.toolCallServer.replicas }}
+  selector:
+    matchLabels:
+      {{- include "librechat-code-interpreter-tool-call-server.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "librechat-code-interpreter-tool-call-server.labels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "librechat-code-interpreter-tool-call-server.fullname" . }}
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: tool-call-server
+          image: {{ printf "%s:%s" $product.image.repository $product.image.tag | quote }}
+          imagePullPolicy: {{ $product.image.pullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          ports:
+            - name: http
+              containerPort: {{ $product.toolCallServer.port }}
+              protocol: TCP
+          env:
+            - name: TOOL_CALL_SERVER_PORT
+              value: {{ $product.toolCallServer.port | quote }}
+            - name: TOOL_CALL_REQUEST_TIMEOUT
+              value: {{ $product.toolCallServer.requestTimeoutMs | quote }}
+            - name: TOOL_CALL_SESSION_EXPIRY
+              value: {{ $product.toolCallServer.sessionExpirySeconds | quote }}
+            - name: REDIS_HOST
+              value: {{ $product.valkey.host | quote }}
+            - name: REDIS_PORT
+              value: {{ $product.valkey.port | quote }}
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $product.valkey.authSecretName }}
+                  key: password
+            - name: CODEAPI_INTERNAL_SERVICE_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $product.internalAuthSecretName }}
+                  key: token
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 30
+          livenessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 30
+            timeoutSeconds: 3
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            {{- toYaml $product.toolCallServer.resources | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}

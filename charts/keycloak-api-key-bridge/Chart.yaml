@@ -1,0 +1,16 @@
+# =============================================================================
+# Chart: auth/keycloak-api-key-bridge
+#
+# Internal REST API to create and manage API keys backed by SQLite,
+# with Keycloak auth verification.  Called internally by AgentGateway
+# via extAuthz subrequests to validate keys.
+#
+# =============================================================================
+apiVersion: v2
+name: auth-keycloak-api-key-bridge
+description: |
+  Internal REST API for API key management — CRUD operations plus a
+  /validate endpoint called by AgentGateway extAuthz.
+type: application
+version: 0.6.3
+appVersion: "0.5.3"

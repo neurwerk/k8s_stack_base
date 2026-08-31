@@ -1,0 +1,54 @@
+name: Release proposal
+description: Propose a reviewed aggregate platform release
+title: "[Task]: Prepare platform release "
+labels:
+  - "status: triage"
+  - "release: platform"
+type: Task
+
+body:
+  - type: markdown
+    attributes:
+      value: A proposal starts review; it does not authorize tagging, publication, adoption, or deployment.
+  - type: input
+    id: version
+    attributes:
+      label: Proposed version
+      placeholder: vX.Y.Z
+    validations:
+      required: true
+  - type: input
+    id: previous
+    attributes:
+      label: Previous release tag
+      placeholder: vX.Y.Z
+    validations:
+      required: true
+  - type: textarea
+    id: changes
+    attributes:
+      label: Included changes and affected contracts
+      description: Link every included issue and pull request, including breaking changes.
+    validations:
+      required: true
+  - type: textarea
+    id: compatibility
+    attributes:
+      label: Compatibility and migration contract
+      description: State fresh-install support, supported source tags, downgrade policy, and recovery action.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Release evidence and acceptance criteria
+      description: Link validation, migration, provenance, artifact, and known-exclusion evidence.
+    validations:
+      required: true
+  - type: textarea
+    id: rollout
+    attributes:
+      label: Adoption plan and unresolved risks
+      description: Describe client order, blockers, exceptions, and explicit non-goals without authorizing rollout.
+    validations:
+      required: true

@@ -1,0 +1,145 @@
+# Security plugin configuration applied by the bootstrap Job via securityadmin.sh.
+# internal_users.yml contains hash placeholders substituted at runtime from the
+# namespace-local OpenBao-backed Secret before securityadmin.sh applies it.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: monitor-opensearch-security-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: opensearch
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: {{ .Release.Namespace }}
+data:
+  config.yml: |
+    ---
+    _meta:
+      type: "config"
+      config_version: 2
+
+    config:
+      dynamic:
+        http:
+          anonymous_auth_enabled: false
+        authc:
+          basic_internal_auth_domain:
+            http_enabled: true
+            transport_enabled: true
+            order: 0
+            http_authenticator:
+              type: basic
+              challenge: true
+              config: {}
+            authentication_backend:
+              type: intern
+              config: {}
+  internal_users.yml: |
+    ---
+    _meta:
+      type: "internalusers"
+      config_version: 2
+
+    admin:
+      hash: "ADMIN_HASH_PLACEHOLDER"
+      reserved: true
+      backend_roles:
+        - "admin"
+      description: "OpenSearch administrator"
+
+    {{ .Values.monitorOpensearchWrapper.ingestUser | quote }}:
+      hash: "FLUENT_BIT_HASH_PLACEHOLDER"
+      reserved: false
+      backend_roles:
+        - "fluent_bit_ingest_role"
+      description: "Fluent Bit log ingestion"
+
+    {{ .Values.monitorOpensearchWrapper.studioLogsUser | quote }}:
+      hash: "STUDIO_HASH_PLACEHOLDER"
+      reserved: false
+      backend_roles:
+        - "studio_logs_read_role"
+      description: "Studio log reader"
+  roles.yml: |
+    ---
+    _meta:
+      type: "roles"
+      config_version: 2
+
+    fluent_bit_ingest_role:
+      reserved: false
+      cluster_permissions:
+        - "cluster_monitor"
+        # The /_bulk endpoint action itself is evaluated at CLUSTER level —
+        # index-level grants do not satisfy it (even single-doc writes are
+        # executed via the bulk path internally).
+        - "indices:data/write/bulk"
+      index_permissions:
+        - index_patterns:
+            - "fluent-bit-*"
+          allowed_actions:
+            - "create_index"
+            - "indices:admin/auto_create"
+            - "data_access"
+            - "write"
+
+    # Read-only role for the Studio logs viewer (all indices).
+    studio_logs_read_role:
+      reserved: false
+      cluster_permissions:
+        - "cluster_monitor"
+      index_permissions:
+        - index_patterns:
+            - "*"
+          allowed_actions:
+            - "read"
+  roles_mapping.yml: |
+    ---
+    _meta:
+      type: "rolesmapping"
+      config_version: 2
+
+    all_access:
+      reserved: true
+      backend_roles:
+        - "admin"
+      users: []
+      hosts: []
+
+    fluent_bit_ingest_role:
+      reserved: false
+      backend_roles:
+        - "fluent_bit_ingest_role"
+      hosts: []
+      users:
+        - {{ .Values.monitorOpensearchWrapper.ingestUser | quote }}
+
+    studio_logs_read_role:
+      reserved: false
+      backend_roles:
+        - "studio_logs_read_role"
+      hosts: []
+      users:
+        - {{ .Values.monitorOpensearchWrapper.studioLogsUser | quote }}
+  action_groups.yml: |
+    ---
+    _meta:
+      type: "actiongroups"
+      config_version: 2
+  tenants.yml: |
+    ---
+    _meta:
+      type: "tenants"
+      config_version: 2
+  nodes_dn.yml: |
+    ---
+    _meta:
+      type: "nodesdn"
+      config_version: 2
+  whitelist.yml: |
+    ---
+    _meta:
+      type: "whitelist"
+      config_version: 2
+
+    config:
+      enabled: false

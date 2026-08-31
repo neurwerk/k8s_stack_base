@@ -1,0 +1,441 @@
+# Platform resource defaults consumed by release packages. Do not add client values.
+#
+# ── Resource sizing + replica counts for all charts ───────────────────────────
+# This is the platform baseline. Client-specific sizing belongs in
+# config/client.yaml.
+#
+# ── Sizing philosophy ─────────────────────────────────────────────────────────
+# For a typical single-node 4-vCPU cluster, CPU requests are the scheduler's
+# reservation — they sum together and must fit within the node's allocatable CPUs
+# (~3.8 vCPUs after kube-system overhead). Limits allow burst when idle CPU
+# exists on the node.
+#
+# Request keys:
+#   Low  = app is lightweight, rarely CPU-bound, tolerant of throttling.
+#   Mid  = app benefits from burst but idles most of the time.
+#   High = app loads data/models at startup or processes requests synchronously
+#          and should not be throttled during normal operation.
+#
+# For deployments with more vCPUs (e.g. 8+), increase requests proportionally
+# — especially for Langfuse and Keycloak, whose upstream docs assume production
+# throughput and larger clusters.
+#
+# Memory is typically abundant on most nodes. Limits are set to prevent runaway
+# memory leaks from destabilizing the node — they should be well above
+# steady-state usage.
+#
+# NOTE: Charts with hardcoded replicas (currently keycloak):
+#   - authKeycloak.keycloak: replicas: 1 (hardcoded)
+# To make these configurable, add a .Values reference in the StatefulSet/Deployment template.
+
+# ── agentgateway (subchart) ─────────────────────────────────────────────────
+# Subchart field: controller.replicaCount: 1
+#
+# AgentGateway is a lightweight Envoy-based proxy. It handles prompt guard
+# webhook calls and routes to upstream LLM providers. No heavy in-process work —
+# CPU usage is dominated by TLS termination (handled by Traefik) and JSON
+# serialization.
+agentgateway:
+  controller:
+    replicaCount: 1
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 256Mi
+  proxy:
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 256Mi
+
+# ── auth-keycloak-api-key-bridge ───────────────────────────────────────────
+# NOTE: replicas is HARDCODED at 1 in templates/deployment.yaml → not configurable
+#
+# Lightweight FastAPI service (SQLite backend). Handles API key CRUD and
+# validation. In-memory workload — no external DB, no model loading.
+authKeycloakApiKeyBridge:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 300m
+      memory: 256Mi
+
+# ── frontend-librechat components ───────────────────────────────────────────
+# LibreChat official docs (librechat.ai/docs/remote):
+#   - Minimum: 1 vCPU, 1 GiB RAM.
+#   - Production Helm chart: 500m CPU request, 2 CPU limit, 1Gi/4Gi memory.
+#   - With all features enabled: 2 GiB RAM recommended.
+#
+# LibreChat is Node.js, single-threaded per request. Extra CPU doesn't improve
+# latency — 250m with 1 CPU burst is adequate for low-to-moderate concurrency.
+# Increase to 500m if handling many concurrent chat sessions.
+frontendLibrechat:
+  oidc:
+    startupGate:
+      resources:
+        requests:
+          cpu: 10m
+          memory: 32Mi
+        limits:
+          cpu: 100m
+          memory: 128Mi
+  adminPanel:
+    replicas: 1
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+  app:
+    replicas: 1
+    resources:
+      requests:
+        cpu: 250m
+        memory: 512Mi
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+  meilisearch:
+    replicas: 1
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 200m
+        memory: 256Mi
+  ragApi:
+    replicas: 1
+    resources:
+      requests:
+        cpu: 250m
+        memory: 512Mi
+      limits:
+        cpu: 1000m
+        memory: 2Gi
+  valkey:
+    replicas: 1
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 200m
+        memory: 128Mi
+
+# ── auth-keycloak ──────────────────────────────────────────────────────────
+# NOTE: The Keycloak StatefulSet has replicas: 1 HARDCODED
+#
+# Keycloak official docs (keycloak.org/high-availability):
+#   - Base memory: 1250 MB per pod (including 10,000 cached sessions).
+#   - Container formula: 70% of limit → heap. Non-heap ~300 MB.
+#     Memory limit = (1250 - 300) / 0.7 ≈ 1360 Mi.
+#   - CPU: 1 vCPU per 15 password logins/sec + 150% headroom for spikes.
+#     For single-node low-volume: 500m request with 2 CPU burst.
+#
+authKeycloak:
+  keycloak:
+    resources:
+      requests:
+        cpu: 500m
+        memory: 1Gi
+      limits:
+        cpu: 2000m
+        memory: 2Gi
+
+# ── monitor-langfuse (subchart) ────────────────────────────────────────────
+# Subchart fields:
+#   langfuse.replicas: 1          (global — falls back to both web + worker)
+#   langfuse.web.replicas: null   (overrides global for web, if set)
+#   langfuse.worker.replicas: null (overrides global for worker, if set)
+#   clickhouse.replicaCount: 1    (set to 1 for single-node, default in subchart is 3)
+#
+# Langfuse official docs (langfuse.com/self-hosting/configuration/scaling):
+#   MINIMUM for production:
+#   - Langfuse Web:      2 CPU, 4 GiB
+#   - Langfuse Worker:   2 CPU, 4 GiB
+#   - ClickHouse:        2 CPU, 8 GiB
+#   - Redis/Valkey:      1 CPU, 1.5 GiB
+#   - PostgreSQL:        2 CPU, 4 GiB
+#   - Blob Storage (Ceph RGW): 2 CPU, 4 GiB
+#
+# These upstream minimums assume production throughput. For single-node
+# low-volume clusters, requests can be significantly lower — the limits
+# still allow burst to official levels when idle CPU is available.
+# If Langfuse becomes slow under real load, scale requests up first.
+#
+# Memory sizing note: ClickHouse's historical system diagnostics previously
+# exhausted the 90%-of-container server budget during background merges. The
+# Langfuse chart disables those system.* writers and sampling profilers. Keep
+# enough headroom for ordinary application merges and queries.
+monitorLangfuseWrapper:
+  otelCollector:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        cpu: 200m
+        memory: 256Mi
+
+langfuse:
+  langfuse:
+    replicas: 1
+    resources:
+      requests:
+        cpu: 150m
+        memory: 1024Mi
+      limits:
+        cpu: 2000m
+        memory: 4Gi
+  # NOTE: Langfuse subchart resources (postgresql, clickhouse, redis, s3) are
+  # passed through the parent values.yaml's subchart keys. The parent chart
+  # merges these into the subchart's .Values.postgresql.*, .Values.redis.*, etc.
+  # Zookeeper is disabled (clusterEnabled: false in chart values).
+  postgresql:
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 384Mi
+  clickhouse:
+    replicaCount: 1
+    resourcesPreset: custom
+    resources:
+      requests:
+        cpu: 300m
+        memory: 1024Mi
+      limits:
+        cpu: 2000m
+        memory: 3Gi
+  redis:
+    primary:
+      resources:
+        requests:
+          cpu: 50m
+          memory: 64Mi
+        limits:
+          cpu: 200m
+          memory: 128Mi
+  s3:
+    deploy: false
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+# ── frontend-studio-studio ─────────────────────────────────────────────────────
+# Template: deployment.yaml  →  replicas: {{ .Values.frontendStudio.studio.replicas }}
+#
+# Next.js frontend for the Studio dashboard. Lightweight static serving —
+# no model loading, no database.
+frontendStudio:
+  studio:
+    replicas: 1
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 200m
+        memory: 128Mi
+
+  # ── frontend-studio-api ────────────────────────────────────────────────────────
+  # Template: deployment.yaml  →  replicas: {{ .Values.frontendStudio.api.replicas }}
+  #
+  # FastAPI backend for the Studio dashboard. Proxies to AgentGateway.
+  # No model loading, no database.
+  api:
+    replicas: 1
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 256Mi
+
+# ── monitor-pii-engine ───────────────────────────────────────────────────────
+monitorPiiEngine:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 1000m
+      memory: 4Gi
+    limits:
+      cpu: 4000m
+      memory: 12Gi
+  modelCacheSize: 12Gi
+
+# ── monitor-kube-prometheus-stack ─────────────────────────────────────────────
+# Values are passed directly to the kube-prometheus-stack subchart.
+# Top-level key "kube-prometheus-stack" matches the dependency alias in Chart.yaml.
+#
+# Prometheus:
+#   - Official recommendation: depends on retention and scrape volume.
+#     For 15d retention with ~30 targets: 2Gi memory, 500m CPU is reasonable.
+#   - Storage: 50Gi default for 15d retention in a single-node cluster.
+#     Adjust based on scrape interval and metric cardinality.
+#
+# Alertmanager:
+#   - Lightweight — routes alerts, doesn't store much data.
+#     Default 64Mi/200m is sufficient for small deployments.
+#
+# Grafana:
+#   - Official recommendation: 255Mi memory, minimal CPU for dashboard rendering.
+#     100m/256Mi is appropriate for single-node.
+#
+# kube-state-metrics:
+#   - Official: 1 core, 200-300Mi per 1000 nodes. For single-node: 50m/64Mi.
+#
+# node-exporter:
+#   - Official: 200Mi memory, negligible CPU. 50m/64Mi per node.
+kube-prometheus-stack:
+  prometheus:
+    prometheusSpec:
+      retention: 15d
+      storageSpec:
+        volumeClaimTemplate:
+          spec:
+            storageClassName: infra-rook-ceph-rbd
+            accessModes: ["ReadWriteOnce"]
+            resources:
+              requests:
+                storage: 50Gi
+      resources:
+        requests:
+          cpu: 500m
+          memory: 2Gi
+        limits:
+          cpu: 2000m
+          memory: 4Gi
+  alertmanager:
+    alertmanagerSpec:
+      storage:
+        volumeClaimTemplate:
+          spec:
+            storageClassName: infra-rook-ceph-rbd
+            accessModes: ["ReadWriteOnce"]
+            resources:
+              requests:
+                storage: 1Gi
+      resources:
+        requests:
+          cpu: 50m
+          memory: 64Mi
+        limits:
+          cpu: 200m
+          memory: 256Mi
+  grafana:
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+  kube-state-metrics:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 200m
+        memory: 256Mi
+  prometheus-node-exporter:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 200m
+        memory: 128Mi
+
+# ── frontend-dify components ──────────────────────────────────────────────
+# Dify is a Python/Flask application. Resource estimates based on
+# Dify's upstream docker-compose defaults scaled for single-node.
+#
+# CE Builder images (api, beat, worker, web-gui) use ghcr.io/neurwerk/addon-dify-ce-builder-*
+# Official upstream images (sandbox, plugin-daemon, redis) have
+# independent tags in their respective chart/values.yaml.
+frontendDify:
+  api:
+    replicas: 1
+    # 2 Gi / 2 000m is bare-minimum — 2 gevent workers + gevent gunicorn
+    # quickly saturate a single core under console bursts, causing probe
+    # timeouts and liveness kills even with timeoutSeconds: 5.
+    resources:
+      requests:
+        cpu: 500m
+        memory: 1Gi
+      limits:
+        cpu: 2000m
+        memory: 2Gi
+  webGui:
+    replicas: 1
+    resources:
+      requests:
+        cpu: 100m
+        memory: 512Mi
+      limits:
+        cpu: 500m
+        memory: 1Gi
+  worker:
+    replicas: 1
+    resources:
+      requests:
+        cpu: 250m
+        memory: 512Mi
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+  beat:
+    replicas: 1
+    resources:
+      requests:
+        cpu: 250m
+        memory: 512Mi
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+  redis:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 200m
+        memory: 128Mi
+  sandbox:
+    replicas: 1
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 256Mi
+  pluginDaemon:
+    replicas: 1
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        cpu: 200m
+        memory: 256Mi

@@ -1,0 +1,13 @@
+apiVersion: snapshot.storage.k8s.io/v1
+kind: VolumeSnapshotClass
+metadata:
+  name: {{ .Values.infraRookCeph.blockStorage.volumeSnapshotClassName }}
+  labels:
+    {{- include "infra-rook-ceph.labels" . | nindent 4 }}
+driver: rook-ceph.rbd.csi.ceph.com
+deletionPolicy: Delete
+parameters:
+  clusterID: {{ .Release.Namespace | quote }}
+  pool: {{ .Values.infraRookCeph.blockStorage.poolName | quote }}
+  csi.storage.k8s.io/snapshotter-secret-name: rook-csi-rbd-provisioner
+  csi.storage.k8s.io/snapshotter-secret-namespace: {{ .Release.Namespace }}

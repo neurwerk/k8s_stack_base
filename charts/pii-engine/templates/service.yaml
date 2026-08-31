@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: monitor-pii-engine-service
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "monitor-pii-engine.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: pii-engine
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  ports:
+    - name: application
+      port: {{ .Values.monitorPiiEngine.ports.service.application }}
+      targetPort: application
+    - name: management
+      port: {{ .Values.monitorPiiEngine.ports.service.management }}
+      targetPort: management

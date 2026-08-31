@@ -1,0 +1,121 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: frontend-librechat-valkey-stateful-set
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "frontend-librechat-valkey.labels" . | nindent 4 }}
+  annotations:
+    secret.reloader.stakater.com/reload: frontend-librechat-secret
+spec:
+  serviceName: frontend-librechat-valkey-service
+  replicas: {{ .Values.frontendLibrechat.valkey.replicas }}
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: Retain
+    whenScaled: Retain
+  selector:
+    matchLabels:
+      {{- include "frontend-librechat-valkey.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "frontend-librechat-valkey.labels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "frontend-librechat-valkey.serviceAccountName" . }}
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      terminationGracePeriodSeconds: 60
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroup: 999
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: valkey
+          image: {{ .Values.frontendLibrechat.valkey.image | quote }}
+          imagePullPolicy: {{ .Values.frontendLibrechat.valkey.imagePullPolicy }}
+          command:
+            - /bin/sh
+            - -ec
+          args:
+            - |
+              test -n "$VALKEY_PASSWORD" || { echo "VALKEY_PASSWORD is required" >&2; exit 1; }
+              umask 077
+              printf 'requirepass %s\nappendonly yes\nsave ""\ndir /data\n' "$VALKEY_PASSWORD" > /run/valkey/valkey.conf
+              exec valkey-server /run/valkey/valkey.conf
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+          ports:
+            - name: valkey
+              containerPort: {{ .Values.frontendLibrechat.valkey.service.port }}
+              protocol: TCP
+          env:
+            - name: VALKEY_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: frontend-librechat-secret
+                  key: VALKEY_PASSWORD
+            - name: REDISCLI_AUTH
+              valueFrom:
+                secretKeyRef:
+                  name: frontend-librechat-secret
+                  key: VALKEY_PASSWORD
+          volumeMounts:
+            - name: frontend-librechat-valkey-data
+              mountPath: /data
+            - name: runtime
+              mountPath: /run/valkey
+            - name: tmp
+              mountPath: /tmp
+          startupProbe:
+            exec:
+              command:
+                - valkey-cli
+                - -e
+                - ping
+            periodSeconds: 5
+            failureThreshold: 30
+          readinessProbe:
+            exec:
+              command:
+                - valkey-cli
+                - -e
+                - ping
+            periodSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            exec:
+              command:
+                - valkey-cli
+                - -e
+                - ping
+            periodSeconds: 10
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.frontendLibrechat.valkey.resources | nindent 12 }}
+      volumes:
+        - name: runtime
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
+  volumeClaimTemplates:
+    - metadata:
+        name: frontend-librechat-valkey-data
+        labels:
+          {{- include "frontend-librechat-valkey.labels" . | nindent 10 }}
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: {{ .Values.frontendLibrechat.valkey.persistence.size }}
+        {{- with .Values.frontendLibrechat.valkey.persistence.storageClassName }}
+        storageClassName: {{ . | quote }}
+        {{- end }}

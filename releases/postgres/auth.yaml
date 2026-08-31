@@ -1,0 +1,42 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: postgres-auth
+  namespace: infra-postgres-auth
+spec:
+  releaseName: postgres-auth
+  interval: 5m
+  timeout: 15m
+  install:
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 1m
+  upgrade:
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 1m
+  dependsOn:
+    - name: rook-ceph
+      namespace: infra-rook-ceph
+    - name: cert-manager-internal-issuer
+      namespace: infra-cert-manager
+    - name: trust-manager
+      namespace: infra-trust-manager
+  chart:
+    spec:
+      chart: ./charts/postgres/auth
+      sourceRef:
+        kind: GitRepository
+        name: k8s-stack
+        namespace: flux-system
+      interval: 1m
+  valuesFrom:
+    - kind: Secret
+      name: postgres-auth-values
+      valuesKey: values.yaml
+    - kind: ConfigMap
+      name: client-values
+      valuesKey: values.yaml
+    - kind: ConfigMap
+      name: postgres-product-values
+      valuesKey: values.yaml

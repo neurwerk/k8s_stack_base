@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://neurwerk.com/schemas/platform-release-v1.json",
+  "title": "Neurwerk Platform Release",
+  "type": "object",
+  "required": ["apiVersion", "kind", "metadata", "spec"],
+  "properties": {
+    "apiVersion": {"const": "platform.neurwerk.com/v1alpha1"},
+    "kind": {"const": "PlatformRelease"},
+    "metadata": {
+      "type": "object",
+      "required": ["name"]
+    },
+    "spec": {
+      "type": "object",
+      "required": [
+        "version",
+        "releaseDate",
+        "summary",
+        "trust",
+        "compatibility",
+        "packages",
+        "prerequisites",
+        "artifacts"
+      ],
+      "properties": {
+        "version": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+        },
+        "releaseDate": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        },
+        "compatibility": {
+          "type": "object",
+          "required": ["freshInstall", "upgradesFrom", "downgrade", "recovery"],
+          "properties": {
+            "freshInstall": {
+              "enum": ["supported", "unsupported"]
+            },
+            "upgradesFrom": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "pattern": "^v(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+              }
+            },
+            "downgrade": {
+              "const": "unsupported"
+            },
+            "recovery": {
+              "enum": [
+                "configuration-revert",
+                "forward-fix",
+                "component-native-restore",
+                "replacement-restore"
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "provenance": {
+          "type": "object",
+          "required": ["previousTag", "includedThrough", "commits", "compareUrl"],
+          "properties": {
+            "previousTag": {
+              "type": "string",
+              "pattern": "^v(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+            },
+            "includedThrough": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{40}$"
+            },
+            "commits": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{40}$"
+              }
+            },
+            "compareUrl": {
+              "type": "string",
+              "pattern": "^https://github\\.com/neurwerk/k8s_stack_base/compare/v(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.\\.\\.[0-9a-f]{40}$"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "version": {"const": "0.2.6"}
+            },
+            "required": ["version"]
+          },
+          "else": {
+            "required": ["provenance"]
+          }
+        }
+      ]
+    }
+  },
+  "additionalProperties": false
+}

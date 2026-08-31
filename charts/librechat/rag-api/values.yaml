@@ -1,0 +1,38 @@
+frontendLibrechat:
+  ragApi:
+    replicas: 1
+    image:
+      registry: registry.librechat.ai
+      repositories:
+        lite: danny-avila/librechat-rag-api-dev-lite
+        full: danny-avila/librechat-rag-api-dev
+      tag: v0.9.0
+      variant: lite
+      pullPolicy: IfNotPresent
+    service:
+      port: 8000
+    database:
+      host: postgres-operations.infra-postgres-operations.svc.cluster.local
+      port: 5432
+      podPort: 9712
+      name: librechat_rag
+      namespace: infra-postgres-operations
+      podSelector:
+        app.kubernetes.io/name: postgres-operations
+        app.kubernetes.io/instance: postgres-operations
+    embeddings:
+      provider: openai
+      model: text-embedding-3-small
+      openaiBaseUrl: ""
+    externalHttpsEgress:
+      # Standard NetworkPolicy cannot scope public egress by FQDN.
+      enabled: false
+    resources:
+      requests:
+        cpu: 250m
+        memory: 512Mi
+      limits:
+        cpu: "1"
+        memory: 2Gi
+
+frontendLibrechatSecrets: {}

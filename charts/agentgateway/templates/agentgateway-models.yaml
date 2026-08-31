@@ -1,0 +1,272 @@
+# =============================================================================
+# Model-centric LLM serving (AgentgatewayModel API)
+#
+# Renders one AgentgatewayModel per entry in
+#   guardrails.llmPolicyEngine.models
+# plus dedicated Internal local fallback targets for rerouted models.
+#
+# Each model becomes selectable on the listener's built-in LLM paths
+# (/v1/chat/completions) and discoverable on /v1/models. Requires the
+# experimental AgentgatewayModel API (agentgateway.agentgatewayModels.enabled)
+# and the listener to allow the AgentgatewayModel route kind.
+#
+# Entry shapes (see values.yaml for the full contract):
+#   local:true       → 1 Public concrete model → llama.cpp host:port
+#   piiReroute:true  → 1 Internal <name>-remote concrete + 1 Public virtual
+#                      model (trusted route class → configured target,
+#                      x-remote-allowed=="true" → remote, else → local)
+#   neither          → 1 Public concrete model → provider directly
+# =============================================================================
+{{- $engine := .Values.guardrails.llmPolicyEngine }}
+{{- $models := $engine.models | default list }}
+{{- if $models }}
+{{- $llamacpp := .Values.infraAgentgatewayWrapper.llamacpp }}
+{{- if and $llamacpp.enabled (not $llamacpp.host) }}{{- fail "infraAgentgatewayWrapper.llamacpp.host is required when llamacpp is enabled" }}{{- end }}
+{{- $local := $engine.localTarget }}
+{{- $localBaseURL := printf "http://%s:%d" $llamacpp.host (int $llamacpp.port) }}
+{{- $defaultWhen := `request.headers["x-remote-allowed"] == "true"` }}
+{{- $needsLocalFallback := false }}
+{{- $modelsByName := dict }}
+{{- $agentgatewayRoles := .Values.authKeycloak.agentgatewayClientRoles | default list }}
+{{- $routingTargets := list }}
+{{- if not (has "llm:invoke" $agentgatewayRoles) }}{{- fail "authKeycloak.agentgatewayClientRoles must include llm:invoke" }}{{- end }}
+{{- with .Values.monitorPiiEngine }}
+{{-   with .policy }}
+{{-     with .routing }}
+{{-       $routingTargets = .targets | default list }}
+{{-     end }}
+{{-   end }}
+{{- end }}
+{{- range $models }}
+{{-   $_ := set $modelsByName .name . }}
+{{-   $permission := printf "model:%s:invoke" .name }}
+{{-   if not (has $permission $agentgatewayRoles) }}
+{{-     fail (printf "model %q requires %q in authKeycloak.agentgatewayClientRoles" .name $permission) }}
+{{-   end }}
+{{-   if .piiReroute }}{{- $needsLocalFallback = true }}{{- end }}
+{{-   if and .piiReroute (not $engine.enabled) }}
+{{-     fail (printf "model %q sets piiReroute:true but guardrails.llmPolicyEngine.enabled is false" .name) }}
+{{-   end }}
+{{-   if and .piiReroute (not $llamacpp.enabled) }}
+{{-     fail (printf "model %q sets piiReroute:true but infraAgentgatewayWrapper.llamacpp.enabled is false" .name) }}
+{{-   end }}
+{{-   if and .local (not $llamacpp.enabled) }}
+{{-     fail (printf "model %q sets local:true but infraAgentgatewayWrapper.llamacpp.enabled is false" .name) }}
+{{-   end }}
+{{-   if and .local (not .model) }}
+{{-     fail (printf "model %q sets local:true but does not define a concrete provider model" .name) }}
+{{-   end }}
+{{- end }}
+{{- if $needsLocalFallback }}
+{{-   range $routingTargets }}
+{{-     $targetName := required "monitorPiiEngine.policy.routing.targets[].name is required" .name }}
+{{-     if not (regexMatch "^[A-Za-z0-9_.:/-]+$" $targetName) }}
+{{-       fail (printf "routing target name %q is not safe for AgentGateway CEL" $targetName) }}
+{{-     end }}
+{{-     $classPrefix := .classPrefix | default "" }}
+{{-     if and $classPrefix (not (regexMatch "^[A-Za-z0-9_.:/-]+$" $classPrefix)) }}
+{{-       fail (printf "routing classPrefix %q is not safe for AgentGateway CEL" $classPrefix) }}
+{{-     end }}
+{{-     if not (hasKey $modelsByName $targetName) }}
+{{-       fail (printf "routing target %q does not match guardrails.llmPolicyEngine.models[].name" $targetName) }}
+{{-     end }}
+{{-   end }}
+{{- end }}
+{{- range $models }}
+{{- $rname := include "infra-agentgateway.modelResourceName" .name }}
+{{- $permission := printf "model:%s:invoke" .name }}
+{{- $authorization := printf `(has(jwt.resource_access.agentgateway.roles) && "%s" in jwt.resource_access.agentgateway.roles) || (has(extauthz.permissions) && "%s" in extauthz.permissions)` $permission $permission }}
+{{- if .local }}
+---
+# Local model ({{ .name }}) — Public concrete → llama.cpp host.
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayModel
+metadata:
+  name: {{ $rname }}
+  namespace: infra-agentgateway
+  labels:
+    app.kubernetes.io/name: model-{{ $rname }}
+    app.kubernetes.io/instance: {{ $.Release.Name }}
+    app.kubernetes.io/part-of: infra-agentgateway
+spec:
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: infra-agentgateway-gateway
+      sectionName: websecure
+  match:
+    model: {{ .name | quote }}
+  visibility: Public
+  provider: {{ .provider | default $local.provider }}
+  baseURL: {{ $localBaseURL | quote }}
+  {{- $custom := .custom | default $local.custom }}
+  {{- if $custom }}
+  custom:
+    {{- $custom | toYaml | nindent 4 }}
+  {{- end }}
+  policies:
+    authorization:
+      action: Allow
+      policy:
+        matchExpressions:
+          - {{ $authorization | quote }}
+    transformations:
+      - field: model
+        expression: '"{{ .model }}"'
+{{- else if .piiReroute }}
+---
+# Remote target for {{ .name }} — Internal, only reachable via the virtual model.
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayModel
+metadata:
+  name: {{ $rname }}-remote
+  namespace: infra-agentgateway
+  labels:
+    app.kubernetes.io/name: model-{{ $rname }}-remote
+    app.kubernetes.io/instance: {{ $.Release.Name }}
+    app.kubernetes.io/part-of: infra-agentgateway
+spec:
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: infra-agentgateway-gateway
+      sectionName: websecure
+  visibility: Internal
+  provider: {{ .provider }}
+  baseURL: "{{ .baseURL }}"
+  policies:
+    {{- if .authSecret }}
+    auth:
+      secretRef:
+        name: {{ .authSecret }}
+    {{- end }}
+    authorization:
+      action: Allow
+      policy:
+        matchExpressions:
+          - {{ $authorization | quote }}
+    transformations:
+      - field: model
+        expression: '"{{ .model }}"'
+---
+# Dedicated fallback targets preserve the requested public model's permission
+# when a virtual model is rerouted locally. Virtual models cannot carry policies.
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayModel
+metadata:
+  name: {{ $rname }}-local
+  namespace: infra-agentgateway
+  labels:
+    app.kubernetes.io/name: model-{{ $rname }}-local
+    app.kubernetes.io/instance: {{ $.Release.Name }}
+    app.kubernetes.io/part-of: infra-agentgateway
+spec:
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: infra-agentgateway-gateway
+      sectionName: websecure
+  visibility: Internal
+  provider: {{ $local.provider }}
+  baseURL: {{ $localBaseURL | quote }}
+  {{- if $local.custom }}
+  custom:
+    {{- $local.custom | toYaml | nindent 4 }}
+  {{- end }}
+  policies:
+    authorization:
+      action: Allow
+      policy:
+        matchExpressions:
+          - {{ $authorization | quote }}
+    transformations:
+      - field: model
+        expression: '"{{ $local.model }}"'
+---
+# Virtual model {{ .name }} — Public. Reroutes to the local fallback when the
+# extProc marks the request as not remote-allowed (e.g. PII reroute action).
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayModel
+metadata:
+  name: {{ $rname }}
+  namespace: infra-agentgateway
+  labels:
+    app.kubernetes.io/name: model-{{ $rname }}
+    app.kubernetes.io/instance: {{ $.Release.Name }}
+    app.kubernetes.io/part-of: infra-agentgateway
+spec:
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: infra-agentgateway-gateway
+      sectionName: websecure
+  match:
+    model: {{ .name | quote }}
+  visibility: Public
+  virtualModel:
+    conditional:
+      targets:
+        {{- range $routingTargets }}
+        {{- $targetName := .name }}
+        {{- $target := get $modelsByName $targetName }}
+        {{- $targetRef := include "infra-agentgateway.modelResourceName" $targetName }}
+        {{- if $target.piiReroute }}
+        {{-   $targetRef = printf "%s-remote" $targetRef }}
+        {{- end }}
+        {{- $classPrefix := .classPrefix | default "" }}
+        {{- $condition := printf `request.headers["x-route-class"] == "%s"` $targetName }}
+        {{- if $classPrefix }}
+        {{-   $condition = printf `request.headers["x-route-class"].startsWith("%s")` $classPrefix }}
+        {{- end }}
+        {{- if not $target.local }}
+        {{-   $condition = printf `request.headers["x-remote-allowed"] == "true" && (%s)` $condition }}
+        {{- end }}
+        - when: {{ $condition | quote }}
+          modelRef:
+            name: {{ $targetRef }}
+        {{- end }}
+        - when: {{ $defaultWhen | quote }}
+          modelRef:
+            name: {{ $rname }}-remote
+        - modelRef:
+            name: {{ $rname }}-local
+{{- else }}
+---
+# Model {{ .name }} — Public concrete → provider directly (no reroute).
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayModel
+metadata:
+  name: {{ $rname }}
+  namespace: infra-agentgateway
+  labels:
+    app.kubernetes.io/name: model-{{ $rname }}
+    app.kubernetes.io/instance: {{ $.Release.Name }}
+    app.kubernetes.io/part-of: infra-agentgateway
+spec:
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: infra-agentgateway-gateway
+      sectionName: websecure
+  match:
+    model: {{ .name | quote }}
+  visibility: Public
+  provider: {{ .provider }}
+  baseURL: "{{ .baseURL }}"
+  policies:
+    {{- if .authSecret }}
+    auth:
+      secretRef:
+        name: {{ .authSecret }}
+    {{- end }}
+    authorization:
+      action: Allow
+      policy:
+        matchExpressions:
+          - {{ $authorization | quote }}
+    transformations:
+      - field: model
+        expression: '"{{ .model }}"'
+{{- end }}
+{{- end }}
+{{- end }}

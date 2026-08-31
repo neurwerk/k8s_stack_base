@@ -1,0 +1,24 @@
+# IMAGE SOURCE: upstream
+postgresAuth:
+  image: docker.io/postgres:18.6-alpine3.24
+  imagePullPolicy: IfNotPresent
+  clusterDomain: cluster.local
+  service:
+    port: 5432
+  persistence:
+    size: 5Gi
+    storageClassName: ""
+  resources:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+  tls:
+    duration: 2160h
+    issuerName: infra-cert-manager-internal-ca-issuer
+  provisioning:
+    activeDeadlineSeconds: 300
+
+postgresAuthSecrets: {}

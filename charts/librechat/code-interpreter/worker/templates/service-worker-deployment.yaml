@@ -1,0 +1,129 @@
+{{- $product := .Values.frontendLibrechatCodeInterpreter -}}
+{{- $name := include "librechat-code-interpreter-worker.fullname" . -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}-service-worker
+  annotations:
+    secret.reloader.stakater.com/reload: {{ printf "%s,%s,%s" $product.internalAuthSecretName $product.valkey.authSecretName $product.executionManifest.signerSecretName | quote }}
+  labels:
+    {{- include "librechat-code-interpreter-worker.labels" . | nindent 4 }}
+    app.kubernetes.io/component: service-worker
+spec:
+  replicas: {{ $product.worker.replicas }}
+  selector:
+    matchLabels:
+      {{- include "librechat-code-interpreter-worker.serviceWorkerSelectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "librechat-code-interpreter-worker.labels" . | nindent 8 }}
+        app.kubernetes.io/component: service-worker
+    spec:
+      serviceAccountName: {{ $name }}-service-worker
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: service-worker
+          image: {{ printf "%s:%s" $product.images.worker.repository $product.images.worker.tag | quote }}
+          imagePullPolicy: {{ $product.images.worker.pullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          ports:
+            - name: health
+              containerPort: {{ $product.worker.healthPort }}
+              protocol: TCP
+          env:
+            - name: CODEAPI_HARDENED_SANDBOX_MODE
+              value: {{ $product.hardenedSandboxMode | quote }}
+            - name: PTC_MODE
+              value: {{ $product.ptcMode | quote }}
+            - name: SANDBOX_ENDPOINT
+              value: {{ printf "http://%s-sandbox-runner:%v/api/v2" $name $product.sandbox.port | quote }}
+            - name: EGRESS_GATEWAY_URL
+              value: {{ printf "http://%s:%v" $product.egressGateway.host $product.egressGateway.port | quote }}
+            - name: REDIS_HOST
+              value: {{ $product.valkey.host | quote }}
+            - name: REDIS_PORT
+              value: {{ $product.valkey.port | quote }}
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $product.valkey.authSecretName }}
+                  key: password
+            - name: CODEAPI_INTERNAL_SERVICE_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $product.internalAuthSecretName }}
+                  key: token
+            - name: CODEAPI_EXECUTION_MANIFEST_PRIVATE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $product.executionManifest.signerSecretName }}
+                  key: private-key
+            - name: EXECUTION_MANIFEST_TTL_SECONDS
+              value: {{ $product.executionManifest.ttlSeconds | quote }}
+            - name: EGRESS_GRANT_TTL_SECONDS
+              value: {{ $product.egressGrantTtlSeconds | quote }}
+            - name: PYTHON_CONCURRENCY
+              value: {{ $product.worker.pythonConcurrency | quote }}
+            - name: OTHER_CONCURRENCY
+              value: {{ $product.worker.otherConcurrency | quote }}
+            - name: JOB_WINDOW
+              value: {{ $product.worker.jobWindow | quote }}
+            - name: JOB_TIMEOUT
+              value: {{ $product.worker.jobTimeoutMs | quote }}
+            - name: WORKER_HEALTH_PORT
+              value: {{ $product.worker.healthPort | quote }}
+          startupProbe:
+            httpGet:
+              path: /ready
+              port: health
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 30
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: health
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: health
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            {{- toYaml $product.worker.resources | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    {{- include "librechat-code-interpreter-worker.serviceWorkerSelectorLabels" . | nindent 20 }}
+                topologyKey: kubernetes.io/hostname
+      nodeSelector:
+        {{- toYaml $product.scheduling.nodeSelector | nindent 8 }}
+      tolerations:
+        {{- toYaml $product.scheduling.tolerations | nindent 8 }}

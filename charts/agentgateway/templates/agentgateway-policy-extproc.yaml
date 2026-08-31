@@ -1,0 +1,51 @@
+{{- $models := .Values.guardrails.llmPolicyEngine.models | default list }}
+{{- if and .Values.guardrails.llmPolicyEngine.enabled $models }}
+{{- $piiCatalog := dict }}
+{{- range $model := $models }}
+{{-   $piiEnabled := true }}
+{{-   if hasKey $model "piiEnabled" }}{{- $piiEnabled = $model.piiEnabled }}{{- end }}
+{{-   $_ := set $piiCatalog $model.name $piiEnabled }}
+{{- end }}
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayPolicy
+metadata:
+  name: infra-agentgateway-policy-extproc
+  namespace: infra-agentgateway
+  labels:
+    app.kubernetes.io/name: extproc-policy
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: infra-agentgateway
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: infra-agentgateway-gateway
+      sectionName: websecure
+  traffic:
+    phase: PreRouting
+    # This Gateway policy owns model requests. Exact MCP routes have separate
+    # PostRouting policies and destination metadata.
+    extProc:
+      conditional:
+        - condition: 'request.method == "POST" && request.path.startsWith("/v1/")'
+          policy:
+            backendRef:
+              group: agentgateway.dev
+              kind: AgentgatewayBackend
+              name: infra-agentgateway-extproc-backend
+            failureMode: FailClosed
+            metadataContext:
+              neurwerk.destination_policy:
+                contract_version: "1"
+                destination_kind: '"model"'
+                principal_id: 'has(jwt.sub) ? jwt.sub : extauthz.principal_id'
+                models: {{ $piiCatalog | toJson | quote }}
+            processingOptions:
+              requestBodyMode: Buffered
+              responseBodyMode: FullDuplexStreamed
+              # Mixed catalogs share one stream configuration. PII-disabled
+              # model response phases remain valid no-ops when AgentGateway has
+              # already scheduled them; only an all-disabled catalog can skip
+              # response callbacks from the request-header phase.
+              allowModeOverride: true
+{{- end }}

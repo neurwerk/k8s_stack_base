@@ -1,0 +1,77 @@
+name: Validate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  HELM_VERSION: v4.2.4
+  KUSTOMIZE_VERSION: v5.8.1
+  KUBECONFORM_VERSION: 0.8.0
+  KUBELINTER_VERSION: v0.8.3
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: true
+
+      - name: Install Python
+        run: uv python install 3.12
+
+      - name: Verify Python lockfile
+        run: uv lock --check
+
+      - name: Install Helm
+        uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4
+        with:
+          version: ${{ env.HELM_VERSION }}
+
+      - name: Install kustomize
+        uses: supplypike/setup-bin@8e3f88b4f143d9b5c3497f0fc12d45c83c123787 # v4.0.1
+        with:
+          uri: https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2F${{ env.KUSTOMIZE_VERSION }}/kustomize_${{ env.KUSTOMIZE_VERSION }}_linux_amd64.tar.gz
+          name: kustomize
+          version: ${{ env.KUSTOMIZE_VERSION }}
+
+      - name: Install kubeconform
+        uses: supplypike/setup-bin@8e3f88b4f143d9b5c3497f0fc12d45c83c123787 # v4.0.1
+        with:
+          uri: https://github.com/yannh/kubeconform/releases/download/v${{ env.KUBECONFORM_VERSION }}/kubeconform-linux-amd64.tar.gz
+          name: kubeconform
+          version: ${{ env.KUBECONFORM_VERSION }}
+
+      - name: Install kube-linter
+        uses: supplypike/setup-bin@8e3f88b4f143d9b5c3497f0fc12d45c83c123787 # v4.0.1
+        with:
+          uri: https://github.com/stackrox/kube-linter/releases/download/${{ env.KUBELINTER_VERSION }}/kube-linter-linux.tar.gz
+          name: kube-linter
+          version: ${{ env.KUBELINTER_VERSION }}
+
+      - name: Configure Helm repositories
+        run: |
+          helm repo add external-secrets https://charts.external-secrets.io
+          helm repo add fluent https://fluent.github.io/helm-charts
+          helm repo add langfuse https://langfuse.github.io/langfuse-k8s
+          helm repo add openbao https://openbao.github.io/openbao-helm
+          helm repo add opensearch https://opensearch-project.github.io/helm-charts
+          helm repo add stakater https://stakater.github.io/stakater-charts
+
+      - name: Run make check (Helm, Kustomize, kubeconform, kube-linter, security tests)
+        run: make check
+
+      - name: Run pre-commit
+        uses: pre-commit/action@2c7b3805fd2a0fd8c1884dcaebf91fc102a13ecd # v3.0.1
+        with:
+          extra_args: --all-files

@@ -1,0 +1,130 @@
+# IMAGE SOURCE: expected first-party builds of the pinned upstream source.
+# ClickHouse/code-interpreter publishes no images at this commit. These mirror
+# references are exact-SHA contracts but remain unverified until an owned build
+# publishes both worker component images.
+frontendLibrechatCodeInterpreter:
+  validation:
+    # The platform HelmRelease forces production=true. Standalone defaults stay
+    # synthetic-renderable for chart linting and inspection.
+    production: false
+
+  images:
+    worker:
+      repository: ghcr.io/neurwerk/librechat-code-interpreter-worker
+      tag: fea707467600f3802d65596a6875c7822f25cfd8
+      pullPolicy: IfNotPresent
+    sandboxRunner:
+      repository: ghcr.io/neurwerk/librechat-code-interpreter-sandbox-runner
+      tag: fea707467600f3802d65596a6875c7822f25cfd8
+      pullPolicy: IfNotPresent
+  hardenedSandboxMode: true
+  ptcMode: replay
+  valkey:
+    host: librechat-code-interpreter-valkey
+    port: 6379
+    authSecretName: librechat-code-interpreter-valkey-auth
+  egressGateway:
+    host: librechat-code-interpreter-egress-gateway
+    port: 3190
+  internalAuthSecretName: librechat-code-interpreter-internal-auth
+  executionManifest:
+    signerSecretName: librechat-code-interpreter-execution-signer
+    verifierSecretName: librechat-code-interpreter-execution-verifier
+    ttlSeconds: 300
+  egressGrantTtlSeconds: 900
+
+  worker:
+    replicas: 2
+    healthPort: 3113
+    pythonConcurrency: 1
+    otherConcurrency: 8
+    jobWindow: 1000
+    jobTimeoutMs: 25000
+    resources:
+      requests:
+        cpu: 250m
+        memory: 512Mi
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+
+  sandbox:
+    # Direct NsJail only. This chart deliberately has no KVM hostPath,
+    # device-plugin resource, supplemental device group, or microVM knobs.
+    replicas: 1
+    port: 2000
+    fdLivenessLimit: 40000
+    maxProcessCount: 100
+    runCpuTimeMs: 15000
+    runTimeoutMs: 15000
+    compileCpuTimeMs: 10000
+    compileTimeoutMs: 10000
+    outputMaxSize: 65536
+    maxOpenFiles: 2048
+    executeBodyLimit: 50mb
+    maxConcurrentJobs: 8
+    perJobUids: true
+    jobUidBase: 200000
+    jobGidBase: 200000
+    jobUidCount: 8
+    workspaceReaperMaxAgeSeconds: 3600
+    resources:
+      requests:
+        cpu: 500m
+        memory: 1Gi
+      limits:
+        cpu: 2000m
+        memory: 3Gi
+
+    security:
+      # Direct NsJail must run as UID 0 to create namespaces, bind mounts, a
+      # chroot, cgroups, and its restricted forwarding network. It remains
+      # non-privileged, drops every default capability, and adds only this
+      # upstream-required set. The namespace must therefore use the privileged
+      # Pod Security profile and only dedicated, tainted worker nodes.
+      privileged: false
+      allowPrivilegeEscalation: false
+      capabilities:
+        - SYS_ADMIN
+        - SYS_CHROOT
+        - SYS_PTRACE
+        - SETUID
+        - SETGID
+        - NET_ADMIN
+        - DAC_OVERRIDE
+        - DAC_READ_SEARCH
+        - CHOWN
+        - FOWNER
+        - FSETID
+        - KILL
+        - SETFCAP
+        - MKNOD
+      seccomp:
+        # Localhost profiles must be installed on every selected node before
+        # this release. The chart ConfigMap is source material, not an installer;
+        # installing node profiles requires a separately authorized host action.
+        enabled: true
+        localhostProfile: profiles/librechat-code-interpreter-nsjail.json
+      appArmor:
+        # Kubernetes native AppArmor fields are used instead of legacy Pod
+        # annotations. The named profile must already be loaded on each node.
+        enabled: true
+        localhostProfile: librechat-code-interpreter-nsjail
+
+  scheduling:
+    # Production validation rejects empty values. Clients must select nodes
+    # dedicated to untrusted execution and tolerate only their matching taint.
+    # Example contract (values must remain strings):
+    # nodeSelector:
+    #   code-interpreter.neurwerk.com/dedicated: "true"
+    # tolerations:
+    #   - key: code-interpreter.neurwerk.com/dedicated
+    #     operator: Equal
+    #     value: "true"
+    #     effect: NoSchedule
+    nodeSelector: {}
+    tolerations: []
+
+  packages:
+    persistence:
+      accessMode: ReadWriteOnce

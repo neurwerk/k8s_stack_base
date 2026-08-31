@@ -1,0 +1,69 @@
+# IMAGE SOURCE: upstream
+# Reloader images are controlled by the pinned official subchart.
+reloader:
+  fullnameOverride: infra-reloader
+  reloader:
+    autoReloadAll: false
+    reloadStrategy: annotations
+    reloadOnCreate: true
+    reloadOnDelete: false
+    syncAfterRestart: true
+    ignoreJobs: true
+    ignoreCronJobs: true
+    isArgoRollouts: false
+    isOpenshift: false
+    enableCSIIntegration: false
+    watchGlobally: false
+    # Wrapper templates create narrowly scoped Roles and RoleBindings instead
+    # of the upstream RBAC, which grants unnecessary Job permissions.
+    rbac:
+      enabled: false
+    namespaces:
+      - auth-keycloak
+      - auth-keycloak-api-key-bridge
+      - frontend-dify
+      - frontend-librechat
+      - frontend-studio
+      - infra-postgres-auth
+      - infra-postgres-operations
+      - monitor-fluent-bit
+      - monitor-langfuse
+      - monitor-pii-engine
+      - monitor-agentgateway-extproc
+    deployment:
+      replicas: 1
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        seccompProfile:
+          type: RuntimeDefault
+      containerSecurityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop: [ALL]
+      resources:
+        requests:
+          cpu: 25m
+          memory: 64Mi
+        limits:
+          cpu: 250m
+          memory: 256Mi
+    podMonitor:
+      enabled: false
+
+infraReloader:
+  watchedNamespaces:
+    - auth-keycloak
+    - auth-keycloak-api-key-bridge
+    - frontend-dify
+    - frontend-librechat
+    - frontend-studio
+    - infra-postgres-auth
+    - infra-postgres-operations
+    - infra-reloader
+    - monitor-fluent-bit
+    - monitor-langfuse
+    - monitor-pii-engine
+    - monitor-agentgateway-extproc

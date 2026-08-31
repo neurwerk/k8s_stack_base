@@ -1,0 +1,27 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: frontend-dify
+resources:
+  - api.yaml
+  - beat.yaml
+  - plugin-daemon.yaml
+  - redis.yaml
+  - sandbox.yaml
+  - shared.yaml
+  - web.yaml
+  - worker.yaml
+generatorOptions:
+  disableNameSuffixHash: true
+configMapGenerator:
+  - name: base-shared-hostnames-config-map
+    files:
+      - values.yaml=../shared/hostnames.yaml
+  - name: base-shared-resources-config-map
+    files:
+      - values.yaml=../shared/resources.yaml
+  - name: base-shared-oidc-clients-config-map
+    files:
+      - values.yaml=../shared/oidc-clients.yaml
+  - name: frontend-dify-app-defaults
+    files:
+      - values.yaml=app-defaults.yaml

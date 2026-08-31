@@ -1,0 +1,40 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: openbao
+  namespace: infra-openbao
+spec:
+  releaseName: infra-openbao
+  targetNamespace: infra-openbao
+  interval: 5m
+  timeout: 15m
+  install:
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 1m
+  upgrade:
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 1m
+  waitStrategy:
+    name: poller
+  dependsOn:
+    - name: cert-manager-internal-issuer
+      namespace: infra-cert-manager
+    - name: rook-ceph
+      namespace: infra-rook-ceph
+  chart:
+    spec:
+      chart: ./charts/openbao
+      sourceRef:
+        kind: GitRepository
+        name: k8s-stack
+        namespace: flux-system
+      interval: 1m
+  valuesFrom:
+    - kind: ConfigMap
+      name: client-values
+      valuesKey: values.yaml
+    - kind: ConfigMap
+      name: openbao-product-values
+      valuesKey: values.yaml

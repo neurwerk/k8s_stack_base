@@ -1,0 +1,64 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: keycloak
+  namespace: auth-keycloak
+spec:
+  releaseName: auth-keycloak
+  interval: 5m
+  timeout: 15m
+  install:
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 1m
+  upgrade:
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 1m
+  dependsOn:
+    - name: traefik
+      namespace: kube-system
+    - name: cert-manager-issuers
+      namespace: infra-cert-manager
+    - name: postgres-auth
+      namespace: infra-postgres-auth
+  chart:
+    spec:
+      chart: ./charts/keycloak/server
+      sourceRef:
+        kind: GitRepository
+        name: k8s-stack
+        namespace: flux-system
+      interval: 1m
+  valuesFrom:
+    - kind: ConfigMap
+      name: base-shared-hostnames-config-map
+      valuesKey: values.yaml
+    - kind: ConfigMap
+      name: base-shared-resources-config-map
+      valuesKey: values.yaml
+    - kind: ConfigMap
+      name: base-shared-oidc-clients-config-map
+      valuesKey: values.yaml
+    - kind: ConfigMap
+      name: auth-keycloak-app-defaults
+      valuesKey: values.yaml
+    # Deliberately NOT optional: true here.  The Keycloak chart requires
+    # authKeycloakSecrets.{adminPassword,dbPassword}
+    # via Helm `required` — the pod cannot deploy without these values.
+    # Unlike cert-manager-issuers (which has sensible Let's Encrypt defaults),
+    # there is no fallback.  The ordering race between this HelmRelease and
+    # the secrets Kustomization resolves automatically on the next Flux
+    # reconciliation cycle — adding optional: true would just change the
+    # error message from "secret not found" to "adminPassword is required"
+    # while still blocking deployment, and would falsely imply the values
+    # are optional.
+    - kind: Secret
+      name: auth-keycloak-secrets
+      valuesKey: values.yaml
+    - kind: ConfigMap
+      name: client-values
+      valuesKey: values.yaml
+    - kind: ConfigMap
+      name: keycloak-product-values
+      valuesKey: values.yaml

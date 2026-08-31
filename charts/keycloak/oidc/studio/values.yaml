@@ -1,0 +1,18 @@
+# IMAGE SOURCE: tooling
+# k8sTools is a pinned neurwerk image used by this OIDC bootstrap Job.
+# =============================================================================
+# values.yaml — keycloak-oidc-configurations/studio
+#
+# Default values for the Studio OIDC client configuration.
+# Studio is a public client (PKCE flow) — no secret injection needed.
+# =============================================================================
+
+# Studio OIDC client ID
+authKeycloak:
+  studioClientId: studio
+  # studioRedirectUri: "" => set in client_*/config/client.yaml
+  # studioWebOrigin: "" => set in client_*/config/client.yaml
+
+# k8sTools — init script image version
+k8sTools:
+  image: ghcr.io/neurwerk/k8s-stack-tooling:0.5.4

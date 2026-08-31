@@ -1,0 +1,117 @@
+{{- $readinessTimeoutValue := .Values.monitorAgentgatewayExtproc.engine.readinessTimeout -}}
+{{- if not (or (kindIs "int" $readinessTimeoutValue) (kindIs "int64" $readinessTimeoutValue) (kindIs "float64" $readinessTimeoutValue)) -}}
+{{- fail "monitorAgentgatewayExtproc.engine.readinessTimeout must be a number" -}}
+{{- end }}
+{{- $readinessTimeout := float64 $readinessTimeoutValue -}}
+{{- if or (le $readinessTimeout 0.0) (gt $readinessTimeout 1.0) -}}
+{{- fail "monitorAgentgatewayExtproc.engine.readinessTimeout must be greater than zero and at most one second" -}}
+{{- end }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: monitor-agentgateway-extproc-deployment
+  namespace: monitor-agentgateway-extproc
+  annotations:
+    secret.reloader.stakater.com/reload: monitor-agentgateway-extproc-engine-client-tls
+  labels:
+    app.kubernetes.io/name: monitor-agentgateway-extproc
+    app.kubernetes.io/instance: monitor-agentgateway-extproc
+    app.kubernetes.io/part-of: monitor-agentgateway-extproc
+spec:
+  replicas: {{ .Values.monitorAgentgatewayExtproc.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: monitor-agentgateway-extproc
+      app.kubernetes.io/instance: monitor-agentgateway-extproc
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: monitor-agentgateway-extproc
+        app.kubernetes.io/instance: monitor-agentgateway-extproc
+        app.kubernetes.io/part-of: monitor-agentgateway-extproc
+      annotations:
+        checksum/config: {{ .Values.monitorAgentgatewayExtproc.engine.url | sha256sum }}
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        {{- toYaml .Values.monitorAgentgatewayExtproc.securityContext | nindent 8 }}
+      containers:
+        - name: extproc
+          image: {{ .Values.monitorAgentgatewayExtproc.extprocImage }}
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            {{- toYaml .Values.monitorAgentgatewayExtproc.containerSecurityContext | nindent 12 }}
+          ports:
+            - containerPort: {{ .Values.monitorAgentgatewayExtproc.ports.container.extproc }}
+              name: extproc
+              protocol: TCP
+            - containerPort: {{ .Values.monitorAgentgatewayExtproc.ports.container.http }}
+              name: http
+              protocol: TCP
+          env:
+            - name: EXTPROC_ENGINE__BASE_URL
+              value: {{ .Values.monitorAgentgatewayExtproc.engine.url | quote }}
+            - name: EXTPROC_ENGINE__CA_CERT
+              value: {{ .Values.monitorAgentgatewayExtproc.engine.caFile | quote }}
+            - name: EXTPROC_ENGINE__CLIENT_CERT
+              value: {{ .Values.monitorAgentgatewayExtproc.engine.clientCertFile | quote }}
+            - name: EXTPROC_ENGINE__CLIENT_KEY
+              value: {{ .Values.monitorAgentgatewayExtproc.engine.clientKeyFile | quote }}
+            - name: EXTPROC_ENGINE__TIMEOUT
+              value: {{ .Values.monitorAgentgatewayExtproc.engine.timeout | quote }}
+            - name: EXTPROC_ENGINE__MAX_RESPONSE_BYTES
+              value: {{ .Values.monitorAgentgatewayExtproc.engine.maxResponseBytes | quote }}
+            - name: EXTPROC_ENGINE__READINESS_TIMEOUT
+              value: {{ .Values.monitorAgentgatewayExtproc.engine.readinessTimeout | quote }}
+            - name: EXTPROC_DEBUG
+              value: {{ .Values.monitorAgentgatewayExtproc.debug | quote }}
+            - name: EXTPROC_MAX_REQUEST_BYTES
+              value: {{ .Values.monitorAgentgatewayExtproc.maxRequestBytes | quote }}
+            - name: EXTPROC_MAX_RESPONSE_BYTES
+              value: {{ .Values.monitorAgentgatewayExtproc.maxResponseBytes | quote }}
+            - name: EXTPROC_MAX_TRANSFORMED_REQUEST_BYTES
+              value: {{ .Values.monitorAgentgatewayExtproc.maxTransformedRequestBytes | quote }}
+            - name: EXTPROC_GRPC_MAX_RECEIVE_MESSAGE_BYTES
+              value: {{ .Values.monitorAgentgatewayExtproc.grpcMaxReceiveMessageBytes | quote }}
+          volumeMounts:
+            - name: engine-tls
+              mountPath: /var/run/pii-engine/tls
+              readOnly: true
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: {{ .Values.monitorAgentgatewayExtproc.ports.container.http }}
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+            successThreshold: 1
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: {{ .Values.monitorAgentgatewayExtproc.ports.container.http }}
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          resources:
+            {{- toYaml .Values.monitorAgentgatewayExtproc.resources | nindent 12 }}
+      volumes:
+        - name: engine-tls
+          secret:
+            secretName: monitor-agentgateway-extproc-engine-client-tls
+      {{- with .Values.monitorAgentgatewayExtproc.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.monitorAgentgatewayExtproc.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app.kubernetes.io/name: monitor-agentgateway-extproc
+                topologyKey: kubernetes.io/hostname

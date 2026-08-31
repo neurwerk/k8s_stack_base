@@ -1,0 +1,2 @@
+# IMAGE SOURCE: none
+# This chart owns only secret-free cert-manager issuer and CA resources.

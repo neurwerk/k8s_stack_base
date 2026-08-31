@@ -1,0 +1,36 @@
+# =============================================================================
+# Model Cost Catalog — Manual Overrides ConfigMap
+#
+# Hand-maintained pricing entries that are not part of the generated catalog.
+#
+# Background: cost lookup is strictly (provider, model)-scoped. The generated
+# catalog includes direct DeepSeek rates but does not import OpenRouter, so this
+# layer publishes reviewed OpenRouter rates under its native provider key.
+#
+# Rates are snapshots of OpenRouter's public model API, converted from USD per
+# token to USD per million tokens; refresh them when the provider changes
+# pricing. AgentGateway accepts at most six fractional digits per rate and
+# rejects the entire merged catalog if any rate exceeds that precision. Round
+# every base and tier rate to six fractional digits or fewer.
+#
+# AgentgatewayParameters lists this ConfigMap as a SECOND modelCatalog source;
+# sources are merged in order and later entries take precedence, so these
+# overrides win without touching the generated catalog.json (which stays
+# pristine for future `agctl costs import` runs).
+#
+# =============================================================================
+{{- $overrides := .Files.Get "files/catalog-overrides.json" }}
+{{- if $overrides }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: infra-agentgateway-model-cost-catalog-overrides
+  namespace: infra-agentgateway
+  labels:
+    app.kubernetes.io/name: model-cost-catalog-overrides
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: infra-agentgateway
+data:
+  catalog-overrides.json: |
+    {{- $overrides | nindent 4 }}
+{{- end }}

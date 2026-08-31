@@ -1,0 +1,68 @@
+# =============================================================================
+# Studio OIDC configuration Job
+#
+# Runs after Keycloak is deployed and the realm exists.
+# Creates the Studio OIDC client in Keycloak.
+#
+# Studio is a public client using PKCE flow — no client secret injection needed.
+# The backend validates JWTs via JWKS.
+# =============================================================================
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: auth-keycloak-studio-oidc-job
+  namespace: auth-keycloak
+  labels:
+    app.kubernetes.io/name: studio-oidc
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: auth-keycloak
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "-3"
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 86400
+  activeDeadlineSeconds: 600
+  template:
+    metadata:
+      name: auth-keycloak-studio-oidc-job
+      labels:
+        app: auth-keycloak-studio-oidc-job
+        job: auth-keycloak-studio-oidc-job
+        app.kubernetes.io/name: studio-oidc
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/part-of: auth-keycloak
+        app.kubernetes.io/component: configuration
+    spec:
+      automountServiceAccountToken: false
+      restartPolicy: OnFailure
+      containers:
+        - name: init
+          image: {{ (.Values.k8sTools).image | quote }}
+          command:
+            - upsert-oidc-client
+          env:
+            - name: KC_INTERNAL_URL
+              value: "http://auth-keycloak-keycloak-service.auth-keycloak.svc.cluster.local"
+            - name: KC_ADMIN_USER
+              value: {{ required "authKeycloak.adminUser is required — set via client-values or keycloak-product-values" .Values.authKeycloak.adminUser | quote }}
+            - name: KC_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: auth-keycloak-secret
+                  key: adminPassword
+            - name: KC_REALM
+              value: {{ required "authKeycloak.realm is required — set via client-values or keycloak-product-values" .Values.authKeycloak.realm | quote }}
+            - name: KC_CLIENT_ID
+              value: {{ .Values.authKeycloak.studioClientId | quote }}
+            - name: KC_REDIRECT_URI
+              value: {{ .Values.authKeycloak.studioRedirectUri | quote }}
+            - name: KC_WEB_ORIGIN
+              value: {{ .Values.authKeycloak.studioWebOrigin | quote }}
+            - name: KC_CLIENT_ACCESS_TYPE
+              value: "public"
+            - name: KC_CLIENT_AUDIENCES
+              value: '["realm-management", "keycloak-api-key-bridge"]'
+            - name: KC_LOG_PREFIX
+              value: "keycloak-studio-oidc"

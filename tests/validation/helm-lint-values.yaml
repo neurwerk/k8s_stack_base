@@ -1,0 +1,172 @@
+# Synthetic, non-secret values used by the chart validation targets.
+# HelmRelease ConfigMaps and Secrets provide these values in deployments.
+authKeycloak:
+  hostname: lint.example
+  adminUser: lint-admin
+  realm: lint
+  realmDisplayName: lint
+  initialAdminUsername: lint-admin
+  initialAdminEmail: admin@lint.example
+  initialAdminFirstName: Lint
+  initialAdminLastName: Administrator
+  agentgatewayClientRoles:
+    - llm:invoke
+    - model:remote/openrouter/deepseek-v4-flash:invoke
+  difyAgentgatewayClientRoles:
+    - llm:invoke
+    - model:remote/openrouter/deepseek-v4-flash:invoke
+  smtp:
+    enabled: true
+    host: smtp.example.test
+    port: 465
+    from: no-reply@lint.example
+    ssl: true
+    starttls: false
+  librechatClientId: librechat
+  keycloak:
+    resources:
+      requests: {cpu: 1m, memory: 1Mi}
+      limits: {cpu: 1m, memory: 1Mi}
+authKeycloakSecrets:
+  adminPassword: lint
+  dbPassword: lint
+certManager:
+  email: admin@lint.example
+  dnsZones:
+    - lint.example
+  aws:
+    accessKeyId: lint
+    secretAccessKey: lint
+frontendDify:
+  hostname: dify.lint.example
+  postgres:
+    user: dify
+    database: dify
+  config:
+    AUTO_SETUP_ADMIN_EMAIL: admin@lint.example
+frontendLibrechat:
+  hostname: librechat.lint.example
+  adminPanel:
+    hostname: librechat-admin.lint.example
+  app:
+    imagePersistence:
+      storageClassName: infra-rook-ceph-rbd
+  codeInterpreter:
+    enabled: true
+    namespace: librechat-code-interpreter
+    url: http://librechat-code-interpreter-api.librechat-code-interpreter.svc.cluster.local:3112/v1
+  meilisearch:
+    persistence:
+      storageClassName: infra-rook-ceph-rbd
+  objectStorage:
+    enabled: true
+    storageClassName: infra-rook-ceph-object-bucket
+  valkey:
+    persistence:
+      storageClassName: infra-rook-ceph-rbd
+frontendLibrechatSecrets:
+  adminPanelMetricsSecret: lint-admin-panel-metrics-secret
+  adminPanelSessionSecret: lint-admin-panel-session-secret
+  codeInterpreterJwtPrivateKey: lint-code-interpreter-private-key-not-real
+  credsIv: lint-creds-iv
+  credsKey: lint-creds-key
+  documentdbUser: lint
+  documentdbPassword: lint
+  jwtRefreshSecret: lint-jwt-refresh-secret
+  jwtSecret: lint-jwt-secret
+  meiliMasterKey: lint-meilisearch-master-key
+  openidClientSecret: lint-openid-client-secret
+  openidSessionSecret: lint-openid-session-secret
+  ragOpenaiApiKey: lint-rag-openai-api-key
+  ragPostgresqlPassword: lint-rag-postgresql-password
+  ragPostgresqlUser: lint-rag-postgresql-user
+  valkeyPassword: lint-valkey-password
+frontendLibrechatCodeInterpreter:
+  validation:
+    production: true
+  valkey:
+    persistence:
+      storageClassName: infra-rook-ceph-rbd
+  objectStorage:
+    storageClassName: infra-rook-ceph-object-bucket
+  scheduling:
+    nodeSelector:
+      code-interpreter.neurwerk.com/dedicated: "true"
+    tolerations:
+      - key: code-interpreter.neurwerk.com/dedicated
+        operator: Equal
+        value: "true"
+        effect: NoSchedule
+  packages:
+    persistence:
+      storageClassName: infra-rook-ceph-rbd
+frontendLibrechatCodeInterpreterSecrets:
+  internalServiceToken: lint-internal-service-token-000000000000000000000000
+  valkeyPassword: lint-valkey-password-000000000000
+  egressGrantSecret: lint-egress-grant-secret-000000000000000000000000
+  executionManifestPrivateKey: lint-execution-manifest-private-key-not-real
+  executionManifestPublicKey: lint-execution-manifest-public-key-not-real
+  jwtPublicKey: lint-jwt-public-key-not-real
+mcp:
+  enabled: false
+infraAgentgatewayWrapper:
+  hostname: agentgateway.lint.example
+guardrails:
+  llmPolicyEngine:
+    enabled: true
+    models:
+      - name: remote/openrouter/deepseek-v4-flash
+        provider: OpenAI
+        model: deepseek-v4-flash
+        baseURL: https://provider.lint.example
+        piiEnabled: true
+        contentTracingEnabled: true
+monitorLangfuseWrapper:
+  hostname: langfuse.lint.example
+frontendStudio:
+  studio:
+    hostname: studio.lint.example
+externalGateway:
+  enabled: true
+publicCertificates:
+  useProduction: false
+postgresAuth:
+  persistence:
+    storageClassName: infra-rook-ceph-rbd
+postgresAuthSecrets:
+  adminPassword: lint-postgres-auth-admin
+  keycloakPassword: lint-postgres-auth-keycloak
+postgresOperations:
+  persistence:
+    storageClassName: infra-rook-ceph-rbd
+postgresOperationsSecrets:
+  adminPassword: lint-postgres-operations-admin
+  documentdbPassword: lint-postgres-operations-documentdb
+  difyPassword: lint-postgres-operations-dify
+  langfusePassword: lint-postgres-operations-langfuse
+  librechatRagPassword: lint-postgres-operations-rag
+infraRookCeph:
+  objectStore:
+    publicHostname: objects.lint.example
+    externalGateway:
+      enabled: true
+  storage:
+    nodeName: lint-node
+    devicePath: /dev/disk/by-id/lint-device
+infraOpenbaoWrapper:
+  tls:
+    clusterDomain: cluster.local
+  monitoring:
+    prometheusRule:
+      snapshotAge:
+        enabled: false
+monitorKubePrometheusStack:
+  alerting:
+    email:
+      enabled: true
+      host: smtp.example.test
+      port: 465
+      from: no-reply@lint.example
+      to: admin@lint.example
+      authUsername: lint-smtp-user
+      authPassword: lint-smtp-password

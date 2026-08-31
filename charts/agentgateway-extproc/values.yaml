@@ -1,0 +1,66 @@
+# IMAGE SOURCE: owned service
+# The extProc service is a neurwerk transport-only adapter image.
+# Pinned here (chart defaults).
+# =============================================================================
+# charts/agentgateway-extproc/values.yaml — default values
+#
+# These defaults are overridden by:
+#   - ConfigMap: base-shared-resources-config-map (releases/shared/resources.yaml)
+#   - ConfigMap: monitor-agentgateway-extproc-app-defaults
+#   - ConfigMap: client-values (client config/client.yaml)
+#   - ConfigMap: agentgateway-extproc-product-values (client product values)
+# =============================================================================
+
+# ── extProc gRPC service ──────────────────────────────────────────────────────
+monitorAgentgatewayExtproc:
+  extprocImage: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.6.3
+
+  replicas: 2
+
+  ports:
+    container:
+      extproc: 9000              # gRPC ext_proc
+      http: 8000                 # HTTP /health + /metrics
+    service:
+      extproc: 9000              # port exposed by the K8s Service — must match container
+      http: 80                   # standard HTTP port
+
+  engine:
+    url: "https://monitor-pii-engine-service.monitor-pii-engine.svc.cluster.local:443"
+    caFile: /var/run/pii-engine/tls/ca.crt
+    clientCertFile: /var/run/pii-engine/tls/tls.crt
+    clientKeyFile: /var/run/pii-engine/tls/tls.key
+    # Must remain above queueWaitTimeout + analysisTimeout and below the
+    # AgentGateway extProc backend timeout.
+    timeout: 615
+    maxResponseBytes: "10485760"
+    # Keep the dependency handshake below the outer Kubernetes probe timeout.
+    readinessTimeout: 1
+
+  maxRequestBytes: "5242880"
+  maxResponseBytes: "10485760"
+  maxTransformedRequestBytes: "10485760"
+  grpcMaxReceiveMessageBytes: "6356992"
+
+  # ── Adapter logging ───────────────────────────────────────────────────────
+  debug: false
+  securityContext:
+    runAsUser: 1000
+    runAsGroup: 1000
+    runAsNonRoot: true
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop: [ALL]
+    readOnlyRootFilesystem: true
+
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: 2000m
+      memory: 512Mi
+
+  nodeSelector: {}
+  tolerations: []

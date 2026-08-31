@@ -1,0 +1,29 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: auth-keycloak
+resources:
+  - active-directory.yaml
+  - server.yaml
+  - oidc-agentgateway.yaml
+  - oidc-dify-agentgateway.yaml
+  - oidc-dify.yaml
+  - oidc-keycloak-api-key-bridge.yaml
+  - oidc-librechat.yaml
+  - oidc-studio.yaml
+  - realm-initial-admin.yaml
+  - realm-roles.yaml
+generatorOptions:
+  disableNameSuffixHash: true
+configMapGenerator:
+  - name: base-shared-hostnames-config-map
+    files:
+      - values.yaml=../shared/hostnames.yaml
+  - name: base-shared-resources-config-map
+    files:
+      - values.yaml=../shared/resources.yaml
+  - name: base-shared-oidc-clients-config-map
+    files:
+      - values.yaml=../shared/oidc-clients.yaml
+  - name: auth-keycloak-app-defaults
+    files:
+      - values.yaml=app-defaults.yaml

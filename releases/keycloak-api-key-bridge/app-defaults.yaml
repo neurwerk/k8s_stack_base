@@ -1,0 +1,10 @@
+# =============================================================================
+# releases/keycloak-api-key-bridge/app-defaults.yaml — platform defaults
+#
+# Clients override these through client-values or
+# keycloak-api-key-bridge-product-values.
+# =============================================================================
+authKeycloakApiKeyBridge:
+  persistence:
+    size: 1Gi
+    storageClass: infra-rook-ceph-rbd

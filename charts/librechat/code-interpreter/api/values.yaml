@@ -1,0 +1,56 @@
+# IMAGE SOURCE: expected first-party build of the pinned upstream source.
+# ClickHouse/code-interpreter does not publish images at the pinned commit. The
+# repository is therefore an unverified mirror contract; the full SHA tag must
+# be published before deployment and must never be replaced with a moving tag.
+frontendLibrechatCodeInterpreter:
+  image:
+    repository: ghcr.io/neurwerk/librechat-code-interpreter-api
+    tag: fea707467600f3802d65596a6875c7822f25cfd8
+    pullPolicy: IfNotPresent
+
+  api:
+    replicas: 2
+    port: 3112
+    httpJsonLimit: 50mb
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+  auth:
+    provider: librechat-jwt
+    issuer: librechat
+    audience: codeapi
+    allowedAlgorithms: EdDSA
+    keyId: librechat-code-interpreter-v1
+    maxTokenTtlSeconds: 300
+    clockSkewSeconds: 30
+    singleTenantId: librechat
+    strictTenantIsolation: false
+    jwtPublicKeySecretName: librechat-code-interpreter-jwt-verifier
+
+  hardenedSandboxMode: true
+  ptcMode: replay
+  egressGrantTtlSeconds: 900
+  valkey:
+    host: librechat-code-interpreter-valkey
+    port: 6379
+    authSecretName: librechat-code-interpreter-valkey-auth
+  internalAuthSecretName: librechat-code-interpreter-internal-auth
+  fileServer:
+    host: librechat-code-interpreter-file-server
+    port: 3000
+  toolCallServer:
+    host: librechat-code-interpreter-tool-call-server
+    port: 3033
+  egressGateway:
+    host: librechat-code-interpreter-egress-gateway
+    port: 3190
+
+  networkPolicy:
+    librechatNamespace: frontend-librechat
+    librechatPodLabels:
+      app.kubernetes.io/name: frontend-librechat

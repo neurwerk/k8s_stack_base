@@ -1,0 +1,13 @@
+# =============================================================================
+# releases/keycloak/app-defaults.yaml — platform defaults for auth-keycloak
+#
+# These values are generated into the auth-keycloak-app-defaults ConfigMap
+# and merged into the HelmRelease via valuesFrom. They sit between the chart
+# defaults (lowest priority) and the client-values and keycloak-product-values
+# ConfigMaps (higher priority).
+# =============================================================================
+
+authKeycloak:
+  # Display name shown in the Keycloak login page and UI.
+  # Override per client through keycloak-product-values.
+  realmDisplayName: "neurwerk"

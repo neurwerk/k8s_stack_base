@@ -1,0 +1,992 @@
+apiVersion: platform.neurwerk.com/v1alpha1
+kind: PlatformRelease
+metadata:
+  name: v0.2.6
+spec:
+  version: 0.2.6
+  releaseDate: '2026-08-31'
+  summary: Preserve stable PII aliases and opaque reasoning with an exact LibreChat snapshot.
+  trust:
+    signerIdentity: platform-release
+    algorithm: ssh-ed25519
+    fingerprint: SHA256:+rDcofrsfRE3ElJJxnUVoB3gmoEzZJUrisDqLZMHimw
+  compatibility:
+    freshInstall: supported
+    upgradesFrom: []
+    downgrade: unsupported
+    recovery: replacement-restore
+  packages:
+    default:
+    - releases/namespaces
+    - releases/infrastructure
+    - releases/applications
+    optional:
+    - path: releases/librechat/rag
+      status: excluded
+      reason: Deployment readiness and effective client rendering are not complete.
+      chartPrefixes:
+      - charts/librechat/rag-api
+    - path: releases/librechat/code-interpreter
+      status: excluded
+      reason: First-party versioned runtime images have not been published.
+      chartPrefixes:
+      - charts/librechat/code-interpreter
+  prerequisites:
+  - name: flux
+    version: 2.9.4
+    source: client bootstrap manifests
+  - name: openbao-stack-setup
+    version: 0.2.10
+    source: https://github.com/neurwerk/k8s_stack_tooling/commit/fbf91a133e755e5f5b3a79e0e73c2506fc09021f
+  - name: gateway-api-experimental
+    version: 1.6.0
+    source: https://github.com/kubernetes-sigs/gateway-api/releases/tag/v1.6.0
+  - name: cert-manager-crds
+    version: 1.20.2
+    source: https://github.com/cert-manager/cert-manager/releases/tag/v1.20.2
+  - name: prometheus-operator-crds
+    version: 72.4.0
+    source: oci://ghcr.io/prometheus-community/charts/kube-prometheus-stack
+  - name: agentgateway-crds
+    version: 1.4.1
+    source: oci://cr.agentgateway.dev/charts/agentgateway-crds
+  - name: external-secrets-crds
+    version: 2.9.0
+    source: https://github.com/external-secrets/external-secrets/releases/tag/v2.9.0
+  - name: documentdb-cpu-baseline
+    version: x86-64-v3
+    source: https://github.com/documentdb/documentdb/blob/v0.116-0/pg_documentdb_gw/.cargo/config.toml
+  exceptions:
+  - artifact: ghcr.io/danny-avila/librechat-dev@sha256:909958b41c7035be776aa6a1365016a66007d85fe5cfc8614320e0f24c1810e1
+    owner: platform
+    expires: 2026-09-30
+    reason: Core LibreChat requires the reviewed upstream streaming and reasoning changes before a non-RC
+      release is available. This fresh-install-only release pins the exact multi-architecture development
+      image digest and records its source commit; moving development tags remain prohibited.
+  - artifact: charts/postgres/operations:documentdb-database-rbac
+    owner: platform
+    expires: 2026-11-27
+    reason: DocumentDB 0.116.0 requires readWriteAnyDatabase plus clusterAdmin for a secondary write user
+      and does not support database-scoped readWrite. LibreChat is the gateway's only application consumer;
+      another Mongo-compatible consumer requires a separate instance. Native user creation also requires
+      narrowly scoped, temporary PostgreSQL CREATEROLE and documentdb_admin_role delegation capabilities.
+  - artifact: charts/postgres/operations:privilege-escalation-container
+    owner: platform
+    expires: 2026-11-27
+    reason: The reviewed upstream DocumentDB local image requires passwordless sudo to prepare runtime
+      directories before dropping back to UID 1000.
+  artifacts:
+    charts:
+    - path: charts/agentgateway
+      name: infra-agentgateway
+      version: 0.7.13
+      appVersion: 1.4.1
+      dependencyLock:
+        digest: sha256:d6537b3577ee451a84014c482ba921070155da599c512e7c8ce25ab776708d1b
+        dependencies:
+        - name: agentgateway
+          repository: oci://cr.agentgateway.dev/charts
+          version: 1.4.1
+        archives:
+        - path: charts/agentgateway/charts/agentgateway-1.4.1.tgz
+          sha256: aace0555ba061920b705b976a31cb967a0806e9e4e1bbd71b31a7bb87271d59f
+    - path: charts/agentgateway-extproc
+      name: agentgateway-extproc
+      version: 0.6.19
+      appVersion: 0.6.3
+    - path: charts/cert-manager/approval-policy
+      name: infra-cert-manager-approval-policy
+      version: 0.6.4
+    - path: charts/cert-manager/approver-policy
+      name: infra-cert-manager-approver-policy
+      version: 0.6.0
+      appVersion: v0.25.1
+      dependencyLock:
+        digest: sha256:973de2ff27eceacb81fd7b61810a9e307c21557e526f158a4bda9e815bcda778
+        dependencies:
+        - name: cert-manager-approver-policy
+          repository: oci://quay.io/jetstack/charts
+          version: v0.25.1
+        archives:
+        - path: charts/cert-manager/approver-policy/charts/cert-manager-approver-policy-v0.25.1.tgz
+          sha256: 47d7510a1a9120fc4f26a026599b96c4316a0d1bd5ab53cd5178a69e0f8d4488
+    - path: charts/cert-manager/controller
+      name: infra-cert-manager-controller
+      version: 0.6.2
+      dependencyLock:
+        digest: sha256:9a5ee0de189d2c08f867194829020c540f3af2577e25e55f2f68bb7fabd8ba72
+        dependencies:
+        - name: cert-manager
+          repository: oci://quay.io/jetstack/charts
+          version: v1.20.2
+        archives:
+        - path: charts/cert-manager/controller/charts/cert-manager-v1.20.2.tgz
+          sha256: d2a50bd44a09d838c2576a8f3dfca1524597c7393cf8d82ab3ec8a465b9eeb79
+    - path: charts/cert-manager/internal-issuer
+      name: infra-cert-manager-internal-issuer
+      version: 0.6.0
+    - path: charts/cert-manager/issuers
+      name: infra-cert-manager-issuers
+      version: 0.6.1
+    - path: charts/dify/api
+      name: frontend-dify-api
+      version: 0.6.9
+      appVersion: 1.15.0
+    - path: charts/dify/beat
+      name: frontend-dify-beat
+      version: 0.6.5
+      appVersion: 1.15.0
+    - path: charts/dify/plugin-daemon
+      name: frontend-dify-plugin-daemon
+      version: 0.6.3
+      appVersion: 0.6.3
+    - path: charts/dify/redis
+      name: frontend-dify-redis
+      version: 0.6.2
+      appVersion: '7'
+    - path: charts/dify/sandbox
+      name: frontend-dify-sandbox
+      version: 0.6.1
+      appVersion: 0.2.15
+    - path: charts/dify/shared
+      name: frontend-dify-shared
+      version: 0.6.1
+      appVersion: 1.0.0
+    - path: charts/dify/web
+      name: frontend-dify-web-gui
+      version: 0.6.3
+      appVersion: 1.15.0
+    - path: charts/dify/worker
+      name: frontend-dify-worker
+      version: 0.6.5
+      appVersion: 1.15.0
+    - path: charts/external-secrets
+      name: infra-external-secrets
+      version: 0.6.0
+      appVersion: 2.9.0
+      dependencyLock:
+        digest: sha256:f29853b9f97cc5a9a2eed070aab1047ada3464720356c31851017390487a3233
+        dependencies:
+        - name: external-secrets
+          repository: https://charts.external-secrets.io
+          version: 2.9.0
+        archives:
+        - path: charts/external-secrets/charts/external-secrets-2.9.0.tgz
+          sha256: da2d5c126a103b4c1b16a9dc1c168c4332a3687144e88ac070e594f81a0b6578
+    - path: charts/fluent-bit
+      name: monitor-fluent-bit
+      version: 0.6.1
+      appVersion: 3.2.8
+      dependencyLock:
+        digest: sha256:90275c51b97202d8b18e353f33c38e5800924b94be0b21d2adf9a62590334d17
+        dependencies:
+        - name: fluent-bit
+          repository: https://fluent.github.io/helm-charts
+          version: 0.48.9
+        archives:
+        - path: charts/fluent-bit/charts/fluent-bit-0.48.9.tgz
+          sha256: bbc6500b93ab4dca44872d6ab9fb0ac6b84409202c952a6802b62ef03c5e6dc8
+    - path: charts/fluent-bit/shared
+      name: monitor-fluent-bit-shared
+      version: 0.6.0
+      appVersion: '1.0'
+    - path: charts/keycloak/oidc/agentgateway
+      name: agentgateway
+      version: 0.6.5
+      appVersion: '1.0'
+    - path: charts/keycloak/oidc/dify
+      name: dify
+      version: 0.6.5
+      appVersion: '1.0'
+    - path: charts/keycloak/oidc/dify-agentgateway
+      name: dify-agentgateway
+      version: 0.6.6
+      appVersion: '1.0'
+    - path: charts/keycloak/oidc/keycloak-api-key-bridge
+      name: keycloak-api-key-bridge
+      version: 0.6.6
+      appVersion: '1.0'
+    - path: charts/keycloak/oidc/librechat
+      name: librechat
+      version: 0.6.7
+      appVersion: '1.0'
+    - path: charts/keycloak/oidc/studio
+      name: studio
+      version: 0.6.6
+      appVersion: '1.0'
+    - path: charts/keycloak/realm-config/active-directory
+      name: keycloak-active-directory
+      version: 0.1.0
+    - path: charts/keycloak/realm-config/initial-admin
+      name: keycloak-oidc-configurations-initial-admin
+      version: 0.6.5
+    - path: charts/keycloak/realm-config/realm-roles
+      name: keycloak-oidc-configurations-realm-roles
+      version: 0.6.5
+    - path: charts/keycloak/server
+      name: keycloak
+      version: 0.6.11
+      appVersion: 26.7.2
+    - path: charts/keycloak-api-key-bridge
+      name: auth-keycloak-api-key-bridge
+      version: 0.6.3
+      appVersion: 0.5.3
+    - path: charts/kube-prometheus-stack
+      name: monitor-kube-prometheus-stack
+      version: 0.6.4
+      appVersion: 0.82.2
+      dependencyLock:
+        digest: sha256:52ccce9875b52ce65fb7e2e05455cc672e2ddac98d7c5b2d94ff99ec174af431
+        dependencies:
+        - name: kube-prometheus-stack
+          repository: oci://ghcr.io/prometheus-community/charts
+          version: 72.4.0
+        archives:
+        - path: charts/kube-prometheus-stack/charts/kube-prometheus-stack-72.4.0.tgz
+          sha256: b344a03d0006aba69a8c20ae1ff0354ac7687bdf72c3611c4f330b59a22b7548
+    - path: charts/langfuse
+      name: monitor-langfuse
+      version: 0.6.9
+      appVersion: 3.179.1
+      dependencyLock:
+        digest: sha256:7cf67e5faa4c8c8f8003ec78dacb365443e246ecd982a2bca43ffb34992b6496
+        dependencies:
+        - name: langfuse
+          repository: https://langfuse.github.io/langfuse-k8s
+          version: 1.5.34
+        archives:
+        - path: charts/langfuse/charts/langfuse-1.5.34.tgz
+          sha256: 1334697bf93ea6b4fed2503e30551c3b3a1ecfa9fcacff4a5bd8980f385c9ffa
+    - path: charts/librechat/admin-panel
+      name: librechat-admin-panel
+      version: 0.1.2
+      appVersion: 1.0.0
+    - path: charts/librechat/app
+      name: frontend-librechat
+      version: 0.7.6
+      appVersion: 14d4f2789d8f1d308713f7acd98fab925f8aa74d
+    - path: charts/librechat/code-interpreter/api
+      name: librechat-code-interpreter-api
+      version: 0.1.0
+      appVersion: fea707467600f3802d65596a6875c7822f25cfd8
+    - path: charts/librechat/code-interpreter/egress-gateway
+      name: librechat-code-interpreter-egress-gateway
+      version: 0.1.0
+      appVersion: fea707467600f3802d65596a6875c7822f25cfd8
+    - path: charts/librechat/code-interpreter/file-server
+      name: librechat-code-interpreter-file-server
+      version: 0.1.0
+      appVersion: fea707467600f3802d65596a6875c7822f25cfd8
+    - path: charts/librechat/code-interpreter/package-init
+      name: librechat-code-interpreter-package-init
+      version: 0.2.0
+      appVersion: fea707467600f3802d65596a6875c7822f25cfd8
+    - path: charts/librechat/code-interpreter/shared
+      name: librechat-code-interpreter-shared
+      version: 0.2.0
+      appVersion: fea707467600f3802d65596a6875c7822f25cfd8
+    - path: charts/librechat/code-interpreter/tool-call-server
+      name: librechat-code-interpreter-tool-call-server
+      version: 0.1.0
+      appVersion: fea707467600f3802d65596a6875c7822f25cfd8
+    - path: charts/librechat/code-interpreter/valkey
+      name: librechat-code-interpreter-valkey
+      version: 0.1.1
+      appVersion: 9.1.1
+    - path: charts/librechat/code-interpreter/worker
+      name: librechat-code-interpreter-worker
+      version: 0.2.0
+      appVersion: fea707467600f3802d65596a6875c7822f25cfd8
+    - path: charts/librechat/meilisearch
+      name: frontend-librechat-meilisearch
+      version: 0.1.0
+      appVersion: v1.35.1
+    - path: charts/librechat/rag-api
+      name: frontend-librechat-rag-api
+      version: 0.1.1
+      appVersion: v0.9.0
+    - path: charts/librechat/shared
+      name: frontend-librechat-shared
+      version: 0.1.4
+      appVersion: 14d4f2789d8f1d308713f7acd98fab925f8aa74d
+    - path: charts/librechat/valkey
+      name: frontend-librechat-valkey
+      version: 0.1.1
+      appVersion: 9.1.1
+    - path: charts/openbao
+      name: infra-openbao
+      version: 0.6.3
+      appVersion: 2.6.1
+      dependencyLock:
+        digest: sha256:eb8bd30f37213b0ac042d707f4a099f2b0fd783ffd190845a3cd29479162b6d4
+        dependencies:
+        - name: openbao
+          repository: https://openbao.github.io/openbao-helm
+          version: 0.29.1
+        archives:
+        - path: charts/openbao/charts/openbao-0.29.1.tgz
+          sha256: 646d932f597632a7328bd300994e66c2cabaa1b6763372cbabb559cd84ff3f2f
+    - path: charts/opensearch
+      name: monitor-opensearch
+      version: 0.6.10
+      appVersion: 2.18.0
+      dependencyLock:
+        digest: sha256:59f3aee22c25979b8b3287d24f2bb2915274394629658f88af2d1004899efe23
+        dependencies:
+        - name: opensearch
+          repository: https://opensearch-project.github.io/helm-charts
+          version: 2.27.0
+        archives:
+        - path: charts/opensearch/charts/opensearch-2.27.0.tgz
+          sha256: a9de76017a82a38954dfb453a030c42a349c015fe1493641f457aa0e71590267
+    - path: charts/pii-engine
+      name: pii-engine
+      version: 0.6.16
+      appVersion: 0.7.2
+    - path: charts/pii-engine-model-sync
+      name: pii-engine-model-sync
+      version: 0.6.13
+      appVersion: 0.7.2
+    - path: charts/postgres/auth
+      name: infra-postgres-auth
+      version: 0.1.1
+      appVersion: '18.6'
+    - path: charts/postgres/operations
+      name: infra-postgres-operations
+      version: 0.1.2
+      appVersion: pg18-0.116.0
+    - path: charts/reloader
+      name: infra-reloader
+      version: 0.6.3
+      appVersion: 1.4.21
+      dependencyLock:
+        digest: sha256:8c52e34407bf2a9b16f138cc98a015ded77e35c1f64d6cca5b02064809dac593
+        dependencies:
+        - name: reloader
+          repository: https://stakater.github.io/stakater-charts
+          version: 2.2.16
+        archives:
+        - path: charts/reloader/charts/reloader-2.2.16.tgz
+          sha256: 5389fb496a120d6aac8f2b33c54ba21ed59014131def14cfc78f9d4a9374d2b7
+    - path: charts/rook-ceph
+      name: rook-ceph
+      version: 0.6.4
+      appVersion: v1.20.3
+    - path: charts/studio/api
+      name: studio-api
+      version: 0.6.12
+      appVersion: 0.6.2
+    - path: charts/studio/shared
+      name: studio-shared
+      version: 0.6.1
+    - path: charts/studio/web
+      name: studio
+      version: 0.6.11
+      appVersion: 0.6.2
+    - path: charts/traefik
+      name: traefik
+      version: 0.6.0
+    - path: charts/trust-manager
+      name: infra-trust-manager
+      version: 0.6.3
+      appVersion: 0.24.0
+      dependencyLock:
+        digest: sha256:b8613e99af1551de1d4db051763128504bb4013f8f41b6cc61c067c36ce48c38
+        dependencies:
+        - name: trust-manager
+          repository: oci://quay.io/jetstack/charts
+          version: v0.24.0
+        archives:
+        - path: charts/trust-manager/charts/trust-manager-v0.24.0.tgz
+          sha256: 0de4bbef2d1a013bd4a91c6f59a9cb0273dda9a785e018a9a16e8f2b096af823
+    helmReleases:
+    - path: releases/agentgateway/app.yaml
+      namespace: infra-agentgateway
+      name: agentgateway
+      chart: ./charts/agentgateway
+    - path: releases/agentgateway-extproc/app.yaml
+      namespace: monitor-agentgateway-extproc
+      name: agentgateway-extproc
+      chart: ./charts/agentgateway-extproc
+    - path: releases/cert-manager/approval-policy.yaml
+      namespace: infra-cert-manager
+      name: cert-manager-approval-policy
+      chart: ./charts/cert-manager/approval-policy
+    - path: releases/cert-manager/approver-policy.yaml
+      namespace: infra-cert-manager
+      name: cert-manager-approver-policy
+      chart: ./charts/cert-manager/approver-policy
+    - path: releases/cert-manager/controller.yaml
+      namespace: infra-cert-manager
+      name: cert-manager-controller
+      chart: ./charts/cert-manager/controller
+    - path: releases/cert-manager/internal-issuer.yaml
+      namespace: infra-cert-manager
+      name: cert-manager-internal-issuer
+      chart: ./charts/cert-manager/internal-issuer
+    - path: releases/cert-manager/issuers.yaml
+      namespace: infra-cert-manager
+      name: cert-manager-issuers
+      chart: ./charts/cert-manager/issuers
+    - path: releases/dify/api.yaml
+      namespace: frontend-dify
+      name: frontend-dify-api
+      chart: ./charts/dify/api
+    - path: releases/dify/beat.yaml
+      namespace: frontend-dify
+      name: frontend-dify-beat
+      chart: ./charts/dify/beat
+    - path: releases/dify/plugin-daemon.yaml
+      namespace: frontend-dify
+      name: frontend-dify-plugin-daemon
+      chart: ./charts/dify/plugin-daemon
+    - path: releases/dify/redis.yaml
+      namespace: frontend-dify
+      name: frontend-dify-redis
+      chart: ./charts/dify/redis
+    - path: releases/dify/sandbox.yaml
+      namespace: frontend-dify
+      name: frontend-dify-sandbox
+      chart: ./charts/dify/sandbox
+    - path: releases/dify/shared.yaml
+      namespace: frontend-dify
+      name: frontend-dify-shared
+      chart: ./charts/dify/shared
+    - path: releases/dify/web.yaml
+      namespace: frontend-dify
+      name: frontend-dify-web-gui
+      chart: ./charts/dify/web
+    - path: releases/dify/worker.yaml
+      namespace: frontend-dify
+      name: frontend-dify-worker
+      chart: ./charts/dify/worker
+    - path: releases/external-secrets/app.yaml
+      namespace: infra-external-secrets
+      name: external-secrets
+      chart: ./charts/external-secrets
+    - path: releases/fluent-bit/app.yaml
+      namespace: monitor-fluent-bit
+      name: fluent-bit
+      chart: ./charts/fluent-bit
+    - path: releases/fluent-bit/shared.yaml
+      namespace: monitor-fluent-bit
+      name: fluent-bit-shared
+      chart: ./charts/fluent-bit/shared
+    - path: releases/keycloak/active-directory.yaml
+      namespace: auth-keycloak
+      name: keycloak-active-directory
+      chart: ./charts/keycloak/realm-config/active-directory
+    - path: releases/keycloak/oidc-agentgateway.yaml
+      namespace: auth-keycloak
+      name: keycloak-agentgateway-oidc
+      chart: ./charts/keycloak/oidc/agentgateway
+    - path: releases/keycloak/oidc-dify-agentgateway.yaml
+      namespace: auth-keycloak
+      name: keycloak-dify-agentgateway-oidc
+      chart: ./charts/keycloak/oidc/dify-agentgateway
+    - path: releases/keycloak/oidc-dify.yaml
+      namespace: auth-keycloak
+      name: keycloak-dify-oidc
+      chart: ./charts/keycloak/oidc/dify
+    - path: releases/keycloak/oidc-keycloak-api-key-bridge.yaml
+      namespace: auth-keycloak
+      name: keycloak-keycloak-api-key-bridge-oidc
+      chart: ./charts/keycloak/oidc/keycloak-api-key-bridge
+    - path: releases/keycloak/oidc-librechat.yaml
+      namespace: auth-keycloak
+      name: keycloak-librechat-oidc
+      chart: ./charts/keycloak/oidc/librechat
+    - path: releases/keycloak/oidc-studio.yaml
+      namespace: auth-keycloak
+      name: keycloak-studio-oidc
+      chart: ./charts/keycloak/oidc/studio
+    - path: releases/keycloak/realm-initial-admin.yaml
+      namespace: auth-keycloak
+      name: keycloak-initial-admin
+      chart: ./charts/keycloak/realm-config/initial-admin
+    - path: releases/keycloak/realm-roles.yaml
+      namespace: auth-keycloak
+      name: keycloak-realm-roles
+      chart: ./charts/keycloak/realm-config/realm-roles
+    - path: releases/keycloak/server.yaml
+      namespace: auth-keycloak
+      name: keycloak
+      chart: ./charts/keycloak/server
+    - path: releases/keycloak-api-key-bridge/app.yaml
+      namespace: auth-keycloak-api-key-bridge
+      name: keycloak-api-key-bridge
+      chart: ./charts/keycloak-api-key-bridge
+    - path: releases/kube-prometheus-stack/app.yaml
+      namespace: monitor-kube-prometheus-stack
+      name: kube-prometheus-stack
+      chart: ./charts/kube-prometheus-stack
+    - path: releases/langfuse/app.yaml
+      namespace: monitor-langfuse
+      name: langfuse
+      chart: ./charts/langfuse
+    - path: releases/librechat/code-interpreter/api.yaml
+      namespace: librechat-code-interpreter
+      name: librechat-code-interpreter-api
+      chart: ./charts/librechat/code-interpreter/api
+    - path: releases/librechat/code-interpreter/egress-gateway.yaml
+      namespace: librechat-code-interpreter
+      name: librechat-code-interpreter-egress-gateway
+      chart: ./charts/librechat/code-interpreter/egress-gateway
+    - path: releases/librechat/code-interpreter/file-server.yaml
+      namespace: librechat-code-interpreter
+      name: librechat-code-interpreter-file-server
+      chart: ./charts/librechat/code-interpreter/file-server
+    - path: releases/librechat/code-interpreter/package-init.yaml
+      namespace: librechat-code-interpreter
+      name: librechat-code-interpreter-package-init
+      chart: ./charts/librechat/code-interpreter/package-init
+    - path: releases/librechat/code-interpreter/shared.yaml
+      namespace: librechat-code-interpreter
+      name: librechat-code-interpreter-shared
+      chart: ./charts/librechat/code-interpreter/shared
+    - path: releases/librechat/code-interpreter/tool-call-server.yaml
+      namespace: librechat-code-interpreter
+      name: librechat-code-interpreter-tool-call-server
+      chart: ./charts/librechat/code-interpreter/tool-call-server
+    - path: releases/librechat/code-interpreter/valkey.yaml
+      namespace: librechat-code-interpreter
+      name: librechat-code-interpreter-valkey
+      chart: ./charts/librechat/code-interpreter/valkey
+    - path: releases/librechat/code-interpreter/worker.yaml
+      namespace: librechat-code-interpreter
+      name: librechat-code-interpreter-worker
+      chart: ./charts/librechat/code-interpreter/worker
+    - path: releases/librechat/core/admin-panel.yaml
+      namespace: frontend-librechat
+      name: frontend-librechat-admin-panel
+      chart: ./charts/librechat/admin-panel
+    - path: releases/librechat/core/app.yaml
+      namespace: frontend-librechat
+      name: librechat
+      chart: ./charts/librechat/app
+    - path: releases/librechat/core/meilisearch.yaml
+      namespace: frontend-librechat
+      name: frontend-librechat-meilisearch
+      chart: ./charts/librechat/meilisearch
+    - path: releases/librechat/core/shared.yaml
+      namespace: frontend-librechat
+      name: frontend-librechat-shared
+      chart: ./charts/librechat/shared
+    - path: releases/librechat/core/valkey.yaml
+      namespace: frontend-librechat
+      name: frontend-librechat-valkey
+      chart: ./charts/librechat/valkey
+    - path: releases/librechat/rag/rag-api.yaml
+      namespace: frontend-librechat
+      name: frontend-librechat-rag-api
+      chart: ./charts/librechat/rag-api
+    - path: releases/openbao/app.yaml
+      namespace: infra-openbao
+      name: openbao
+      chart: ./charts/openbao
+    - path: releases/opensearch/app.yaml
+      namespace: monitor-opensearch
+      name: opensearch
+      chart: ./charts/opensearch
+    - path: releases/pii-engine/app.yaml
+      namespace: monitor-pii-engine
+      name: pii-engine
+      chart: ./charts/pii-engine
+    - path: releases/pii-engine-model-sync/app.yaml
+      namespace: monitor-pii-engine
+      name: pii-engine-model-sync
+      chart: ./charts/pii-engine-model-sync
+    - path: releases/postgres/auth.yaml
+      namespace: infra-postgres-auth
+      name: postgres-auth
+      chart: ./charts/postgres/auth
+    - path: releases/postgres/operations.yaml
+      namespace: infra-postgres-operations
+      name: postgres-operations
+      chart: ./charts/postgres/operations
+    - path: releases/reloader/app.yaml
+      namespace: infra-reloader
+      name: reloader
+      chart: ./charts/reloader
+    - path: releases/rook-ceph/app.yaml
+      namespace: infra-rook-ceph
+      name: rook-ceph
+      chart: ./charts/rook-ceph
+    - path: releases/studio/api.yaml
+      namespace: frontend-studio
+      name: studio-api
+      chart: ./charts/studio/api
+    - path: releases/studio/shared.yaml
+      namespace: frontend-studio
+      name: studio-shared
+      chart: ./charts/studio/shared
+    - path: releases/studio/web.yaml
+      namespace: frontend-studio
+      name: studio
+      chart: ./charts/studio/web
+    - path: releases/traefik/app.yaml
+      namespace: kube-system
+      name: traefik
+      chart: ./charts/traefik
+    - path: releases/trust-manager/app.yaml
+      namespace: infra-trust-manager
+      name: trust-manager
+      chart: ./charts/trust-manager
+    images:
+    - reference: cr.agentgateway.dev/controller:v1.4.1
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/agentgateway/values.yaml
+    - reference: cr.fluentbit.io/fluent/fluent-bit:3.2.8
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/fluent-bit/values.yaml
+    - reference: docker.io/alpine/k8s:1.35.5
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/rook-ceph/values.yaml
+    - reference: docker.io/bitnamilegacy/clickhouse:25.2.1-debian-12-r0
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/langfuse/values.yaml
+    - reference: docker.io/bitnamilegacy/postgresql:17.3.0-debian-12-r1
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/langfuse/values.yaml
+    - reference: docker.io/bitnamilegacy/valkey:8.0.2-debian-12-r2
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/langfuse/values.yaml
+    - reference: docker.io/getmeili/meilisearch:v1.35.1
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/librechat/meilisearch/values.yaml
+    - reference: docker.io/grafana/grafana:12.0.0
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/kube-prometheus-stack/values.yaml
+    - reference: docker.io/langfuse/langfuse-worker:3.179.1
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/langfuse/values.yaml
+    - reference: docker.io/langfuse/langfuse:3.179.1
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/langfuse/values.yaml
+    - reference: docker.io/langgenius/dify-plugin-daemon:0.6.3-local
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/dify/plugin-daemon/values.yaml
+    - reference: docker.io/langgenius/dify-sandbox:0.2.15
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/dify/sandbox/values.yaml
+    - reference: docker.io/library/busybox:1.36.1
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/opensearch/values.yaml
+    - reference: docker.io/opensearchproject/opensearch:2.18.0
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/opensearch/values.yaml
+    - reference: docker.io/otel/opentelemetry-collector-contrib:0.132.1
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/langfuse/values.yaml
+    - reference: docker.io/postgres:18.6-alpine3.24
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/postgres/auth/values.yaml
+    - reference: docker.io/redis:7-alpine
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/dify/redis/values.yaml
+    - reference: docker.io/rook/ceph:v1.20.3
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/rook-ceph/values.yaml
+    - reference: docker.io/valkey/valkey:9.1.1-alpine
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/librechat/code-interpreter/valkey/values.yaml
+      - charts/librechat/valkey/values.yaml
+      - charts/pii-engine/values.yaml
+    - reference: ghcr.io/clickhouse/librechat-admin-panel:1.0.0
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/librechat/admin-panel/values.yaml
+    - reference: ghcr.io/danny-avila/librechat-dev@sha256:909958b41c7035be776aa6a1365016a66007d85fe5cfc8614320e0f24c1810e1
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/librechat/app/values.yaml
+    - reference: ghcr.io/documentdb/documentdb/documentdb-local:pg18-0.116.0
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/postgres/operations/values.yaml
+    - reference: ghcr.io/external-secrets/external-secrets:v2.9.0
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/external-secrets/values.yaml
+    - reference: ghcr.io/neurwerk/addon-dify-ce-builder-api:1.15.0-kc-v14
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/dify/api/values.yaml
+      - charts/dify/beat/values.yaml
+      - charts/dify/worker/values.yaml
+    - reference: ghcr.io/neurwerk/addon-dify-ce-builder-web:1.15.0-kc-v11
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/dify/web/values.yaml
+    - reference: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.6.3
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/agentgateway-extproc/values.yaml
+    - reference: ghcr.io/neurwerk/k8s-stack-keycloak-api-key-bridge:0.5.3
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/keycloak-api-key-bridge/values.yaml
+    - reference: ghcr.io/neurwerk/k8s-stack-pii-engine:0.7.2-cpu
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/pii-engine-model-sync/values.yaml
+      - charts/pii-engine/values.yaml
+    - reference: ghcr.io/neurwerk/k8s-stack-studio-api:0.6.2
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/studio/api/values.yaml
+    - reference: ghcr.io/neurwerk/k8s-stack-studio-web:0.6.2
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/studio/web/values.yaml
+    - reference: ghcr.io/neurwerk/k8s-stack-tooling:0.5.4
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/keycloak/oidc/agentgateway/values.yaml
+      - charts/keycloak/oidc/dify-agentgateway/values.yaml
+      - charts/keycloak/oidc/dify/values.yaml
+      - charts/keycloak/oidc/keycloak-api-key-bridge/values.yaml
+      - charts/keycloak/oidc/librechat/values.yaml
+      - charts/keycloak/oidc/studio/values.yaml
+      - charts/keycloak/realm-config/active-directory/values.yaml
+      - charts/keycloak/realm-config/initial-admin/values.yaml
+      - charts/keycloak/realm-config/realm-roles/values.yaml
+      - charts/keycloak/server/values.yaml
+      - charts/opensearch/values.yaml
+    - reference: ghcr.io/neurwerk/librechat-code-interpreter-api:fea707467600f3802d65596a6875c7822f25cfd8
+      pinned: true
+      eligibility: excluded
+      origins:
+      - charts/librechat/code-interpreter/api/values.yaml
+    - reference: ghcr.io/neurwerk/librechat-code-interpreter-egress-gateway:fea707467600f3802d65596a6875c7822f25cfd8
+      pinned: true
+      eligibility: excluded
+      origins:
+      - charts/librechat/code-interpreter/egress-gateway/values.yaml
+    - reference: ghcr.io/neurwerk/librechat-code-interpreter-file-server:fea707467600f3802d65596a6875c7822f25cfd8
+      pinned: true
+      eligibility: excluded
+      origins:
+      - charts/librechat/code-interpreter/file-server/values.yaml
+    - reference: ghcr.io/neurwerk/librechat-code-interpreter-package-init:fea707467600f3802d65596a6875c7822f25cfd8
+      pinned: true
+      eligibility: excluded
+      origins:
+      - charts/librechat/code-interpreter/package-init/values.yaml
+    - reference: ghcr.io/neurwerk/librechat-code-interpreter-sandbox-runner:fea707467600f3802d65596a6875c7822f25cfd8
+      pinned: true
+      eligibility: excluded
+      origins:
+      - charts/librechat/code-interpreter/worker/values.yaml
+    - reference: ghcr.io/neurwerk/librechat-code-interpreter-tool-call-server:fea707467600f3802d65596a6875c7822f25cfd8
+      pinned: true
+      eligibility: excluded
+      origins:
+      - charts/librechat/code-interpreter/tool-call-server/values.yaml
+    - reference: ghcr.io/neurwerk/librechat-code-interpreter-worker:fea707467600f3802d65596a6875c7822f25cfd8
+      pinned: true
+      eligibility: excluded
+      origins:
+      - charts/librechat/code-interpreter/worker/values.yaml
+    - reference: ghcr.io/stakater/reloader:v1.4.21
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/reloader/values.yaml
+    - reference: quay.io/ceph/ceph:v20.2.2
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/rook-ceph/values.yaml
+    - reference: quay.io/cephcsi/ceph-csi-operator:v1.0.4
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/rook-ceph/values.yaml
+    - reference: quay.io/cephcsi/cephcsi:v3.17.0
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/rook-ceph/values.yaml
+    - reference: quay.io/csiaddons/k8s-sidecar:v0.14.0
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/rook-ceph/values.yaml
+    - reference: quay.io/jetstack/cert-manager-approver-policy:v0.25.1
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/cert-manager/approver-policy/values.yaml
+    - reference: quay.io/jetstack/cert-manager-cainjector:v1.20.2
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/cert-manager/controller/values.yaml
+    - reference: quay.io/jetstack/cert-manager-controller:v1.20.2
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/cert-manager/controller/values.yaml
+    - reference: quay.io/jetstack/cert-manager-startupapicheck:v1.20.2
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/cert-manager/controller/values.yaml
+    - reference: quay.io/jetstack/cert-manager-webhook:v1.20.2
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/cert-manager/controller/values.yaml
+    - reference: quay.io/jetstack/trust-manager:v0.24.0
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/trust-manager/values.yaml
+    - reference: quay.io/jetstack/trust-pkg-debian-trixie:20250419.1
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/trust-manager/values.yaml
+    - reference: quay.io/keycloak/keycloak:26.7.2
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/keycloak/server/values.yaml
+    - reference: quay.io/kiwigrid/k8s-sidecar:1.30.0
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/kube-prometheus-stack/values.yaml
+    - reference: quay.io/openbao/openbao:2.6.1
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/openbao/values.yaml
+    - reference: quay.io/prometheus-operator/prometheus-operator:v0.82.2
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/kube-prometheus-stack/values.yaml
+    - reference: quay.io/prometheus/alertmanager:v0.28.1
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/kube-prometheus-stack/values.yaml
+    - reference: quay.io/prometheus/node-exporter:v1.9.1
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/kube-prometheus-stack/values.yaml
+    - reference: quay.io/prometheus/prometheus:v3.3.1
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/kube-prometheus-stack/values.yaml
+    - reference: registry.k8s.io/ingress-nginx/kube-webhook-certgen:v1.5.3
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/kube-prometheus-stack/values.yaml
+    - reference: registry.k8s.io/kube-state-metrics/kube-state-metrics:v2.15.0
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/kube-prometheus-stack/values.yaml
+    - reference: registry.k8s.io/sig-storage/csi-attacher:v4.12.0
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/rook-ceph/values.yaml
+    - reference: registry.k8s.io/sig-storage/csi-node-driver-registrar:v2.17.0
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/rook-ceph/values.yaml
+    - reference: registry.k8s.io/sig-storage/csi-provisioner:v6.2.0
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/rook-ceph/values.yaml
+    - reference: registry.k8s.io/sig-storage/csi-resizer:v2.1.0
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/rook-ceph/values.yaml
+    - reference: registry.k8s.io/sig-storage/csi-snapshotter:v8.5.0
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/rook-ceph/values.yaml
+    - reference: registry.k8s.io/sig-storage/snapshot-controller:v8.5.0
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/rook-ceph/values.yaml
+    - reference: registry.librechat.ai/danny-avila/librechat-rag-api-dev-lite:v0.9.0
+      pinned: true
+      eligibility: excluded
+      origins:
+      - charts/librechat/rag-api/values.yaml
+    - reference: registry.librechat.ai/danny-avila/librechat-rag-api-dev:v0.9.0
+      pinned: true
+      eligibility: excluded
+      origins:
+      - charts/librechat/rag-api/values.yaml
+    toolchain:
+      helm: 4.2.4
+      kustomize: 5.8.1
+      kubeconform: 0.8.0
+      kube-linter: 0.8.3
+      pre-commit: 4.6.1
+      uv: 0.11.21

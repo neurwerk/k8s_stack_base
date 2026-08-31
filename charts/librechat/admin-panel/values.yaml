@@ -1,0 +1,96 @@
+# Standard Helm resource-name overrides.
+nameOverride: ""
+fullnameOverride: ""
+
+frontendLibrechat:
+  # Public hostname of the main LibreChat application. The admin panel uses
+  # https://<hostname> for browser-facing OAuth redirects.
+  hostname: ""
+
+  adminPanel:
+    # Public hostname dedicated to the admin panel. Gateway resources are not
+    # rendered while this is blank or uses the place.holder suffix.
+    hostname: ""
+    replicas: 1
+
+    image:
+      # v1.0.0 is published by the upstream release workflow for linux/amd64
+      # and linux/arm64. Do not replace this version-specific tag with latest.
+      repository: ghcr.io/clickhouse/librechat-admin-panel
+      tag: "1.0.0"
+      pullPolicy: IfNotPresent
+    imagePullSecrets: []
+
+    ports:
+      container: 3000
+      service: 3000
+
+    # Server-side traffic stays on the namespace-local LibreChat Service.
+    apiServerUrl: http://frontend-librechat:3080
+
+    # Native credentials remain hidden; authentication is delegated to the
+    # OpenID provider configured by the main LibreChat application.
+    ssoOnly: true
+    session:
+      cookieSecure: true
+      idleTimeoutMs: "1800000"
+
+    secret:
+      # With an existing Secret, keys are imported as environment variables.
+      # It must contain SESSION_SECRET and, when monitoring is enabled,
+      # ADMIN_PANEL_METRICS_SECRET. Set this to "" to use the explicit refs.
+      existingSecret: frontend-librechat-admin-panel-secret
+      session:
+        secretName: ""
+        key: SESSION_SECRET
+      metrics:
+        secretName: ""
+        key: ADMIN_PANEL_METRICS_SECRET
+
+    # The upstream oven/bun image defines bun as UID/GID 1000.
+    podSecurityContext:
+      runAsNonRoot: true
+      runAsUser: 1000
+      runAsGroup: 1000
+      fsGroup: 1000
+      fsGroupChangePolicy: OnRootMismatch
+      seccompProfile:
+        type: RuntimeDefault
+    containerSecurityContext:
+      allowPrivilegeEscalation: false
+      privileged: false
+      readOnlyRootFilesystem: true
+      runAsNonRoot: true
+      capabilities:
+        drop: [ALL]
+
+    # Bun may use /tmp while loading TypeScript at runtime; the root filesystem
+    # remains read-only and this scratch space is bounded.
+    tmpSizeLimit: 64Mi
+
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+    serviceMonitor:
+      # /metrics is supported and requires ADMIN_PANEL_METRICS_SECRET as a
+      # bearer token. Prometheus reads the token from the referenced Secret.
+      enabled: false
+      interval: 30s
+      scrapeTimeout: 10s
+
+    nodeSelector: {}
+    tolerations: []
+    affinity: {}
+
+externalGateway:
+  enabled: false
+  gatewayClassName: traefik
+  port: 443
+
+publicCertificates:
+  useProduction: false

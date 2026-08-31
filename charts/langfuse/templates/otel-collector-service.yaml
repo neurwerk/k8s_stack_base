@@ -1,0 +1,28 @@
+# =============================================================================
+# Langfuse OpenTelemetry Collector Service
+#
+# Exposes OTLP gRPC port (4317) for AgentGateway to send traces.
+# Exposes OTLP HTTP port (4318) for alternative ingestion methods.
+# =============================================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: monitor-langfuse-otel-collector-service
+  namespace: monitor-langfuse
+  labels:
+    app.kubernetes.io/name: otel-collector
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: monitor-langfuse
+spec:
+  type: ClusterIP
+  selector:
+    app: monitor-langfuse-otel-collector
+    app.kubernetes.io/name: otel-collector
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  ports:
+    - name: otlp-grpc
+      port: {{ .Values.monitorLangfuseWrapper.otelCollector.ports.grpc }}
+      targetPort: {{ .Values.monitorLangfuseWrapper.otelCollector.ports.grpc }}
+    - name: otlp-http
+      port: {{ .Values.monitorLangfuseWrapper.otelCollector.ports.http }}
+      targetPort: {{ .Values.monitorLangfuseWrapper.otelCollector.ports.http }}

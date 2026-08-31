@@ -1,0 +1,57 @@
+# IMAGE SOURCE: upstream
+# trust-manager images are controlled by the pinned official subchart.
+trust-manager:
+  namespace: infra-trust-manager
+  crds:
+    # The wrapper installs the pinned CRD through Helm's pre-template crds/ phase.
+    enabled: false
+    keep: true
+  replicaCount: 1
+  global:
+    rbac:
+      create: true
+      aggregateClusterRoles: false
+  app:
+    webhook:
+      tls:
+        certificate:
+          duration: 2160h
+    trust:
+      namespace: infra-cert-manager
+    metrics:
+      service:
+        enabled: true
+        servicemonitor:
+          enabled: true
+          labels:
+            release: monitor-kube-prometheus-stack
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop: [ALL]
+      readOnlyRootFilesystem: true
+      runAsNonRoot: true
+      seccompProfile:
+        type: RuntimeDefault
+  podSecurityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+  defaultPackage:
+    resources:
+      requests:
+        cpu: 10m
+        memory: 32Mi
+      limits:
+        cpu: 100m
+        memory: 128Mi
+  secretTargets:
+    enabled: false
+    authorizedSecretsAll: false

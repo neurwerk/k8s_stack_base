@@ -1,0 +1,130 @@
+name: Release Platform
+
+on:
+  workflow_run:
+    workflows:
+      - Verify Platform Release
+    types:
+      - completed
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  publish:
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push'
+    runs-on: ubuntu-latest
+    environment: platform-release
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - name: Checkout trusted default-branch tooling
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+          path: release-tooling
+          persist-credentials: false
+
+      - name: Download verified release identity
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: verified-platform-release
+          path: ${{ runner.temp }}/verified-release
+          github-token: ${{ github.token }}
+          run-id: ${{ github.event.workflow_run.id }}
+
+      - name: Resolve verified tag
+        id: release
+        env:
+          TAG_FILE: ${{ runner.temp }}/verified-release/release-tag.txt
+        run: |
+          tag="$(<"$TAG_FILE")"
+          if [[ ! "$tag" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            printf '%s\n' "invalid verified release tag: $tag" >&2
+            exit 1
+          fi
+          printf 'tag=%s\n' "$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout release tag as data
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          ref: ${{ steps.release.outputs.tag }}
+          fetch-depth: 0
+          path: release-data
+          persist-credentials: false
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+
+      - name: Install Python
+        run: uv python install 3.12
+
+      - name: Reverify tag, predecessor, ancestry, and release contract
+        id: contract
+        working-directory: release-data
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          PLATFORM_RELEASE_ALLOWED_SIGNER: ${{ vars.PLATFORM_RELEASE_ALLOWED_SIGNER }}
+          PLATFORM_RELEASE_PUBLIC_KEY_FILE: ${{ github.workspace }}/release-tooling/release/trust/platform-release.sshpub
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          cmp ../release-tooling/.github/workflows/release.yaml \
+            .github/workflows/release.yaml
+          bash ../release-tooling/scripts/verify_release_tag.sh "$RELEASE_TAG"
+          git fetch origin \
+            "refs/heads/$DEFAULT_BRANCH:refs/remotes/origin/$DEFAULT_BRANCH"
+          git merge-base --is-ancestor \
+            "$RELEASE_TAG^{commit}" "refs/remotes/origin/$DEFAULT_BRANCH"
+          previous_tag="$(uv run --project ../release-tooling --frozen python \
+            ../release-tooling/scripts/platform_release.py inspect-release \
+            --release-root . --tag "$RELEASE_TAG" --field previous-tag)"
+          bash ../release-tooling/scripts/verify_release_tag.sh \
+            "$previous_tag" "$previous_tag"
+          printf 'previous-tag=%s\n' "$previous_tag" >> "$GITHUB_OUTPUT"
+
+      - name: Generate GitHub notes from the explicit previous tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+          PREVIOUS_TAG: ${{ steps.contract.outputs.previous-tag }}
+        run: |
+          gh api --method POST "repos/$GITHUB_REPOSITORY/releases/generate-notes" \
+            -f tag_name="$RELEASE_TAG" \
+            -f previous_tag_name="$PREVIOUS_TAG" \
+            --jq .body > "$RUNNER_TEMP/generated-notes.md"
+
+      - name: Build curated and generated release notes with trusted tooling
+        working-directory: release-tooling
+        run: >-
+          uv run --frozen python scripts/platform_release.py notes
+          --release-root ../release-data
+          --output "$RUNNER_TEMP/release-notes.md"
+          --generated-notes "$RUNNER_TEMP/generated-notes.md"
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+        run: >-
+          gh release create "$RELEASE_TAG"
+          --verify-tag
+          --title "Neurwerk Platform $RELEASE_TAG"
+          --notes-file "$RUNNER_TEMP/release-notes.md"
+
+      - name: Record published tag
+        env:
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+        run: printf '%s\n' "$RELEASE_TAG" > "$RUNNER_TEMP/release-tag.txt"
+
+      - name: Upload published release identity
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: published-platform-release
+          path: ${{ runner.temp }}/release-tag.txt
+          retention-days: 1
+          if-no-files-found: error

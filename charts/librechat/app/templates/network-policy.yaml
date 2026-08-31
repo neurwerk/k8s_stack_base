@@ -1,0 +1,117 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: frontend-librechat-network-policy
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "frontend-librechat.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "frontend-librechat.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: traefik
+      ports:
+        - port: {{ .Values.frontendLibrechat.app.service.port }}
+          protocol: TCP
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: librechat-admin-panel
+      ports:
+        - port: {{ .Values.frontendLibrechat.app.service.port }}
+          protocol: TCP
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.frontendLibrechat.documentdb.namespace }}
+          podSelector:
+            matchLabels:
+              {{- toYaml .Values.frontendLibrechat.documentdb.podSelector | nindent 14 }}
+      ports:
+        - port: {{ .Values.frontendLibrechat.documentdb.port }}
+          protocol: TCP
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: frontend-librechat-meilisearch
+      ports:
+        - port: {{ .Values.frontendLibrechat.meilisearch.port }}
+          protocol: TCP
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: frontend-librechat-valkey
+      ports:
+        - port: {{ .Values.frontendLibrechat.valkey.port }}
+          protocol: TCP
+    {{- if .Values.frontendLibrechat.rag.enabled }}
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: frontend-librechat-rag-api
+      ports:
+        - port: {{ .Values.frontendLibrechat.rag.port }}
+          protocol: TCP
+    {{- end }}
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.frontendLibrechat.agentGateway.namespace }}
+          podSelector:
+            matchLabels:
+              {{- toYaml .Values.frontendLibrechat.agentGateway.podSelector | nindent 14 }}
+      ports:
+        - port: {{ .Values.frontendLibrechat.agentGateway.port }}
+          protocol: TCP
+    {{- if .Values.frontendLibrechat.codeInterpreter.enabled }}
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.frontendLibrechat.codeInterpreter.namespace }}
+          podSelector:
+            matchLabels:
+              {{- toYaml .Values.frontendLibrechat.codeInterpreter.podSelector | nindent 14 }}
+      ports:
+        - port: {{ .Values.frontendLibrechat.codeInterpreter.port }}
+          protocol: TCP
+    {{- end }}
+    # The client-configured OIDC issuer and browser-reachable object endpoint are
+    # FQDNs, which standard NetworkPolicy cannot select more narrowly than
+    # public HTTPS.
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 100.64.0.0/10
+              - 127.0.0.0/8
+              - 169.254.0.0/16
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+              - 224.0.0.0/4
+      ports:
+        - port: 443
+          protocol: TCP

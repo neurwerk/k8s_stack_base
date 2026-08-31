@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: monitor-langfuse-init-config-map
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: langfuse
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: monitor-langfuse
+data:
+  org-id: {{ .Values.monitorLangfuseWrapper.initOrgId | quote }}
+  org-name: {{ .Values.monitorLangfuseWrapper.initOrgName | quote }}
+  project-id: {{ .Values.monitorLangfuseWrapper.initProjectId | quote }}
+  project-name: {{ .Values.monitorLangfuseWrapper.initProjectName | quote }}
+  user-email: {{ .Values.monitorLangfuseWrapper.initUserEmail | quote }}
+  user-name: {{ .Values.monitorLangfuseWrapper.initUserName | quote }}

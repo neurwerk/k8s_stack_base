@@ -1,0 +1,34 @@
+# Node-to-node transport certificate (port 9300).
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: monitor-opensearch-transport-certificate
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: opensearch
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: monitor-opensearch
+spec:
+  commonName: opensearch-cluster-master
+  secretName: monitor-opensearch-transport-tls
+  privateKey:
+    algorithm: RSA
+    size: 2048
+    encoding: PKCS8
+  duration: 2160h
+  renewBefore: 360h
+  usages:
+    - server auth
+    - client auth
+  dnsNames:
+    - opensearch-cluster-master
+    - opensearch-cluster-master.monitor-opensearch
+    - opensearch-cluster-master.monitor-opensearch.svc
+    - opensearch-cluster-master.monitor-opensearch.svc.cluster.local
+    - opensearch-cluster-master-headless
+    - opensearch-cluster-master-headless.monitor-opensearch.svc.cluster.local
+    - "*.opensearch-cluster-master-headless.monitor-opensearch.svc.cluster.local"
+  issuerRef:
+    name: infra-cert-manager-internal-ca-issuer
+    kind: ClusterIssuer
+    group: cert-manager.io

@@ -1,0 +1,63 @@
+# =============================================================================
+# Langfuse OpenTelemetry Collector Deployment
+#
+# The collector bridges OTLP gRPC from AgentGateway to OTLP HTTP for Langfuse.
+# AgentGateway sends traces to the collector's gRPC port, and the collector
+# forwards them to Langfuse's /api/public/otel endpoint.
+# =============================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: monitor-langfuse-otel-collector-deployment
+  namespace: monitor-langfuse
+  annotations:
+    secret.reloader.stakater.com/reload: monitor-langfuse-secret
+  labels:
+    app: monitor-langfuse-otel-collector
+    app.kubernetes.io/name: otel-collector
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: monitor-langfuse
+spec:
+  replicas: 1 # TODO should be a variable and in shared/resources.
+  selector:
+    matchLabels:
+      app: monitor-langfuse-otel-collector
+      app.kubernetes.io/name: otel-collector
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: monitor-langfuse-otel-collector
+        app.kubernetes.io/name: otel-collector
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/part-of: monitor-langfuse
+    spec:
+      containers:
+        - name: otel-collector
+          image: {{ .Values.monitorLangfuseWrapper.otelCollectorImage | quote }}
+          args: ["--config=/conf/config.yaml"]
+          env:
+            - name: LANGFUSE_BASIC_AUTH
+              valueFrom:
+                secretKeyRef:
+                  name: monitor-langfuse-secret
+                  key: otel-basic-auth
+          ports:
+            - containerPort: {{ .Values.monitorLangfuseWrapper.otelCollector.ports.grpc }}
+              name: otlp-grpc
+            - containerPort: {{ .Values.monitorLangfuseWrapper.otelCollector.ports.http }}
+              name: otlp-http
+          volumeMounts:
+            - name: config
+              mountPath: /conf
+          resources:
+            requests:
+              cpu: {{ .Values.monitorLangfuseWrapper.otelCollector.resources.requests.cpu }}
+              memory: {{ .Values.monitorLangfuseWrapper.otelCollector.resources.requests.memory }}
+            limits:
+              cpu: {{ .Values.monitorLangfuseWrapper.otelCollector.resources.limits.cpu }}
+              memory: {{ .Values.monitorLangfuseWrapper.otelCollector.resources.limits.memory }}
+      volumes:
+        - name: config
+          configMap:
+            name: monitor-langfuse-otel-collector-config-map

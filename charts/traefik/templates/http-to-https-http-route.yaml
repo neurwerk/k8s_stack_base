@@ -1,0 +1,20 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: kube-system-http-to-https-httproute
+  namespace: kube-system
+  labels:
+    app.kubernetes.io/name: traefik-http-to-https
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: kube-system
+spec:
+  parentRefs:
+    - name: traefik-http-to-https-gateway
+      namespace: kube-system
+      sectionName: http-redirect
+  rules:
+    - filters:
+        - type: RequestRedirect
+          requestRedirect:
+            scheme: https
+            statusCode: 301

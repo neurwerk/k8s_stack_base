@@ -1,0 +1,66 @@
+{{- $product := .Values.frontendLibrechatCodeInterpreter -}}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "librechat-code-interpreter-api.fullname" . }}
+  labels:
+    {{- include "librechat-code-interpreter-api.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "librechat-code-interpreter-api.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ $product.networkPolicy.librechatNamespace }}
+          podSelector:
+            matchLabels:
+              {{- toYaml $product.networkPolicy.librechatPodLabels | nindent 14 }}
+      ports:
+        - protocol: TCP
+          port: {{ $product.api.port }}
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: librechat-code-interpreter-valkey
+      ports:
+        - protocol: TCP
+          port: {{ $product.valkey.port }}
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: librechat-code-interpreter-file-server
+      ports:
+        - protocol: TCP
+          port: {{ $product.fileServer.port }}
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: librechat-code-interpreter-tool-call-server
+      ports:
+        - protocol: TCP
+          port: {{ $product.toolCallServer.port }}
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: librechat-code-interpreter-egress-gateway
+      ports:
+        - protocol: TCP
+          port: {{ $product.egressGateway.port }}

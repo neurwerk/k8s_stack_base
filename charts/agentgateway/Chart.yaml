@@ -1,0 +1,23 @@
+apiVersion: v2
+name: infra-agentgateway
+description: |
+  Wrapper chart — AgentGateway AI gateway proxy (infra-agentgateway namespace).
+
+  Exposes a unified proxy for LLM provider traffic with built-in JWT
+  authentication (validated against Keycloak), rate limiting, and observability.
+
+  Deploys:
+    - AgentGateway control plane (via OCI subchart dependency)
+    - AgentGateway data plane proxy
+    - Gateway (gatewayClassName: agentgateway) with cert-manager TLS
+    - HTTPRoute routing /v1/chat/completions traffic + MCP/OAuth paths
+    - Optional private LibreChat RAG embeddings listener
+    - AgentgatewayPolicy with JWT auth (Keycloak JWKS) + CEL RBAC
+    - Secret with LLM provider API keys
+type: application
+version: 0.7.13
+appVersion: "1.4.1"
+dependencies:
+  - name: agentgateway
+    version: "1.4.1"
+    repository: oci://cr.agentgateway.dev/charts

@@ -1,0 +1,92 @@
+# =============================================================================
+# Keycloak post-install init Job
+#
+# Runs after Keycloak is deployed. Executes the realm init script from the
+# k8s_stack_tooling image.
+#
+# Hook weights ensure execution order:
+#   -3: this Job
+# =============================================================================
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: auth-keycloak-init-job
+  namespace: auth-keycloak
+  labels:
+    app.kubernetes.io/name: keycloak-init
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: auth-keycloak
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "-3"
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 86400
+  activeDeadlineSeconds: 600
+  template:
+    metadata:
+      name: auth-keycloak-init-job
+      labels:
+        app: auth-keycloak-init-job-app
+        job: auth-keycloak-init-job
+        app.kubernetes.io/name: keycloak-init
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/part-of: auth-keycloak
+        app.kubernetes.io/component: configuration
+    spec:
+      automountServiceAccountToken: false
+      restartPolicy: OnFailure
+      containers:
+        - name: init
+          image: {{ (.Values.k8sTools).image | quote }}
+          command:
+            - upsert-realm
+          env:
+            - name: KC_INTERNAL_URL
+              value: "http://auth-keycloak-keycloak-service.auth-keycloak.svc.cluster.local"
+            - name: KC_HEALTH_PORT
+              value: {{ .Values.authKeycloak.keycloak.ports.service.mgmt | quote }}
+            - name: KC_ADMIN_USER
+              value: {{ .Values.authKeycloak.adminUser | quote }}
+            - name: KC_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: auth-keycloak-secret
+                  key: adminPassword
+            - name: KC_REALM
+              value: {{ required "authKeycloak.realm is required" .Values.authKeycloak.realm | quote }}
+            - name: KC_REALM_DISPLAY_NAME
+              value: {{ required "authKeycloak.realmDisplayName is required" .Values.authKeycloak.realmDisplayName | quote }}
+            - name: KC_SSO_SESSION_MAX_LIFESPAN
+              value: {{ .Values.authKeycloak.ssoSessionMaxLifespan | default "2592000" | quote }}
+            - name: KC_SSO_SESSION_IDLE_TIMEOUT
+              value: {{ .Values.authKeycloak.ssoSessionIdleTimeout | default "86400" | quote }}
+            - name: KC_ACCESS_TOKEN_LIFESPAN
+              value: {{ .Values.authKeycloak.accessTokenLifespan | default "900" | quote }}
+            - name: KC_ADMIN_ACTION_TOKEN_LIFESPAN
+              value: {{ .Values.authKeycloak.adminActionTokenLifespan | default "1800" | quote }}
+            - name: KC_SMTP_ENABLED
+              value: {{ .Values.authKeycloak.smtp.enabled | quote }}
+            {{- if .Values.authKeycloak.smtp.enabled }}
+            - name: KC_SMTP_HOST
+              value: {{ required "authKeycloak.smtp.host is required when SMTP is enabled" .Values.authKeycloak.smtp.host | quote }}
+            - name: KC_SMTP_PORT
+              value: {{ required "authKeycloak.smtp.port is required when SMTP is enabled" .Values.authKeycloak.smtp.port | quote }}
+            - name: KC_SMTP_FROM
+              value: {{ required "authKeycloak.smtp.from is required when SMTP is enabled" .Values.authKeycloak.smtp.from | quote }}
+            - name: KC_SMTP_SSL
+              value: {{ .Values.authKeycloak.smtp.ssl | quote }}
+            - name: KC_SMTP_STARTTLS
+              value: {{ .Values.authKeycloak.smtp.starttls | quote }}
+            - name: KC_SMTP_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: auth-keycloak-smtp-secret
+                  key: smtpUsername
+            - name: KC_SMTP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: auth-keycloak-smtp-secret
+                  key: smtpPassword
+            {{- end }}

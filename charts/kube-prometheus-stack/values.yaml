@@ -1,0 +1,106 @@
+# IMAGE SOURCE: upstream
+# Monitoring images are controlled by the vendor subchart.
+# Pinned here (chart defaults).
+# =============================================================================
+# charts/kube-prometheus-stack/values.yaml — default values
+#
+# These defaults are overridden by:
+#   - ConfigMap: base-shared-resources-config-map
+#   - ConfigMap: monitor-kube-prometheus-stack-app-defaults
+#
+# No Gateway/HTTPRoute — internal-only monitoring.
+# =============================================================================
+
+monitorKubePrometheusStack:
+  alerting:
+    email:
+      # The platform release enables email by default. Chart-only rendering stays
+      # inert until a client supplies its non-secret SMTP and recipient facts.
+      enabled: false
+      host: ""
+      port: 465
+      from: ""
+      to: ""
+      authUsername: ""
+      authPassword: ""
+
+# ── Subchart dependency: kube-prometheus-stack ────────────────────────────────
+# Values under this key are passed directly to the subchart.
+kube-prometheus-stack:
+  namespaceOverride: monitor-kube-prometheus-stack
+  fullnameOverride: monitor-kube-prometheus-stack
+
+  # CRDs are applied manually (consistent with cert-manager pattern)
+  crds:
+    enabled: false
+
+  # Disable chart's default namespace creation — we manage it via kustomize
+  namespace:
+    create: false
+
+  # Clean up operator object names to avoid double-prefixing
+  cleanPrometheusOperatorObjectNames: true
+
+  # Default rules (alerts + recording rules)
+  defaultRules:
+    create: true
+
+  # ── Prometheus ────────────────────────────────────────────────────────────
+  prometheus:
+    enabled: true
+    prometheusSpec:
+      # PodMonitor/ServiceMonitor discovery — match our release label
+      podMonitorSelectorNilUsesHelmValues: false
+      serviceMonitorSelectorNilUsesHelmValues: false
+      # Retention, storage, and resources are set in releases/shared/resources.yaml
+
+  # ── Alertmanager ──────────────────────────────────────────────────────────
+  alertmanager:
+    enabled: true
+    alertmanagerSpec:
+      useExistingSecret: true
+      configSecret: monitor-kube-prometheus-stack-alertmanager-config
+      # Do not merge arbitrary AlertmanagerConfig resources into the platform
+      # configuration. No owned resource currently carries this opt-in label.
+      alertmanagerConfigSelector:
+        matchLabels:
+          alerts.neurwerk.com/managed-by: monitor-kube-prometheus-stack
+      alertmanagerConfigNamespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: monitor-kube-prometheus-stack
+    # Storage and resources are set in releases/shared/resources.yaml
+
+  # ── Grafana ───────────────────────────────────────────────────────────────
+  grafana:
+    enabled: true
+    # The wrapper supplies ConfigMap-only Roles in each trusted dashboard
+    # namespace instead of the subchart's cluster-wide ConfigMap/Secret role.
+    rbac:
+      create: false
+    admin:
+      existingSecret: monitor-kube-prometheus-stack-secret
+      userKey: admin-user
+      passwordKey: admin-password
+    # Automatically import GitOps-managed dashboards from the two trusted
+    # namespaces. The sidecars process ConfigMaps only.
+    sidecar:
+      dashboards:
+        enabled: true
+        label: grafana_dashboard
+        labelValue: "1"
+        searchNamespace: monitor-kube-prometheus-stack,infra-agentgateway
+        resource: configmap
+      datasources:
+        resource: configmap
+    # No Ingress — use Gateway/HTTPRoute if exposure is needed in the future
+    ingress:
+      enabled: false
+    # Prometheus datasource is auto-provisioned by the chart (default: true)
+
+  # ── kube-state-metrics (dependency subchart) ───────────────────────────────
+  kube-state-metrics:
+    enabled: true
+
+  # ── prometheus-node-exporter (dependency subchart) ─────────────────────────
+  prometheus-node-exporter:
+    enabled: true

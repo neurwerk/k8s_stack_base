@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: monitor-agentgateway-extproc-service
+  namespace: monitor-agentgateway-extproc
+  labels:
+    app.kubernetes.io/name: monitor-agentgateway-extproc
+    app.kubernetes.io/instance: monitor-agentgateway-extproc
+    app.kubernetes.io/part-of: monitor-agentgateway-extproc
+spec:
+  selector:
+    app.kubernetes.io/name: monitor-agentgateway-extproc
+  ports:
+    - name: extproc
+      port: {{ .Values.monitorAgentgatewayExtproc.ports.service.extproc }}
+      targetPort: {{ .Values.monitorAgentgatewayExtproc.ports.container.extproc }}
+      protocol: TCP
+    - name: http
+      port: {{ .Values.monitorAgentgatewayExtproc.ports.service.http }}
+      targetPort: {{ .Values.monitorAgentgatewayExtproc.ports.container.http }}
+      protocol: TCP
+  type: ClusterIP

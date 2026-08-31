@@ -1,0 +1,27 @@
+# IMAGE SOURCE: tooling
+# k8sTools is a pinned neurwerk image used by this OIDC bootstrap Job.
+# =============================================================================
+# values.yaml — keycloak-oidc-configurations/agentgateway
+#
+# Default values for the AgentGateway OIDC client configuration.
+#
+# AgentGateway validates JWTs using JWKS (public keys) — no client secret
+# injection needed. The OIDC Job only creates the client in Keycloak so the
+# azp policy check (jwt.azp in ["librechat", "agentgateway"]) can match it.
+#
+# Hostnames and URLs are defined in client_*/config/client.yaml.
+# This file only defines non-hostname defaults.
+# =============================================================================
+
+# AgentGateway OIDC client ID (default — unlikely to change)
+authKeycloak:
+  agentgatewayClientId: agentgateway
+  # Tenant overlays extend this catalog with derived model/MCP permissions.
+  agentgatewayClientRoles:
+    - llm:invoke
+  # agentgatewayRedirectUri: "" => set in client_*/config/client.yaml
+  # agentgatewayWebOrigin: "" => set in client_*/config/client.yaml
+
+# k8sTools — init script image version
+k8sTools:
+  image: ghcr.io/neurwerk/k8s-stack-tooling:0.5.4

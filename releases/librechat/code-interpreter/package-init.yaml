@@ -1,0 +1,50 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: librechat-code-interpreter-package-init
+  namespace: librechat-code-interpreter
+spec:
+  releaseName: librechat-code-interpreter-package-init
+  interval: 5m
+  timeout: 90m
+  install:
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 2m
+  upgrade:
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 2m
+  dependsOn:
+    - name: librechat-code-interpreter-shared
+      namespace: librechat-code-interpreter
+    - name: librechat-code-interpreter-valkey
+      namespace: librechat-code-interpreter
+  chart:
+    spec:
+      chart: ./charts/librechat/code-interpreter/package-init
+      sourceRef:
+        kind: GitRepository
+        name: k8s-stack
+        namespace: flux-system
+      interval: 1m
+  valuesFrom:
+    - kind: ConfigMap
+      name: base-shared-hostnames-config-map
+      valuesKey: values.yaml
+    - kind: ConfigMap
+      name: base-shared-resources-config-map
+      valuesKey: values.yaml
+    - kind: ConfigMap
+      name: librechat-code-interpreter-app-defaults
+      valuesKey: values.yaml
+    - kind: ConfigMap
+      name: client-values
+      valuesKey: values.yaml
+    - kind: ConfigMap
+      name: librechat-product-values
+      valuesKey: values.yaml
+  values:
+    frontendLibrechatCodeInterpreter:
+      validation:
+        production: true

@@ -1,0 +1,79 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rook-ceph-operator
+  namespace: {{ .Release.Namespace }}
+  labels:
+    operator: rook
+    storage-backend: ceph
+    {{- include "infra-rook-ceph.labels" . | nindent 4 }}
+    app.kubernetes.io/component: rook-ceph-operator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: rook-ceph
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: rook-ceph-operator
+        {{- include "infra-rook-ceph.labels" . | nindent 8 }}
+        app.kubernetes.io/component: rook-ceph-operator
+    spec:
+      serviceAccountName: rook-ceph-system
+      tolerations:
+        - effect: NoExecute
+          key: node.kubernetes.io/unreachable
+          operator: Exists
+          tolerationSeconds: 5
+      containers:
+        - name: rook-ceph-operator
+          image: {{ .Values.infraRookCeph.rookImage | quote }}
+          args: ["ceph", "operator"]
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 2016
+            runAsGroup: 2016
+            capabilities:
+              drop: ["ALL"]
+            readOnlyRootFilesystem: true
+          volumeMounts:
+            - name: rook-config
+              mountPath: /var/lib/rook
+            - name: default-config-dir
+              mountPath: /etc/ceph
+          env:
+            - name: ROOK_CURRENT_NAMESPACE_ONLY
+              value: "false"
+            - name: ROOK_RECONCILE_CONCURRENT_CLUSTERS
+              value: "1"
+            - name: ROOK_HOSTPATH_REQUIRES_PRIVILEGED
+              value: "false"
+            - name: ROOK_CEPH_MON_RUN_AS_ROOT
+              value: "false"
+            - name: DISCOVER_DAEMON_UDEV_BLACKLIST
+              value: "(?i)dm-[0-9]+,(?i)rbd[0-9]+,(?i)nbd[0-9]+"
+            - name: ROOK_UNREACHABLE_NODE_TOLERATION_SECONDS
+              value: "5"
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          resources:
+            {{- toYaml .Values.infraRookCeph.resources.operator | nindent 12 }}
+      volumes:
+        - name: rook-config
+          emptyDir: {}
+        - name: default-config-dir
+          emptyDir: {}

@@ -1,0 +1,26 @@
+apiVersion: ceph.rook.io/v1
+kind: CephObjectStore
+metadata:
+  name: {{ .Values.infraRookCeph.objectStore.name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "infra-rook-ceph.labels" . | nindent 4 }}
+spec:
+  allowUsersInNamespaces:
+    {{- toYaml .Values.infraRookCeph.objectStore.allowUsersInNamespaces | nindent 4 }}
+  metadataPool:
+    failureDomain: osd
+    replicated:
+      size: 1
+      requireSafeReplicaSize: false
+  dataPool:
+    failureDomain: osd
+    replicated:
+      size: 1
+      requireSafeReplicaSize: false
+  preservePoolsOnDelete: true
+  gateway:
+    port: {{ .Values.infraRookCeph.objectStore.port }}
+    instances: 1
+    resources:
+      {{- toYaml .Values.infraRookCeph.resources.rgw | nindent 6 }}

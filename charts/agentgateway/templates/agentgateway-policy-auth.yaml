@@ -1,0 +1,159 @@
+# =============================================================================
+# AgentGateway JWT + External Authorization Policy
+#
+# Supports two authentication paths on the same Gateway:
+#
+# 1. JWT authentication (via Keycloak) — for browser-based apps like LibreChat
+#    that obtain tokens via OIDC login. Mode is Permissive so that requests
+#    with a non-JWT Bearer token (API key) fall through to extAuthz.
+#
+# 2. External Authorization (keycloak-api-key-bridge) — for CLI tools like Cline and
+#    Python scripts that use static API keys. AgentGateway calls keycloak-api-key-bridge
+#    as a sidecar subrequest; if it returns 200, trusted identity metadata is
+#    recorded for authorization and tracing, otherwise the request is denied.
+#
+# The conditional "!has(jwt.sub)" on extAuthz ensures keycloak-api-key-bridge is only
+# called when no valid JWT was presented (LibreChat path). This avoids an
+# unnecessary subrequest for every JWT-authenticated request.
+#
+# Issuer and JWKS path are constructed from single-source values:
+#   authKeycloak.hostname  (client_*/config/client.yaml)
+#   authKeycloak.realm     (client_*/config/client.yaml)
+#
+# CEL authorization rules:
+#   - Every request, including MCP requests, requires a verified JWT subject or
+#     successful API-key bridge response metadata. Client-supplied x-auth-*
+#     headers are never trusted for authorization.
+# =============================================================================
+---
+# Strip reserved identity headers before any routing or authorization policy.
+# Only extAuth response metadata may carry API-key identity into CEL.
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayPolicy
+metadata:
+  name: infra-agentgateway-remove-untrusted-identity-headers
+  namespace: infra-agentgateway
+  labels:
+    app.kubernetes.io/name: auth
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: infra-agentgateway
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: infra-agentgateway-gateway
+  traffic:
+    phase: PreRouting
+    transformation:
+      request:
+        remove:
+          - x-auth-user
+          - x-user-id
+          - x-auth-app
+          - x-auth-permissions
+          - x-agentgateway-permissions
+---
+# Caller credentials are needed through extAuth above, but must never reach an
+# LLM or MCP upstream. Transformations run after authentication and before the
+# backend-specific provider/MCP credentials are injected.
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayPolicy
+metadata:
+  name: infra-agentgateway-remove-caller-credentials
+  namespace: infra-agentgateway
+  labels:
+    app.kubernetes.io/name: auth
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: infra-agentgateway
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: infra-agentgateway-gateway
+  traffic:
+    phase: PostRouting
+    transformation:
+      request:
+        remove:
+          - Authorization
+          - x-api-key
+---
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayPolicy
+metadata:
+  name: infra-agentgateway-auth-ag-policy
+  namespace: infra-agentgateway
+  labels:
+    app.kubernetes.io/name: auth
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: infra-agentgateway
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: infra-agentgateway-gateway
+  traffic:
+    phase: PreRouting
+    # ── JWT Authentication (Keycloak) — Permissive mode ────────────────────
+    # LibreChat sends a Keycloak JWT. If present, its claims are extracted
+    # for the CEL authorization rules below. If absent or invalid (e.g. an
+    # API key in Authorization: Bearer), the request is NOT rejected — it
+    # falls through to the extAuth condition (!has(jwt.sub)) which delegates
+    # to keycloak-api-key-bridge for validation.
+    #
+    # Permissive is required because Optional rejects requests when the
+    # Authorization header contains a non-JWT token (like an API key).
+    # With Permissive, any Bearer token passes through; the extAuth condition
+    # determines whether keycloak-api-key-bridge is called based on jwt.sub presence.
+    jwtAuthentication:
+      mode: Permissive
+      providers:
+        - issuer: {{ printf "https://%s/realms/%s" .Values.authKeycloak.hostname .Values.authKeycloak.realm | quote }}
+          audiences: {{ .Values.infraAgentgatewayWrapper.jwtAuth.allowedAudiences | toJson }}
+          jwks:
+            remote:
+              backendRef:
+                name: auth-keycloak-keycloak-service
+                namespace: auth-keycloak
+                port: 80
+              jwksPath: {{ printf "/realms/%s/protocol/openid-connect/certs" .Values.authKeycloak.realm | quote }}
+              cacheDuration: "5m"
+    # ── External Authorization (keycloak-api-key-bridge) — only when no JWT ──
+    # Cline/Python send a static API key. AgentGateway calls keycloak-api-key-bridge's
+    # /validate endpoint as a sidecar subrequest. If it returns
+     # 200 + user identity metadata, the request proceeds. If 401, it's rejected.
+    extAuth:
+      conditional:
+        - condition: "!has(jwt.sub)"
+          policy:
+            backendRef:
+              group: agentgateway.dev
+              kind: AgentgatewayBackend
+              name: infra-agentgateway-extauth-apikey-bridge-backend
+            http:
+              path: '"/validate"'
+              # Forward the original request's auth headers to keycloak-api-key-bridge
+              # so it can extract the API key from either x-api-key or
+              # Authorization: Bearer (v0.1.8+).
+              allowedRequestHeaders:
+                - x-api-key
+                - Authorization
+              # The bridge's versioned JSON decision becomes trusted dynamic
+              # metadata only. It is never copied into an upstream request.
+              responseMetadata:
+                contract_version: 'json(response.body).contract_version'
+                credential_id: 'json(response.body).credential.id'
+                credential_kind: 'json(response.body).credential.kind'
+                credential_name: 'json(response.body).credential.name'
+                expires_at: 'json(response.body).credential.expires_at'
+                principal_kind: 'json(response.body).principal.kind'
+                principal_id: 'json(response.body).principal.id'
+                permissions: 'json(response.body).permissions'
+    # Do not cache authorization decisions in AgentGateway. The bridge already
+    # bounds entitlement caching and must observe revocation after its TTL.
+    # ── CEL Authorization ──────────────────────────────────────────────────
+    authorization:
+        action: Allow
+        policy:
+          matchExpressions:
+          - '(has(jwt.sub) && has(jwt.azp) && jwt.azp in ["librechat", "agentgateway"] && has(jwt.resource_access.agentgateway.roles) && "llm:invoke" in jwt.resource_access.agentgateway.roles) || (has(extauthz.contract_version) && extauthz.contract_version == 1 && has(extauthz.principal_id) && has(extauthz.permissions) && "llm:invoke" in extauthz.permissions)'

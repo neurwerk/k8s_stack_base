@@ -1,0 +1,21 @@
+# =============================================================================
+# Strict SNI Checking — reject unknown hostnames instead of serving default cert
+#
+# Without this, Traefik generates a default self-signed certificate for the
+# websecure entrypoint. Any hostname that resolves to the cluster but has no
+# matching Gateway listener gets this cert → browser shows SSL warning.
+#
+# sniStrict: true rejects TLS connections where the SNI hostname doesn't match
+# any provisioned cert. Unknown hostnames get "Connection Refused" — no warning.
+# =============================================================================
+apiVersion: traefik.io/v1alpha1
+kind: TLSOption
+metadata:
+  name: default
+  namespace: kube-system
+  labels:
+    app.kubernetes.io/name: traefik-tls
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: kube-system
+spec:
+  sniStrict: true

@@ -1,0 +1,31 @@
+# IMAGE SOURCE: none
+# Client hostnames are supplied by the namespace-local client-values ConfigMap.
+
+authKeycloak:
+  hostname: ""
+
+infraAgentgatewayWrapper:
+  hostname: ""
+
+infraOpenbaoWrapper:
+  tls:
+    clusterDomain: cluster.local
+
+infraRookCeph:
+  objectStore:
+    publicHostname: ""
+
+frontendDify:
+  hostname: ""
+
+frontendLibrechat:
+  hostname: ""
+  adminPanel:
+    hostname: ""
+
+frontendStudio:
+  studio:
+    hostname: ""
+
+monitorLangfuseWrapper:
+  hostname: ""

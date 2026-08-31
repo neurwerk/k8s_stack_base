@@ -1,0 +1,39 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: frontend-studio-opensearch-ca-sync-role
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: studio-shared
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: {{ .Release.Namespace }}
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    resourceNames: ["frontend-studio-shared-opensearch-ca"]
+    verbs: ["get", "patch", "update"]
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    resourceNames: ["frontend-studio-api-deployment"]
+    verbs: ["get", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: frontend-studio-opensearch-ca-sync-role-binding
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: studio-shared
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: {{ .Release.Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: frontend-studio-opensearch-ca-sync-role
+subjects:
+  - kind: ServiceAccount
+    name: monitor-opensearch-ca-sync-service-account
+    namespace: monitor-opensearch
+  - kind: ServiceAccount
+    name: monitor-opensearch-ca-recovery-service-account
+    namespace: monitor-opensearch

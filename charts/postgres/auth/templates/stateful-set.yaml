@@ -1,0 +1,151 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres-auth
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "postgres-auth.labels" . | nindent 4 }}
+  annotations:
+    secret.reloader.stakater.com/reload: postgres-auth-secret,postgres-auth-tls
+spec:
+  serviceName: postgres-auth
+  replicas: 1
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: Retain
+    whenScaled: Retain
+  selector:
+    matchLabels:
+      {{- include "postgres-auth.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "postgres-auth.labels" . | nindent 8 }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/config-map.yaml") . | sha256sum }}
+    spec:
+      serviceAccountName: postgres-auth
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      terminationGracePeriodSeconds: 60
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 70
+        runAsGroup: 70
+        fsGroup: 70
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: postgresql
+          image: {{ .Values.postgresAuth.image | quote }}
+          imagePullPolicy: {{ .Values.postgresAuth.imagePullPolicy }}
+          args:
+            - postgres
+            - -c
+            - ssl=on
+            - -c
+            - ssl_cert_file=/etc/postgresql/tls/tls.crt
+            - -c
+            - ssl_key_file=/etc/postgresql/tls/tls.key
+            - -c
+            - ssl_min_protocol_version=TLSv1.3
+            - -c
+            - password_encryption=scram-sha-256
+            - -c
+            - hba_file=/etc/postgresql/config/pg_hba.conf
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          ports:
+            - name: postgresql
+              containerPort: {{ .Values.postgresAuth.service.port }}
+              protocol: TCP
+          env:
+            - name: PGDATA
+              value: /var/lib/postgresql/18/docker
+            - name: POSTGRES_DB
+              value: postgres
+            - name: POSTGRES_USER
+              value: postgres
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-auth-secret
+                  key: admin-password
+            - name: POSTGRES_INITDB_ARGS
+              value: --auth-local=trust --auth-host=scram-sha-256
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql
+            - name: config
+              mountPath: /etc/postgresql/config
+              readOnly: true
+            - name: tls
+              mountPath: /etc/postgresql/tls
+              readOnly: true
+            - name: run
+              mountPath: /var/run/postgresql
+            - name: tmp
+              mountPath: /tmp
+          startupProbe:
+            exec:
+              command:
+                - psql
+                - --host=/var/run/postgresql
+                - --username=postgres
+                - --dbname=postgres
+                - --tuples-only
+                - --command=SELECT 1
+            periodSeconds: 5
+            timeoutSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            exec:
+              command:
+                - psql
+                - --host=/var/run/postgresql
+                - --username=postgres
+                - --dbname=postgres
+                - --tuples-only
+                - --command=SELECT 1
+            periodSeconds: 5
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            exec:
+              command:
+                - pg_isready
+                - --host=/var/run/postgresql
+                - --username=postgres
+                - --dbname=postgres
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+          resources:
+            {{- toYaml .Values.postgresAuth.resources | nindent 12 }}
+      volumes:
+        - name: config
+          configMap:
+            name: postgres-auth-config
+        - name: tls
+          secret:
+            secretName: postgres-auth-tls
+            defaultMode: 0440
+        - name: run
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+        labels:
+          {{- include "postgres-auth.labels" . | nindent 10 }}
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: {{ .Values.postgresAuth.persistence.size }}
+        storageClassName: {{ required "postgresAuth.persistence.storageClassName is required" .Values.postgresAuth.persistence.storageClassName | quote }}

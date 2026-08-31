@@ -1,0 +1,14 @@
+# IMAGE SOURCE: none
+# This chart owns ClusterIssuer and Secret configuration only; it declares no images.
+# =============================================================================
+# charts/cert-manager/issuers/values.yaml — default values
+#
+# These defaults are overridden by:
+#   - ConfigMap: client-values (config/client.yaml)
+#   - Secret: cert-manager-issuers-values
+# =============================================================================
+
+certManager:
+  email: ""                            # set in infrastructure/security/cert-manager/values.yaml
+  region: eu-central-1
+  dnsZones: []                          # set per-client; issuance is restricted to these zones

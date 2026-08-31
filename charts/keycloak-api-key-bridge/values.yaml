@@ -1,0 +1,55 @@
+# IMAGE SOURCE: owned service
+# Built from: ghcr.io/neurwerk/k8s-stack-keycloak-api-key-bridge.
+# Pinned here (chart defaults).
+# =============================================================================
+# charts/keycloak-api-key-bridge/values.yaml — default values
+#
+# Overridden by:
+#   - ConfigMap: base-shared-hostnames-config-map (releases/shared/hostnames.yaml)
+#   - ConfigMap: base-shared-resources-config-map (releases/shared/resources.yaml)
+#   - ConfigMap: base-shared-oidc-clients-config-map (releases/shared/oidc-clients.yaml)
+#   - Secret: auth-keycloak-api-key-bridge-openbao-secret (via envFrom)
+# =============================================================================
+
+# ── Keycloak OIDC (used by the secret template) ──────────────────────────────
+authKeycloak:
+  hostname: ""
+  realm: ""
+  agentgatewayClientRoles: []
+  difyAgentgatewayClientId: dify-agentgateway
+  difyAgentgatewayClientRoles: []
+
+# ── Chart own values ────────────────────────────────────────────────────────
+authKeycloakApiKeyBridge:
+  bridgeImage: ghcr.io/neurwerk/k8s-stack-keycloak-api-key-bridge:0.5.3
+  hostname: ""
+
+  ports:
+    container:
+      http: 8000
+    service:
+      http: 3010
+
+  config:
+    database_url: "sqlite:////data/api_keys.db"
+    log_level: "info"
+    max_keys_per_user: 20
+
+  persistence:
+    size: 1Gi
+    storageClass: infra-rook-ceph-rbd
+
+  # Resource requests/limits (overridden by base-shared-resources-config-map)
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 300m
+      memory: 256Mi
+
+  securityContext:
+    runAsUser: 1000
+    runAsGroup: 1000
+    runAsNonRoot: true
+    fsGroup: 1000

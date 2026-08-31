@@ -1,0 +1,2 @@
+# ── App defaults for monitor-agentgateway-extproc ────────────────────────────
+# These values are loaded after chart defaults but before client overrides.

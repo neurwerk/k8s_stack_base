@@ -1,0 +1,19 @@
+# IMAGE SOURCE: tooling
+# The bind identity is materialized from OpenBao only when federation is enabled.
+authKeycloak:
+  adminUser: admin
+  realm: ""
+  activeDirectory:
+    enabled: false
+    connectionUrl: "ldaps://<active-directory-host>:636"
+    usersDn: "<users-dn>"
+    groupsDn: "<groups-dn>"
+    usernameAttribute: sAMAccountName
+    groupNames: []
+    emailVerified: true
+    caConfigMapName: auth-keycloak-active-directory-ca
+    caKey: ca.crt
+    egressCidrs: []
+
+k8sTools:
+  image: ghcr.io/neurwerk/k8s-stack-tooling:0.5.4

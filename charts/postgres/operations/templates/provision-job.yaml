@@ -1,0 +1,287 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: postgres-operations-provision
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: postgres-operations-provisioning
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: postgres
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "-3"
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 86400
+  activeDeadlineSeconds: {{ .Values.postgresOperations.provisioning.activeDeadlineSeconds }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: postgres-operations-provisioning
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/part-of: postgres
+    spec:
+      serviceAccountName: postgres-operations-provisioning
+      automountServiceAccountToken: false
+      restartPolicy: Never
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: provision
+          image: {{ .Values.postgresOperations.image | quote }}
+          imagePullPolicy: {{ .Values.postgresOperations.imagePullPolicy }}
+          command:
+            - /bin/sh
+            - -ec
+          args:
+            - |
+              deadline=$(($(date +%s) + 180))
+              until psql --tuples-only --command='SELECT 1' >/dev/null 2>&1; do
+                current_time=$(date +%s)
+                if [ "$current_time" -ge "$deadline" ]; then
+                  echo "PostgreSQL did not become ready before the provisioning deadline" >&2
+                  exit 1
+                fi
+                sleep 2
+              done
+
+              psql --set=ON_ERROR_STOP=1 <<'SQL'
+              \getenv documentdb_password DOCUMENTDB_PASSWORD
+              \getenv dify_password DIFY_PASSWORD
+              \getenv langfuse_password LANGFUSE_PASSWORD
+              \getenv librechat_rag_password LIBRECHAT_RAG_PASSWORD
+              SET log_statement = 'none';
+              SET log_min_duration_statement = -1;
+              SET log_min_error_statement = 'panic';
+              SELECT format('CREATE ROLE dify LOGIN PASSWORD %L', :'dify_password')
+              WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'dify') \gexec
+              SELECT format('ALTER ROLE dify WITH LOGIN PASSWORD %L', :'dify_password') \gexec
+              SELECT format('CREATE ROLE langfuse LOGIN PASSWORD %L', :'langfuse_password')
+              WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'langfuse') \gexec
+              SELECT format('ALTER ROLE langfuse WITH LOGIN PASSWORD %L', :'langfuse_password') \gexec
+              SELECT format('CREATE ROLE librechat_rag LOGIN PASSWORD %L', :'librechat_rag_password')
+              WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'librechat_rag') \gexec
+              SELECT format('ALTER ROLE librechat_rag WITH LOGIN PASSWORD %L', :'librechat_rag_password') \gexec
+
+              SELECT 'CREATE DATABASE dify OWNER dify'
+              WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'dify') \gexec
+              SELECT 'CREATE DATABASE dify_plugin OWNER dify'
+              WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'dify_plugin') \gexec
+              SELECT 'CREATE DATABASE dify_vector OWNER dify'
+              WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'dify_vector') \gexec
+              SELECT 'CREATE DATABASE postgres_langfuse OWNER langfuse'
+              WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'postgres_langfuse') \gexec
+              SELECT 'CREATE DATABASE librechat_rag OWNER librechat_rag'
+              WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'librechat_rag') \gexec
+
+              ALTER DATABASE dify OWNER TO dify;
+              ALTER DATABASE dify_plugin OWNER TO dify;
+              ALTER DATABASE dify_vector OWNER TO dify;
+              ALTER DATABASE postgres_langfuse OWNER TO langfuse;
+              ALTER DATABASE librechat_rag OWNER TO librechat_rag;
+              REVOKE CONNECT, TEMPORARY ON DATABASE postgres, template1 FROM PUBLIC;
+              GRANT CONNECT ON DATABASE postgres TO documentdb, operations_admin;
+              REVOKE ALL ON DATABASE dify, dify_plugin, dify_vector, postgres_langfuse, librechat_rag FROM PUBLIC;
+              GRANT CONNECT, TEMPORARY ON DATABASE dify, dify_plugin, dify_vector TO dify;
+              GRANT CONNECT, TEMPORARY ON DATABASE postgres_langfuse TO langfuse;
+              GRANT CONNECT, TEMPORARY ON DATABASE librechat_rag TO librechat_rag;
+
+              \connect dify_vector
+              CREATE EXTENSION IF NOT EXISTS vector;
+              \connect librechat_rag
+              CREATE EXTENSION IF NOT EXISTS vector;
+              \connect postgres
+              DO $verify$
+              BEGIN
+                IF NOT EXISTS (SELECT FROM pg_extension WHERE extname = 'documentdb') THEN
+                  RAISE EXCEPTION 'DocumentDB extension verification failed';
+                END IF;
+              END
+              $verify$;
+              SQL
+
+              psql --set=ON_ERROR_STOP=1 \
+                --command='ALTER ROLE operations_admin CREATEROLE; GRANT documentdb_admin_role TO operations_admin WITH ADMIN OPTION'
+              revoke_documentdb_authorization() {
+                cleanup_status=0
+                psql --set=ON_ERROR_STOP=1 \
+                  --command='REVOKE ADMIN OPTION FOR documentdb_admin_role FROM operations_admin CASCADE' || cleanup_status=$?
+                psql --set=ON_ERROR_STOP=1 \
+                  --command='ALTER ROLE operations_admin NOCREATEROLE' || cleanup_status=$?
+                return "$cleanup_status"
+              }
+              cleanup_documentdb_authorization_on_exit() {
+                provision_status=$?
+                if ! revoke_documentdb_authorization; then
+                  echo "DocumentDB administrator authorization revocation failed" >&2
+                  exit 1
+                fi
+                exit "$provision_status"
+              }
+              trap cleanup_documentdb_authorization_on_exit 0
+
+              mongosh --host="$DOCUMENTDB_HOST" --port="$DOCUMENTDB_PORT" \
+                --tls --tlsCAFile="$DOCUMENTDB_CA_FILE" --quiet \
+                --file=/opt/neurwerk/provision-documentdb.js
+
+              psql --set=ON_ERROR_STOP=1 \
+                --command='GRANT documentdb_admin_role TO librechat'
+              revoke_documentdb_authorization
+              trap - 0
+
+              psql --set=ON_ERROR_STOP=1 <<'SQL'
+              GRANT CONNECT ON DATABASE postgres TO librechat;
+              DO $verify$
+              BEGIN
+                IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'librechat' AND rolcanlogin) THEN
+                  RAISE EXCEPTION 'DocumentDB application role verification failed';
+                END IF;
+                IF EXISTS (SELECT FROM pg_roles WHERE rolname = 'operations_admin' AND rolcreaterole) THEN
+                  RAISE EXCEPTION 'DocumentDB administrator CREATEROLE revocation failed';
+                END IF;
+                IF NOT EXISTS (
+                  SELECT
+                  FROM pg_auth_members membership
+                  JOIN pg_roles parent ON parent.oid = membership.roleid
+                  JOIN pg_roles child ON child.oid = membership.member
+                  WHERE parent.rolname = 'documentdb_admin_role'
+                    AND child.rolname = 'operations_admin'
+                    AND NOT membership.admin_option
+                ) THEN
+                  RAISE EXCEPTION 'DocumentDB administrator role delegation revocation failed';
+                END IF;
+                IF NOT EXISTS (
+                  SELECT
+                  FROM pg_auth_members membership
+                  JOIN pg_roles parent ON parent.oid = membership.roleid
+                  JOIN pg_roles child ON child.oid = membership.member
+                  JOIN pg_roles grantor ON grantor.oid = membership.grantor
+                  WHERE parent.rolname = 'documentdb_admin_role'
+                    AND child.rolname = 'librechat'
+                    AND grantor.rolname = 'documentdb'
+                ) THEN
+                  RAISE EXCEPTION 'DocumentDB application role ownership verification failed';
+                END IF;
+              END
+              $verify$;
+              SQL
+
+              mongosh --host="$DOCUMENTDB_HOST" --port="$DOCUMENTDB_PORT" \
+                --tls --tlsCAFile="$DOCUMENTDB_CA_FILE" --quiet \
+                --file=/opt/neurwerk/verify-documentdb.js
+
+              PGPASSWORD="$DOCUMENTDB_PASSWORD" PGUSER=librechat PGDATABASE=postgres \
+                psql --tuples-only --command='SELECT current_user' | grep -qx '[[:space:]]*librechat'
+              for database in dify dify_plugin dify_vector postgres_langfuse librechat_rag; do
+                if PGPASSWORD="$DOCUMENTDB_PASSWORD" PGUSER=librechat PGDATABASE="$database" \
+                  psql --tuples-only --command='SELECT 1' >/dev/null 2>&1; then
+                  echo "DocumentDB application role unexpectedly connected to PostgreSQL database $database" >&2
+                  exit 1
+                fi
+              done
+
+              PGPASSWORD="$DIFY_PASSWORD" PGUSER=dify PGDATABASE=dify \
+                psql --tuples-only --command='SELECT current_user' | grep -qx '[[:space:]]*dify'
+              PGPASSWORD="$LANGFUSE_PASSWORD" PGUSER=langfuse PGDATABASE=postgres_langfuse \
+                psql --tuples-only --command='SELECT current_user' | grep -qx '[[:space:]]*langfuse'
+              PGPASSWORD="$LIBRECHAT_RAG_PASSWORD" PGUSER=librechat_rag PGDATABASE=librechat_rag \
+                psql --tuples-only --command="SELECT extname FROM pg_extension WHERE extname = 'vector'" | grep -qx '[[:space:]]*vector'
+              PGPASSWORD="$DIFY_PASSWORD" PGUSER=dify PGDATABASE=dify_vector \
+                psql --tuples-only --command="SELECT extname FROM pg_extension WHERE extname = 'vector'" | grep -qx '[[:space:]]*vector'
+              echo "Operations PostgreSQL provisioning verified."
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+          env:
+            - name: PGHOST
+              value: postgres-operations.{{ .Release.Namespace }}.svc.{{ .Values.postgresOperations.clusterDomain }}
+            - name: PGPORT
+              value: {{ .Values.postgresOperations.service.postgresqlPort | quote }}
+            - name: PGUSER
+              value: documentdb
+            - name: PGDATABASE
+              value: postgres
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-operations-secret
+                  key: admin-password
+            - name: DOCUMENTDB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-operations-secret
+                  key: documentdb-password
+            - name: DOCUMENTDB_ADMIN_USER
+              value: operations_admin
+            - name: DOCUMENTDB_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-operations-secret
+                  key: admin-password
+            - name: DOCUMENTDB_USER
+              value: librechat
+            - name: DOCUMENTDB_DATABASE
+              value: LibreChat
+            - name: DOCUMENTDB_HOST
+              value: postgres-operations.{{ .Release.Namespace }}.svc.{{ .Values.postgresOperations.clusterDomain }}
+            - name: DOCUMENTDB_PORT
+              value: {{ .Values.postgresOperations.service.documentdbPort | quote }}
+            - name: DOCUMENTDB_CA_FILE
+              value: /etc/documentdb/ca.crt
+            - name: HOME
+              value: /tmp
+            - name: DIFY_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-operations-secret
+                  key: dify-password
+            - name: LANGFUSE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-operations-secret
+                  key: langfuse-password
+            - name: LIBRECHAT_RAG_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-operations-secret
+                  key: librechat-rag-password
+            - name: PGSSLMODE
+              value: disable
+            - name: PGCONNECT_TIMEOUT
+              value: "5"
+          volumeMounts:
+            - name: bootstrap
+              mountPath: /opt/neurwerk/provision-documentdb.js
+              subPath: provision-documentdb.js
+              readOnly: true
+            - name: bootstrap
+              mountPath: /opt/neurwerk/verify-documentdb.js
+              subPath: verify-documentdb.js
+              readOnly: true
+            - name: ca
+              mountPath: /etc/documentdb
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: bootstrap
+          configMap:
+            name: postgres-operations-bootstrap
+        - name: ca
+          configMap:
+            name: infra-openbao-ca-bundle
+            items:
+              - key: ca.crt
+                path: ca.crt
+        - name: tmp
+          emptyDir: {}

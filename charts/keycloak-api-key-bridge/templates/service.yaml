@@ -1,0 +1,22 @@
+# =============================================================================
+# keycloak-api-key-bridge ClusterIP Service
+#
+# Internal service called by AgentGateway extAuthz subrequests (cluster-internal).
+# No external Gateway — not exposed to the web.
+# =============================================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-keycloak-api-key-bridge-service
+  namespace: auth-keycloak-api-key-bridge
+  labels:
+    {{- include "auth-keycloak-api-key-bridge.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - port: {{ .Values.authKeycloakApiKeyBridge.ports.service.http }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "auth-keycloak-api-key-bridge.selectorLabels" . | nindent 4 }}

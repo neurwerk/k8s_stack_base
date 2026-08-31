@@ -1,0 +1,122 @@
+# IMAGE SOURCE: upstream
+# OpenSearch is controlled by its vendor subchart; the wrapper owns the upstream bootstrap image.
+# k8sTools is a documented neurwerk tooling exception.
+# Pinned here (chart defaults).
+# --- Subchart dependency: opensearch ---
+opensearch:
+  labels:
+    app.kubernetes.io/part-of: monitor-opensearch
+  singleNode: true
+  createNamespace: false
+  protocol: https
+
+  ingress:
+    enabled: false
+
+  # Admin and provider credentials come from the OpenBao-backed local Secret.
+  # DISABLE_INSTALL_DEMO_CONFIG prevents the upstream Docker image's entrypoint
+  # from appending demo TLS config (demo certs, users, roles) to opensearch.yml.
+  extraEnvs:
+    - name: OPENSEARCH_INITIAL_ADMIN_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: monitor-opensearch-secret
+          key: adminPassword
+    - name: DISABLE_INSTALL_DEMO_CONFIG
+      value: "true"
+
+  persistence:
+    enabled: true
+    size: 20Gi  # Default; overridden by shared resources
+    storageClass: infra-rook-ceph-rbd
+    image: busybox
+    imageTag: 1.36.1
+
+  podSecurityContext:
+    fsGroup: 1000
+
+  plugins:
+    enabled: true
+    installList:
+      - repository-s3
+
+  keystore:
+    - secretName: monitor-opensearch-archive-object-bucket-claim
+      items:
+        - key: AWS_ACCESS_KEY_ID
+          path: s3.client.default.access_key
+        - key: AWS_SECRET_ACCESS_KEY
+          path: s3.client.default.secret_key
+
+  dashboards:
+    enabled: false
+
+  # TLS certificates issued by the internal CA (cert-manager).
+  secretMounts:
+    - name: transport-tls
+      secretName: monitor-opensearch-transport-tls
+      path: /usr/share/opensearch/config/certs/transport
+      defaultMode: 0440
+    - name: http-tls
+      secretName: monitor-opensearch-http-tls
+      path: /usr/share/opensearch/config/certs/http
+      defaultMode: 0440
+
+  # securityConfig.enabled: true (upstream default) mounts an empty
+  # securityconfig volume — harmless, no init containers run. The security
+  # plugin configuration is applied via securityadmin.sh in the bootstrap Job.
+  securityConfig:
+    enabled: true
+
+  # opensearch.yml — TLS via internal CA, security plugin enabled.
+  config:
+    opensearch.yml: |
+      cluster.name: opensearch-cluster
+      network.host: 0.0.0.0
+      discovery.type: single-node
+
+      plugins.security.ssl.transport.pemcert_filepath: certs/transport/tls.crt
+      plugins.security.ssl.transport.pemkey_filepath: certs/transport/tls.key
+      plugins.security.ssl.transport.pemtrustedcas_filepath: certs/transport/ca.crt
+      plugins.security.ssl.transport.enforce_hostname_verification: true
+
+      plugins.security.ssl.http.enabled: true
+      plugins.security.ssl.http.pemcert_filepath: certs/http/tls.crt
+      plugins.security.ssl.http.pemkey_filepath: certs/http/tls.key
+      plugins.security.ssl.http.pemtrustedcas_filepath: certs/http/ca.crt
+
+      plugins.security.nodes_dn:
+        - "CN=opensearch-cluster-master"
+
+      plugins.security.authcz.admin_dn:
+        - "CN=opensearch-security-admin"
+
+      plugins.security.restapi.roles_enabled:
+        - all_access
+
+# --- OpenSearch wrapper settings ---
+
+# Init Job settings
+k8sTools:
+  image: ghcr.io/neurwerk/k8s-stack-tooling:0.5.4
+
+monitorOpensearchWrapper:
+  recoverySchedule: "*/15 * * * *"
+  # Image for the security bootstrap Job (hash.sh / securityadmin.sh)
+  bootstrapImage: "docker.io/opensearchproject/opensearch:2.18.0"
+  # OpenSearch ingest user
+  ingestUser: "fluent-bit-ingest"
+  # Permissions for the ingest user (index patterns)
+  ingestRoleDescription: "Write access to fluent-bit-* indices"
+
+  # Studio logs viewer user (read-only, provisioned by the studio-logs init Job).
+  studioLogsUser: "studio-logs-read"
+  studioLogsRole: "studio_logs_read_role"
+
+  # Log archiving — ISM snapshot policy to archive fluent-bit-* indices to Ceph RGW.
+  archive:
+    enabled: true
+    hotDays: 3  # ~4GB/day per index, 3d retention ≈ 12GB working set on disk
+    repoName: archive
+    bucket: opensearch-archive
+    endpoint: rook-ceph-rgw-infra-rook-ceph-object-store.infra-rook-ceph.svc.cluster.local:80

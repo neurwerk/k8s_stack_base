@@ -1,0 +1,106 @@
+frontendLibrechat:
+  hostname: librechat.example.invalid
+  app:
+    image: ghcr.io/danny-avila/librechat-dev@sha256:909958b41c7035be776aa6a1365016a66007d85fe5cfc8614320e0f24c1810e1
+    imagePullPolicy: IfNotPresent
+    # Keep upstream Redis stream delta coalescing disabled by default.
+    streamDeltaCoalesceMs: 0
+    replicas: 1
+    service:
+      port: 3080
+    imagePersistence:
+      size: 10Gi
+      storageClassName: ""
+    resources:
+      requests:
+        cpu: 250m
+        memory: 512Mi
+      limits:
+        cpu: "1"
+        memory: 1Gi
+  adminPanel:
+    hostname: ""
+    url: ""
+  agentGateway:
+    namespace: infra-agentgateway
+    podSelector:
+      app.kubernetes.io/name: infra-agentgateway-gateway
+      gateway.networking.k8s.io/gateway-name: infra-agentgateway-gateway
+    port: 80
+  codeInterpreter:
+    enabled: false
+    url: http://librechat-code-interpreter-api:3112/v1
+    jwtAlgorithm: EdDSA
+    jwtAudience: codeapi
+    jwtIssuer: librechat
+    jwtKeyId: librechat-code-interpreter-v1
+    jwtSingleTenantId: librechat
+    namespace: frontend-librechat
+    podSelector:
+      app.kubernetes.io/name: librechat-code-interpreter-api
+    port: 3112
+  documentdb:
+    namespace: infra-postgres-operations
+    podSelector:
+      app.kubernetes.io/name: postgres-operations
+      app.kubernetes.io/instance: postgres-operations
+    port: 10260
+    # Bound startup fan-out into the shared operations PostgreSQL instance.
+    maxPoolSize: 20
+    maxConnecting: 2
+    caBundle:
+      name: infra-openbao-ca-bundle
+      key: ca.crt
+      mountPath: /etc/documentdb/ca.crt
+  meilisearch:
+    host: http://frontend-librechat-meilisearch-service:7700
+    port: 7700
+  objectStorage:
+    enabled: false
+    bucketName: librechat-files
+    claimName: frontend-librechat-files-object-bucket-claim
+    # Optional explicit HTTPS override. By default the endpoint is derived from
+    # infraRookCeph.objectStore.publicHostname in client-wide configuration.
+    endpoint: ""
+    forcePathStyle: true
+    region: us-east-1
+    storageClassName: ""
+    urlExpirySeconds: 3600
+  oidc:
+    adminRole: librechat-admin
+    buttonLabel: Sign in
+    requiredRole: librechat-user
+    startupGate:
+      # The upstream application does not retry failed OIDC discovery.
+      resources:
+        requests:
+          cpu: 10m
+          memory: 32Mi
+        limits:
+          cpu: 100m
+          memory: 128Mi
+  rag:
+    enabled: false
+    url: http://frontend-librechat-rag-api-service:8000
+    port: 8000
+    useFullContext: false
+  valkey:
+    port: 6379
+
+frontendLibrechatSecrets: {}
+
+authKeycloak:
+  hostname: keycloak.example.invalid
+  librechatClientId: librechat
+  realm: example
+
+externalGateway:
+  enabled: false
+  port: 443
+
+publicCertificates:
+  useProduction: false
+
+infraRookCeph:
+  objectStore:
+    publicHostname: ""

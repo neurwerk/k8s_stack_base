@@ -1,0 +1,67 @@
+# =============================================================================
+# Initial Admin User Job
+#
+# Runs after the realm and realm-roles exist.
+# Idempotently creates/updates the client administrator and assigns access groups.
+#
+# No Kubernetes RBAC needed — this only calls the Keycloak Admin API.
+# =============================================================================
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: auth-keycloak-initial-admin-job
+  namespace: auth-keycloak
+  labels:
+    app.kubernetes.io/name: initial-admin
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: auth-keycloak
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "-1"
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 86400
+  activeDeadlineSeconds: 600
+  template:
+    metadata:
+      name: auth-keycloak-initial-admin-job
+      labels:
+        app: auth-keycloak-initial-admin-job
+        job: auth-keycloak-initial-admin-job
+        app.kubernetes.io/name: initial-admin
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/part-of: auth-keycloak
+        app.kubernetes.io/component: configuration
+    spec:
+      automountServiceAccountToken: false
+      restartPolicy: OnFailure
+      containers:
+        - name: init
+          image: {{ (.Values.k8sTools).image | quote }}
+          command:
+            - upsert-user
+          env:
+            - name: KC_INTERNAL_URL
+              value: "http://auth-keycloak-keycloak-service.auth-keycloak.svc.cluster.local"
+            - name: KC_ADMIN_USER
+              value: {{ required "authKeycloak.adminUser is required" .Values.authKeycloak.adminUser | quote }}
+            - name: KC_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: auth-keycloak-secret
+                  key: adminPassword
+            - name: KC_REALM
+              value: {{ required "authKeycloak.realm is required" .Values.authKeycloak.realm | quote }}
+            - name: KC_INITIAL_USER_USERNAME
+              value: {{ required "authKeycloak.initialAdminUsername is required" .Values.authKeycloak.initialAdminUsername | quote }}
+            - name: KC_INITIAL_USER_EMAIL
+              value: {{ required "authKeycloak.initialAdminEmail is required" .Values.authKeycloak.initialAdminEmail | quote }}
+            - name: KC_INITIAL_USER_FIRST_NAME
+              value: {{ required "authKeycloak.initialAdminFirstName is required" .Values.authKeycloak.initialAdminFirstName | quote }}
+            - name: KC_INITIAL_USER_LAST_NAME
+              value: {{ required "authKeycloak.initialAdminLastName is required" .Values.authKeycloak.initialAdminLastName | quote }}
+            - name: KC_INITIAL_USER_GROUPS
+              value: {{ .Values.authKeycloak.initialAdminGroups | quote }}
+            - name: KC_INITIAL_USER_REQUIRED_ACTIONS
+              value: {{ .Values.authKeycloak.initialAdminRequiredActions | quote }}

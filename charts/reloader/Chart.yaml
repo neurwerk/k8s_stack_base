@@ -1,0 +1,10 @@
+apiVersion: v2
+name: infra-reloader
+description: Stakater Reloader with opt-in annotations and namespace-scoped RBAC
+type: application
+version: 0.6.3
+appVersion: "1.4.21"
+dependencies:
+  - name: reloader
+    version: "2.2.16"
+    repository: https://stakater.github.io/stakater-charts

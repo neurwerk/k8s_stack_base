@@ -1,0 +1,84 @@
+{{- $ad := .Values.authKeycloak.activeDirectory -}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: auth-keycloak-active-directory-job
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: active-directory
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: auth-keycloak
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 86400
+  activeDeadlineSeconds: 600
+  template:
+    metadata:
+      labels:
+        app: auth-keycloak-active-directory-job
+        app.kubernetes.io/name: active-directory
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/part-of: auth-keycloak
+        app.kubernetes.io/component: configuration
+    spec:
+      automountServiceAccountToken: false
+      restartPolicy: OnFailure
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: reconcile
+          image: {{ .Values.k8sTools.image | quote }}
+          imagePullPolicy: IfNotPresent
+          command: ["upsert-active-directory"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+            readOnlyRootFilesystem: true
+          env:
+            - name: KC_INTERNAL_URL
+              value: "http://auth-keycloak-keycloak-service.auth-keycloak.svc.cluster.local"
+            - name: KC_HEALTH_PORT
+              value: "9000"
+            - name: KC_ADMIN_USER
+              value: {{ required "authKeycloak.adminUser is required" .Values.authKeycloak.adminUser | quote }}
+            - name: KC_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: auth-keycloak-secret
+                  key: adminPassword
+            - name: KC_REALM
+              value: {{ required "authKeycloak.realm is required" .Values.authKeycloak.realm | quote }}
+            - name: KC_ACTIVE_DIRECTORY_ENABLED
+              value: {{ $ad.enabled | quote }}
+            {{- if $ad.enabled }}
+            - name: KC_ACTIVE_DIRECTORY_CONNECTION_URL
+              value: {{ $ad.connectionUrl | quote }}
+            - name: KC_ACTIVE_DIRECTORY_USERS_DN
+              value: {{ $ad.usersDn | quote }}
+            - name: KC_ACTIVE_DIRECTORY_GROUPS_DN
+              value: {{ $ad.groupsDn | quote }}
+            - name: KC_ACTIVE_DIRECTORY_USERNAME_ATTRIBUTE
+              value: {{ $ad.usernameAttribute | quote }}
+            - name: KC_ACTIVE_DIRECTORY_GROUP_NAMES
+              value: {{ $ad.groupNames | toJson | quote }}
+            - name: KC_ACTIVE_DIRECTORY_BIND_DN
+              valueFrom:
+                secretKeyRef:
+                  name: auth-keycloak-active-directory-secret
+                  key: activeDirectoryBindDn
+            - name: KC_ACTIVE_DIRECTORY_BIND_CREDENTIAL
+              valueFrom:
+                secretKeyRef:
+                  name: auth-keycloak-active-directory-secret
+                  key: activeDirectoryBindCredential
+            - name: KC_ACTIVE_DIRECTORY_EMAIL_VERIFIED
+              value: {{ $ad.emailVerified | quote }}
+            {{- end }}

@@ -1,0 +1,21 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: frontend-librechat-valkey-network-policy
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "frontend-librechat-valkey.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "frontend-librechat-valkey.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: frontend-librechat
+      ports:
+        - port: {{ .Values.frontendLibrechat.valkey.service.port }}
+          protocol: TCP

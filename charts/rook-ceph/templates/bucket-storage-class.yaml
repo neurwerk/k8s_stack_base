@@ -1,0 +1,12 @@
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: {{ .Values.infraRookCeph.objectStore.bucketStorageClassName }}
+  labels:
+    {{- include "infra-rook-ceph.labels" . | nindent 4 }}
+    aws-s3/object: "true"
+provisioner: ceph.rook.io/bucket
+reclaimPolicy: Retain
+parameters:
+  objectStoreName: {{ .Values.infraRookCeph.objectStore.name }}
+  objectStoreNamespace: {{ .Release.Namespace }}

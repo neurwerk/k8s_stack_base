@@ -1,0 +1,8 @@
+# ── App defaults for monitor-kube-prometheus-stack ─────────────────────────────
+# These values are loaded after chart defaults but before client overrides.
+# Resource defaults are in ../../shared/resources.yaml.
+
+monitorKubePrometheusStack:
+  alerting:
+    email:
+      enabled: true

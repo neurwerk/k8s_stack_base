@@ -1,0 +1,31 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: fluent-bit-shared
+  namespace: monitor-fluent-bit
+spec:
+  releaseName: monitor-fluent-bit-shared
+  interval: 5m
+  install:
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 1m
+  upgrade:
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 1m
+  driftDetection:
+    mode: enabled
+    ignore:
+      - paths: ["/data/ca.crt"]
+        target:
+          kind: ConfigMap
+          name: monitor-fluent-bit-shared-opensearch-ca
+  chart:
+    spec:
+      chart: ./charts/fluent-bit/shared
+      sourceRef:
+        kind: GitRepository
+        name: k8s-stack
+        namespace: flux-system
+      interval: 1m

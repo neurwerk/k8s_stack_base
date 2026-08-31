@@ -1,0 +1,44 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: agentgateway-extproc
+  namespace: monitor-agentgateway-extproc
+spec:
+  releaseName: monitor-agentgateway-extproc
+  interval: 5m
+  install:
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 1m
+  upgrade:
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 1m
+  dependsOn:
+    - name: pii-engine
+      namespace: monitor-pii-engine
+    - name: agentgateway
+      namespace: infra-agentgateway
+    - name: kube-prometheus-stack
+      namespace: monitor-kube-prometheus-stack
+  chart:
+    spec:
+      chart: ./charts/agentgateway-extproc
+      sourceRef:
+        kind: GitRepository
+        name: k8s-stack
+        namespace: flux-system
+      interval: 1m
+  valuesFrom:
+    - kind: ConfigMap
+      name: base-shared-resources-config-map
+      valuesKey: values.yaml
+    - kind: ConfigMap
+      name: monitor-agentgateway-extproc-app-defaults
+      valuesKey: values.yaml
+    - kind: ConfigMap
+      name: client-values
+      valuesKey: values.yaml
+    - kind: ConfigMap
+      name: agentgateway-extproc-product-values
+      valuesKey: values.yaml

@@ -1,0 +1,31 @@
+{{- $objectStore := .Values.infraRookCeph.objectStore -}}
+apiVersion: ceph.rook.io/v1
+kind: CephObjectStoreUser
+metadata:
+  name: {{ $objectStore.piiModels.publisherUser }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "infra-rook-ceph.labels" . | nindent 4 }}
+    app.kubernetes.io/component: pii-model-publisher
+spec:
+  store: {{ $objectStore.name }}
+  displayName: PII model publisher
+  opMask:
+    - read
+    - write
+    - delete
+---
+apiVersion: ceph.rook.io/v1
+kind: CephObjectStoreUser
+metadata:
+  name: {{ $objectStore.piiModels.modelSyncUser }}
+  namespace: {{ $objectStore.piiModels.consumerNamespace }}
+  labels:
+    {{- include "infra-rook-ceph.labels" . | nindent 4 }}
+    app.kubernetes.io/component: pii-model-sync
+spec:
+  store: {{ $objectStore.name }}
+  clusterNamespace: {{ .Release.Namespace }}
+  displayName: PII model sync
+  opMask:
+    - read

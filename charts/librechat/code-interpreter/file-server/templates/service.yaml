@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "librechat-code-interpreter-file-server.fullname" . }}
+  labels:
+    {{- include "librechat-code-interpreter-file-server.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: {{ .Values.frontendLibrechatCodeInterpreter.fileServer.port }}
+      targetPort: http
+      protocol: TCP
+  selector:
+    {{- include "librechat-code-interpreter-file-server.selectorLabels" . | nindent 4 }}

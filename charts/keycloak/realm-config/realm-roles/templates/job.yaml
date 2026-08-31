@@ -1,0 +1,100 @@
+# =============================================================================
+# Realm Roles Job
+#
+# Runs after Keycloak is deployed and the realm exists.
+# Idempotently creates realm-level roles (e.g., api-key-admin).
+#
+# No Kubernetes RBAC needed — this only calls the Keycloak Admin API.
+# =============================================================================
+{{- $agentgatewayRoles := .Values.authKeycloak.agentgatewayClientRoles | default list }}
+{{- $accessGroups := deepCopy (.Values.authKeycloak.accessGroups | default dict) }}
+{{- if not (has "llm:invoke" $agentgatewayRoles) }}{{- fail "authKeycloak.agentgatewayClientRoles must include llm:invoke" }}{{- end }}
+{{- range $agentgatewayRoles }}
+{{- if not (regexMatch "^(llm:invoke|(model|mcp):[A-Za-z0-9][A-Za-z0-9._/-]{0,127}:invoke)$" .) }}{{- fail (printf "invalid AgentGateway client role %q" .) }}{{- end }}
+{{- end }}
+{{- range $groupName, $groupRoles := .Values.authKeycloak.agentgatewayAccessGroups | default dict }}
+{{- $group := get $accessGroups $groupName }}
+{{- if not $group }}{{- fail (printf "AgentGateway access group %q is not declared in authKeycloak.accessGroups" $groupName) }}{{- end }}
+{{- if not (kindIs "slice" $groupRoles) }}{{- fail (printf "AgentGateway access group %q roles must be a list" $groupName) }}{{- end }}
+{{- range $groupRoles }}
+{{- if not (has . $agentgatewayRoles) }}{{- fail (printf "AgentGateway access group %q grants undeclared role %q" $groupName .) }}{{- end }}
+{{- end }}
+{{- $clientRoles := get $group "clientRoles" | default dict }}
+{{- $_ := set $clientRoles "agentgateway" $groupRoles }}
+{{- $_ := set $group "clientRoles" $clientRoles }}
+{{- end }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: auth-keycloak-realm-roles-job
+  namespace: auth-keycloak
+  labels:
+    app.kubernetes.io/name: realm-roles
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: auth-keycloak
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "-2"
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 86400
+  activeDeadlineSeconds: 600
+  template:
+    metadata:
+      name: auth-keycloak-realm-roles-job
+      labels:
+        app: auth-keycloak-realm-roles-job
+        job: auth-keycloak-realm-roles-job
+        app.kubernetes.io/name: realm-roles
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/part-of: auth-keycloak
+        app.kubernetes.io/component: configuration
+    spec:
+      automountServiceAccountToken: false
+      restartPolicy: OnFailure
+      containers:
+        - name: init
+          image: {{ (.Values.k8sTools).image | quote }}
+          command:
+            - upsert-realm-roles
+          env:
+            - name: KC_INTERNAL_URL
+              value: "http://auth-keycloak-keycloak-service.auth-keycloak.svc.cluster.local"
+            - name: KC_ADMIN_USER
+              value: {{ required "authKeycloak.adminUser is required" .Values.authKeycloak.adminUser | quote }}
+            - name: KC_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: auth-keycloak-secret
+                  key: adminPassword
+            - name: KC_REALM
+              value: {{ required "authKeycloak.realm is required" .Values.authKeycloak.realm | quote }}
+            - name: KC_REALM_ROLES
+              value: {{ .Values.authKeycloak.realmRoles | quote }}
+            - name: KC_REALM_ROLE_COMPOSITES
+              value: {{ .Values.authKeycloak.realmRoleComposites | toJson | quote }}
+            - name: KC_ACCESS_GROUPS
+              value: {{ $accessGroups | toJson | quote }}
+        - name: setup-composites
+          image: {{ (.Values.k8sTools).image | quote }}
+          command:
+            - upsert-composite-roles
+          env:
+            - name: KC_INTERNAL_URL
+              value: "http://auth-keycloak-keycloak-service.auth-keycloak.svc.cluster.local"
+            - name: KC_ADMIN_USER
+              value: {{ required "authKeycloak.adminUser is required" .Values.authKeycloak.adminUser | quote }}
+            - name: KC_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: auth-keycloak-secret
+                  key: adminPassword
+            - name: KC_REALM
+              value: {{ required "authKeycloak.realm is required" .Values.authKeycloak.realm | quote }}
+            - name: KC_PARENT_ROLE
+              value: "keycloak-admin"
+            - name: KC_CLIENT_ID
+              value: "realm-management"
+            - name: KC_CLIENT_ROLES
+              value: "view-users,query-users,view-clients,view-realm"

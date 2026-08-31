@@ -1,0 +1,39 @@
+{{- if .Values.externalGateway.enabled }}
+{{- $hostname := required "external Gateway hostname is required" .Values.authKeycloak.hostname }}
+{{- if eq $hostname "place.holder" }}{{ fail "place.holder cannot be used for an external Gateway" }}{{ end }}
+{{- $issuer := ternary "letsencrypt-production-cluster-issuer" "letsencrypt-staging-cluster-issuer" .Values.publicCertificates.useProduction }}
+# =============================================================================
+# Keycloak Gateway
+#
+# Replaces ingressClassName, TLS config, and Traefik annotations.
+# cert-manager annotation moves here to auto-provision TLS via Route53 DNS01.
+# =============================================================================
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: auth-keycloak-gateway
+  namespace: auth-keycloak
+  labels:
+    app.kubernetes.io/name: keycloak
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: auth-keycloak
+  annotations:
+    cert-manager.io/cluster-issuer: {{ $issuer | quote }}
+    cert-manager.io/duration: "2160h"
+spec:
+  gatewayClassName: traefik
+  listeners:
+    - name: websecure
+      port: {{ .Values.authKeycloak.keycloak.ports.gateway.tls }}
+      protocol: HTTPS
+      hostname: {{ $hostname }}
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - name: auth-keycloak-tls
+            kind: Secret
+            group: ""
+      allowedRoutes:
+        namespaces:
+          from: Same
+{{- end }}

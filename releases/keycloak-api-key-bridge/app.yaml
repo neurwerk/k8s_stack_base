@@ -1,0 +1,54 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: keycloak-api-key-bridge
+  namespace: auth-keycloak-api-key-bridge
+spec:
+  releaseName: auth-keycloak-api-key-bridge
+  interval: 5m
+  install:
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 1m
+  upgrade:
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 1m
+  dependsOn:
+    - name: keycloak-keycloak-api-key-bridge-oidc
+      namespace: auth-keycloak
+    - name: keycloak-dify-agentgateway-oidc
+      namespace: auth-keycloak
+    - name: traefik
+      namespace: kube-system
+    - name: cert-manager-issuers
+      namespace: infra-cert-manager
+    - name: rook-ceph
+      namespace: infra-rook-ceph
+  chart:
+    spec:
+      chart: ./charts/keycloak-api-key-bridge
+      sourceRef:
+        kind: GitRepository
+        name: k8s-stack
+        namespace: flux-system
+      interval: 1m
+  valuesFrom:
+    - kind: ConfigMap
+      name: base-shared-hostnames-config-map
+      valuesKey: values.yaml
+    - kind: ConfigMap
+      name: base-shared-resources-config-map
+      valuesKey: values.yaml
+    - kind: ConfigMap
+      name: base-shared-oidc-clients-config-map
+      valuesKey: values.yaml
+    - kind: ConfigMap
+      name: auth-keycloak-api-key-bridge-app-defaults
+      valuesKey: values.yaml
+    - kind: ConfigMap
+      name: client-values
+      valuesKey: values.yaml
+    - kind: ConfigMap
+      name: keycloak-api-key-bridge-product-values
+      valuesKey: values.yaml

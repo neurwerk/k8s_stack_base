@@ -1,0 +1,81 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: frontend-librechat-config-map
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "frontend-librechat-shared.labels" . | nindent 4 }}
+data:
+  librechat.yaml: |
+    version: 1.3.14
+    cache: true
+    {{- if .Values.frontendLibrechat.objectStorage.enabled }}
+    # Keep the legacy selector aligned because LibreChat's file-list endpoint
+    # still uses it to refresh expiring S3 URLs.
+    fileStrategy: s3
+    fileStrategies:
+      default: s3
+      avatar: s3
+      image: s3
+      document: s3
+    {{- end }}
+    interface:
+      presets: false
+      parameters: false
+      fileSearch: {{ .Values.frontendLibrechat.rag.enabled }}
+    endpoints:
+      allowedAddresses:
+        - {{ .Values.frontendLibrechat.agentGateway.hostPort | quote }}
+      agents:
+        {{- if or .Values.frontendLibrechat.codeInterpreter.enabled .Values.frontendLibrechat.rag.enabled }}
+        capabilities:
+          {{- if .Values.frontendLibrechat.codeInterpreter.enabled }}
+          - execute_code
+          {{- end }}
+          {{- if .Values.frontendLibrechat.rag.enabled }}
+          - file_search
+          {{- end }}
+        {{- else }}
+        capabilities: []
+        {{- end }}
+      custom:
+        - name: AgentGateway
+          apiKey: unused
+          baseURL: {{ .Values.frontendLibrechat.agentGateway.baseUrl | quote }}
+          models:
+            default: {{ .Values.frontendLibrechat.agentGateway.models | toJson }}
+            fetch: true
+          titleConvo: true
+          titleModel: current_model
+          titleTiming: final
+          summarize: false
+          forcePrompt: false
+          reasoningKey: reasoning_content
+          includeReasoningContent: true
+          includeReasoningHistory: true
+          addParams:
+            disableStreaming: {{ not .Values.frontendLibrechat.agentGateway.streaming }}
+          headers:
+            Authorization: {{ printf "Bearer {{LIBRECHAT_OPENID_ACCESS_TOKEN}}" | quote }}
+            X-User-ID: {{ printf "{{LIBRECHAT_OPENID_USER_ID}}" | quote }}
+            X-User-Email: {{ printf "{{LIBRECHAT_OPENID_USER_EMAIL}}" | quote }}
+            X-Session-ID: {{ printf "{{LIBRECHAT_BODY_CONVERSATIONID}}" | quote }}
+    {{- if .Values.mcp.enabled }}
+    mcpSettings:
+      allowedAddresses:
+        - {{ .Values.frontendLibrechat.agentGateway.hostPort | quote }}
+    mcpServers:
+      {{- range .Values.mcp.servers }}
+      {{ .name }}:
+        type: streamable-http
+        url: {{ printf "%s/mcp/%s" (trimSuffix "/v1" $.Values.frontendLibrechat.agentGateway.baseUrl) .name | quote }}
+        requiresOAuth: true
+        oauth:
+          client_id: "${OPENID_CLIENT_ID}"
+          client_secret: "${OPENID_CLIENT_SECRET}"
+          authorization_url: {{ printf "https://%s/realms/%s/protocol/openid-connect/auth" $.Values.authKeycloak.hostname $.Values.authKeycloak.realm | quote }}
+          token_url: {{ printf "https://%s/realms/%s/protocol/openid-connect/token" $.Values.authKeycloak.hostname $.Values.authKeycloak.realm | quote }}
+          redirect_uri: {{ printf "https://%s/api/mcp/%s/oauth/callback" $.Values.frontendLibrechat.hostname .name | quote }}
+          scope: openid
+      {{- end }}
+    {{- end }}

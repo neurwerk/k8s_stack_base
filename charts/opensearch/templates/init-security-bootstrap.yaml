@@ -1,0 +1,163 @@
+# Security bootstrap Job. Runs after OpenSearch is available, then applies the
+# security plugin configuration via securityadmin.sh. It is convergent and
+# retryable on every upgrade after bootstrap-owned Secrets become available.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: monitor-opensearch-init-security-bootstrap-job
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation
+  labels:
+    app.kubernetes.io/name: opensearch-security-bootstrap
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: {{ .Release.Namespace }}
+spec:
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 86400
+  activeDeadlineSeconds: 600
+  template:
+    metadata:
+      name: monitor-opensearch-init-security-bootstrap-job
+      labels:
+        # Keep this exact label — the NetworkPolicy selects on it.
+        app.kubernetes.io/name: opensearch-security-bootstrap
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/part-of: {{ .Release.Namespace }}
+    spec:
+      serviceAccountName: monitor-opensearch-security-bootstrap-service-account
+      restartPolicy: OnFailure
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      containers:
+        - name: init-security
+          image: {{ .Values.monitorOpensearchWrapper.bootstrapImage | quote }}
+          command:
+            - /bin/bash
+            - -c
+            - |
+              set -euo pipefail
+              export JAVA_HOME=/usr/share/opensearch/jdk
+
+              OPENSEARCH_HOST="opensearch-cluster-master.{{ .Release.Namespace }}.svc.cluster.local"
+              OPENSEARCH_URL="https://${OPENSEARCH_HOST}:9200"
+
+              # Wait for OpenSearch to become reachable over HTTPS.
+              # Accept any actual HTTP response (not just 2xx).
+              # HTTP_CODE=000 means curl couldn't connect — any other code
+              # (200, 401, 503) means the security plugin is responding.
+              echo "Waiting for OpenSearch HTTPS endpoint..."
+              until HTTP_CODE="$(
+                curl --silent --show-error \
+                  --output /dev/null \
+                  --write-out '%{http_code}' \
+                  --cacert /certs/ca.crt \
+                  "${OPENSEARCH_URL}"
+              )" && [ "${HTTP_CODE}" != "000" ]; do
+                echo "  OpenSearch TLS endpoint not reachable yet, retrying in 5s..."
+                sleep 5
+              done
+              echo "OpenSearch responded with HTTP ${HTTP_CODE}"
+
+              # Generate hashes for the complete chart-managed internal user set.
+              echo "Generating internal user password hashes..."
+              ADMIN_HASH=$(
+                /usr/share/opensearch/plugins/opensearch-security/tools/hash.sh \
+                  -p "${OPENSEARCH_ADMIN_PASSWORD}"
+              )
+              FLUENT_BIT_HASH=$(
+                /usr/share/opensearch/plugins/opensearch-security/tools/hash.sh \
+                  -p "${OPENSEARCH_FLUENT_BIT_PASSWORD}"
+              )
+              STUDIO_HASH=$(
+                /usr/share/opensearch/plugins/opensearch-security/tools/hash.sh \
+                  -p "${OPENSEARCH_STUDIO_PASSWORD}"
+              )
+              echo "Internal user password hashes generated."
+
+              # Render internal_users.yml from template
+              echo "Rendering internal_users.yml..."
+              sed \
+                -e "s|ADMIN_HASH_PLACEHOLDER|${ADMIN_HASH}|" \
+                -e "s|FLUENT_BIT_HASH_PLACEHOLDER|${FLUENT_BIT_HASH}|" \
+                -e "s|STUDIO_HASH_PLACEHOLDER|${STUDIO_HASH}|" \
+                /security-config-template/internal_users.yml \
+                > /security-config-rendered/internal_users.yml
+              if grep -q "_HASH_PLACEHOLDER" /security-config-rendered/internal_users.yml; then
+                echo "ERROR: internal_users.yml contains an unresolved hash placeholder"
+                exit 1
+              fi
+              echo "internal_users.yml rendered."
+
+              # Copy static config files (cp -f: emptyDir persists across container
+              # restarts; previous copies are read-only (0440) and must be replaced)
+              cp -f /security-config-template/config.yml /security-config-rendered/config.yml
+              cp -f /security-config-template/roles.yml /security-config-rendered/roles.yml
+              cp -f /security-config-template/roles_mapping.yml /security-config-rendered/roles_mapping.yml
+              cp -f /security-config-template/action_groups.yml /security-config-rendered/action_groups.yml
+              cp -f /security-config-template/tenants.yml /security-config-rendered/tenants.yml
+              cp -f /security-config-template/nodes_dn.yml /security-config-rendered/nodes_dn.yml
+              cp -f /security-config-template/whitelist.yml /security-config-rendered/whitelist.yml
+
+              # Apply security configuration
+              echo "Running securityadmin.sh..."
+              cd /usr/share/opensearch/plugins/opensearch-security/tools
+              ./securityadmin.sh \
+                -h "${OPENSEARCH_HOST}" \
+                -p 9200 \
+                -cacert /certs/ca.crt \
+                -cert /certs/admin/tls.crt \
+                -key /certs/admin/tls.key \
+                -cd /security-config-rendered \
+                -icl
+              echo "securityadmin.sh completed successfully."
+          env:
+            - name: OPENSEARCH_JAVA_HOME
+              value: /usr/share/opensearch/jdk
+            - name: OPENSEARCH_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: monitor-opensearch-secret
+                  key: adminPassword
+            - name: OPENSEARCH_FLUENT_BIT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: monitor-opensearch-secret
+                  key: fluentBitPassword
+            - name: OPENSEARCH_STUDIO_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: monitor-opensearch-secret
+                  key: studioPassword
+          volumeMounts:
+            - name: admin-cert
+              mountPath: /certs/admin
+              readOnly: true
+            - name: ca-cert
+              mountPath: /certs
+              readOnly: true
+            - name: security-config-template
+              mountPath: /security-config-template
+              readOnly: true
+            - name: security-config-rendered
+              mountPath: /security-config-rendered
+      volumes:
+        - name: admin-cert
+          secret:
+            secretName: monitor-opensearch-admin-tls
+            defaultMode: 0440
+        - name: ca-cert
+          configMap:
+            name: monitor-opensearch-ca-trust
+            defaultMode: 0440
+        - name: security-config-template
+          configMap:
+            name: monitor-opensearch-security-config
+            defaultMode: 0440
+        - name: security-config-rendered
+          emptyDir: {}

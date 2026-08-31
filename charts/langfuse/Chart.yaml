@@ -1,0 +1,22 @@
+apiVersion: v2
+name: monitor-langfuse
+description: |
+  Wrapper chart — Langfuse LLM observability platform (monitor-langfuse namespace).
+
+  Deploys:
+    - Langfuse web (UI + API) + worker (via langfuse/langfuse-k8s subchart)
+    - Langfuse configured for the shared operations PostgreSQL service
+    - ClickHouse and Redis (via subchart dependencies)
+    - External S3 — Ceph RGW via a namespace-local ObjectBucketClaim Secret — no bundled MinIO
+    - OpenTelemetry Collector (bridges OTLP gRPC from AgentGateway → OTLP HTTP to Langfuse)
+    - Gateway (gatewayClassName: traefik) with cert-manager TLS
+    - HTTPRoute routing / to Langfuse web service
+    - Secret with Langfuse credentials (salt, encryption key, DB passwords)
+    - Init Job for data retention
+type: application
+version: 0.6.9
+appVersion: "3.179.1"
+dependencies:
+  - name: langfuse
+    version: "1.5.34"
+    repository: https://langfuse.github.io/langfuse-k8s

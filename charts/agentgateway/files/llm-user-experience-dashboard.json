@@ -1,0 +1,828 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": false,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "panels": [
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "$datasource"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum by (status, reason) (rate(agentgateway_requests_total{route=~\"${route}\"}[$__rate_interval]))",
+          "legendFormat": "{{status}} {{reason}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Request Rate by Status and Reason",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "$datasource"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "id": 2,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(extproc_active_streams)",
+          "legendFormat": "active extProc streams",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(pii_engine_queue_depth)",
+          "legendFormat": "PII queue depth",
+          "refId": "B"
+        },
+        {
+          "expr": "sum(pii_engine_analyses_in_flight)",
+          "legendFormat": "PII analyses in flight",
+          "refId": "C"
+        }
+      ],
+      "title": "Active Work",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "$datasource"
+      },
+      "description": "Time from AgentGateway request start to the first parsed response token. Compare within one model, streaming mode, and request-size range.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 8
+      },
+      "id": 3,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum by (le, gen_ai_request_model, request_size, llm_streaming) (rate(agentgateway_gen_ai_server_time_to_first_token_bucket{gen_ai_request_model=~\"${model:regex}\",request_size=~\"${request_size:regex}\",llm_streaming=~\"${streaming:regex}\",route=~\"${route}\"}[$__rate_interval])))",
+          "legendFormat": "p50 {{gen_ai_request_model}} {{request_size}} stream={{llm_streaming}}",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, gen_ai_request_model, request_size, llm_streaming) (rate(agentgateway_gen_ai_server_time_to_first_token_bucket{gen_ai_request_model=~\"${model:regex}\",request_size=~\"${request_size:regex}\",llm_streaming=~\"${streaming:regex}\",route=~\"${route}\"}[$__rate_interval])))",
+          "legendFormat": "p95 {{gen_ai_request_model}} {{request_size}} stream={{llm_streaming}}",
+          "refId": "B"
+        }
+      ],
+      "title": "Time to First Token by Request Size",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "$datasource"
+      },
+      "description": "Parsed LLM responses only: request start until the downstream response body closes. Cancellation and downstream backpressure can contribute; requests that fail before a parsed LLM response are counted in Request Rate by Status and Reason instead.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 17
+      },
+      "id": 4,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum by (le, gen_ai_request_model, request_size, llm_streaming) (rate(agentgateway_gen_ai_server_request_duration_bucket{gen_ai_request_model=~\"${model:regex}\",request_size=~\"${request_size:regex}\",llm_streaming=~\"${streaming:regex}\",route=~\"${route}\"}[$__rate_interval])))",
+          "legendFormat": "p50 {{gen_ai_request_model}} {{request_size}} stream={{llm_streaming}}",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, gen_ai_request_model, request_size, llm_streaming) (rate(agentgateway_gen_ai_server_request_duration_bucket{gen_ai_request_model=~\"${model:regex}\",request_size=~\"${request_size:regex}\",llm_streaming=~\"${streaming:regex}\",route=~\"${route}\"}[$__rate_interval])))",
+          "legendFormat": "p95 {{gen_ai_request_model}} {{request_size}} stream={{llm_streaming}}",
+          "refId": "B"
+        }
+      ],
+      "title": "LLM Response Duration by Request Size",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "$datasource"
+      },
+      "description": "Average decode interval after the first token. Lower is better and this is preferable to dividing request latency by input tokens.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 26
+      },
+      "id": 5,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum by (le, gen_ai_request_model, request_size, llm_streaming) (rate(agentgateway_gen_ai_server_time_per_output_token_bucket{gen_ai_request_model=~\"${model:regex}\",request_size=~\"${request_size:regex}\",llm_streaming=~\"${streaming:regex}\",route=~\"${route}\"}[$__rate_interval])))",
+          "legendFormat": "p50 {{gen_ai_request_model}} {{request_size}} stream={{llm_streaming}}",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, gen_ai_request_model, request_size, llm_streaming) (rate(agentgateway_gen_ai_server_time_per_output_token_bucket{gen_ai_request_model=~\"${model:regex}\",request_size=~\"${request_size:regex}\",llm_streaming=~\"${streaming:regex}\",route=~\"${route}\"}[$__rate_interval])))",
+          "legendFormat": "p95 {{gen_ai_request_model}} {{request_size}} stream={{llm_streaming}}",
+          "refId": "B"
+        }
+      ],
+      "title": "Time per Output Token by Request Size",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "$datasource"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 35
+      },
+      "id": 6,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum by (le, gen_ai_request_model, gen_ai_token_type) (rate(agentgateway_gen_ai_client_token_usage_bucket{gen_ai_request_model=~\"${model:regex}\",gen_ai_token_type=~\"input|output\",request_size=~\"${request_size:regex}\",llm_streaming=~\"${streaming:regex}\",route=~\"${route}\"}[$__rate_interval])))",
+          "legendFormat": "p50 {{gen_ai_request_model}} {{gen_ai_token_type}}",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, gen_ai_request_model, gen_ai_token_type) (rate(agentgateway_gen_ai_client_token_usage_bucket{gen_ai_request_model=~\"${model:regex}\",gen_ai_token_type=~\"input|output\",request_size=~\"${request_size:regex}\",llm_streaming=~\"${streaming:regex}\",route=~\"${route}\"}[$__rate_interval])))",
+          "legendFormat": "p95 {{gen_ai_request_model}} {{gen_ai_token_type}}",
+          "refId": "B"
+        }
+      ],
+      "title": "Input and Output Tokens per Request",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "$datasource"
+      },
+      "description": "Counts over the same rolling interval as the percentiles. Use these to judge whether each p50 or p95 series has enough observations.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 35
+      },
+      "id": 7,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum by (gen_ai_request_model, request_size, llm_streaming) (increase(agentgateway_gen_ai_server_time_to_first_token_count{gen_ai_request_model=~\"${model:regex}\",request_size=~\"${request_size:regex}\",llm_streaming=~\"${streaming:regex}\",route=~\"${route}\"}[$__rate_interval]))",
+          "legendFormat": "TTFT {{gen_ai_request_model}} {{request_size}} stream={{llm_streaming}}",
+          "refId": "A"
+        },
+        {
+          "expr": "sum by (gen_ai_request_model, request_size, llm_streaming) (increase(agentgateway_gen_ai_server_request_duration_count{gen_ai_request_model=~\"${model:regex}\",request_size=~\"${request_size:regex}\",llm_streaming=~\"${streaming:regex}\",route=~\"${route}\"}[$__rate_interval]))",
+          "legendFormat": "request {{gen_ai_request_model}} {{request_size}} stream={{llm_streaming}}",
+          "refId": "B"
+        },
+        {
+          "expr": "sum by (gen_ai_request_model, request_size, llm_streaming) (increase(agentgateway_gen_ai_server_time_per_output_token_count{gen_ai_request_model=~\"${model:regex}\",request_size=~\"${request_size:regex}\",llm_streaming=~\"${streaming:regex}\",route=~\"${route}\"}[$__rate_interval]))",
+          "legendFormat": "TPOT {{gen_ai_request_model}} {{request_size}} stream={{llm_streaming}}",
+          "refId": "C"
+        },
+        {
+          "expr": "sum by (gen_ai_request_model, gen_ai_token_type) (increase(agentgateway_gen_ai_client_token_usage_count{gen_ai_request_model=~\"${model:regex}\",gen_ai_token_type=~\"input|output\",request_size=~\"${request_size:regex}\",llm_streaming=~\"${streaming:regex}\",route=~\"${route}\"}[$__rate_interval]))",
+          "legendFormat": "tokens {{gen_ai_request_model}} {{gen_ai_token_type}}",
+          "refId": "D"
+        },
+        {
+          "expr": "sum by (outcome) (increase(extproc_engine_request_latency_seconds_count[$__rate_interval]))",
+          "legendFormat": "PII round-trip {{outcome}}",
+          "refId": "E"
+        },
+        {
+          "expr": "sum(increase(pii_engine_analysis_duration_seconds_count{caller=\"adapter\"}[$__rate_interval]))",
+          "legendFormat": "PII analysis",
+          "refId": "F"
+        },
+        {
+          "expr": "sum(increase(pii_engine_queue_wait_seconds_count{caller=\"adapter\"}[$__rate_interval]))",
+          "legendFormat": "PII queue wait",
+          "refId": "G"
+        }
+      ],
+      "title": "Percentile Observation Counts",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "$datasource"
+      },
+      "description": "Round-trip from extProc to the PII Engine, including transport and queueing. Series are separated by outcome; only success is a validated decision.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 43
+      },
+      "id": 8,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum by (le, outcome) (rate(extproc_engine_request_latency_seconds_bucket[$__rate_interval])))",
+          "legendFormat": "p50 {{outcome}}",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, outcome) (rate(extproc_engine_request_latency_seconds_bucket[$__rate_interval])))",
+          "legendFormat": "p95 {{outcome}}",
+          "refId": "B"
+        }
+      ],
+      "title": "PII Decision Round-Trip",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "$datasource"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 43
+      },
+      "id": 9,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum by (le) (rate(pii_engine_analysis_duration_seconds_bucket{caller=\"adapter\"}[$__rate_interval])))",
+          "legendFormat": "analysis p50",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(pii_engine_analysis_duration_seconds_bucket{caller=\"adapter\"}[$__rate_interval])))",
+          "legendFormat": "analysis p95",
+          "refId": "B"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(pii_engine_queue_wait_seconds_bucket{caller=\"adapter\"}[$__rate_interval])))",
+          "legendFormat": "queue p95",
+          "refId": "C"
+        }
+      ],
+      "title": "PII Analysis and Queue Time",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "$datasource"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 52
+      },
+      "id": 10,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum by (error) (rate(pii_engine_policy_failures_total{caller=\"adapter\"}[$__rate_interval]))",
+          "legendFormat": "failure {{error}}",
+          "refId": "A"
+        },
+        {
+          "expr": "sum by (reason) (rate(pii_engine_queue_rejections_total{caller=\"adapter\"}[$__rate_interval]))",
+          "legendFormat": "rejection {{reason}}",
+          "refId": "B"
+        },
+        {
+          "expr": "sum by (outcome) (rate(extproc_engine_requests_total{outcome!=\"success\"}[$__rate_interval]))",
+          "legendFormat": "extProc {{outcome}}",
+          "refId": "C"
+        }
+      ],
+      "title": "PII Failures and Rejections",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "$datasource"
+      },
+      "description": "Among parsed LLM responses, this shows the share with TTFT or input-token telemetry. It does not include requests that fail before AgentGateway parses an LLM response; use Request Rate by Status and Reason for all request outcomes.",
+      "fieldConfig": {
+        "defaults": {
+          "max": 100,
+          "min": 0,
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 52
+      },
+      "id": 11,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "expr": "100 * sum by (gen_ai_request_model, request_size, llm_streaming) (rate(agentgateway_gen_ai_server_time_to_first_token_count{gen_ai_request_model=~\"${model:regex}\",request_size=~\"${request_size:regex}\",llm_streaming=~\"${streaming:regex}\",route=~\"${route}\"}[$__rate_interval])) / clamp_min(sum by (gen_ai_request_model, request_size, llm_streaming) (rate(agentgateway_gen_ai_server_request_duration_count{gen_ai_request_model=~\"${model:regex}\",request_size=~\"${request_size:regex}\",llm_streaming=~\"${streaming:regex}\",route=~\"${route}\"}[$__rate_interval])), 0.000001)",
+          "legendFormat": "TTFT {{gen_ai_request_model}} {{request_size}} stream={{llm_streaming}}",
+          "refId": "A"
+        },
+        {
+          "expr": "100 * sum by (gen_ai_request_model, request_size, llm_streaming) (rate(agentgateway_gen_ai_client_token_usage_count{gen_ai_request_model=~\"${model:regex}\",gen_ai_token_type=\"input\",request_size=~\"${request_size:regex}\",llm_streaming=~\"${streaming:regex}\",route=~\"${route}\"}[$__rate_interval])) / clamp_min(sum by (gen_ai_request_model, request_size, llm_streaming) (rate(agentgateway_gen_ai_server_request_duration_count{gen_ai_request_model=~\"${model:regex}\",request_size=~\"${request_size:regex}\",llm_streaming=~\"${streaming:regex}\",route=~\"${route}\"}[$__rate_interval])), 0.000001)",
+          "legendFormat": "input tokens {{gen_ai_request_model}} {{request_size}} stream={{llm_streaming}}",
+          "refId": "B"
+        }
+      ],
+      "title": "Parsed LLM Response Metric Coverage",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "$datasource"
+      },
+      "description": "Share of observations above AgentGateway's largest finite histogram bucket. A non-zero value means the corresponding percentile may be capped at that bucket boundary.",
+      "fieldConfig": {
+        "defaults": {
+          "max": 100,
+          "min": 0,
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 60
+      },
+      "id": 12,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "expr": "100 * (sum by (gen_ai_request_model, request_size, llm_streaming) (rate(agentgateway_gen_ai_server_time_to_first_token_bucket{gen_ai_request_model=~\"${model:regex}\",request_size=~\"${request_size:regex}\",llm_streaming=~\"${streaming:regex}\",route=~\"${route}\",le=\"+Inf\"}[$__rate_interval])) - sum by (gen_ai_request_model, request_size, llm_streaming) (rate(agentgateway_gen_ai_server_time_to_first_token_bucket{gen_ai_request_model=~\"${model:regex}\",request_size=~\"${request_size:regex}\",llm_streaming=~\"${streaming:regex}\",route=~\"${route}\",le=\"10\"}[$__rate_interval]))) / clamp_min(sum by (gen_ai_request_model, request_size, llm_streaming) (rate(agentgateway_gen_ai_server_time_to_first_token_count{gen_ai_request_model=~\"${model:regex}\",request_size=~\"${request_size:regex}\",llm_streaming=~\"${streaming:regex}\",route=~\"${route}\"}[$__rate_interval])), 0.000001)",
+          "legendFormat": "TTFT over 10s {{gen_ai_request_model}} {{request_size}} stream={{llm_streaming}}",
+          "refId": "A"
+        },
+        {
+          "expr": "100 * (sum by (gen_ai_request_model, request_size, llm_streaming) (rate(agentgateway_gen_ai_server_request_duration_bucket{gen_ai_request_model=~\"${model:regex}\",request_size=~\"${request_size:regex}\",llm_streaming=~\"${streaming:regex}\",route=~\"${route}\",le=\"+Inf\"}[$__rate_interval])) - sum by (gen_ai_request_model, request_size, llm_streaming) (rate(agentgateway_gen_ai_server_request_duration_bucket{gen_ai_request_model=~\"${model:regex}\",request_size=~\"${request_size:regex}\",llm_streaming=~\"${streaming:regex}\",route=~\"${route}\",le=\"81.92\"}[$__rate_interval]))) / clamp_min(sum by (gen_ai_request_model, request_size, llm_streaming) (rate(agentgateway_gen_ai_server_request_duration_count{gen_ai_request_model=~\"${model:regex}\",request_size=~\"${request_size:regex}\",llm_streaming=~\"${streaming:regex}\",route=~\"${route}\"}[$__rate_interval])), 0.000001)",
+          "legendFormat": "response over 81.92s {{gen_ai_request_model}} {{request_size}} stream={{llm_streaming}}",
+          "refId": "B"
+        },
+        {
+          "expr": "100 * (sum by (gen_ai_request_model, request_size, llm_streaming) (rate(agentgateway_gen_ai_server_time_per_output_token_bucket{gen_ai_request_model=~\"${model:regex}\",request_size=~\"${request_size:regex}\",llm_streaming=~\"${streaming:regex}\",route=~\"${route}\",le=\"+Inf\"}[$__rate_interval])) - sum by (gen_ai_request_model, request_size, llm_streaming) (rate(agentgateway_gen_ai_server_time_per_output_token_bucket{gen_ai_request_model=~\"${model:regex}\",request_size=~\"${request_size:regex}\",llm_streaming=~\"${streaming:regex}\",route=~\"${route}\",le=\"2.5\"}[$__rate_interval]))) / clamp_min(sum by (gen_ai_request_model, request_size, llm_streaming) (rate(agentgateway_gen_ai_server_time_per_output_token_count{gen_ai_request_model=~\"${model:regex}\",request_size=~\"${request_size:regex}\",llm_streaming=~\"${streaming:regex}\",route=~\"${route}\"}[$__rate_interval])), 0.000001)",
+          "legendFormat": "output token over 2.5s {{gen_ai_request_model}} {{request_size}} stream={{llm_streaming}}",
+          "refId": "C"
+        }
+      ],
+      "title": "LLM Histogram Overflow",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "$datasource"
+      },
+      "description": "AgentGateway controller reconciliation health. Errors or sustained running work indicate Kubernetes resource convergence problems rather than model-request latency.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 60
+      },
+      "id": 13,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum by (controller) (rate(agentgateway_controller_reconciliations_total{result=\"error\"}[$__rate_interval]))",
+          "legendFormat": "errors {{controller}}",
+          "refId": "A"
+        },
+        {
+          "expr": "sum by (controller) (agentgateway_controller_reconciliations_running)",
+          "legendFormat": "running {{controller}}",
+          "refId": "B"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, controller) (rate(agentgateway_controller_reconcile_duration_seconds_bucket[$__rate_interval])))",
+          "legendFormat": "reconcile p95 {{controller}}",
+          "refId": "C"
+        }
+      ],
+      "title": "AgentGateway Controller Reconciliation",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "$datasource"
+      },
+      "description": "xDS control-plane health between the AgentGateway controller and generated proxy Pods. Failures or rejects can leave proxies with stale or invalid configuration.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 69
+      },
+      "id": 14,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "expr": "rate(agentgateway_xds_auth_rq_success_total[$__rate_interval])",
+          "legendFormat": "xDS auth success",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(agentgateway_xds_auth_rq_failure_total[$__rate_interval])",
+          "legendFormat": "xDS auth failure",
+          "refId": "B"
+        },
+        {
+          "expr": "rate(agentgateway_xds_rejects_total[$__rate_interval])",
+          "legendFormat": "xDS rejects",
+          "refId": "C"
+        }
+      ],
+      "title": "AgentGateway xDS Health",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 36,
+  "style": "dark",
+  "tags": [
+    "agentgateway",
+    "llm",
+    "user-experience"
+  ],
+  "templating": {
+    "list": [
+      {
+        "hide": 0,
+        "includeAll": false,
+        "multi": false,
+        "name": "datasource",
+        "query": "prometheus",
+        "skipUrlSync": false,
+        "type": "datasource"
+      },
+      {
+        "datasource": {
+          "type": "prometheus",
+          "uid": "$datasource"
+        },
+        "hide": 0,
+        "includeAll": true,
+        "label": "Model",
+        "multi": true,
+        "name": "model",
+        "query": "label_values(agentgateway_gen_ai_server_request_duration_count,gen_ai_request_model)",
+        "refresh": 2,
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "datasource": {
+          "type": "prometheus",
+          "uid": "$datasource"
+        },
+        "hide": 0,
+        "includeAll": true,
+        "label": "Request size",
+        "multi": true,
+        "name": "request_size",
+        "query": "label_values(agentgateway_gen_ai_server_request_duration_count,request_size)",
+        "refresh": 2,
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "datasource": {
+          "type": "prometheus",
+          "uid": "$datasource"
+        },
+        "hide": 0,
+        "includeAll": true,
+        "label": "Streaming",
+        "multi": true,
+        "name": "streaming",
+        "query": "label_values(agentgateway_gen_ai_server_request_duration_count,llm_streaming)",
+        "refresh": 2,
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "datasource": {
+          "type": "prometheus",
+          "uid": "$datasource"
+        },
+        "hide": 0,
+        "includeAll": true,
+        "label": "Route",
+        "multi": true,
+        "name": "route",
+        "query": "label_values(agentgateway_requests_total,route)",
+        "refresh": 2,
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "timezone": "browser",
+  "title": "LLM User Experience",
+  "uid": "llm-user-experience",
+  "version": 1
+}

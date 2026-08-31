@@ -1,0 +1,28 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: monitor-pii-engine-server-certificate
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "monitor-pii-engine.labels" . | nindent 4 }}
+spec:
+  commonName: monitor-pii-engine-service
+  secretName: {{ .Values.monitorPiiEngine.tls.serverSecretName }}
+  privateKey:
+    algorithm: RSA
+    size: 2048
+    encoding: PKCS8
+    rotationPolicy: Always
+  duration: 2160h
+  renewBefore: 360h
+  usages:
+    - server auth
+  dnsNames:
+    - monitor-pii-engine-service
+    - monitor-pii-engine-service.monitor-pii-engine
+    - monitor-pii-engine-service.monitor-pii-engine.svc
+    - monitor-pii-engine-service.monitor-pii-engine.svc.cluster.local
+  issuerRef:
+    name: infra-cert-manager-internal-ca-issuer
+    kind: ClusterIssuer
+    group: cert-manager.io

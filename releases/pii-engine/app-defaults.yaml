@@ -1,0 +1,3 @@
+# Only override what differs from chart defaults.
+# Policy ownership is intentionally rooted at monitorPiiEngine.
+monitorPiiEngine: {}

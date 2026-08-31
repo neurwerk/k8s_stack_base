@@ -1,0 +1,38 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: infra-agentgateway-controller-network-policy
+  namespace: infra-agentgateway
+  labels:
+    app.kubernetes.io/name: agentgateway-controller
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: infra-agentgateway
+spec:
+  podSelector:
+    matchLabels:
+      agentgateway: agentgateway
+      app.kubernetes.io/name: agentgateway
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitor-kube-prometheus-stack
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus
+              operator.prometheus.io/name: monitor-kube-prometheus-st
+      ports:
+        - port: metrics
+          protocol: TCP
+    - from:
+        # Generated proxy Pods retrieve their configuration from the controller.
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: infra-agentgateway-gateway
+              gateway.networking.k8s.io/gateway-name: infra-agentgateway-gateway
+      ports:
+        - port: grpc-xds-agw
+          protocol: TCP

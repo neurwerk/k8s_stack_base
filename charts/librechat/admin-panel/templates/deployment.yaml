@@ -1,0 +1,123 @@
+{{- $adminPanel := .Values.frontendLibrechat.adminPanel -}}
+{{- $secretNames := include "librechat-admin-panel.secretNames" . -}}
+{{- if not $secretNames -}}
+{{- fail "frontendLibrechat.adminPanel.secret requires existingSecret or an explicit session.secretName" -}}
+{{- end -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "librechat-admin-panel.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "librechat-admin-panel.labels" . | nindent 4 }}
+  annotations:
+    secret.reloader.stakater.com/reload: {{ $secretNames | quote }}
+spec:
+  replicas: {{ $adminPanel.replicas }}
+  selector:
+    matchLabels:
+      {{- include "librechat-admin-panel.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "librechat-admin-panel.labels" . | nindent 8 }}
+      annotations:
+        checksum/secret-config: {{ $adminPanel.secret | toJson | sha256sum }}
+    spec:
+      serviceAccountName: {{ include "librechat-admin-panel.fullname" . }}
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      securityContext:
+        {{- toYaml $adminPanel.podSecurityContext | nindent 8 }}
+      {{- with $adminPanel.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: admin-panel
+          image: {{ printf "%s:%s" $adminPanel.image.repository $adminPanel.image.tag | quote }}
+          imagePullPolicy: {{ $adminPanel.image.pullPolicy }}
+          securityContext:
+            {{- toYaml $adminPanel.containerSecurityContext | nindent 12 }}
+          env:
+            - name: PORT
+              value: {{ $adminPanel.ports.container | quote }}
+            - name: TMPDIR
+              value: /tmp
+            - name: API_SERVER_URL
+              value: {{ $adminPanel.apiServerUrl | quote }}
+            - name: VITE_API_BASE_URL
+              value: {{ include "librechat-admin-panel.publicApiUrl" . | quote }}
+            - name: ADMIN_SSO_ONLY
+              value: {{ $adminPanel.ssoOnly | quote }}
+            - name: ADMIN_SSO_ENABLED
+              value: "true"
+            - name: ADMIN_SESSION_IDLE_TIMEOUT_MS
+              value: {{ $adminPanel.session.idleTimeoutMs | quote }}
+            - name: SESSION_COOKIE_SECURE
+              value: {{ $adminPanel.session.cookieSecure | quote }}
+            {{- if not $adminPanel.secret.existingSecret }}
+            - name: SESSION_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ required "frontendLibrechat.adminPanel.secret.session.secretName is required without existingSecret" $adminPanel.secret.session.secretName }}
+                  key: {{ required "frontendLibrechat.adminPanel.secret.session.key is required" $adminPanel.secret.session.key }}
+            {{- with $adminPanel.secret.metrics.secretName }}
+            - name: ADMIN_PANEL_METRICS_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ . }}
+                  key: {{ required "frontendLibrechat.adminPanel.secret.metrics.key is required" $adminPanel.secret.metrics.key }}
+            {{- end }}
+            {{- end }}
+          {{- with $adminPanel.secret.existingSecret }}
+          envFrom:
+            - secretRef:
+                name: {{ . }}
+          {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ $adminPanel.ports.container }}
+              protocol: TCP
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 2
+            timeoutSeconds: 2
+            failureThreshold: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 20
+            timeoutSeconds: 2
+            failureThreshold: 3
+          resources:
+            {{- toYaml $adminPanel.resources | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: {{ $adminPanel.tmpSizeLimit }}
+      {{- with $adminPanel.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $adminPanel.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $adminPanel.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

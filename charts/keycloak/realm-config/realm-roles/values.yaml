@@ -1,0 +1,84 @@
+# IMAGE SOURCE: tooling
+# k8sTools is a pinned neurwerk image used by this realm bootstrap Job.
+# =============================================================================
+# values.yaml — keycloak-realm-config/realm-roles
+#
+# Default values for realm-level role creation.
+# =============================================================================
+
+authKeycloak:
+  # Keycloak master realm admin credentials — used to authenticate
+  # to the Admin REST API. Set by the chart; override per-client if needed.
+  adminUser: admin
+
+  # Comma-separated list of stack-owned realm roles. Human users receive these
+  # through /access/* groups; applications authorize the resulting role claims.
+  realmRoles: "keycloak-admin,api-key-admin,opensearch-admin,langfuse-admin,pii-admin,platform-admin,studio-user,librechat-user,librechat-admin,dify-user,dify-admin"
+
+  # Realm role composites. keycloak-admin's realm-management client-role
+  # composites remain reconciled by the dedicated setup-composites container.
+  realmRoleComposites:
+    librechat-admin:
+      - librechat-user
+    dify-admin:
+      - dify-user
+    platform-admin:
+      - keycloak-admin
+      - api-key-admin
+      - opensearch-admin
+      - langfuse-admin
+      - pii-admin
+      - studio-user
+      - librechat-admin
+      - dify-admin
+
+  # These Keycloak client roles are created by the AgentGateway OIDC Job. Tenant
+  # overlays extend the catalog with model:<id>:invoke and mcp:<id>:invoke.
+  agentgatewayClientRoles:
+    - llm:invoke
+
+  # Map access groups to the explicit AgentGateway client roles they receive.
+  # Clients explicitly own these grants; application admission does not imply
+  # AgentGateway access.
+  agentgatewayAccessGroups: {}
+
+  # Access groups are the only human role-assignment interface. AgentGateway
+  # client roles are permissions, not application roles, and therefore live in
+  # clientRoles rather than realmRoles.
+  accessGroups:
+    /access/api-key-admins:
+      realmRoles:
+        - api-key-admin
+    /access/dify-admins:
+      realmRoles:
+        - dify-admin
+    /access/dify-users:
+      realmRoles:
+        - dify-user
+    /access/keycloak-admins:
+      realmRoles:
+        - keycloak-admin
+    /access/langfuse-admins:
+      realmRoles:
+        - langfuse-admin
+    /access/librechat-admins:
+      realmRoles:
+        - librechat-admin
+    /access/librechat-users:
+      realmRoles:
+        - librechat-user
+    /access/opensearch-admins:
+      realmRoles:
+        - opensearch-admin
+    /access/pii-admins:
+      realmRoles:
+        - pii-admin
+    /access/platform-admins:
+      realmRoles:
+        - platform-admin
+    /access/studio-users:
+      realmRoles:
+        - studio-user
+
+k8sTools:
+  image: ghcr.io/neurwerk/k8s-stack-tooling:0.5.4

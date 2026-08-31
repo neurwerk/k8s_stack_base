@@ -1,0 +1,146 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: frontend-librechat-external-secrets
+  namespace: frontend-librechat
+  labels:
+    app.kubernetes.io/name: external-secrets
+    app.kubernetes.io/instance: frontend-librechat-secret-sync
+    app.kubernetes.io/part-of: frontend-librechat
+---
+apiVersion: external-secrets.io/v1
+kind: SecretStore
+metadata:
+  name: frontend-librechat-openbao-secret-store
+  namespace: frontend-librechat
+  labels:
+    app.kubernetes.io/name: external-secrets
+    app.kubernetes.io/instance: frontend-librechat-secret-sync
+    app.kubernetes.io/part-of: frontend-librechat
+spec:
+  provider:
+    vault:
+      server: https://infra-openbao.infra-openbao.svc:8200
+      path: secret
+      version: v2
+      caProvider:
+        type: ConfigMap
+        name: infra-openbao-ca-bundle
+        key: ca.crt
+      auth:
+        kubernetes:
+          mountPath: kubernetes
+          role: frontend-librechat
+          serviceAccountRef:
+            name: frontend-librechat-external-secrets
+            audiences:
+              - openbao
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: frontend-librechat-runtime-secret
+  namespace: frontend-librechat
+  labels:
+    app.kubernetes.io/name: external-secrets
+    app.kubernetes.io/instance: frontend-librechat-secret-sync
+    app.kubernetes.io/part-of: frontend-librechat
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: frontend-librechat-openbao-secret-store
+    kind: SecretStore
+  target:
+    name: frontend-librechat-runtime-secret
+    creationPolicy: Owner
+    deletionPolicy: Retain
+    template:
+      engineVersion: v2
+      type: Opaque
+      metadata:
+        labels:
+          reconcile.fluxcd.io/watch: Enabled
+      data:
+        values.yaml: |
+          frontendLibrechatSecrets:
+            credsKey: {{ .credsKey | quote }}
+            credsIv: {{ .credsIv | quote }}
+            jwtSecret: {{ .jwtSecret | quote }}
+            jwtRefreshSecret: {{ .jwtRefreshSecret | quote }}
+            meiliMasterKey: {{ .meiliMasterKey | quote }}
+            documentdbUser: {{ .documentdbUser | quote }}
+            documentdbPassword: {{ .documentdbPassword | quote }}
+            openidSessionSecret: {{ .openidSessionSecret | quote }}
+            openidClientSecret: {{ .openidClientSecret | quote }}
+            valkeyPassword: {{ .valkeyPassword | quote }}
+            ragPostgresqlUser: {{ .ragPostgresqlUser | quote }}
+            ragPostgresqlPassword: {{ .ragPostgresqlPassword | quote }}
+            ragOpenaiApiKey: {{ .ragOpenaiApiKey | quote }}
+            adminPanelSessionSecret: {{ .adminPanelSessionSecret | quote }}
+            adminPanelMetricsSecret: {{ .adminPanelMetricsSecret | quote }}
+            codeInterpreterJwtPrivateKey: {{ .codeInterpreterJwtPrivateKey | quote }}
+  data:
+    - secretKey: credsKey
+      remoteRef:
+        key: frontend-librechat/internal
+        property: credsKey
+    - secretKey: credsIv
+      remoteRef:
+        key: frontend-librechat/internal
+        property: credsIv
+    - secretKey: jwtSecret
+      remoteRef:
+        key: frontend-librechat/internal
+        property: jwtSecret
+    - secretKey: jwtRefreshSecret
+      remoteRef:
+        key: frontend-librechat/internal
+        property: jwtRefreshSecret
+    - secretKey: meiliMasterKey
+      remoteRef:
+        key: frontend-librechat/internal
+        property: meiliMasterKey
+    - secretKey: documentdbUser
+      remoteRef:
+        key: frontend-librechat/internal
+        property: documentdbUser
+    - secretKey: documentdbPassword
+      remoteRef:
+        key: frontend-librechat/internal
+        property: documentdbPassword
+    - secretKey: openidSessionSecret
+      remoteRef:
+        key: frontend-librechat/internal
+        property: openidSessionSecret
+    - secretKey: openidClientSecret
+      remoteRef:
+        key: frontend-librechat/internal
+        property: openidClientSecret
+    - secretKey: valkeyPassword
+      remoteRef:
+        key: frontend-librechat/internal
+        property: valkeyPassword
+    - secretKey: ragPostgresqlUser
+      remoteRef:
+        key: frontend-librechat/internal
+        property: ragPostgresqlUser
+    - secretKey: ragPostgresqlPassword
+      remoteRef:
+        key: frontend-librechat/internal
+        property: ragPostgresqlPassword
+    - secretKey: ragOpenaiApiKey
+      remoteRef:
+        key: frontend-librechat/internal
+        property: ragOpenaiApiKey
+    - secretKey: adminPanelSessionSecret
+      remoteRef:
+        key: frontend-librechat/internal
+        property: adminPanelSessionSecret
+    - secretKey: adminPanelMetricsSecret
+      remoteRef:
+        key: frontend-librechat/internal
+        property: adminPanelMetricsSecret
+    - secretKey: codeInterpreterJwtPrivateKey
+      remoteRef:
+        key: frontend-librechat/internal
+        property: codeInterpreterJwtPrivateKey

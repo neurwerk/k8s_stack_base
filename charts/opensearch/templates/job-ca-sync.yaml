@@ -1,0 +1,97 @@
+# CA-sync Job copies the public root CA certificate from the trust-manager
+# ConfigMap into trust-bundle ConfigMaps in the
+# monitor-opensearch, monitor-fluent-bit and frontend-studio namespaces.
+# pre-install/pre-upgrade hook so the ConfigMaps exist before the bootstrap
+# Job, provisioning Job, Fluent-Bit or the Studio API attempt to mount them.
+# Uses the k8s_stack_tooling image (python + kubernetes client) — the
+# registry.k8s.io/kubectl image has no shell and cannot run scripts.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: monitor-opensearch-ca-sync-job
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: ca-sync
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: monitor-opensearch
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-8"
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      name: monitor-opensearch-ca-sync-job
+      labels:
+        app.kubernetes.io/name: ca-sync
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/part-of: monitor-opensearch
+    spec:
+      serviceAccountName: monitor-opensearch-ca-sync-service-account
+      restartPolicy: OnFailure
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      containers:
+        - name: ca-sync
+          image: {{ (.Values.k8sTools).image | quote }}
+          command:
+            - /bin/bash
+            - -c
+            - |
+              set -euo pipefail
+              python3 -c "
+              import sys, time
+              from kubernetes import client, config
+              from kubernetes.client.rest import ApiException
+
+              config.load_incluster_config()
+              core = client.CoreV1Api()
+
+              # trust-manager creates the public CA bundle asynchronously.
+              # Wait up to 30 attempts (150 seconds) for it to exist.
+              ca_crt = None
+              for i in range(1, 31):
+                  try:
+                      bundle = core.read_namespaced_config_map(
+                          'monitor-opensearch-ca-bundle', 'infra-cert-manager')
+                      ca_crt = (bundle.data or {}).get('ca.crt')
+                      if ca_crt:
+                          break
+                  except ApiException as e:
+                      if e.status != 404:
+                          raise
+                  print(f'Waiting for public CA bundle (attempt {i}/30)...', flush=True)
+                  time.sleep(5)
+
+              if not ca_crt:
+                  print('ERROR: CA certificate not found in infra-cert-manager/monitor-opensearch-ca-bundle after 30 attempts')
+                  sys.exit(1)
+
+              def sync_configmap(name, namespace, allow_create=False):
+                  try:
+                      current = core.read_namespaced_config_map(name, namespace)
+                  except ApiException as e:
+                      if e.status != 404 or not allow_create:
+                          raise
+                      core.create_namespaced_config_map(
+                          namespace,
+                          client.V1ConfigMap(
+                              metadata=client.V1ObjectMeta(name=name, namespace=namespace),
+                              data={'ca.crt': ca_crt}))
+                      print(f'Created ConfigMap {namespace}/{name}')
+                      return
+                  if (current.data or {}).get('ca.crt') != ca_crt:
+                      core.patch_namespaced_config_map(
+                          name, namespace, {'data': {'ca.crt': ca_crt}})
+                      print(f'Updated ConfigMap {namespace}/{name}')
+
+              sync_configmap('monitor-opensearch-ca-trust', 'monitor-opensearch', True)
+              sync_configmap('monitor-fluent-bit-shared-opensearch-ca', 'monitor-fluent-bit')
+              sync_configmap('frontend-studio-shared-opensearch-ca', 'frontend-studio')
+              print('CA certificate synced to all trust-bundle ConfigMaps')
+              "

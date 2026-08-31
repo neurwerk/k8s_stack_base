@@ -1,0 +1,100 @@
+{{- if .Values.internalRagEmbedding.enabled }}
+{{- $config := .Values.internalRagEmbedding }}
+{{- $backend := $config.backend | default dict }}
+{{- $listenerPort := int (required "internalRagEmbedding.listenerPort is required when internalRagEmbedding is enabled" $config.listenerPort) }}
+{{- $backendHost := required "internalRagEmbedding.backend.host is required when internalRagEmbedding is enabled" $backend.host | trim }}
+{{- $backendPort := int (required "internalRagEmbedding.backend.port is required when internalRagEmbedding is enabled" $backend.port) }}
+{{- $model := required "internalRagEmbedding.backend.model is required when internalRagEmbedding is enabled" $backend.model | trim }}
+{{- if or (lt $listenerPort 1) (gt $listenerPort 65535) }}{{- fail "internalRagEmbedding.listenerPort must be between 1 and 65535" }}{{- end }}
+{{- if eq $listenerPort (int .Values.infraAgentgatewayWrapper.ports.service.http) }}{{- fail "internalRagEmbedding.listenerPort must differ from the shared websecure listener port" }}{{- end }}
+{{- if or (lt $backendPort 1) (gt $backendPort 65535) }}{{- fail "internalRagEmbedding.backend.port must be between 1 and 65535" }}{{- end }}
+{{- if not $backendHost }}{{- fail "internalRagEmbedding.backend.host is required when internalRagEmbedding is enabled" }}{{- end }}
+{{- if not $model }}{{- fail "internalRagEmbedding.backend.model is required when internalRagEmbedding is enabled" }}{{- end }}
+{{- if not (regexMatch "^[A-Za-z0-9][A-Za-z0-9._/-]{0,127}$" $model) }}{{- fail (printf "internalRagEmbedding backend model %q must be safe for model:<model>:invoke permissions" $model) }}{{- end }}
+{{- if not .Values.agentgateway.agentgatewayModels.enabled }}{{- fail "agentgateway.agentgatewayModels.enabled must be true when internalRagEmbedding is enabled" }}{{- end }}
+{{- $roles := .Values.authKeycloak.agentgatewayClientRoles | default list }}
+{{- if not (has "llm:invoke" $roles) }}{{- fail "authKeycloak.agentgatewayClientRoles must include llm:invoke when internalRagEmbedding is enabled" }}{{- end }}
+{{- $permission := printf "model:%s:invoke" $model }}
+{{- if not (has $permission $roles) }}{{- fail (printf "internalRagEmbedding backend model %q requires %q in authKeycloak.agentgatewayClientRoles" $model $permission) }}{{- end }}
+{{- $authorization := printf `(has(jwt.resource_access.agentgateway.roles) && "%s" in jwt.resource_access.agentgateway.roles) || (has(extauthz.permissions) && "%s" in extauthz.permissions)` $permission $permission }}
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayModel
+metadata:
+  name: infra-agentgateway-internal-rag-embedding-model
+  namespace: infra-agentgateway
+  labels:
+    app.kubernetes.io/name: internal-rag-embedding-model
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: infra-agentgateway
+spec:
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: infra-agentgateway-gateway
+      sectionName: internal-rag-embedding
+  match:
+    model: {{ $model | quote }}
+  visibility: Public
+  provider: Custom
+  baseURL: {{ printf "http://%s:%d" $backendHost $backendPort | quote }}
+  custom:
+    formats:
+      - type: Embeddings
+  policies:
+    authorization:
+      action: Allow
+      policy:
+        matchExpressions:
+          - {{ $authorization | quote }}
+    transformations:
+      - field: model
+        expression: '"{{ $model }}"'
+{{- if .Values.infraAgentgatewayWrapper.tracing }}
+---
+# AgentGateway 1.4.1 requires a backendRef on a tracing override. Both sampling
+# paths and export are disabled below; this reserved sink keeps failures local
+# if a future data-plane regression attempts an export anyway.
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayBackend
+metadata:
+  name: infra-agentgateway-disabled-telemetry-backend
+  namespace: infra-agentgateway
+  labels:
+    app.kubernetes.io/name: disabled-telemetry-backend
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: infra-agentgateway
+spec:
+  static:
+    host: telemetry-disabled.invalid
+    port: 4317
+{{- end }}
+---
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayPolicy
+metadata:
+  name: infra-agentgateway-internal-rag-embedding-telemetry-policy
+  namespace: infra-agentgateway
+  labels:
+    app.kubernetes.io/name: internal-rag-embedding-telemetry
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: infra-agentgateway
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: infra-agentgateway-gateway
+      sectionName: internal-rag-embedding
+  frontend:
+    accessLog:
+      filter: "false"
+    {{- if .Values.infraAgentgatewayWrapper.tracing }}
+    tracing:
+      backendRef:
+        group: agentgateway.dev
+        kind: AgentgatewayBackend
+        name: infra-agentgateway-disabled-telemetry-backend
+      randomSampling: "false"
+      clientSampling: "false"
+      filter: "false"
+    {{- end }}
+{{- end }}

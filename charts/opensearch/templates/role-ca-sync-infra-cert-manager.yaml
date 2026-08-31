@@ -1,0 +1,19 @@
+# Namespace-scoped Role to read the public CA bundle in infra-cert-manager.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: infra-cert-manager-opensearch-ca-sync-role
+  namespace: infra-cert-manager
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-10"
+    "helm.sh/hook-delete-policy": before-hook-creation
+  labels:
+    app.kubernetes.io/name: opensearch
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: infra-cert-manager
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    resourceNames: ["monitor-opensearch-ca-bundle"]
+    verbs: ["get"]

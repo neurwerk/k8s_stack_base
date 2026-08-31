@@ -1,0 +1,50 @@
+# =============================================================================
+# Traefik configuration — k3s HelmChartConfig
+# =============================================================================
+apiVersion: helm.cattle.io/v1
+kind: HelmChartConfig
+metadata:
+  name: traefik # must match the name of the corresponding `HelmChart` resource
+  namespace: kube-system
+  labels:
+    app.kubernetes.io/name: traefik
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: kube-system
+spec:
+  valuesContent: |-
+    # ── Ports ────────────────────────────────────────────────────────────────
+    ports:
+      web:
+        port: {{ .Values.traefik.ports.web.port }}
+        exposedPort: {{ .Values.traefik.ports.web.exposedPort }}
+        protocol: TCP
+        hostPort: {{ .Values.traefik.ports.web.exposedPort }}
+      websecure:
+        port: {{ .Values.traefik.ports.websecure.port }}
+        exposedPort: {{ .Values.traefik.ports.websecure.exposedPort }}
+        protocol: TCP
+        tls:
+          enabled: true
+        hostPort: {{ .Values.traefik.ports.websecure.exposedPort }}
+
+    # ── Providers ────────────────────────────────────────────────────────────
+    providers:
+      kubernetesGateway:
+        enabled: {{ .Values.traefik.providers.kubernetesGateway.enabled }}
+
+    # ── Dashboard ────────────────────────────────────────────────────────────
+    dashboard:
+      enabled: true
+
+    # ── Logs ─────────────────────────────────────────────────────────────────
+    logs:
+      general:
+        level: INFO
+      access:
+        enabled: true
+
+    # ── Additional arguments ─────────────────────────────────────────────────
+    additionalArguments:
+      - "--entrypoints.websecure.http.tls=true"
+      - "--providers.kubernetesIngress.allowExternalNameServices=true"
+      - "--providers.kubernetesCRD.allowCrossNamespace=true"

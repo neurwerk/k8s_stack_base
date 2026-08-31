@@ -1,0 +1,38 @@
+{{- if .Values.externalGateway.enabled }}
+{{- $hostname := required "external Gateway hostname is required" .Values.infraAgentgatewayWrapper.hostname }}
+{{- if eq $hostname "place.holder" }}{{ fail "place.holder cannot be used for an external Gateway" }}{{ end }}
+# =============================================================================
+# AgentGateway External HTTPRoute (on Traefik Gateway)
+#
+# Routes all traffic for the configured client hostname from the external
+# Traefik Gateway to the internal AgentGateway Envoy proxy.
+# The envoy proxy (class: agentgateway) handles JWT/API key auth and
+# LLM provider routing.
+# =============================================================================
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: infra-agentgateway-external-httproute
+  namespace: infra-agentgateway
+  labels:
+    app.kubernetes.io/name: external-httproute
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: infra-agentgateway
+spec:
+  parentRefs:
+    - name: infra-agentgateway-external-gateway
+      namespace: infra-agentgateway
+      sectionName: websecure
+  hostnames:
+    - {{ $hostname }}
+  rules:
+    - matches:
+        # All traffic — Traefik only terminates TLS, auth/routing is at agentgateway level
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: infra-agentgateway-gateway
+          namespace: infra-agentgateway
+          port: 80
+{{- end }}

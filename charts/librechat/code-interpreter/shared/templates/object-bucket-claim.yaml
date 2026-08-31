@@ -1,0 +1,19 @@
+{{- $storage := .Values.frontendLibrechatCodeInterpreter.objectStorage -}}
+{{- if ne $storage.lifecycle "Retain" -}}
+  {{- fail "frontendLibrechatCodeInterpreter.objectStorage.lifecycle must be Retain for durable Code Interpreter files" -}}
+{{- end }}
+{{- if $storage.storageClassName }}
+apiVersion: objectbucket.io/v1alpha1
+kind: ObjectBucketClaim
+metadata:
+  name: {{ $storage.claimName }}
+  annotations:
+    # Ceph RGW files are durable user data. Keep both the OBC and its retained
+    # bucket when the Helm release is removed.
+    helm.sh/resource-policy: keep
+  labels:
+    {{- include "librechat-code-interpreter-shared.labels" . | nindent 4 }}
+spec:
+  bucketName: {{ $storage.bucketName }}
+  storageClassName: {{ $storage.storageClassName }}
+{{- end }}

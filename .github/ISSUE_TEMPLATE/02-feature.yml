@@ -1,0 +1,84 @@
+name: Feature request
+description: Suggest an improvement or new platform capability
+labels:
+  - "status: triage"
+type: Feature
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for improvements to platform charts, release contracts,
+        namespaces, defaults, or validation. Describe the problem and desired outcome
+        before proposing an implementation.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues and did not find an equivalent request.
+          required: true
+        - label: This request covers one outcome and belongs in the base platform repository.
+          required: true
+
+  - type: input
+    id: component
+    attributes:
+      label: Affected area
+      description: Identify the chart, release, namespace, validation command, or relevant path.
+      placeholder: "For example: platform release validation"
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: Explain the user or platform problem without starting with the implementation.
+      placeholder: "As a ..., I need ..., because ..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired outcome
+      description: Describe what should become possible and why current behavior is insufficient.
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Define objectively verifiable completion conditions.
+      placeholder: |
+        - [ ] ...
+        - [ ] ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope and non-goals
+      description: Clarify boundaries where the intended scope could be ambiguous.
+      placeholder: |
+        In scope:
+        - ...
+
+        Not in scope:
+        - ...
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Describe existing workarounds or alternative approaches.
+
+  - type: textarea
+    id: related
+    attributes:
+      label: Related work
+      description: Link related issues, pull requests, designs, or documentation.

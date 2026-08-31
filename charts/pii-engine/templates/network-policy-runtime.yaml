@@ -1,0 +1,56 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: monitor-pii-engine-runtime-network-policy
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "monitor-pii-engine.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: pii-engine
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: runtime
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitor-agentgateway-extproc
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: monitor-agentgateway-extproc
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: frontend-studio
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: studio-api
+      ports:
+        - port: {{ .Values.monitorPiiEngine.ports.container.application }}
+          protocol: TCP
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitor-kube-prometheus-stack
+      ports:
+        - port: {{ .Values.monitorPiiEngine.ports.container.management }}
+          protocol: TCP
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/instance: {{ .Release.Name }}
+              app.kubernetes.io/name: valkey
+      ports:
+        - port: 6379
+          protocol: TCP

@@ -1,0 +1,108 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: monitor-kube-prometheus-stack-external-secrets
+  namespace: monitor-kube-prometheus-stack
+  labels:
+    app.kubernetes.io/name: external-secrets
+    app.kubernetes.io/instance: monitor-kube-prometheus-stack-secret-sync
+    app.kubernetes.io/part-of: monitor-kube-prometheus-stack
+---
+apiVersion: external-secrets.io/v1
+kind: SecretStore
+metadata:
+  name: monitor-kube-prometheus-stack-openbao-secret-store
+  namespace: monitor-kube-prometheus-stack
+  labels:
+    app.kubernetes.io/name: external-secrets
+    app.kubernetes.io/instance: monitor-kube-prometheus-stack-secret-sync
+    app.kubernetes.io/part-of: monitor-kube-prometheus-stack
+spec:
+  provider:
+    vault:
+      server: https://infra-openbao.infra-openbao.svc:8200
+      path: secret
+      version: v2
+      caProvider:
+        type: ConfigMap
+        name: infra-openbao-ca-bundle
+        key: ca.crt
+      auth:
+        kubernetes:
+          mountPath: kubernetes
+          role: monitor-kube-prometheus-stack
+          serviceAccountRef:
+            name: monitor-kube-prometheus-stack-external-secrets
+            audiences:
+              - openbao
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: monitor-kube-prometheus-stack-secret
+  namespace: monitor-kube-prometheus-stack
+  labels:
+    app.kubernetes.io/name: external-secrets
+    app.kubernetes.io/instance: monitor-kube-prometheus-stack-secret-sync
+    app.kubernetes.io/part-of: monitor-kube-prometheus-stack
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: monitor-kube-prometheus-stack-openbao-secret-store
+    kind: SecretStore
+  target:
+    name: monitor-kube-prometheus-stack-secret
+    creationPolicy: Owner
+    deletionPolicy: Retain
+    template:
+      type: Opaque
+  data:
+    - secretKey: admin-user
+      remoteRef:
+        key: monitor-kube-prometheus-stack/internal
+        property: adminUser
+    - secretKey: admin-password
+      remoteRef:
+        key: monitor-kube-prometheus-stack/internal
+        property: adminPassword
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: monitor-kube-prometheus-stack-smtp-secret
+  namespace: monitor-kube-prometheus-stack
+  labels:
+    app.kubernetes.io/name: external-secrets
+    app.kubernetes.io/instance: monitor-kube-prometheus-stack-secret-sync
+    app.kubernetes.io/part-of: monitor-kube-prometheus-stack
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: monitor-kube-prometheus-stack-openbao-secret-store
+    kind: SecretStore
+  target:
+    name: monitor-kube-prometheus-stack-smtp-secret
+    creationPolicy: Owner
+    deletionPolicy: Retain
+    template:
+      engineVersion: v2
+      type: Opaque
+      metadata:
+        labels:
+          reconcile.fluxcd.io/watch: Enabled
+      data:
+        values.yaml: |
+          monitorKubePrometheusStack:
+            alerting:
+              email:
+                authUsername: {{ .smtpUsername | quote }}
+                authPassword: {{ .smtpPassword | quote }}
+  data:
+    - secretKey: smtpUsername
+      remoteRef:
+        key: monitor-kube-prometheus-stack/external
+        property: smtpUsername
+    - secretKey: smtpPassword
+      remoteRef:
+        key: monitor-kube-prometheus-stack/external
+        property: smtpPassword

@@ -1,0 +1,316 @@
+# IMAGE SOURCE: upstream
+# AgentGateway images are controlled by the vendor subchart. MCP workloads require callers to provide complete pinned image URLs.
+# =============================================================================
+# charts/agentgateway/values.yaml - default values
+#
+# These defaults are overridden by:
+#   - ConfigMap: base-shared-hostnames-config-map
+#   - ConfigMap: base-shared-resources-config-map
+#   - ConfigMap: base-shared-oidc-clients-config-map
+#   - ConfigMap: base-shared-pii-config-map (releases/shared/default-pii-settings.yaml)
+#   - ConfigMap: client-values (client config/client.yaml)
+#   - Secret: infra-agentgateway-secrets
+#
+# ── Where each type of value lives ──────────────────────────────────────────
+#
+#   THIS FILE  (chart defaults / static config)
+#     infraAgentgatewayWrapper.*     — wrapper's own values (gateway, httproute,
+#                                      policy, secret templates)
+#     agentgateway.*                 — passed into the AgentGateway subchart
+#
+#   templates/secret.yaml            — LLM provider API keys from the OpenBao-backed Helm input Secret
+#
+# ── To change hostnames / realm ──────────────────────────────────────────────
+#   Edit the client repository's config/client.yaml.
+#   JWT issuer and JWKS path are constructed from authKeycloak.hostname +
+#   authKeycloak.realm in the template (single source of truth).
+# =============================================================================
+
+# ── Wrapper chart own values ─────────────────────────────────────────────────
+# Used ONLY by our custom templates (gateway, http-route, policy, secret).
+# Nothing here is passed to the agentgateway subchart.
+infraAgentgatewayWrapper:
+  hostname: ""                        # set in client_*/config/client.yaml
+
+  ports:
+    container:
+      http: 8080                      # AG proxy HTTP port
+    service:
+      http: 80                        # ClusterIP port
+    gateway:
+      tls: 443                        # TLS terminates at Traefik Gateway
+
+  # OpenTelemetry tracing — forward LLM request traces to the Langfuse OTel collector
+  # This is applied via AgentgatewayParameters (not extraEnv, which only affects the
+  # control plane's own internal telemetry). The AgentgatewayParameters CR is always
+  # created because it also keeps the generated data-plane Service private.
+  tracing:
+    # Set to null to disable tracing. An empty map retains these chart defaults.
+    otlpEndpoint: "http://monitor-langfuse-otel-collector-service.monitor-langfuse.svc.cluster.local:4317"
+    otlpProtocol: "grpc"
+    randomSampling: true
+    fields:
+      add:
+        # Langfuse user attribution uses exactly one verified Keycloak principal:
+        # the JWT subject for OIDC traffic, or trusted extAuth metadata for API keys.
+        # Never derive this value from caller-supplied identity headers.
+        langfuse.user.id: 'has(jwt.sub) ? jwt.sub : (has(extauthz.principal_id) ? extauthz.principal_id : "")'
+
+        # ── Session tracking ──
+        # Priority (first non-empty wins via CEL default() — handles missing keys gracefully):
+        #
+        #   1. x-session-id header — LibreChat sends conversationId here via
+        #      {{LIBRECHAT_BODY_CONVERSATIONID}} template in librechat.yaml.
+        #      NOTE: LibreChat STRIPS conversationId from the actual JSON body sent to the
+        #      upstream (only sends model, messages, stream — standard OpenAI format).
+        #      The value arrives in the header only.
+        #
+        #   2. x-conversation-id header — reserved for future apps.
+        #
+        #   3. session_id from JSON body — used by LangGraph apps and Cline/MCP
+        #      (these apps write their own request body and include session_id).
+        #
+        #   4. sessionId from JSON body — future app variant.
+        #
+        #   5. conversationId from JSON body — edge case: some non-LibreChat apps may
+        #      include conversationId directly in their OpenAI-compatible body.
+        #
+        #   6. "" — empty string if nothing matched.
+        langfuse.session.id: 'default(request.headers["x-session-id"], default(request.headers["x-conversation-id"], default(string(json(request.body).session_id), default(string(json(request.body).sessionId), default(string(json(request.body).conversationId), default(string(json(request.truncatedBody).session_id), default(string(json(request.truncatedBody).sessionId), default(string(json(request.truncatedBody).conversationId), ""))))))))'
+
+
+        # AgentGateway supports OpenTelemetry (OTLP).
+        # Convention available at: https://github.com/open-telemetry/semantic-conventions-genai/tree/main/docs/gen-ai
+
+        # ⚠️ PERFORMANCE NOTE: gen_ai.prompt and gen_ai.completion capture the full
+        # LLM request/response content as span attributes. For verbose conversations
+        # (e.g. Cline with large code diffs), spans can grow to several MB each.
+        # Configure Langfuse data retention (TTL) or S3 lifecycle rules to auto-purge
+        # traces older than N days if storage usage becomes a concern.
+        #
+        # gen_ai.prompt: the full LLM request prompt array. The template replaces
+        # this expression with the reviewed per-model contentTracingEnabled map.
+        # A missing requested-model identity omits content; this covers failures
+        # that stop in PreRouting extProc before model routing records metadata.
+        # Matches official agentgateway examples (openllmetry.yaml, langfuse.yaml).
+        gen_ai.prompt: 'flattenRecursive(llm.prompt)'
+        #
+        # gen_ai.completion: the LLM response completion content. The template
+        # replaces this expression with the same per-model decision.
+        # llm.completion is []string — use .map() to wrap each string in a
+        # structured message object, then flattenRecursive() to serialize for OTel.
+        # Matches official agentgateway examples. Do NOT concatenate llm.completion
+        # with strings (CEL type error: string + []string).
+        # Do NOT use json(response.body) — fails when body exceeds maxBufferSize (v1.4+).
+        gen_ai.completion: 'flattenRecursive(llm.completion.map(c, {"role":"assistant", "content": c}))'
+
+        # ── Cost tracking (v1.3.0+) ──
+        # gen_ai.usage.cost: realized USD cost of the LLM request (computed by
+        # AgentGateway from the model cost catalog). Langfuse reads this standard
+        # OTel semantic convention attribute to populate cost on generations.
+        # Uses double() (numeric) — Langfuse expects gen_ai.usage.cost as a number.
+        # Falls back to 0.0 when model is unpriced (no catalog entry).
+        gen_ai.usage.cost: 'has(llm.cost) ? double(llm.cost.total) : 0.0'
+
+        # ── Requested (virtual) model name ──
+        # With model-centric serving, clients select a user-facing model name
+        # (e.g. "remote/deepseek/v4-pro") that a virtual model rewrites to the concrete
+        # provider model before the request leaves the gateway. gen_ai.request.model
+        # therefore carries the CONCRETE model (correct for cost catalog lookup),
+        # while the client-facing name lives in transformation metadata under
+        # agentgateway_user_model. Surface it in Langfuse for per-model attribution.
+        # AgentGateway records this caller-selected public ID before concrete or
+        # virtual resolution, so rerouting does not change the tracing policy owner.
+        langfuse.observation.metadata.requested_model: 'has(metadata.agentgateway_user_model) ? metadata.agentgateway_user_model : ""'
+
+        # ── MCP audit fields ───────────────────────────────────────────────
+        # MCP tool arguments and results default to retained compatibility
+        # behavior. The template replaces the content expressions with the
+        # reviewed per-server contentTracingEnabled map. A CEL null omits the
+        # attribute; upstream authentication headers are never trace attributes.
+        langfuse.observation.metadata.mcp.operation: 'has(mcp.methodName) ? mcp.methodName : ""'
+        # The chart renders each MCP backend target name from the canonical server
+        # ID without normalization; mcp.tool.target is that resolved target name.
+        langfuse.observation.metadata.mcp.server: 'has(mcp.tool.target) ? mcp.tool.target : ""'
+        langfuse.observation.metadata.mcp.tool: 'has(mcp.tool.name) ? mcp.tool.name : ""'
+        langfuse.observation.metadata.mcp.session_id: 'has(mcp.sessionId) ? mcp.sessionId : ""'
+        langfuse.observation.input: 'has(mcp.tool.arguments) ? flattenRecursive(mcp.tool.arguments) : ""'
+        langfuse.observation.output: 'has(mcp.tool.result) ? flattenRecursive(mcp.tool.result) : ""'
+
+  # ── Model cost catalog (v1.3.0+) ─────────────────────────────────────────────
+  # Enables the modelCatalog section in AgentgatewayParameters, wiring the cost
+  # catalog ConfigMap(s) into the data plane. Without this, llm.cost is never
+  # computed and gen_ai.usage.cost falls back to 0.0 for every request.
+  #
+  # Sources (merged in order, later wins):
+  #   1. files/catalog.json           — generated by:
+  #        agctl costs import --pretty --providers openai,anthropic,deepseek \
+  #          --out charts/agentgateway/files/catalog.json
+  #      Catalog includes cacheRead, cacheWrite, reasoning, and tiered pricing.
+  #   2. files/catalog-overrides.json — hand-maintained OpenRouter pricing.
+  costCatalog: true
+
+  # Local LLM provider config (llama.cpp / Ollama, local network only)
+  # Set enabled: true for local:true models and piiReroute fallbacks. The model
+  # catalog determines the user-facing local model name and provider model.
+  llamacpp:
+    enabled: false
+    host: ""  # required from client infrastructure values when enabled
+    port: 11434
+
+  # JWT auth — allowed audiences (app-specific, not derived from shared values)
+  jwtAuth:
+    allowedAudiences:
+      - "agentgateway"
+      - "librechat"
+
+externalGateway:
+  enabled: false
+
+publicCertificates:
+  useProduction: false
+
+# Dedicated internal OpenAI-compatible embeddings entrypoint for LibreChat RAG.
+# The listener is never attached to the external HTTPRoute. Client values must
+# provide an internal HTTP backend and grant model:<backend.model>:invoke.
+# The backend owner must separately allow ingress; a DNS host does not provide
+# Kubernetes NetworkPolicy selectors that this chart can safely derive.
+internalRagEmbedding:
+  enabled: false
+  listenerPort: 8081
+  backend:
+    host: ""
+    port: 0
+    model: ""
+
+# ── MCP server catalog ───────────────────────────────────────────────────────
+# Client repositories opt in through config/client.yaml. Each server
+# is an approved in-cluster workload or an approved static HTTP/SSE target; the
+# chart never renders a dynamic backend that could proxy arbitrary destinations.
+mcp:
+  enabled: false
+  # Declarative contract assertion only: the chart rejects every other value but
+  # does not pass this field into AgentGateway or extProc configuration. The pinned
+  # AgentGateway parser accepts multiple versions; strict extProc enforces this one.
+  protocolVersion: "2025-11-25"
+  # Static MCP targets must match one of these exact hostnames. Client values
+  # may opt in to a listed target but cannot turn AgentGateway into an arbitrary
+  # upstream proxy.
+  approvedHosts: []
+  # Each entry accepts piiEnabled and contentTracingEnabled. Omission defaults
+  # both to true. Only an explicit boolean false disables that behavior; tracing
+  # true is compatibility retention, not a privacy-safe default. piiEnabled
+  # false still uses protocol-only extProc and never disables auth or routing.
+  # Static server IDs may be canonical dotted DNS subdomains. Workload-backed IDs
+  # must be one DNS label because the exact ID is embedded without an alias in
+  # Kubernetes Service and container names.
+  servers: []
+
+# ── Guardrails ────────────────────────────────────────────────────────────────
+# All guardrails are handled by the extProc LLM Policy Engine
+# (agentgateway-extproc chart).  See the llmPolicyEngine block below.
+guardrails:
+
+  # ── extProc LLM Policy Engine ─────────────────────────────────────────────
+  # When enabled: creates an AgentgatewayPolicy targeting the extProc service
+  # and virtual AgentgatewayModels that route based on extProc decision headers
+  # (x-remote-allowed, x-route-class, x-pii-entities).
+  # Concrete target models are visibility: Internal — not callable directly.
+  llmPolicyEngine:
+    enabled: true
+
+    # extProc timeout — implemented via AgentgatewayBackend wrapper
+    # (extProc CRD field has no native timeout; same pattern as extAuth).
+    extProcTimeout: 630s
+    extProcPort: 9000
+    # Buffer enough body data for extProc to return its controlled 5 MiB limit.
+    maxBufferSize: 6291456
+
+    # ── Local fallback target (shared) ───────────────────────────────────
+    # Internal AgentgatewayModel used as the safe fallback for every model
+    # that sets piiReroute:true. Points at the llama.cpp host/port from
+    # infraAgentgatewayWrapper.llamacpp. Only rendered when ≥1 model reroutes.
+    localTarget:
+      name: llama-cpp
+      model: llama3.2:3b
+      provider: Custom
+      custom:
+        formats:
+          - type: Completions
+
+    # ── User-facing models (model-centric serving) ───────────────────────
+    # One entry per model clients can select. Served on the listener's LLM
+    # paths (/v1/chat/completions) and discoverable on /v1/models. Per-client
+    # - set the list in infrastructure/networking/agentgateway/values.yaml.
+    #
+    # Every entry accepts piiEnabled and contentTracingEnabled. Omission defaults
+    # both to true. Only an explicit boolean false disables that behavior;
+    # content tracing true retains sensitive prompt/completion data for
+    # compatibility and is not a privacy-safe default. piiEnabled is independent
+    # from local/provider placement, but must remain true with piiReroute:true.
+    # Caller IDs may contain slashes, underscores, and uppercase characters when
+    # their normalized public and optional -remote/-local Kubernetes names remain
+    # valid and every generated model-* app label fits its 63-character limit.
+    #
+    # Entry shapes:
+    #   Plain remote (no reroute) — Public concrete model → provider:
+    #     - name: <user-facing ID; also the "model" clients send, e.g. remote/example>
+    #       provider: OpenAI | Openrouter | Anthropic | ...
+    #       model: <provider model name>
+    #       baseURL: https://...
+    #       authSecret: <secret in infra-agentgateway ns>   # optional
+    #
+    #   Remote with PII reroute — Public virtual model that falls back to the
+    #   local model when the extProc sets x-remote-allowed=false:
+    #     - name: ...
+    #       provider / model / baseURL / authSecret: as above
+     #       piiReroute: true
+     #       # Remote selection is always gated by x-remote-allowed from extProc.
+    #
+    #   Local — Public concrete model → llama.cpp host:
+    #     - name: <user-facing name>
+    #       local: true
+    #       model: <concrete llama.cpp/Ollama model name>
+    #
+    # Guards (fail at render time): piiReroute:true requires
+    # llmPolicyEngine.enabled AND llamacpp.enabled; local:true requires
+    # llamacpp.enabled. The client must also list each derived
+    # model:<name>:invoke role in authKeycloak.agentgatewayClientRoles.
+    #
+    # monitorPiiEngine.policy.routing.targets maps trusted route classes to
+    # entries in this list. A target without classPrefix matches its name
+    # exactly; classPrefix performs an ordered prefix match. Remote targets are
+    # always additionally gated by x-remote-allowed=true.
+    models: []
+
+# ── Subchart values (agentgateway Helm chart) ────────────────────────────────
+# Top-level keys here become .Values.* INSIDE the subchart.
+agentgateway:
+  # Enable the experimental AgentgatewayModel API (model-centric LLM serving).
+  # Sets AGW_ENABLE_AGENTGATEWAY_MODELS on the control plane. Required for the
+  # models rendered by templates/agentgateway-models.yaml to be served.
+  # The internal Gateway listener must also allow the AgentgatewayModel route
+  # kind (see templates/gateway-internal.yaml).
+  agentgatewayModels:
+    enabled: true
+
+  controller:
+    image:
+      pullPolicy: IfNotPresent
+
+  # Scrape controller and data-plane metrics and provision the upstream
+  # diagnostic dashboard. The wrapper adds a separate user-experience dashboard.
+  monitoring:
+    enabled: true
+    serviceMonitor:
+      interval: 30s
+      extraLabels:
+        release: monitor-kube-prometheus-stack
+    proxy:
+      podMonitor:
+        enabled: true
+    grafanaDashboard:
+      enabled: true
+
+# Populated from the OpenBao-backed Helm input Secret.
+infraAgentgatewayWrapperSecrets: {}

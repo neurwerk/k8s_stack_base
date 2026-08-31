@@ -1,0 +1,210 @@
+{{- if .Values.monitorOpensearchWrapper.archive.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: monitor-opensearch-init-archive-job
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "-3"
+    "helm.sh/hook-delete-policy": before-hook-creation
+  labels:
+    app.kubernetes.io/name: opensearch-archive-provisioning
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: {{ .Release.Namespace }}
+spec:
+  backoffLimit: 5
+  ttlSecondsAfterFinished: 86400
+  activeDeadlineSeconds: 1800
+  template:
+    metadata:
+      name: monitor-opensearch-init-archive-job
+      labels:
+        app.kubernetes.io/name: opensearch-archive-provisioning
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/part-of: {{ .Release.Namespace }}
+    spec:
+      serviceAccountName: monitor-opensearch-opensearch-ingest-service-account
+      restartPolicy: OnFailure
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      containers:
+        - name: init
+          image: {{ (.Values.k8sTools).image | quote }}
+          command:
+            - /bin/bash
+            - -c
+            - |
+              set -euo pipefail
+
+              # Wait for OpenSearch HTTPS to be ready with authenticated admin access.
+              python3 -c "
+              import os, sys, time, requests
+              url = os.environ['OPENSEARCH_INTERNAL_URL'].rstrip('/') + '/_cluster/health'
+              auth = (os.environ['OPENSEARCH_ADMIN_USER'], os.environ['OPENSEARCH_ADMIN_PASSWORD'])
+              for i in range(1, 61):
+                  try:
+                      resp = requests.get(url, auth=auth, timeout=10, verify='/certs/ca.crt')
+                      if 200 <= resp.status_code < 300:
+                          print(f'OpenSearch ready (HTTP {resp.status_code})')
+                          break
+                      print(f'  Attempt {i}/60: HTTP {resp.status_code}, retrying...')
+                  except Exception as e:
+                      print(f'  Attempt {i}/60: {e}, retrying...')
+                  if i == 60:
+                      print('ERROR: OpenSearch not ready after 60 attempts')
+                      sys.exit(1)
+                  time.sleep(10)
+              "
+
+              # Register snapshot repository (idempotent: PUT returns 200 if already exists).
+              echo "Registering snapshot repository {{ .Values.monitorOpensearchWrapper.archive.repoName }}..."
+              python3 -c "
+              import os, sys, json, requests
+              base_url = os.environ['OPENSEARCH_INTERNAL_URL'].rstrip('/')
+              auth = (os.environ['OPENSEARCH_ADMIN_USER'], os.environ['OPENSEARCH_ADMIN_PASSWORD'])
+              repo_name = os.environ['ARCHIVE_REPO_NAME']
+              body = {
+                  'type': 's3',
+                  'settings': {
+                      'bucket': os.environ['ARCHIVE_BUCKET'],
+                      'region': 'us-east-1',
+                      'endpoint': os.environ['ARCHIVE_ENDPOINT'],
+                      'protocol': 'http',
+                      'path_style_access': 'true',
+                      'max_snapshot_bytes_per_sec': '40mb',
+                      'max_restore_bytes_per_sec': '40mb'
+                  }
+              }
+              resp = requests.put(
+                  f'{base_url}/_snapshot/{repo_name}',
+                  auth=auth, json=body, timeout=30, verify='/certs/ca.crt'
+              )
+              if resp.status_code not in (200, 201):
+                  print(f'ERROR: Failed to register repository (HTTP {resp.status_code}): {resp.text}')
+                  sys.exit(1)
+              print(f'Repository {repo_name} registered (HTTP {resp.status_code})')
+              "
+
+              # Create ISM policy (idempotent: PUT returns 200 if already exists).
+              echo "Creating ISM policy fluent-bit-archive..."
+              python3 -c "
+              import os, sys, json, requests
+              base_url = os.environ['OPENSEARCH_INTERNAL_URL'].rstrip('/')
+              auth = (os.environ['OPENSEARCH_ADMIN_USER'], os.environ['OPENSEARCH_ADMIN_PASSWORD'])
+              hot_days = os.environ['ARCHIVE_HOT_DAYS']
+              repo_name = os.environ['ARCHIVE_REPO_NAME']
+              body = {
+                  'policy': {
+                      'description': f'Snapshot and delete fluent-bit indices after {hot_days} days',
+                      'default_state': 'hot',
+                      'states': [
+                          {
+                              'name': 'hot',
+                              'actions': [],
+                              'transitions': [{
+                                  'state_name': 'snapshot',
+                                  'conditions': {'min_index_age': hot_days + 'd'}
+                              }]
+                          },
+                          {
+                              'name': 'snapshot',
+                              'actions': [{
+                                  'retry': {'count': 3, 'backoff': 'exponential', 'delay': '1m'},
+                                  'snapshot': {
+                                      'repository': repo_name,
+                                      'snapshot': 'arch-{{`{{ctx.index}}`}}'
+                                  }
+                              }],
+                              'transitions': [{
+                                  'state_name': 'delete',
+                                  'conditions': {'min_index_age': hot_days + 'd'}
+                              }]
+                          },
+                          {
+                              'name': 'delete',
+                              'actions': [{'delete': {}}],
+                              'transitions': []
+                          }
+                      ],
+                      'ism_template': {
+                          'index_patterns': ['fluent-bit-*'],
+                          'priority': 100
+                      }
+                  }
+              }
+              resp = requests.put(
+                  f'{base_url}/_plugins/_ism/policies/fluent-bit-archive',
+                  auth=auth, json=body, timeout=30, verify='/certs/ca.crt'
+              )
+              if resp.status_code == 409:
+                  print(f'ISM policy fluent-bit-archive already exists (HTTP 409), updating...')
+                  # Delete and recreate to avoid version-conflict on re-runs
+                  resp_del = requests.delete(
+                      f'{base_url}/_plugins/_ism/policies/fluent-bit-archive',
+                      auth=auth, timeout=30, verify='/certs/ca.crt'
+                  )
+                  if resp_del.status_code not in (200, 201):
+                      print(f'WARNING: Could not delete existing policy (HTTP {resp_del.status_code}): {resp_del.text}')
+                  resp = requests.put(
+                      f'{base_url}/_plugins/_ism/policies/fluent-bit-archive',
+                      auth=auth, json=body, timeout=30, verify='/certs/ca.crt'
+                  )
+              if resp.status_code not in (200, 201):
+                  print(f'ERROR: Failed to create ISM policy (HTTP {resp.status_code}): {resp.text}')
+                  sys.exit(1)
+              print(f'ISM policy fluent-bit-archive created (HTTP {resp.status_code})')
+              "
+
+              # Attach ISM policy to existing fluent-bit indices (idempotent).
+              echo "Attaching ISM policy to existing fluent-bit-* indices..."
+              python3 -c "
+              import os, sys, json, requests
+              base_url = os.environ['OPENSEARCH_INTERNAL_URL'].rstrip('/')
+              auth = (os.environ['OPENSEARCH_ADMIN_USER'], os.environ['OPENSEARCH_ADMIN_PASSWORD'])
+              resp = requests.post(
+                  f'{base_url}/_plugins/_ism/add/fluent-bit-*',
+                  auth=auth, json={'policy_id': 'fluent-bit-archive'},
+                  timeout=60, verify='/certs/ca.crt'
+              )
+              if resp.status_code not in (200, 201):
+                  print(f'ERROR: Failed to attach ISM policy (HTTP {resp.status_code}): {resp.text}')
+                  sys.exit(1)
+              body = resp.json()
+              print(f'ISM policy attached to existing indices: {json.dumps(body)}')
+              "
+
+              echo "Archive provisioning complete."
+          env:
+            - name: OPENSEARCH_INTERNAL_URL
+              value: "https://opensearch-cluster-master.{{ .Release.Namespace }}.svc.cluster.local:9200"
+            - name: OPENSEARCH_ADMIN_USER
+              value: "admin"
+            - name: OPENSEARCH_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: monitor-opensearch-secret
+                  key: adminPassword
+            - name: REQUESTS_CA_BUNDLE
+              value: /certs/ca.crt
+            - name: ARCHIVE_REPO_NAME
+              value: {{ .Values.monitorOpensearchWrapper.archive.repoName | quote }}
+            - name: ARCHIVE_BUCKET
+              value: {{ .Values.monitorOpensearchWrapper.archive.bucket | quote }}
+            - name: ARCHIVE_ENDPOINT
+              value: {{ .Values.monitorOpensearchWrapper.archive.endpoint | quote }}
+            - name: ARCHIVE_HOT_DAYS
+              value: {{ .Values.monitorOpensearchWrapper.archive.hotDays | quote }}
+          volumeMounts:
+            - name: ca-cert
+              mountPath: /certs
+              readOnly: true
+      volumes:
+        - name: ca-cert
+          configMap:
+            name: monitor-opensearch-ca-trust
+            defaultMode: 0440
+{{- end }}

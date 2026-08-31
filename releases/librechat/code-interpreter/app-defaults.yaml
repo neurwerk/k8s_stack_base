@@ -1,0 +1,18 @@
+# Platform-owned non-secret defaults shared by the Code Interpreter releases.
+# Component image pins and resources remain in their leaf chart defaults.
+frontendLibrechatCodeInterpreter:
+  sourceCommit: fea707467600f3802d65596a6875c7822f25cfd8
+  hardenedSandboxMode: true
+  ptcMode: replay
+  valkey:
+    host: librechat-code-interpreter-valkey
+    port: 6379
+  fileServer:
+    host: librechat-code-interpreter-file-server
+    port: 3000
+  toolCallServer:
+    host: librechat-code-interpreter-tool-call-server
+    port: 3033
+  egressGateway:
+    host: librechat-code-interpreter-egress-gateway
+    port: 3190

@@ -1,0 +1,38 @@
+{{- if .Values.externalGateway.enabled }}
+{{- $hostname := required "external Gateway hostname is required" .Values.frontendStudio.studio.hostname }}
+{{- if eq $hostname "place.holder" }}{{ fail "place.holder cannot be used for an external Gateway" }}{{ end }}
+{{- $issuer := ternary "letsencrypt-production-cluster-issuer" "letsencrypt-staging-cluster-issuer" .Values.publicCertificates.useProduction }}
+# =============================================================================
+# Studio Gateway
+#
+# cert-manager annotation auto-provisions TLS via the cluster issuer.
+# =============================================================================
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: {{ .Release.Namespace }}-gateway
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: studio
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: {{ .Release.Namespace }}
+  annotations:
+    cert-manager.io/cluster-issuer: {{ $issuer | quote }}
+    cert-manager.io/duration: "2160h"
+spec:
+  gatewayClassName: traefik
+  listeners:
+    - name: websecure
+      port: {{ .Values.frontendStudio.studio.ports.gateway.tls }}
+      protocol: HTTPS
+      hostname: {{ $hostname }}
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - name: {{ .Release.Namespace }}-tls
+            kind: Secret
+            group: ""
+      allowedRoutes:
+        namespaces:
+          from: Same
+{{- end }}

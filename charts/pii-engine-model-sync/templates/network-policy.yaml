@@ -1,0 +1,33 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: monitor-pii-engine-model-sync-network-policy
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "pii-engine-model-sync.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: pii-engine-model-sync
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: model-sync
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: infra-rook-ceph
+      ports:
+        - port: 80
+          protocol: TCP
+        - port: {{ .Values.monitorPiiEngine.modelSync.rgwTargetPort }}
+          protocol: TCP

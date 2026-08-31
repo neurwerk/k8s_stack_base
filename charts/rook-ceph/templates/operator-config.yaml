@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rook-ceph-operator-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "infra-rook-ceph.labels" . | nindent 4 }}
+data:
+  ROOK_LOG_LEVEL: "INFO"
+  ROOK_OPERATOR_METRICS_BIND_ADDRESS: "0"
+  ROOK_CEPH_ALLOW_LOOP_DEVICES: "false"
+  ROOK_DELETE_UNUSED_CRUSH_RULES: "true"
+  # Use the Ceph-CSI operator Drivers below instead of Rook's legacy CSI
+  # reconciliation path. Rook creates the connection and client profiles once
+  # the CephCluster is ready.
+  ROOK_USE_CSI_OPERATOR: "true"
+  # Consumer OBCs live in their own namespaces so credentials never need copying.
+  ROOK_OBC_WATCH_OPERATOR_NAMESPACE: "false"
+  # Platform charts own their ObjectBucketClaims and bucket policies.
+  ROOK_OBC_ALLOW_ADDITIONAL_CONFIG_FIELDS: "maxObjects,maxSize,bucketLifecycle,bucketPolicy,bucketOwner"
+  ROOK_ENABLE_DISCOVERY_DAEMON: "false"
+  ROOK_DISABLE_DEVICE_HOTPLUG: "true"
+  ROOK_DISCOVER_DEVICES_INTERVAL: "60m"
+  ROOK_CEPH_COMMANDS_TIMEOUT_SECONDS: "15"
+  ROOK_ENFORCE_HOST_NETWORK: "false"
+  ROOK_CUSTOM_HOSTNAME_LABEL: ""

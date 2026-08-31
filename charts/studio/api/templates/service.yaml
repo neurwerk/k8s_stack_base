@@ -1,0 +1,26 @@
+# =============================================================================
+# frontend-studio API Service (authenticated API + management server)
+# =============================================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-studio-api-service
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: studio-api
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: {{ .Release.Namespace }}
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: studio-api
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  ports:
+    - port: {{ .Values.frontendStudio.api.ports.service.http }}
+      targetPort: {{ .Values.frontendStudio.api.ports.container.http }}
+      protocol: TCP
+      name: http
+    - port: {{ .Values.frontendStudio.api.ports.service.mgmt }}
+      targetPort: {{ .Values.frontendStudio.api.ports.container.mgmt }}
+      protocol: TCP
+      name: mgmt

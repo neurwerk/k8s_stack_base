@@ -1,0 +1,155 @@
+# =============================================================================
+# frontend-studio API Deployment (authenticated API + management server)
+# =============================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend-studio-api-deployment
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    secret.reloader.stakater.com/reload: "frontend-studio-openbao-secret,{{ .Values.frontendStudio.api.piiEngineClientSecretName }}"
+  labels:
+    app.kubernetes.io/name: studio-api
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: {{ .Release.Namespace }}
+spec:
+  replicas: {{ .Values.frontendStudio.api.replicas }}
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: studio-api
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: studio-api
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/part-of: {{ .Release.Namespace }}
+    spec:
+      securityContext:
+        runAsUser: {{ .Values.frontendStudio.api.securityContext.runAsUser }}
+        runAsNonRoot: {{ .Values.frontendStudio.api.securityContext.runAsNonRoot }}
+        fsGroup: {{ .Values.frontendStudio.api.securityContext.fsGroup }}
+      containers:
+        # --- Authenticated API (port 4010) ---
+        - name: {{ .Release.Name }}-api
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            readOnlyRootFilesystem: true
+          image: {{ .Values.frontendStudio.apiImage }}
+          imagePullPolicy: Always
+          env:
+            - name: K8S_STUDIO_PII_ENGINE_URL
+              value: {{ .Values.frontendStudio.api.piiEngineUrl | quote }}
+            - name: K8S_STUDIO_PII_ENGINE_CA_CERT
+              value: {{ .Values.frontendStudio.api.piiEngineCaCert | quote }}
+            - name: K8S_STUDIO_PII_ENGINE_CLIENT_CERT
+              value: {{ .Values.frontendStudio.api.piiEngineClientCert | quote }}
+            - name: K8S_STUDIO_PII_ENGINE_CLIENT_KEY
+              value: {{ .Values.frontendStudio.api.piiEngineClientKey | quote }}
+            - name: K8S_STUDIO_PII_ENGINE_TIMEOUT
+              value: {{ .Values.frontendStudio.api.piiEngineTimeout | quote }}
+
+            - name: K8S_STUDIO_KEYCLOAK_SERVER_URL
+              value: {{ .Values.frontendStudio.api.keycloakServerUrl | quote }}
+            - name: K8S_STUDIO_KEYCLOAK_REALM
+              value: {{ .Values.frontendStudio.api.keycloakRealm | quote }}
+            - name: K8S_STUDIO_KEYCLOAK_CLIENT_ID
+              value: {{ .Values.frontendStudio.api.keycloakClientId | quote }}
+            - name: K8S_STUDIO_KEYCLOAK_API_KEY_BRIDGE_URL
+              value: "http://auth-keycloak-api-key-bridge-service.auth-keycloak-api-key-bridge.svc.cluster.local:3010"
+            - name: K8S_STUDIO_OPENSEARCH_URL
+              value: {{ .Values.frontendStudio.api.opensearchUrl | quote }}
+            - name: K8S_STUDIO_OPENSEARCH_USER
+              value: {{ .Values.frontendStudio.api.opensearchUser | quote }}
+            - name: K8S_STUDIO_OPENSEARCH_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: frontend-studio-openbao-secret
+                  key: OPENSEARCH_PASSWORD
+            - name: K8S_STUDIO_OPENSEARCH_CA_CERT
+              value: {{ .Values.frontendStudio.api.opensearchCaCert | quote }}
+            - name: K8S_STUDIO_LANGFUSE_URL
+              value: {{ .Values.frontendStudio.api.langfuseUrl | quote }}
+            - name: K8S_STUDIO_LANGFUSE_PUBLIC_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: frontend-studio-openbao-secret
+                  key: LANGFUSE_PUBLIC_KEY
+            - name: K8S_STUDIO_LANGFUSE_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: frontend-studio-openbao-secret
+                  key: LANGFUSE_SECRET_KEY
+            - name: K8S_STUDIO_USAGE_TIMEZONE
+              value: {{ .Values.frontendStudio.api.langfuseUsageTimezone | quote }}
+          command: ["k8s-stack-studio"]
+          ports:
+            - name: http
+              containerPort: {{ .Values.frontendStudio.api.ports.container.http }}
+              protocol: TCP
+          startupProbe:
+            httpGet:
+              path: /api/version
+              port: http
+            periodSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /api/version
+              port: http
+            periodSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /api/version
+              port: http
+            periodSeconds: 10
+            failureThreshold: 6
+          volumeMounts:
+            - name: opensearch-ca
+              mountPath: /certs
+              readOnly: true
+            - name: pii-engine-tls
+              mountPath: /var/run/pii-engine/tls
+              readOnly: true
+          resources:
+            {{- toYaml .Values.frontendStudio.api.resources | nindent 12 }}
+        # --- Management server (port 4090) — internal-only, no auth ---
+        - name: {{ .Release.Name }}-mgmt
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            readOnlyRootFilesystem: true
+          image: {{ .Values.frontendStudio.apiImage }}
+          imagePullPolicy: Always
+          command: ["k8s-stack-studio-mgmt"]
+          ports:
+            - name: mgmt
+              containerPort: {{ .Values.frontendStudio.api.ports.container.mgmt }}
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: {{ .Values.frontendStudio.api.ports.container.mgmt }}
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: {{ .Values.frontendStudio.api.ports.container.mgmt }}
+          resources:
+            {{- toYaml .Values.frontendStudio.api.resources | nindent 12 }}
+      volumes:
+        # Internal CA trust bundle for OpenSearch TLS — synced by the
+        # monitor-opensearch-ca-sync-job (optional so the pod can start
+        # before the opensearch release has synced it).
+        - name: opensearch-ca
+          configMap:
+            name: frontend-studio-shared-opensearch-ca
+            optional: true
+        - name: pii-engine-tls
+          secret:
+            secretName: {{ .Values.frontendStudio.api.piiEngineClientSecretName }}

@@ -1,0 +1,81 @@
+#include <tunables/global>
+
+profile librechat-code-interpreter-nsjail flags=(attach_disconnected,mediate_deleted) {
+  #include <abstractions/base>
+
+  # Direct NsJail namespace, mount, identity, process, and network setup.
+  capability sys_admin,
+  capability sys_chroot,
+  capability sys_ptrace,
+  capability setuid,
+  capability setgid,
+  capability net_admin,
+  capability dac_override,
+  capability dac_read_search,
+  capability chown,
+  capability fowner,
+  capability fsetid,
+  capability kill,
+  capability setfcap,
+  capability mknod,
+
+  mount,
+  umount,
+  pivot_root,
+  mount options=(ro, remount) -> **,
+  mount options=(rw, remount) -> **,
+  mount options=(bind) -> **,
+  mount options=(rbind) -> **,
+  mount options=(move) -> **,
+  mount fstype=tmpfs,
+  mount fstype=proc,
+  mount fstype=devpts,
+  mount fstype=cgroup2,
+
+  /pkgs/** rwlk,
+  /host-packages/** r,
+  /sandbox-rootfs/** r,
+  /tmp/** rwlk,
+  /mnt/** rwlk,
+
+  /usr/sbin/nsjail rix,
+  /usr/local/bin/** rix,
+  /sandbox_api/** rix,
+  /usr/** rix,
+  /bin/** rix,
+  /lib/** rm,
+  /lib64/** rm,
+
+  /dev/null rw,
+  /dev/zero rw,
+  /dev/urandom r,
+  /dev/random r,
+  /dev/tty rw,
+  /dev/pts/* rw,
+
+  /proc/** r,
+  /proc/sys/kernel/random/uuid r,
+  /sys/fs/cgroup/** rw,
+
+  network inet stream,
+  network inet dgram,
+  network inet6 stream,
+  network inet6 dgram,
+  network unix stream,
+  network unix dgram,
+  network netlink raw,
+
+  deny /etc/shadow r,
+  deny /etc/gshadow r,
+  deny /root/** rwlk,
+  deny /etc/passwd w,
+  deny /etc/group w,
+  deny /boot/** rwlk,
+  deny /lib/modules/** rwlk,
+  deny /sys/module/** w,
+  deny /var/run/docker.sock rwlk,
+  deny ptrace (read, trace) peer=unconfined,
+
+  signal (send) set=(kill, term, int, hup, cont, stop, usr1, usr2),
+  signal (receive),
+}

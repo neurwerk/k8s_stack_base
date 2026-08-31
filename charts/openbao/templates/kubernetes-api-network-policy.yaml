@@ -1,0 +1,33 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: infra-openbao-kubernetes-api-egress
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: openbao
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: infra-openbao
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: openbao
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  policyTypes:
+    - Egress
+  egress:
+    # NetworkPolicy enforcement may occur before or after Service DNAT. Permit
+    # both the stable Kubernetes Service and the fixed K3s server endpoint.
+    - to:
+        - ipBlock:
+            cidr: {{ .Values.infraOpenbaoWrapper.kubernetesApi.service.cidr }}
+      ports:
+        - port: {{ .Values.infraOpenbaoWrapper.kubernetesApi.service.port }}
+          protocol: TCP
+    {{- with .Values.infraOpenbaoWrapper.kubernetesApi.endpoint.address }}
+    - to:
+        - ipBlock:
+            cidr: {{ . }}/32
+      ports:
+        - port: {{ $.Values.infraOpenbaoWrapper.kubernetesApi.endpoint.port }}
+          protocol: TCP
+    {{- end }}

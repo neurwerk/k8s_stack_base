@@ -1,0 +1,371 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend-librechat
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "frontend-librechat.labels" . | nindent 4 }}
+  annotations:
+    configmap.reloader.stakater.com/reload: frontend-librechat-config-map
+    secret.reloader.stakater.com/reload: frontend-librechat-secret
+spec:
+  replicas: {{ .Values.frontendLibrechat.app.replicas }}
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "frontend-librechat.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "frontend-librechat.labels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "frontend-librechat.serviceAccountName" . }}
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      terminationGracePeriodSeconds: 60
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        - name: wait-for-openid
+          image: {{ .Values.frontendLibrechat.app.image | quote }}
+          imagePullPolicy: {{ .Values.frontendLibrechat.app.imagePullPolicy }}
+          command:
+            - node
+            - -e
+          args:
+            - |
+              const issuer = process.env.OPENID_ISSUER;
+              const requiredEndpoints = [
+                'authorization_endpoint',
+                'token_endpoint',
+                'jwks_uri',
+              ];
+              const sleep = (milliseconds) =>
+                new Promise((resolve) => setTimeout(resolve, milliseconds));
+
+              async function verifyDiscovery() {
+                const issuerUrl = new URL(issuer);
+                if (issuerUrl.protocol !== 'https:') {
+                  throw new Error('OPENID_ISSUER must use HTTPS');
+                }
+                const discoveryUrl = `${issuer.replace(/\/+$/, '')}/.well-known/openid-configuration`;
+                const response = await fetch(discoveryUrl, {
+                  headers: { Accept: 'application/json' },
+                  signal: AbortSignal.timeout(5000),
+                });
+                if (response.status !== 200) {
+                  throw new Error(`discovery returned HTTP ${response.status}`);
+                }
+                const metadata = await response.json();
+                if (metadata.issuer !== issuer) {
+                  throw new Error('discovery issuer does not exactly match OPENID_ISSUER');
+                }
+                for (const field of requiredEndpoints) {
+                  if (typeof metadata[field] !== 'string') {
+                    throw new Error(`discovery is missing ${field}`);
+                  }
+                  if (new URL(metadata[field]).protocol !== 'https:') {
+                    throw new Error(`discovery ${field} must use HTTPS`);
+                  }
+                }
+              }
+
+              (async () => {
+                for (let attempt = 1; attempt <= 30; attempt += 1) {
+                  try {
+                    await verifyDiscovery();
+                    console.log('OpenID discovery is ready');
+                    return;
+                  } catch (error) {
+                    const message = error instanceof Error ? error.message : 'unknown error';
+                    console.log(`OpenID discovery attempt ${attempt}/30 failed: ${message}`);
+                  }
+                  if (attempt < 30) {
+                    await sleep(5000);
+                  }
+                }
+                console.error('OpenID discovery did not become ready');
+                process.exit(1);
+              })();
+          env:
+            - name: OPENID_ISSUER
+              valueFrom:
+                secretKeyRef:
+                  name: frontend-librechat-secret
+                  key: OPENID_ISSUER
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+          resources:
+            {{- toYaml .Values.frontendLibrechat.oidc.startupGate.resources | nindent 12 }}
+      containers:
+        - name: librechat
+          image: {{ .Values.frontendLibrechat.app.image | quote }}
+          imagePullPolicy: {{ .Values.frontendLibrechat.app.imagePullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+          ports:
+            - name: http
+              containerPort: {{ .Values.frontendLibrechat.app.service.port }}
+              protocol: TCP
+          env:
+            - name: HOST
+              value: 0.0.0.0
+            - name: PORT
+              value: {{ .Values.frontendLibrechat.app.service.port | quote }}
+            - name: NODE_ENV
+              value: production
+            - name: CREDS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: frontend-librechat-secret
+                  key: CREDS_KEY
+            - name: CREDS_IV
+              valueFrom:
+                secretKeyRef:
+                  name: frontend-librechat-secret
+                  key: CREDS_IV
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: frontend-librechat-secret
+                  key: JWT_SECRET
+            - name: JWT_REFRESH_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: frontend-librechat-secret
+                  key: JWT_REFRESH_SECRET
+            - name: MONGO_URI
+              valueFrom:
+                secretKeyRef:
+                  name: frontend-librechat-secret
+                  key: MONGO_URI
+            - name: MONGO_MAX_POOL_SIZE
+              value: {{ .Values.frontendLibrechat.documentdb.maxPoolSize | quote }}
+            - name: MONGO_MAX_CONNECTING
+              value: {{ .Values.frontendLibrechat.documentdb.maxConnecting | quote }}
+            - name: SEARCH
+              value: "true"
+            - name: MEILI_HOST
+              value: {{ .Values.frontendLibrechat.meilisearch.host | quote }}
+            - name: MEILI_MASTER_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: frontend-librechat-secret
+                  key: MEILI_MASTER_KEY
+            - name: MEILI_NO_ANALYTICS
+              value: "true"
+            - name: USE_REDIS
+              value: "true"
+            - name: USE_REDIS_STREAMS
+              value: "true"
+            - name: STREAM_DELTA_COALESCE_MS
+              value: {{ .Values.frontendLibrechat.app.streamDeltaCoalesceMs | quote }}
+            - name: REDIS_URI
+              valueFrom:
+                secretKeyRef:
+                  name: frontend-librechat-secret
+                  key: REDIS_URI
+            - name: DOMAIN_CLIENT
+              valueFrom:
+                secretKeyRef:
+                  name: frontend-librechat-secret
+                  key: DOMAIN_CLIENT
+            - name: DOMAIN_SERVER
+              valueFrom:
+                secretKeyRef:
+                  name: frontend-librechat-secret
+                  key: DOMAIN_SERVER
+            - name: ALLOW_EMAIL_LOGIN
+              value: "false"
+            - name: ALLOW_REGISTRATION
+              value: "false"
+            - name: ALLOW_SOCIAL_LOGIN
+              value: "true"
+            - name: ALLOW_SOCIAL_REGISTRATION
+              value: "false"
+            - name: OPENID_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: frontend-librechat-secret
+                  key: OPENID_CLIENT_ID
+            - name: OPENID_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: frontend-librechat-secret
+                  key: OPENID_CLIENT_SECRET
+            - name: OPENID_ISSUER
+              valueFrom:
+                secretKeyRef:
+                  name: frontend-librechat-secret
+                  key: OPENID_ISSUER
+            - name: OPENID_SESSION_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: frontend-librechat-secret
+                  key: OPENID_SESSION_SECRET
+            - name: OPENID_CALLBACK_URL
+              value: /oauth/openid/callback
+            - name: OPENID_SCOPE
+              value: openid profile email
+            - name: OPENID_REQUIRED_ROLE
+              value: {{ .Values.frontendLibrechat.oidc.requiredRole | quote }}
+            - name: OPENID_REQUIRED_ROLE_TOKEN_KIND
+              value: access
+            - name: OPENID_REQUIRED_ROLE_PARAMETER_PATH
+              value: realm_access.roles
+            - name: OPENID_ADMIN_ROLE
+              value: {{ .Values.frontendLibrechat.oidc.adminRole | quote }}
+            - name: OPENID_ADMIN_ROLE_TOKEN_KIND
+              value: access
+            - name: OPENID_ADMIN_ROLE_PARAMETER_PATH
+              value: realm_access.roles
+            - name: OPENID_BUTTON_LABEL
+              value: {{ .Values.frontendLibrechat.oidc.buttonLabel | quote }}
+            - name: OPENID_REUSE_TOKENS
+              value: "true"
+            - name: OPENID_USE_END_SESSION_ENDPOINT
+              value: "true"
+            - name: ENDPOINTS
+              value: custom
+            {{- if .Values.frontendLibrechat.rag.enabled }}
+            - name: RAG_API_URL
+              value: {{ .Values.frontendLibrechat.rag.url | quote }}
+            - name: RAG_USE_FULL_CONTEXT
+              value: {{ .Values.frontendLibrechat.rag.useFullContext | quote }}
+            {{- end }}
+            {{- if .Values.frontendLibrechat.adminPanel.url }}
+            - name: ADMIN_PANEL_URL
+              value: {{ .Values.frontendLibrechat.adminPanel.url | quote }}
+            {{- else if .Values.frontendLibrechat.adminPanel.hostname }}
+            - name: ADMIN_PANEL_URL
+              value: {{ printf "https://%s" .Values.frontendLibrechat.adminPanel.hostname | quote }}
+            {{- end }}
+            {{- if .Values.frontendLibrechat.codeInterpreter.enabled }}
+            - name: LIBRECHAT_CODE_BASEURL
+              value: {{ .Values.frontendLibrechat.codeInterpreter.url | quote }}
+            - name: CODEAPI_AUTH_PROVIDER
+              value: librechat-jwt
+            - name: CODEAPI_JWT_ALGORITHM
+              value: {{ .Values.frontendLibrechat.codeInterpreter.jwtAlgorithm | quote }}
+            - name: CODEAPI_JWT_AUDIENCE
+              value: {{ .Values.frontendLibrechat.codeInterpreter.jwtAudience | quote }}
+            - name: CODEAPI_JWT_ISSUER
+              value: {{ .Values.frontendLibrechat.codeInterpreter.jwtIssuer | quote }}
+            - name: CODEAPI_JWT_KID
+              value: {{ .Values.frontendLibrechat.codeInterpreter.jwtKeyId | quote }}
+            - name: CODEAPI_JWT_SINGLE_TENANT_ID
+              value: {{ .Values.frontendLibrechat.codeInterpreter.jwtSingleTenantId | quote }}
+            - name: CODEAPI_JWT_PRIVATE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: frontend-librechat-secret
+                  key: CODEAPI_JWT_PRIVATE_KEY
+            {{- end }}
+            {{- if .Values.frontendLibrechat.objectStorage.enabled }}
+            {{- $objectEndpoint := .Values.frontendLibrechat.objectStorage.endpoint }}
+            {{- if not $objectEndpoint }}
+              {{- $objectHostname := required "infraRookCeph.objectStore.publicHostname is required when LibreChat object storage is enabled" .Values.infraRookCeph.objectStore.publicHostname }}
+              {{- if eq $objectHostname "place.holder" }}{{ fail "place.holder cannot be used for LibreChat object storage" }}{{ end }}
+              {{- $objectEndpoint = printf "https://%s" $objectHostname }}
+            {{- end }}
+            {{- if not (hasPrefix "https://" $objectEndpoint) }}{{ fail "LibreChat object storage endpoint must use browser-reachable HTTPS" }}{{ end }}
+            - name: AWS_ENDPOINT_URL
+              value: {{ $objectEndpoint | quote }}
+            - name: AWS_REGION
+              value: {{ .Values.frontendLibrechat.objectStorage.region | quote }}
+            - name: AWS_BUCKET_NAME
+              value: {{ .Values.frontendLibrechat.objectStorage.bucketName | quote }}
+            - name: AWS_FORCE_PATH_STYLE
+              value: {{ .Values.frontendLibrechat.objectStorage.forcePathStyle | quote }}
+            - name: S3_URL_EXPIRY_SECONDS
+              value: {{ .Values.frontendLibrechat.objectStorage.urlExpirySeconds | quote }}
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.frontendLibrechat.objectStorage.claimName }}
+                  key: AWS_ACCESS_KEY_ID
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.frontendLibrechat.objectStorage.claimName }}
+                  key: AWS_SECRET_ACCESS_KEY
+            {{- end }}
+          volumeMounts:
+            - name: documentdb-ca
+              mountPath: {{ .Values.frontendLibrechat.documentdb.caBundle.mountPath }}
+              subPath: {{ .Values.frontendLibrechat.documentdb.caBundle.key }}
+              readOnly: true
+            - name: config
+              mountPath: /app/librechat.yaml
+              subPath: librechat.yaml
+              readOnly: true
+            - name: home
+              mountPath: /home/node
+            - name: images
+              mountPath: /app/client/public/images
+            - name: logs
+              mountPath: /app/logs
+            - name: skills
+              mountPath: /app/skill
+            - name: tmp
+              mountPath: /tmp
+            - name: uploads
+              mountPath: /app/uploads
+          startupProbe:
+            httpGet:
+              path: /api/admin/oauth/openid/check
+              port: http
+            periodSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            periodSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /livez
+              port: http
+            periodSeconds: 10
+            failureThreshold: 6
+          resources:
+            {{- toYaml .Values.frontendLibrechat.app.resources | nindent 12 }}
+      volumes:
+        - name: documentdb-ca
+          configMap:
+            name: {{ .Values.frontendLibrechat.documentdb.caBundle.name }}
+            items:
+              - key: {{ .Values.frontendLibrechat.documentdb.caBundle.key }}
+                path: {{ .Values.frontendLibrechat.documentdb.caBundle.key }}
+        - name: config
+          configMap:
+            name: frontend-librechat-config-map
+        - name: home
+          emptyDir: {}
+        - name: images
+          persistentVolumeClaim:
+            claimName: frontend-librechat-images
+        - name: logs
+          emptyDir: {}
+        - name: skills
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
+        - name: uploads
+          emptyDir: {}

@@ -1,0 +1,68 @@
+# =============================================================================
+# agentgateway-extproc Network Policy
+#
+# Restricts traffic within monitor-agentgateway-extproc namespace.
+# All ingress/egress is denied by default (Calico global policy).
+#
+# Ingress limited to specific pods (namespace + pod-label selectors):
+#   - infra-agentgateway-gateway pods            → port 9000 (extproc gRPC)
+#   - monitor-kube-prometheus-stack pods          → port 8000 (metrics)
+#     (NetworkPolicy matches container port after kube-proxy DNAT)
+#
+# CAVEAT: pod-label selectors are brittle — if chart labels are renamed,
+# guardrail calls silently fail (LLM traffic blocked).
+# =============================================================================
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: monitor-agentgateway-extproc-network-policy
+  namespace: monitor-agentgateway-extproc
+  labels:
+    app.kubernetes.io/name: monitor-agentgateway-extproc
+    app.kubernetes.io/instance: monitor-agentgateway-extproc
+    app.kubernetes.io/part-of: monitor-agentgateway-extproc
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: infra-agentgateway
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: infra-agentgateway-gateway
+      ports:
+        - port: {{ .Values.monitorAgentgatewayExtproc.ports.container.extproc }}
+          protocol: TCP
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitor-kube-prometheus-stack
+      ports:
+        - port: {{ .Values.monitorAgentgatewayExtproc.ports.container.http }}
+          protocol: TCP
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitor-pii-engine
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: pii-engine
+              app.kubernetes.io/component: runtime
+      ports:
+        # The PII Engine Service maps port 443 to Pod port 8443.
+        - port: 8443
+          protocol: TCP

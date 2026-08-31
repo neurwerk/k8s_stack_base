@@ -1,0 +1,39 @@
+{{- if .Values.externalGateway.enabled }}
+{{- $hostname := required "external Gateway hostname is required" .Values.monitorLangfuseWrapper.hostname }}
+{{- if eq $hostname "place.holder" }}{{ fail "place.holder cannot be used for an external Gateway" }}{{ end }}
+{{- $issuer := ternary "letsencrypt-production-cluster-issuer" "letsencrypt-staging-cluster-issuer" .Values.publicCertificates.useProduction }}
+# =============================================================================
+# Langfuse Gateway
+#
+# Terminates TLS from the internet via cert-manager Let's Encrypt,
+# then forwards plain HTTP to the Langfuse web service.
+# =============================================================================
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: monitor-langfuse-gateway
+  namespace: monitor-langfuse
+  labels:
+    app.kubernetes.io/name: langfuse
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: monitor-langfuse
+  annotations:
+    cert-manager.io/cluster-issuer: {{ $issuer | quote }}
+    cert-manager.io/duration: "2160h"
+spec:
+  gatewayClassName: traefik
+  listeners:
+    - name: websecure
+      port: {{ .Values.monitorLangfuseWrapper.ports.gateway.tls }}
+      protocol: HTTPS
+      hostname: {{ $hostname }}
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - name: monitor-langfuse-tls
+            kind: Secret
+            group: ""
+      allowedRoutes:
+        namespaces:
+          from: Same
+{{- end }}

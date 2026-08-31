@@ -1,0 +1,123 @@
+{{- if .Values.mcp.enabled }}
+{{- range .Values.mcp.servers | default list }}
+{{- if .workload }}
+{{- $serverName := .name }}
+{{- $deploymentName := include "infra-agentgateway.mcpResourceName" (dict "id" $serverName "component" "deploy") }}
+{{- $serviceName := include "infra-agentgateway.mcpResourceName" (dict "id" $serverName "component" "svc") }}
+{{- $networkPolicyName := include "infra-agentgateway.mcpResourceName" (dict "id" $serverName "component" "netpol") }}
+{{- $secretName := include "infra-agentgateway.mcpResourceName" (dict "id" $serverName "component" "secret") }}
+{{- $server := . }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $deploymentName }}
+  namespace: infra-agentgateway
+  labels:
+    app.kubernetes.io/name: mcp-{{ $serverName }}
+    app.kubernetes.io/instance: infra-agentgateway
+    app.kubernetes.io/part-of: infra-agentgateway
+spec:
+  replicas: {{ .workload.replicas | default 1 }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: mcp-{{ $serverName }}
+      app.kubernetes.io/instance: infra-agentgateway
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: mcp-{{ $serverName }}
+        app.kubernetes.io/instance: infra-agentgateway
+        app.kubernetes.io/part-of: infra-agentgateway
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: mcp-{{ $serverName }}
+          image: {{ required (printf "mcp server %q workload.image is required" .name) .workload.image | quote }}
+          imagePullPolicy: {{ .workload.imagePullPolicy | default "IfNotPresent" }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            readOnlyRootFilesystem: true
+          ports:
+            - name: http
+              containerPort: {{ .port | default 8080 }}
+          env:
+            {{- range $name, $value := .workload.env | default dict }}
+            - name: {{ $name }}
+              value: {{ $value | quote }}
+            {{- end }}
+            {{- range .workload.secretEnv | default list }}
+            - name: {{ required (printf "mcp server %q secretEnv.name is required" $server.name) .name }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $secretName }}
+                  key: {{ required (printf "mcp server %q secretEnv.key is required" $server.name) .key }}
+            {{- end }}
+          readinessProbe:
+            httpGet:
+              path: {{ .workload.healthPath | default "/ping" | quote }}
+              port: http
+          livenessProbe:
+            httpGet:
+              path: {{ .workload.healthPath | default "/ping" | quote }}
+              port: http
+          resources:
+            {{- .workload.resources | default dict | toYaml | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $serviceName }}
+  namespace: infra-agentgateway
+  labels:
+    app.kubernetes.io/name: mcp-{{ $serverName }}
+    app.kubernetes.io/instance: infra-agentgateway
+    app.kubernetes.io/part-of: infra-agentgateway
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: mcp-{{ $serverName }}
+    app.kubernetes.io/instance: infra-agentgateway
+  ports:
+    - name: http
+      port: {{ .port | default 8080 }}
+      targetPort: http
+      appProtocol: agentgateway.dev/mcp
+---
+# Workload-backed MCP servers are reachable only through the AgentGateway data
+# plane. The ClusterIP Service is not a sufficient boundary on its own.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $networkPolicyName }}
+  namespace: infra-agentgateway
+  labels:
+    app.kubernetes.io/name: mcp-{{ $serverName }}
+    app.kubernetes.io/instance: infra-agentgateway
+    app.kubernetes.io/part-of: infra-agentgateway
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: mcp-{{ $serverName }}
+      app.kubernetes.io/instance: infra-agentgateway
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: infra-agentgateway-gateway
+      ports:
+        - port: {{ .port | default 8080 }}
+          protocol: TCP
+{{- end }}
+{{- end }}
+{{- end }}

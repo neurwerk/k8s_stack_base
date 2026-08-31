@@ -1,0 +1,16 @@
+# =============================================================================
+# releases/langfuse/app-defaults.yaml — platform defaults for Langfuse
+#
+# These values are generated into the monitor-langfuse-app-defaults ConfigMap
+# and merged into the HelmRelease via valuesFrom. They sit between the chart
+# defaults (lowest priority) and the client-values and langfuse-product-values
+# ConfigMaps (higher priority).
+# =============================================================================
+#
+monitorLangfuseWrapper:
+  initOrgId: "langfuse-org"
+  initOrgName: "Organization Name"
+  initProjectId: "default-project"
+  initProjectName: "Default Project"
+  initUserEmail: "admin@org.com"
+  initUserName: "Admin"

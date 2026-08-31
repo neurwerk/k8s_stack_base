@@ -1,0 +1,28 @@
+{{- if .Values.frontendLibrechat.adminPanel.serviceMonitor.enabled }}
+{{- $secretName := include "librechat-admin-panel.metricsSecretName" . }}
+{{- if not $secretName }}
+{{- fail "frontendLibrechat.adminPanel.secret.metrics.secretName is required when ServiceMonitor is enabled without existingSecret" }}
+{{- end }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "librechat-admin-panel.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "librechat-admin-panel.labels" . | nindent 4 }}
+    release: monitor-kube-prometheus-stack
+spec:
+  selector:
+    matchLabels:
+      {{- include "librechat-admin-panel.selectorLabels" . | nindent 6 }}
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: {{ .Values.frontendLibrechat.adminPanel.serviceMonitor.interval }}
+      scrapeTimeout: {{ .Values.frontendLibrechat.adminPanel.serviceMonitor.scrapeTimeout }}
+      authorization:
+        type: Bearer
+        credentials:
+          name: {{ $secretName }}
+          key: {{ required "frontendLibrechat.adminPanel.secret.metrics.key is required when ServiceMonitor is enabled" .Values.frontendLibrechat.adminPanel.secret.metrics.key }}
+{{- end }}

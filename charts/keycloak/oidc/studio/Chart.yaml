@@ -1,0 +1,13 @@
+# =============================================================================
+# Chart: keycloak-oidc-configurations/studio
+#
+# Post-install Job that creates the Studio OIDC client in the realm.
+# Studio uses PKCE (public client) — no client secret injection needed.
+# The backend validates JWTs via JWKS.
+# =============================================================================
+apiVersion: v2
+name: studio
+description: Studio OIDC client configuration in Keycloak
+type: application
+version: 0.6.6
+appVersion: "1.0"

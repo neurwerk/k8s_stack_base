@@ -1,0 +1,150 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: auth-keycloak-external-secrets
+  namespace: auth-keycloak
+  labels:
+    app.kubernetes.io/name: external-secrets
+    app.kubernetes.io/instance: auth-keycloak-secret-sync
+    app.kubernetes.io/part-of: auth-keycloak
+---
+apiVersion: external-secrets.io/v1
+kind: SecretStore
+metadata:
+  name: auth-keycloak-openbao-secret-store
+  namespace: auth-keycloak
+  labels:
+    app.kubernetes.io/name: external-secrets
+    app.kubernetes.io/instance: auth-keycloak-secret-sync
+    app.kubernetes.io/part-of: auth-keycloak
+spec:
+  provider:
+    vault:
+      server: https://infra-openbao.infra-openbao.svc:8200
+      path: secret
+      version: v2
+      caProvider:
+        type: ConfigMap
+        name: infra-openbao-ca-bundle
+        key: ca.crt
+      auth:
+        kubernetes:
+          mountPath: kubernetes
+          role: auth-keycloak
+          serviceAccountRef:
+            name: auth-keycloak-external-secrets
+            audiences:
+              - openbao
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: auth-keycloak-secrets
+  namespace: auth-keycloak
+  labels:
+    app.kubernetes.io/name: external-secrets
+    app.kubernetes.io/instance: auth-keycloak-secret-sync
+    app.kubernetes.io/part-of: auth-keycloak
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: auth-keycloak-openbao-secret-store
+    kind: SecretStore
+  target:
+    name: auth-keycloak-secrets
+    creationPolicy: Owner
+    deletionPolicy: Retain
+    template:
+      engineVersion: v2
+      type: Opaque
+      metadata:
+        labels:
+          reconcile.fluxcd.io/watch: Enabled
+      data:
+        values.yaml: |
+          authKeycloakSecrets:
+            adminPassword: {{ .adminPassword | quote }}
+            dbPassword: {{ .dbPassword | quote }}
+  data:
+    - secretKey: adminPassword
+      remoteRef:
+        key: auth-keycloak/internal
+        property: adminPassword
+    - secretKey: dbPassword
+      remoteRef:
+        key: auth-keycloak/internal
+        property: dbPassword
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: auth-keycloak-openbao-secret
+  namespace: auth-keycloak
+  labels:
+    app.kubernetes.io/name: external-secrets
+    app.kubernetes.io/instance: auth-keycloak-secret-sync
+    app.kubernetes.io/part-of: auth-keycloak
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: auth-keycloak-openbao-secret-store
+    kind: SecretStore
+  target:
+    name: auth-keycloak-openbao-secret
+    creationPolicy: Owner
+    deletionPolicy: Retain
+    template:
+      type: Opaque
+      metadata:
+        labels:
+          reconcile.fluxcd.io/watch: Enabled
+  data:
+    - secretKey: difyOidcClientSecret
+      remoteRef:
+        key: auth-keycloak/internal
+        property: difyOidcClientSecret
+    - secretKey: difyAgentgatewayClientSecret
+      remoteRef:
+        key: auth-keycloak/internal
+        property: difyAgentgatewayClientSecret
+    - secretKey: bridgeOidcClientSecret
+      remoteRef:
+        key: auth-keycloak/internal
+        property: bridgeOidcClientSecret
+    - secretKey: librechatOidcClientSecret
+      remoteRef:
+        key: auth-keycloak/internal
+        property: librechatOidcClientSecret
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: auth-keycloak-smtp-secret
+  namespace: auth-keycloak
+  labels:
+    app.kubernetes.io/name: external-secrets
+    app.kubernetes.io/instance: auth-keycloak-secret-sync
+    app.kubernetes.io/part-of: auth-keycloak
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: auth-keycloak-openbao-secret-store
+    kind: SecretStore
+  target:
+    name: auth-keycloak-smtp-secret
+    creationPolicy: Owner
+    deletionPolicy: Retain
+    template:
+      type: Opaque
+      metadata:
+        labels:
+          reconcile.fluxcd.io/watch: Enabled
+  data:
+    - secretKey: smtpUsername
+      remoteRef:
+        key: auth-keycloak/external
+        property: smtpUsername
+    - secretKey: smtpPassword
+      remoteRef:
+        key: auth-keycloak/external
+        property: smtpPassword

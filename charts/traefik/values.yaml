@@ -1,0 +1,13 @@
+# IMAGE SOURCE: upstream
+# Traefik images are controlled by the vendor subchart; this wrapper has no owned image default.
+traefik:
+  ports:
+    web:
+      port: 8000
+      exposedPort: 80
+    websecure:
+      port: 443
+      exposedPort: 443
+  providers:
+    kubernetesGateway:
+      enabled: true

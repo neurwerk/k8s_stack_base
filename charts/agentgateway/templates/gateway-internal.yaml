@@ -1,0 +1,53 @@
+# =============================================================================
+# AgentGateway Internal Gateway (agentgateway class)
+#
+# Handles JWT/API key authentication and LLM provider routing via
+# AgentgatewayPolicy. TLS is terminated externally by the Traefik Gateway
+# (infra-agentgateway-external-gateway), so this listener uses plain HTTP.
+#
+# ── Tracing ─────────────────────────────────────────────────────────────────
+# To enable OTLP tracing from the data plane proxy, the AgentgatewayParameters
+# resource (agentgateway-parameters.yaml) is linked via the Gateway's
+# spec.infrastructure.parametersRef. Without this reference, tracing config
+# (otlpEndpoint, sampling, fields) is never pushed to the proxy.
+# See: https://agentgateway.dev/docs/kubernetes/latest/setup/customize/customize
+# =============================================================================
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: infra-agentgateway-gateway
+  namespace: infra-agentgateway
+  labels:
+    app.kubernetes.io/name: gateway
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: infra-agentgateway
+spec:
+  gatewayClassName: agentgateway
+  infrastructure:
+    parametersRef:
+      name: infra-agentgateway-parameters
+      group: agentgateway.dev
+      kind: AgentgatewayParameters
+  listeners:
+    - name: websecure
+      port: {{ .Values.infraAgentgatewayWrapper.ports.service.http }}
+      protocol: HTTP
+      allowedRoutes:
+        namespaces:
+          from: Same
+        kinds:
+          - group: gateway.networking.k8s.io
+            kind: HTTPRoute
+          - group: agentgateway.dev
+            kind: AgentgatewayModel
+    {{- if .Values.internalRagEmbedding.enabled }}
+    - name: internal-rag-embedding
+      port: {{ required "internalRagEmbedding.listenerPort is required when internalRagEmbedding is enabled" .Values.internalRagEmbedding.listenerPort }}
+      protocol: HTTP
+      allowedRoutes:
+        namespaces:
+          from: Same
+        kinds:
+          - group: agentgateway.dev
+            kind: AgentgatewayModel
+    {{- end }}

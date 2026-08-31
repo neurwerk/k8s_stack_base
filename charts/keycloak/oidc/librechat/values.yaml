@@ -1,0 +1,30 @@
+# IMAGE SOURCE: tooling
+# k8sTools is a pinned neurwerk image used by this OIDC bootstrap Job.
+# =============================================================================
+# values.yaml — keycloak-oidc-configurations/librechat
+#
+# Default values for the LibreChat OIDC client configuration.
+#
+# Hostnames and URLs are defined in client_*/config/client.yaml.
+# This file only defines non-hostname defaults.
+# =============================================================================
+
+# LibreChat OIDC client ID (default — unlikely to change)
+authKeycloak:
+  librechatClientId: librechat
+  # Client-owned callback and origin allowlists.
+  librechatRedirectUri: ""
+  librechatWebOrigin: ""
+  librechatAdminRedirectUri: ""
+  librechatAdminWebOrigin: ""
+
+mcp:
+  enabled: false
+  servers: []
+
+frontendLibrechat:
+  hostname: ""
+
+# k8sTools — init script image version
+k8sTools:
+  image: ghcr.io/neurwerk/k8s-stack-tooling:0.5.4

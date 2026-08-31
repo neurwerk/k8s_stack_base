@@ -1,0 +1,18 @@
+apiVersion: v2
+name: monitor-fluent-bit
+description: |
+  Wrapper chart — Fluent Bit (monitor-fluent-bit namespace).
+
+  Deploys:
+    - Fluent Bit DaemonSet (log shipping to OpenSearch via HTTPS + TLS verify)
+
+  The ingest credential is provided by a namespace-local ExternalSecret.
+
+  No Gateway/HTTPRoute — internal-only log shipping.
+type: application
+version: 0.6.1
+appVersion: "3.2.8"
+dependencies:
+  - name: fluent-bit
+    version: "0.48.9"
+    repository: https://fluent.github.io/helm-charts

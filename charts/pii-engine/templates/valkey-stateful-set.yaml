@@ -1,0 +1,112 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: monitor-pii-engine-valkey-primary
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "monitor-pii-engine.valkeyLabels" . | nindent 4 }}
+  annotations:
+    secret.reloader.stakater.com/reload: monitor-pii-engine-valkey
+spec:
+  serviceName: monitor-pii-engine-valkey-headless
+  replicas: 1
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: Retain
+    whenScaled: Retain
+  selector:
+    matchLabels:
+      {{- include "monitor-pii-engine.valkeySelectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "monitor-pii-engine.valkeyLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: monitor-pii-engine-valkey-primary
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      terminationGracePeriodSeconds: 60
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroup: 999
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: valkey
+          image: {{ .Values.monitorPiiEngine.valkey.image | quote }}
+          imagePullPolicy: {{ .Values.monitorPiiEngine.valkey.imagePullPolicy }}
+          command:
+            - /bin/sh
+            - -ec
+          args:
+            - |
+              test -n "$VALKEY_PASSWORD" || { echo "VALKEY_PASSWORD is required" >&2; exit 1; }
+              umask 077
+              printf 'requirepass %s\nappendonly yes\nappendfsync everysec\nsave ""\ndir /data\n' "$VALKEY_PASSWORD" > /run/valkey/valkey.conf
+              exec valkey-server /run/valkey/valkey.conf
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+          ports:
+            - name: valkey
+              containerPort: {{ .Values.monitorPiiEngine.valkey.service.port }}
+              protocol: TCP
+          env:
+            - name: VALKEY_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: monitor-pii-engine-valkey
+                  key: valkey-password
+            - name: REDISCLI_AUTH
+              valueFrom:
+                secretKeyRef:
+                  name: monitor-pii-engine-valkey
+                  key: valkey-password
+          volumeMounts:
+            - name: valkey-data
+              mountPath: /data
+            - name: runtime
+              mountPath: /run/valkey
+            - name: tmp
+              mountPath: /tmp
+          startupProbe:
+            exec:
+              command: ["valkey-cli", "-e", "ping"]
+            periodSeconds: 5
+            failureThreshold: 30
+          readinessProbe:
+            exec:
+              command: ["valkey-cli", "-e", "ping"]
+            periodSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            exec:
+              command: ["valkey-cli", "-e", "ping"]
+            periodSeconds: 10
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.monitorPiiEngine.valkey.resources | nindent 12 }}
+      volumes:
+        - name: runtime
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
+  volumeClaimTemplates:
+    - metadata:
+        name: valkey-data
+        labels:
+          {{- include "monitor-pii-engine.valkeySelectorLabels" . | nindent 10 }}
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: {{ .Values.monitorPiiEngine.valkey.persistence.size }}
+        {{- with .Values.monitorPiiEngine.valkey.persistence.storageClassName }}
+        storageClassName: {{ . | quote }}
+        {{- end }}

@@ -1,0 +1,50 @@
+{{- if .Values.externalGateway.enabled }}
+{{- $hostname := required "external Gateway hostname is required" .Values.frontendStudio.studio.hostname }}
+{{- if eq $hostname "place.holder" }}{{ fail "place.holder cannot be used for an external Gateway" }}{{ end }}
+# =============================================================================
+# Studio HTTPRoute — deny-by-default, explicit path prefixes
+#
+# Rule order matters: most specific (`/api/`) must come FIRST.
+# =============================================================================
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ .Release.Namespace }}-httproute
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: studio
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: {{ .Release.Namespace }}
+spec:
+  parentRefs:
+    - name: {{ .Release.Namespace }}-gateway
+      namespace: {{ .Release.Namespace }}
+      sectionName: websecure
+  hostnames:
+    - {{ $hostname }}
+  rules:
+    # --- Rule 1: API endpoints (most specific) ---
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /api/
+      backendRefs:
+        - name: frontend-studio-api-service
+          port: 80
+    # --- Rule 2: Auth callback (specific, routed to web) ---
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /auth/
+      backendRefs:
+        - name: frontend-studio-web-service
+          port: {{ .Values.frontendStudio.studio.ports.service.web }}
+    # --- Rule 3: Everything else → Next.js frontend ---
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: frontend-studio-web-service
+          port: {{ .Values.frontendStudio.studio.ports.service.web }}
+{{- end }}

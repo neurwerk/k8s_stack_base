@@ -1,0 +1,8 @@
+# Platform OIDC defaults. Client-specific identity settings belong in config/client.yaml.
+authKeycloak:
+  agentgatewayClientId: agentgateway
+  keycloakApiKeyBridgeClientId: keycloak-api-key-bridge
+  librechatClientId: librechat
+  studioClientId: studio
+  difyClientId: dify
+  difyAgentgatewayClientId: dify-agentgateway

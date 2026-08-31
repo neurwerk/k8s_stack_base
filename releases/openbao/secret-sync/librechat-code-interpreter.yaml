@@ -1,0 +1,96 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: librechat-code-interpreter-external-secrets
+  namespace: librechat-code-interpreter
+  labels:
+    app.kubernetes.io/name: external-secrets
+    app.kubernetes.io/instance: librechat-code-interpreter-secret-sync
+    app.kubernetes.io/part-of: librechat-code-interpreter
+---
+apiVersion: external-secrets.io/v1
+kind: SecretStore
+metadata:
+  name: librechat-code-interpreter-openbao-secret-store
+  namespace: librechat-code-interpreter
+  labels:
+    app.kubernetes.io/name: external-secrets
+    app.kubernetes.io/instance: librechat-code-interpreter-secret-sync
+    app.kubernetes.io/part-of: librechat-code-interpreter
+spec:
+  provider:
+    vault:
+      server: https://infra-openbao.infra-openbao.svc:8200
+      path: secret
+      version: v2
+      caProvider:
+        type: ConfigMap
+        name: infra-openbao-ca-bundle
+        key: ca.crt
+      auth:
+        kubernetes:
+          mountPath: kubernetes
+          role: librechat-code-interpreter
+          serviceAccountRef:
+            name: librechat-code-interpreter-external-secrets
+            audiences:
+              - openbao
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: frontend-librechat-code-interpreter-runtime-secret
+  namespace: librechat-code-interpreter
+  labels:
+    app.kubernetes.io/name: external-secrets
+    app.kubernetes.io/instance: librechat-code-interpreter-secret-sync
+    app.kubernetes.io/part-of: librechat-code-interpreter
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: librechat-code-interpreter-openbao-secret-store
+    kind: SecretStore
+  target:
+    name: frontend-librechat-code-interpreter-runtime-secret
+    creationPolicy: Owner
+    deletionPolicy: Retain
+    template:
+      engineVersion: v2
+      type: Opaque
+      metadata:
+        labels:
+          reconcile.fluxcd.io/watch: Enabled
+      data:
+        values.yaml: |
+          frontendLibrechatCodeInterpreterSecrets:
+            internalServiceToken: {{ .internalServiceToken | quote }}
+            valkeyPassword: {{ .valkeyPassword | quote }}
+            egressGrantSecret: {{ .egressGrantSecret | quote }}
+            executionManifestPrivateKey: {{ .executionManifestPrivateKey | quote }}
+            executionManifestPublicKey: {{ .executionManifestPublicKey | quote }}
+            jwtPublicKey: {{ .jwtPublicKey | quote }}
+  data:
+    - secretKey: internalServiceToken
+      remoteRef:
+        key: librechat-code-interpreter/internal
+        property: internalServiceToken
+    - secretKey: valkeyPassword
+      remoteRef:
+        key: librechat-code-interpreter/internal
+        property: valkeyPassword
+    - secretKey: egressGrantSecret
+      remoteRef:
+        key: librechat-code-interpreter/internal
+        property: egressGrantSecret
+    - secretKey: executionManifestPrivateKey
+      remoteRef:
+        key: librechat-code-interpreter/internal
+        property: executionManifestPrivateKey
+    - secretKey: executionManifestPublicKey
+      remoteRef:
+        key: librechat-code-interpreter/internal
+        property: executionManifestPublicKey
+    - secretKey: jwtPublicKey
+      remoteRef:
+        key: librechat-code-interpreter/internal
+        property: jwtPublicKey

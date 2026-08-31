@@ -1,0 +1,55 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cert-manager-approval-policy-use
+  labels:
+    {{- include "cert-manager-approval-policy.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [policy.cert-manager.io]
+    resources: [certificaterequestpolicies]
+    verbs: [use]
+    resourceNames:
+      - cert-manager-internal-ca-bootstrap
+      - cert-manager-internal-openbao-server
+      - cert-manager-internal-opensearch-http
+      - cert-manager-internal-opensearch-transport
+      - cert-manager-internal-opensearch-admin
+      - cert-manager-internal-pii-engine-server
+      - cert-manager-internal-agentgateway-extproc-client
+      - cert-manager-internal-studio-pii-engine-client
+      - cert-manager-internal-trust-manager-webhook
+      - cert-manager-internal-postgres-auth
+      - cert-manager-internal-postgres-operations-documentdb
+      - cert-manager-public-keycloak-staging
+      - cert-manager-public-keycloak-production
+      - cert-manager-public-agentgateway-staging
+      - cert-manager-public-agentgateway-production
+      - cert-manager-public-librechat-staging
+      - cert-manager-public-librechat-production
+      - cert-manager-public-librechat-admin-staging
+      - cert-manager-public-librechat-admin-production
+      - cert-manager-public-dify-staging
+      - cert-manager-public-dify-production
+      - cert-manager-public-studio-staging
+      - cert-manager-public-studio-production
+      - cert-manager-public-langfuse-staging
+      - cert-manager-public-langfuse-production
+      - cert-manager-public-rook-object-gateway-staging
+      - cert-manager-public-rook-object-gateway-production
+      - cert-manager-deny-unmatched
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: cert-manager-approval-policy-use
+  labels:
+    {{- include "cert-manager-approval-policy.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cert-manager-approval-policy-use
+subjects:
+  - apiGroup: ""
+    kind: ServiceAccount
+    name: infra-cert-manager-controller
+    namespace: infra-cert-manager

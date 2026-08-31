@@ -1,0 +1,14 @@
+# =============================================================================
+# Chart: keycloak-oidc-configurations/agentgateway
+#
+# Post-install Job that converges the public AgentGateway OIDC client.
+#
+# Runs AFTER the auth-keycloak-chart completes (so the realm and Keycloak
+# API are available).
+# =============================================================================
+apiVersion: v2
+name: agentgateway
+description: AgentGateway OIDC client configuration in Keycloak
+type: application
+version: 0.6.5
+appVersion: "1.0"

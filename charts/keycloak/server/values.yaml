@@ -1,0 +1,78 @@
+# IMAGE SOURCE: upstream
+# Keycloak is an upstream image; k8sTools is a documented neurwerk tooling exception.
+# Pinned here (chart defaults).
+# =============================================================================
+# charts/keycloak/server/values.yaml — default values
+#
+# These defaults are overridden by:
+#   - ConfigMap: base-shared-hostnames-config-map (releases/shared/hostnames.yaml)
+#   - ConfigMap: base-shared-resources-config-map (releases/shared/resources.yaml)
+#   - Secret: auth-keycloak-secrets
+# =============================================================================
+
+authKeycloak:
+  keycloakImage: quay.io/keycloak/keycloak:26.7.2
+  # hostname: "" => set in client_*/config/client.yaml
+  adminUser: admin
+  realm: ""  # required from client_*/config/client.yaml
+  # REQUIRED: set per client through keycloak-product-values
+  realmDisplayName: ""
+  smtp:
+    enabled: false
+    host: ""
+    port: 465
+    from: ""
+    ssl: true
+    starttls: false
+  activeDirectory:
+    enabled: false
+    connectionUrl: "ldaps://<active-directory-host>:636"
+    usersDn: "<users-dn>"
+    groupsDn: "<groups-dn>"
+    usernameAttribute: sAMAccountName
+    groupNames: []
+    emailVerified: true
+    caConfigMapName: auth-keycloak-active-directory-ca
+    caKey: ca.crt
+    egressCidrs: []
+  # Keycloak administrator-issued action link lifespan in seconds.
+  adminActionTokenLifespan: 1800
+  librechatClientId: librechat
+  agentgatewayClientId: agentgateway
+  # librechatRedirectUri: "" => set in client_*/config/client.yaml
+  # librechatWebOrigin: "" => set in client_*/config/client.yaml
+  # agentgatewayRedirectUri: "" => set in client_*/config/client.yaml
+  # agentgatewayWebOrigin: "" => set in client_*/config/client.yaml
+
+  database:
+    host: postgres-auth.infra-postgres-auth.svc.cluster.local
+    port: 5432
+    name: keycloak
+    username: keycloak
+    caConfigMapName: infra-openbao-ca-bundle
+    caKey: ca.crt
+    caMountPath: /opt/keycloak/conf/truststores/postgres
+
+  keycloak:
+    ports:
+      container:
+        http: 8080       # Keycloak HTTP port
+        mgmt: 9000       # Keycloak management port
+      service:
+        http: 80         # ClusterIP port for HTTP
+        mgmt: 9000       # ClusterIP port for management
+      gateway:
+        tls: 443         # Gateway TLS listener port
+
+externalGateway:
+  enabled: false
+
+publicCertificates:
+  useProduction: false
+
+# k8sTools — init script image version
+k8sTools:
+  image: ghcr.io/neurwerk/k8s-stack-tooling:0.5.4
+
+# Populated from the OpenBao-backed Helm input Secret.
+authKeycloakSecrets: {}

@@ -1,0 +1,5 @@
+apiVersion: v2
+name: keycloak-oidc-configurations-initial-admin
+description: Idempotently creates the initial neurwerk admin user in the Keycloak realm
+type: application
+version: 0.6.5

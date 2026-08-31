@@ -1,0 +1,20 @@
+# IMAGE SOURCE: tooling
+# k8sTools is a pinned neurwerk image used by this OIDC bootstrap Job.
+# =============================================================================
+# values.yaml — keycloak-oidc-configurations/keycloak-api-key-bridge
+#
+# Default values for the keycloak-api-key-bridge OIDC client configuration.
+#
+# Hostnames and URLs are defined in client_*/config/client.yaml.
+# This file only defines non-hostname defaults.
+# =============================================================================
+
+# Keycloak API Key Bridge OIDC client ID (default — unlikely to change)
+authKeycloak:
+  keycloakApiKeyBridgeClientId: keycloak-api-key-bridge
+  # keycloakApiKeyBridgeRedirectUri: "" => set in client_*/config/client.yaml
+  # keycloakApiKeyBridgeWebOrigin: "" => set in client_*/config/client.yaml
+
+# k8sTools — init script image version
+k8sTools:
+  image: ghcr.io/neurwerk/k8s-stack-tooling:0.5.4

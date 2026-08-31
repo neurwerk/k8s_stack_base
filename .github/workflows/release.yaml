@@ -1,0 +1,112 @@
+name: Verify Platform Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+env:
+  HELM_VERSION: v4.2.4
+  KUSTOMIZE_VERSION: v5.8.1
+  KUBECONFORM_VERSION: 0.8.0
+  KUBELINTER_VERSION: v0.8.3
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout trusted release tooling
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+          path: release-tooling
+          persist-credentials: false
+
+      - name: Checkout release tag as data
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
+          path: release-data
+          persist-credentials: false
+
+      - name: Verify signer and default-branch ancestry with trusted tooling
+        working-directory: release-data
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          PLATFORM_RELEASE_ALLOWED_SIGNER: ${{ vars.PLATFORM_RELEASE_ALLOWED_SIGNER }}
+          PLATFORM_RELEASE_PUBLIC_KEY_FILE: ${{ github.workspace }}/release-tooling/release/trust/platform-release.sshpub
+        run: |
+          bash ../release-tooling/scripts/verify_release_tag.sh "$GITHUB_REF_NAME"
+          git fetch origin \
+            "refs/heads/$DEFAULT_BRANCH:refs/remotes/origin/$DEFAULT_BRANCH"
+          git merge-base --is-ancestor \
+            "$GITHUB_REF_NAME^{commit}" "refs/remotes/origin/$DEFAULT_BRANCH"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: true
+
+      - name: Install Python
+        run: uv python install 3.12
+
+      - name: Verify Python lockfile
+        working-directory: release-data
+        run: uv lock --check
+
+      - name: Install Helm
+        uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4
+        with:
+          version: ${{ env.HELM_VERSION }}
+
+      - name: Install kustomize
+        uses: supplypike/setup-bin@8e3f88b4f143d9b5c3497f0fc12d45c83c123787 # v4.0.1
+        with:
+          uri: https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2F${{ env.KUSTOMIZE_VERSION }}/kustomize_${{ env.KUSTOMIZE_VERSION }}_linux_amd64.tar.gz
+          name: kustomize
+          version: ${{ env.KUSTOMIZE_VERSION }}
+
+      - name: Install kubeconform
+        uses: supplypike/setup-bin@8e3f88b4f143d9b5c3497f0fc12d45c83c123787 # v4.0.1
+        with:
+          uri: https://github.com/yannh/kubeconform/releases/download/v${{ env.KUBECONFORM_VERSION }}/kubeconform-linux-amd64.tar.gz
+          name: kubeconform
+          version: ${{ env.KUBECONFORM_VERSION }}
+
+      - name: Install kube-linter
+        uses: supplypike/setup-bin@8e3f88b4f143d9b5c3497f0fc12d45c83c123787 # v4.0.1
+        with:
+          uri: https://github.com/stackrox/kube-linter/releases/download/${{ env.KUBELINTER_VERSION }}/kube-linter-linux.tar.gz
+          name: kube-linter
+          version: ${{ env.KUBELINTER_VERSION }}
+
+      - name: Configure Helm repositories
+        run: |
+          helm repo add external-secrets https://charts.external-secrets.io
+          helm repo add fluent https://fluent.github.io/helm-charts
+          helm repo add langfuse https://langfuse.github.io/langfuse-k8s
+          helm repo add openbao https://openbao.github.io/openbao-helm
+          helm repo add opensearch https://opensearch-project.github.io/helm-charts
+          helm repo add stakater https://stakater.github.io/stakater-charts
+
+      - name: Validate signed release data
+        working-directory: release-data
+        run: |
+          make check
+          make release-check TAG="$GITHUB_REF_NAME"
+
+      - name: Record verified tag
+        run: printf '%s\n' "$GITHUB_REF_NAME" > "$RUNNER_TEMP/release-tag.txt"
+
+      - name: Upload verified release identity
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: verified-platform-release
+          path: ${{ runner.temp }}/release-tag.txt
+          retention-days: 1
+          if-no-files-found: error

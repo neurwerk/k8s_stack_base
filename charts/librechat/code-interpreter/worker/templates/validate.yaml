@@ -1,0 +1,33 @@
+{{- $product := .Values.frontendLibrechatCodeInterpreter -}}
+{{- $packages := $product.packages.persistence -}}
+{{- $requiredCapabilities := list "SYS_ADMIN" "SYS_CHROOT" "SYS_PTRACE" "SETUID" "SETGID" "NET_ADMIN" "DAC_OVERRIDE" "DAC_READ_SEARCH" "CHOWN" "FOWNER" "FSETID" "KILL" "SETFCAP" "MKNOD" -}}
+{{- if and $product.validation.production (empty $product.scheduling.nodeSelector) -}}
+  {{- fail "frontendLibrechatCodeInterpreter.scheduling.nodeSelector must be non-empty and client-owned for dedicated worker nodes" -}}
+{{- end -}}
+{{- if and $product.validation.production (empty $product.scheduling.tolerations) -}}
+  {{- fail "frontendLibrechatCodeInterpreter.scheduling.tolerations must be non-empty for dedicated tainted worker nodes" -}}
+{{- end -}}
+{{- if and $product.validation.production (not $product.sandbox.security.seccomp.enabled) -}}
+  {{- fail "frontendLibrechatCodeInterpreter.sandbox.security.seccomp.enabled must remain true in production direct-NsJail mode" -}}
+{{- end -}}
+{{- if and $product.validation.production (not $product.sandbox.security.appArmor.enabled) -}}
+  {{- fail "frontendLibrechatCodeInterpreter.sandbox.security.appArmor.enabled must remain true in production direct-NsJail mode" -}}
+{{- end -}}
+{{- if and $product.validation.production (not $product.hardenedSandboxMode) -}}
+  {{- fail "frontendLibrechatCodeInterpreter.hardenedSandboxMode must remain true in production" -}}
+{{- end -}}
+{{- if and $product.validation.production $product.sandbox.security.privileged -}}
+  {{- fail "frontendLibrechatCodeInterpreter.sandbox.security.privileged must remain false" -}}
+{{- end -}}
+{{- if and $product.validation.production $product.sandbox.security.allowPrivilegeEscalation -}}
+  {{- fail "frontendLibrechatCodeInterpreter.sandbox.security.allowPrivilegeEscalation must remain false" -}}
+{{- end -}}
+{{- if and $product.validation.production (not (deepEqual $product.sandbox.security.capabilities $requiredCapabilities)) -}}
+  {{- fail "frontendLibrechatCodeInterpreter.sandbox.security.capabilities must remain the documented direct-NsJail capability set" -}}
+{{- end -}}
+{{- if not (has $packages.accessMode (list "ReadWriteOnce" "ReadWriteMany")) -}}
+  {{- fail "frontendLibrechatCodeInterpreter.packages.persistence.accessMode must be ReadWriteOnce or ReadWriteMany" -}}
+{{- end -}}
+{{- if and (eq $packages.accessMode "ReadWriteOnce") (gt (int $product.sandbox.replicas) 1) -}}
+  {{- fail "sandbox.replicas greater than one requires a client-selected ReadWriteMany package claim" -}}
+{{- end -}}

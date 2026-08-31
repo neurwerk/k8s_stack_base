@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "frontendLibrechat": {
+      "type": "object",
+      "properties": {
+        "ragApi": {
+          "type": "object",
+          "properties": {
+            "image": {
+              "type": "object",
+              "properties": {
+                "variant": {
+                  "type": "string",
+                  "enum": ["lite", "full"]
+                }
+              },
+              "required": ["variant"]
+            }
+          },
+          "required": ["image"]
+        }
+      },
+      "required": ["ragApi"]
+    }
+  },
+  "required": ["frontendLibrechat"]
+}

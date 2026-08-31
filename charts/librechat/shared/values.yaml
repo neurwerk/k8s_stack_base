@@ -1,0 +1,80 @@
+# Non-secret LibreChat product configuration.
+frontendLibrechat:
+  hostname: librechat.example.invalid
+  agentGateway:
+    baseUrl: http://infra-agentgateway-gateway.infra-agentgateway.svc.cluster.local:80/v1
+    hostPort: infra-agentgateway-gateway.infra-agentgateway.svc.cluster.local:80
+    # The LibreChat schema requires at least one default entry even when fetch is enabled.
+    models:
+      - ""
+    streaming: false
+  adminPanel:
+    hostname: ""
+    url: ""
+  codeInterpreter:
+    enabled: false
+    url: http://librechat-code-interpreter-api:3112/v1
+    jwtAlgorithm: EdDSA
+    jwtAudience: codeapi
+    jwtIssuer: librechat
+    jwtKeyId: librechat-code-interpreter-v1
+    jwtSingleTenantId: librechat
+  documentdb:
+    host: postgres-operations.infra-postgres-operations.svc.cluster.local
+    port: 10260
+    database: LibreChat
+    authSource: admin
+    authMechanism: SCRAM-SHA-256
+    directConnection: true
+    tls:
+      caFile: /etc/documentdb/ca.crt
+  meilisearch:
+    service:
+      name: frontend-librechat-meilisearch-service
+      port: 7700
+  objectStorage:
+    enabled: false
+  oidc:
+    adminRole: librechat-admin
+    buttonLabel: Sign in
+    requiredRole: librechat-user
+  rag:
+    enabled: true
+    useFullContext: false
+    service:
+      name: frontend-librechat-rag-api-service
+      port: 8000
+  valkey:
+    service:
+      name: frontend-librechat-valkey-service
+      port: 6379
+
+# Sensitive values are supplied by the namespace-local OpenBao-backed values Secret.
+frontendLibrechatSecrets:
+  adminPanelMetricsSecret: ""
+  adminPanelSessionSecret: ""
+  codeInterpreterJwtPrivateKey: ""
+  credsIv: ""
+  credsKey: ""
+  documentdbPassword: ""
+  documentdbUser: ""
+  jwtRefreshSecret: ""
+  jwtSecret: ""
+  meiliMasterKey: ""
+  openidClientSecret: ""
+  openidSessionSecret: ""
+  ragOpenaiApiKey: ""
+  ragPostgresqlPassword: ""
+  ragPostgresqlUser: ""
+  valkeyPassword: ""
+
+# Keycloak client facts are supplied by shared/client configuration layers.
+authKeycloak:
+  hostname: keycloak.example.invalid
+  librechatClientId: librechat
+  realm: example
+
+# Shared MCP catalog supplied by platform defaults and client configuration.
+mcp:
+  enabled: false
+  servers: []

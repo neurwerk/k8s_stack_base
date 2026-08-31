@@ -1,0 +1,72 @@
+{{- $product := .Values.frontendLibrechatCodeInterpreter -}}
+{{- $init := $product.packages.initJob -}}
+{{- if $init.enabled }}
+{{- $configHash := dict "chartVersion" .Chart.Version "image" $product.images.packageInit "init" $init "scheduling" $product.scheduling | toJson | sha256sum | trunc 10 -}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "librechat-code-interpreter-package-init.fullname" . }}-{{ $configHash }}
+  annotations:
+    ignore-check.kube-linter.io/non-existent-service-account: "Provisioned by the dependency-gated Code Interpreter shared release."
+    "helm.sh/hook": pre-install,pre-upgrade
+    # Keep failed logs, then replace that failed Job before RetryOnFailure reruns
+    # the hook. Successful hooks leave no terminal Job behind.
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+  labels:
+    {{- include "librechat-code-interpreter-package-init.labels" . | nindent 4 }}
+    app.kubernetes.io/component: package-init
+spec:
+  activeDeadlineSeconds: {{ $init.activeDeadlineSeconds }}
+  backoffLimit: {{ $init.backoffLimit }}
+  template:
+    metadata:
+      labels:
+        {{- include "librechat-code-interpreter-package-init.labels" . | nindent 8 }}
+        app.kubernetes.io/component: package-init
+    spec:
+      serviceAccountName: {{ include "librechat-code-interpreter-package-init.fullname" . }}
+      automountServiceAccountToken: false
+      restartPolicy: Never
+      securityContext:
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: package-init
+          image: {{ printf "%s:%s" $product.images.packageInit.repository $product.images.packageInit.tag | quote }}
+          imagePullPolicy: {{ $product.images.packageInit.pullPolicy }}
+          # Upstream's compiler image runs as UID 0 and needs a writable image
+          # filesystem, but it is not privileged and receives no capabilities.
+          securityContext:
+            runAsUser: 0
+            runAsGroup: 0
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop: ["ALL"]
+          env:
+            - name: PYTHON_VERSION
+              value: {{ $init.pythonVersion | quote }}
+            - name: NODE_VERSION
+              value: {{ $init.nodeVersion | quote }}
+            - name: BUN_VERSION
+              value: {{ $init.bunVersion | quote }}
+            - name: BASH_PACKAGE_VERSION
+              value: {{ $init.bashPackageVersion | quote }}
+            - name: FORCE_REBUILD
+              value: {{ $init.forceRebuild | quote }}
+          resources:
+            {{- toYaml $init.resources | nindent 12 }}
+          volumeMounts:
+            - name: packages
+              mountPath: /pkgs
+      volumes:
+        - name: packages
+          persistentVolumeClaim:
+            claimName: librechat-code-interpreter-packages
+      nodeSelector:
+        {{- toYaml $product.scheduling.nodeSelector | nindent 8 }}
+      tolerations:
+        {{- toYaml $product.scheduling.tolerations | nindent 8 }}
+{{- end }}

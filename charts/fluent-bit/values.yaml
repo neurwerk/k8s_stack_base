@@ -1,0 +1,92 @@
+# IMAGE SOURCE: upstream
+# Fluent Bit images are controlled by the vendor subchart.
+# --- Subchart dependency: fluent-bit ---
+fluent-bit:
+  # Use DaemonSet to run on every node
+  kind: DaemonSet
+
+  annotations:
+    secret.reloader.stakater.com/reload: "monitor-fluent-bit-shared-ingest-secret"
+
+  # The upstream test hook uses busybox:latest and is not part of deployment.
+  testFramework:
+    enabled: false
+
+  # Disable chart's default namespace creation
+  namespace:
+    create: false
+
+  # Fluent Bit config — input, filter, output piped to OpenSearch
+  config:
+    inputs: |
+      [INPUT]
+          Name              tail
+          Tag               kube.*
+          Path              /var/log/containers/*.log
+          Parser            docker
+          DB                /var/log/flb_kube.db
+          Mem_Buf_Limit     50MB
+          Skip_Long_Lines   On
+          Refresh_Interval  10
+          # Node has fs.inotify.max_user_instances=128 (shared, exhausted) —
+          # use stat-based polling instead of per-file inotify watchers.
+          Inotify_Watcher   false
+
+    filters: |
+      [FILTER]
+          Name                kubernetes
+          Match               kube.*
+          Kube_URL            https://kubernetes.default.svc:443
+          Kube_CA_File        /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+          Kube_Token_File     /var/run/secrets/kubernetes.io/serviceaccount/token
+          # Rook OSD Pod metadata exceeds Fluent Bit's 32,000-byte default.
+          Buffer_Size         128k
+          Merge_Log           On
+          Annotations         Off
+          Labels              Off
+
+    outputs: |
+      [OUTPUT]
+          Name                opensearch
+          Match               kube.*
+          Host                opensearch-cluster-master.monitor-opensearch.svc.cluster.local
+          Port                9200
+          HTTP_User           fluent-bit-ingest
+          HTTP_Passwd         ${OPENSEARCH_INGEST_PASSWORD}
+          tls                 On
+          tls.verify          On
+          tls.verify_hostname On
+          tls.ca_file         /fluent-bit/tls/ca.crt
+          Logstash_Format     On
+          Logstash_Prefix     fluent-bit
+          Logstash_DateFormat %Y.%m.%d
+          Retry_Limit         False
+          Suppress_Type_Name  On
+
+  # Environment variables from the namespace-local ESO Secret.
+  env:
+    - name: OPENSEARCH_INGEST_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: monitor-fluent-bit-shared-ingest-secret
+          key: ingestPassword
+
+  # ServiceAccount — needs access to K8s API for kubernetes filter
+  serviceAccount:
+    create: true
+
+  # Pod security context — fluent-bit runs as root (upstream image default);
+  # it needs read access to /var/log/containers on the host.
+  podSecurityContext: {}
+
+  # hostPath volumes for /var/log and /var/lib/docker/containers come from the
+  # upstream chart; opensearch-ca carries the internal CA trust bundle used by
+  # the OpenSearch output (tls.ca_file).
+  extraVolumes:
+    - name: opensearch-ca
+      configMap:
+        name: monitor-fluent-bit-shared-opensearch-ca
+  extraVolumeMounts:
+    - name: opensearch-ca
+      mountPath: /fluent-bit/tls
+      readOnly: true

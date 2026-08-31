@@ -1,0 +1,61 @@
+# =============================================================================
+# frontend-studio Web Deployment (Next.js frontend)
+# =============================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend-studio-web-deployment
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: studio-web
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: {{ .Release.Namespace }}
+spec:
+  replicas: {{ .Values.frontendStudio.studio.replicas }}
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: studio-web
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: studio-web
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/part-of: {{ .Release.Namespace }}
+    spec:
+      securityContext:
+        runAsUser: {{ .Values.frontendStudio.studio.securityContext.runAsUser }}
+        runAsNonRoot: {{ .Values.frontendStudio.studio.securityContext.runAsNonRoot }}
+        fsGroup: {{ .Values.frontendStudio.studio.securityContext.fsGroup }}
+      containers:
+        - name: {{ .Release.Name }}-web
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            readOnlyRootFilesystem: true
+          image: {{ .Values.frontendStudio.webImage }}
+          imagePullPolicy: Always
+          env:
+            - name: OIDC_AUTHORITY
+              value: {{ .Values.frontendStudio.studio.oidcAuthority | quote }}
+            - name: OIDC_CLIENT_ID
+              value: {{ .Values.frontendStudio.studio.oidcClientId | quote }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.frontendStudio.studio.ports.container.web }}
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /
+              port: {{ .Values.frontendStudio.studio.ports.container.web }}
+          resources:
+            {{- toYaml .Values.frontendStudio.studio.resources | nindent 12 }}
+          volumeMounts:
+            - name: env-public
+              mountPath: /app/apps/web/public
+      volumes:
+        - name: env-public
+          emptyDir: {}

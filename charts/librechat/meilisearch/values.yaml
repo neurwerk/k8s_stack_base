@@ -1,0 +1,19 @@
+frontendLibrechat:
+  meilisearch:
+    image: docker.io/getmeili/meilisearch:v1.35.1
+    imagePullPolicy: IfNotPresent
+    replicas: 1
+    service:
+      port: 7700
+    persistence:
+      size: 10Gi
+      storageClassName: ""
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: "1"
+        memory: 1Gi
+
+frontendLibrechatSecrets: {}

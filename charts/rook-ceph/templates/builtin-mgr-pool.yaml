@@ -1,0 +1,21 @@
+# Ceph creates .mgr during bootstrap. Declaring it up front prevents the
+# built-in pool from retaining the production replica default on this one-OSD
+# development cluster.
+apiVersion: ceph.rook.io/v1
+kind: CephBlockPool
+metadata:
+  name: builtin-mgr
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "infra-rook-ceph.labels" . | nindent 4 }}
+spec:
+  name: .mgr
+  failureDomain: osd
+  enableCrushUpdates: true
+  replicated:
+    size: 1
+    requireSafeReplicaSize: false
+  parameters:
+    compression_mode: none
+  mirroring:
+    enabled: false

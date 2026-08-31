@@ -1,0 +1,14 @@
+{{- if .Values.frontendLibrechat.objectStorage.enabled }}
+apiVersion: objectbucket.io/v1alpha1
+kind: ObjectBucketClaim
+metadata:
+  name: {{ .Values.frontendLibrechat.objectStorage.claimName }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "frontend-librechat.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/resource-policy: keep
+spec:
+  bucketName: {{ .Values.frontendLibrechat.objectStorage.bucketName }}
+  storageClassName: {{ required "frontendLibrechat.objectStorage.storageClassName is required when object storage is enabled" .Values.frontendLibrechat.objectStorage.storageClassName }}
+{{- end }}

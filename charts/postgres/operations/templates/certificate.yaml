@@ -1,0 +1,28 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: postgres-operations-documentdb
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "postgres-operations.labels" . | nindent 4 }}
+spec:
+  secretName: postgres-operations-documentdb-tls
+  duration: {{ .Values.postgresOperations.tls.duration }}
+  commonName: postgres-operations
+  dnsNames:
+    - localhost
+    - postgres-operations
+    - postgres-operations.{{ .Release.Namespace }}
+    - postgres-operations.{{ .Release.Namespace }}.svc
+    - postgres-operations.{{ .Release.Namespace }}.svc.{{ .Values.postgresOperations.clusterDomain }}
+  ipAddresses:
+    - 127.0.0.1
+  usages:
+    - server auth
+  privateKey:
+    algorithm: RSA
+    size: 2048
+  issuerRef:
+    group: cert-manager.io
+    kind: ClusterIssuer
+    name: {{ .Values.postgresOperations.tls.issuerName }}

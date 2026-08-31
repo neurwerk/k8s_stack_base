@@ -1,0 +1,22 @@
+# =============================================================================
+# keycloak-api-key-bridge schema-v2 PVC for SQLite database persistence.
+# Its versioned name intentionally prevents a pre-versioned bridge database
+# from being attached to this release.
+# =============================================================================
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: auth-keycloak-api-key-bridge-v2-pvc
+  namespace: auth-keycloak-api-key-bridge
+  labels:
+    {{- include "auth-keycloak-api-key-bridge.labels" . | nindent 4 }}
+    app.kubernetes.io/schema-version: "2"
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.authKeycloakApiKeyBridge.persistence.size }}
+  {{- with .Values.authKeycloakApiKeyBridge.persistence.storageClass }}
+  storageClassName: {{ . }}
+  {{- end }}

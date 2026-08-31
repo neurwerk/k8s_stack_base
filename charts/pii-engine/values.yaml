@@ -1,0 +1,128 @@
+# IMAGE SOURCE: owned service
+# The image is built by the pii_engine repository and pinned here.
+monitorPiiEngine:
+  image: ghcr.io/neurwerk/k8s-stack-pii-engine:0.7.2-cpu
+  device: cpu
+  accelerator:
+    enabled: false
+    resourceName: nvidia.com/gpu
+    count: 1
+  nodeSelector: {}
+  tolerations: []
+  replicas: 1
+  policyVersion: foundation-0.1
+  logging:
+    # DEBUG includes full exception messages and tracebacks and may contain sensitive data.
+    level: INFO
+  modelBundle:
+    version: "0.1.2"
+    manifestSha256: a24eb93bc245e220f76ac010a57cf540a6399b2046b2782a07035ae660cc3926
+    referencePath: /cache/desired-bundle.json
+  capacity:
+    maxRequestBytes: "5242880"
+    maxAdapterResponseBytes: "10485760"
+    # Studio evaluation responses accept 1 KiB through the service hard limit of 10 MiB.
+    maxStudioEvaluationResponseBytes: "10485760"
+    maxTextLeaves: "256"
+    maxTextCharacters: "4000000"
+    maxNestingDepth: "32"
+    maxConcurrentAnalyses: "4"
+    maxQueuedAnalyses: "32"
+    studioMaxConcurrentAnalyses: "1"
+    queueWaitTimeout: "2"
+    analysisTimeout: "600"
+    studioAnalysisTimeout: "30"
+  ports:
+    container:
+      application: 8443
+      management: 8001
+    service:
+      application: 443
+      management: 8001
+  strategy: Recreate
+  securityContext:
+    runAsUser: 1000
+    runAsGroup: 1000
+    runAsNonRoot: true
+    fsGroup: 1000
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop: [ALL]
+    readOnlyRootFilesystem: true
+  resources:
+    requests:
+      cpu: 1000m
+      memory: 4Gi
+    limits:
+      cpu: 4000m
+      memory: 12Gi
+  modelCacheSize: 12Gi
+  storageClassName: infra-rook-ceph-rbd
+  policy:
+    pii:
+      analyzerLanguages: [en]
+      supportedLanguages: [en, de, nl]
+      scoreThreshold: 0.45
+      timeout: 600
+      defaultAction: block
+      defaultOperator:
+        type: mask
+        masking_char: "*"
+        chars_to_mask: 100
+        from_end: true
+      analyzerEntities: []
+      maskOnReroute: true
+      hashWindowHours: 24
+      entityPolicies: []
+      ner:
+        strategy: multilingual
+        generalModel: multilingual-pii
+        perLanguage:
+          en: english-pii
+          de: german-pii
+          nl: dutch-pii
+      customRecognizers: []
+    attachments:
+      policy: block
+    safety:
+      enabled: [promptInjection, jailbreak, systemPromptExtraction, harmfulContent, encodingEvasion, selfHarm]
+      custom: []
+    classifier:
+      defaultClass: general
+      classes: []
+    session:
+      enabled: true
+      ttlHours: 24
+    notice:
+      rerouted: "Note: This conversation is handled by a local model because it contains sensitive data."
+      masked: "Note: Sensitive data in this conversation was anonymized."
+      showWhenNoPiiDetected: true
+    routing:
+      defaultTarget: local/llama3.2-3b
+      targets:
+        - name: local/llama3.2-3b
+  tls:
+    serverSecretName: monitor-pii-engine-server-tls
+    clientCaFile: /var/run/pii-engine/tls/ca.crt
+  runtimeSecret:
+    name: monitor-pii-engine-runtime-secret
+  valkey:
+    image: docker.io/valkey/valkey:9.1.1-alpine
+    imagePullPolicy: IfNotPresent
+    service:
+      port: 6379
+    persistence:
+      size: 8Gi
+      storageClassName: infra-rook-ceph-rbd
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 150m
+        memory: 192Mi
+
+monitorPiiEngineSecrets:
+  hashKey: ""
+  encryptionKey: ""

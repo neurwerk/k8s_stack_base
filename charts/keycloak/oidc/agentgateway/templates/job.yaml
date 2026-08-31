@@ -1,0 +1,71 @@
+# =============================================================================
+# AgentGateway OIDC configuration Job
+#
+# Runs after Keycloak is deployed and the configured client realm exists.
+# Creates the AgentGateway OIDC client in Keycloak for azp policy matching.
+#
+# AgentGateway validates JWTs using JWKS (public keys) and does NOT consume
+# the client secret — no Secret patching or Deployment restart is needed.
+# =============================================================================
+{{- $roles := .Values.authKeycloak.agentgatewayClientRoles | default list }}
+{{- if not (has "llm:invoke" $roles) }}{{- fail "authKeycloak.agentgatewayClientRoles must include llm:invoke" }}{{- end }}
+{{- range $roles }}
+{{- if not (regexMatch "^(llm:invoke|(model|mcp):[A-Za-z0-9][A-Za-z0-9._/-]{0,127}:invoke)$" .) }}{{- fail (printf "invalid AgentGateway client role %q" .) }}{{- end }}
+{{- end }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: auth-keycloak-agentgateway-oidc-job
+  namespace: auth-keycloak
+  labels:
+    app.kubernetes.io/name: agentgateway-oidc
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: auth-keycloak
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "-3"
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 86400
+  activeDeadlineSeconds: 600
+  template:
+    metadata:
+      name: auth-keycloak-agentgateway-oidc-job
+      labels:
+        app: auth-keycloak-agentgateway-oidc-job
+        job: auth-keycloak-agentgateway-oidc-job
+        app.kubernetes.io/name: agentgateway-oidc
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/part-of: auth-keycloak
+        app.kubernetes.io/component: configuration
+    spec:
+      automountServiceAccountToken: false
+      restartPolicy: OnFailure
+      containers:
+        - name: init
+          image: {{ (.Values.k8sTools).image | quote }}
+          command:
+            - upsert-oidc-client
+          env:
+            - name: KC_INTERNAL_URL
+              value: "http://auth-keycloak-keycloak-service.auth-keycloak.svc.cluster.local"
+            - name: KC_ADMIN_USER
+              value: {{ required "authKeycloak.adminUser is required — set via client-values or keycloak-product-values" .Values.authKeycloak.adminUser | quote }}
+            - name: KC_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: auth-keycloak-secret
+                  key: adminPassword
+            - name: KC_REALM
+              value: {{ required "authKeycloak.realm is required — set via client-values or keycloak-product-values" .Values.authKeycloak.realm | quote }}
+            - name: KC_CLIENT_ID
+              value: {{ .Values.authKeycloak.agentgatewayClientId | quote }}
+            - name: KC_REDIRECT_URI
+              value: {{ .Values.authKeycloak.agentgatewayRedirectUri | quote }}
+            - name: KC_WEB_ORIGIN
+              value: {{ .Values.authKeycloak.agentgatewayWebOrigin | quote }}
+            - name: KC_CLIENT_ROLES
+              value: {{ $roles | toJson | quote }}
+            - name: KC_LOG_PREFIX
+              value: "keycloak-agentgateway-oidc"

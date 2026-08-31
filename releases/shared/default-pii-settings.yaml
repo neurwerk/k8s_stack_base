@@ -1,0 +1,74 @@
+# =============================================================================
+# Default PII & guardrails settings — single source of truth
+#
+# Referenced by the AgentGateway integration and the PII Engine chart.
+#
+# Clients override monitorPiiEngine policy through config/client.yaml.
+# =============================================================================
+
+# ── AgentGateway integration ────────────────────────────────────────────────
+guardrails:
+  llmPolicyEngine:
+    enabled: true
+
+# ── Shared policy core owned by pii-engine ───────────────────────────────────
+monitorPiiEngine:
+  policy:
+    pii:
+      analyzerLanguages: [en]
+      supportedLanguages: [en, de, nl]
+      scoreThreshold: 0.45
+      timeout: 600
+      defaultAction: block
+      defaultOperator:
+        type: mask
+        masking_char: "*"
+        chars_to_mask: 100
+        from_end: true
+      # Empty selects the complete engine-owned normalized entity catalog.
+      analyzerEntities: []
+      # Keep the secure default: rerouted data is masked before it reaches the
+      # local fallback unless a client explicitly trusts that target.
+      maskOnReroute: true
+      hashWindowHours: 24
+      entityPolicies: []
+      ner:
+        # The multilingual-only bundle is the default optional upgrade. Keep
+        # perLanguage aliases configured for clients using the four-model bundle.
+        strategy: multilingual
+        generalModel: multilingual-pii
+        perLanguage:
+          en: english-pii
+          de: german-pii
+          nl: dutch-pii
+      customRecognizers: []
+    attachments:
+      policy: block
+    safety:
+      enabled:
+        - promptInjection
+        - jailbreak
+        - systemPromptExtraction
+        - harmfulContent
+        - encodingEvasion
+        - selfHarm
+      custom: []
+    classifier:
+      defaultClass: general
+      classes: []
+    session:
+      enabled: true
+      ttlHours: 24
+    notice:
+      rerouted: "Note: This conversation is handled by a local model because it contains sensitive data."
+      masked: "Note: Sensitive data in this conversation was anonymized."
+      showWhenNoPiiDetected: true
+    routing:
+      # defaultTarget is the canonical safe model selected when a reroute policy
+      # has no explicit routeClass. Targets map trusted route classes to models
+      # declared under guardrails.llmPolicyEngine.models.
+      defaultTarget: local/llama3.2-3b
+      targets:
+        - name: local/llama3.2-3b
+    debug: false
+    logFormat: text

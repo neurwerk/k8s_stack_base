@@ -1,0 +1,49 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: opensearch
+  namespace: monitor-opensearch
+spec:
+  releaseName: monitor-opensearch
+  targetNamespace: monitor-opensearch
+  interval: 5m
+  timeout: 30m
+  install:
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 1m
+  upgrade:
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 1m
+  dependsOn:
+    - name: traefik
+      namespace: kube-system
+    - name: cert-manager-internal-issuer
+      namespace: infra-cert-manager
+    - name: trust-manager
+      namespace: infra-trust-manager
+    - name: rook-ceph
+      namespace: infra-rook-ceph
+    - name: studio-shared
+      namespace: frontend-studio
+    - name: fluent-bit-shared
+      namespace: monitor-fluent-bit
+  chart:
+    spec:
+      chart: ./charts/opensearch
+      sourceRef:
+        kind: GitRepository
+        name: k8s-stack
+        namespace: flux-system
+      interval: 1m
+  valuesFrom:
+    - kind: ConfigMap
+      name: base-shared-resources-config-map
+      valuesKey: values.yaml
+    - kind: ConfigMap
+      name: client-values
+      valuesKey: values.yaml
+    - kind: ConfigMap
+      name: opensearch-product-values
+      valuesKey: values.yaml

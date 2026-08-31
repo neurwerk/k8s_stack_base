@@ -1,0 +1,85 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: infra-agentgateway-external-secrets
+  namespace: infra-agentgateway
+  labels:
+    app.kubernetes.io/name: external-secrets
+    app.kubernetes.io/instance: infra-agentgateway-secret-sync
+    app.kubernetes.io/part-of: infra-agentgateway
+---
+apiVersion: external-secrets.io/v1
+kind: SecretStore
+metadata:
+  name: infra-agentgateway-openbao-secret-store
+  namespace: infra-agentgateway
+  labels:
+    app.kubernetes.io/name: external-secrets
+    app.kubernetes.io/instance: infra-agentgateway-secret-sync
+    app.kubernetes.io/part-of: infra-agentgateway
+spec:
+  provider:
+    vault:
+      server: https://infra-openbao.infra-openbao.svc:8200
+      path: secret
+      version: v2
+      caProvider:
+        type: ConfigMap
+        name: infra-openbao-ca-bundle
+        key: ca.crt
+      auth:
+        kubernetes:
+          mountPath: kubernetes
+          role: infra-agentgateway
+          serviceAccountRef:
+            name: infra-agentgateway-external-secrets
+            audiences:
+              - openbao
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: infra-agentgateway-secrets
+  namespace: infra-agentgateway
+  labels:
+    app.kubernetes.io/name: external-secrets
+    app.kubernetes.io/instance: infra-agentgateway-secret-sync
+    app.kubernetes.io/part-of: infra-agentgateway
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: infra-agentgateway-openbao-secret-store
+    kind: SecretStore
+  target:
+    name: infra-agentgateway-secrets
+    creationPolicy: Owner
+    deletionPolicy: Retain
+    template:
+      engineVersion: v2
+      type: Opaque
+      metadata:
+        labels:
+          reconcile.fluxcd.io/watch: Enabled
+      data:
+        values.yaml: |
+          infraAgentgatewayWrapperSecrets:
+            openaiApiKey: ""
+            anthropicApiKey: ""
+            openrouterApiKey: {{ .openrouterApiKey | quote }}
+            deepseekApiKey: {{ .deepseekApiKey | quote }}
+            mcp:
+              brave:
+                apiKey: {{ .braveApiKey | quote }}
+  data:
+    - secretKey: openrouterApiKey
+      remoteRef:
+        key: infra-agentgateway/external
+        property: openrouterApiKey
+    - secretKey: deepseekApiKey
+      remoteRef:
+        key: infra-agentgateway/external
+        property: deepseekApiKey
+    - secretKey: braveApiKey
+      remoteRef:
+        key: infra-agentgateway/external
+        property: braveApiKey

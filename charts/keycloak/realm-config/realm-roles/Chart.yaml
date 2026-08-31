@@ -1,0 +1,5 @@
+apiVersion: v2
+name: keycloak-oidc-configurations-realm-roles
+description: Creates realm-level roles in Keycloak (e.g., api-key-admin)
+type: application
+version: 0.6.5

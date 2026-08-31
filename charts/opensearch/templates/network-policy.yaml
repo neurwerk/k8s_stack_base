@@ -1,0 +1,66 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: monitor-opensearch-network-policy
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: opensearch
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: monitor-opensearch
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: opensearch
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  policyTypes:
+    - Ingress
+  ingress:
+    # Port 9200: Fluent-Bit DaemonSet only
+    - ports:
+        - port: 9200
+          protocol: TCP
+      from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitor-fluent-bit
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: fluent-bit
+    # Port 9200: Security bootstrap and user-provisioning Jobs only
+    - ports:
+        - port: 9200
+          protocol: TCP
+      from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitor-opensearch
+          podSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values:
+                  - opensearch-security-bootstrap
+                  - opensearch-user-provisioning
+                  - opensearch-archive-provisioning
+    # Port 9200: Studio API (logs viewer — read-only studio-logs-read user)
+    - ports:
+        - port: 9200
+          protocol: TCP
+      from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: frontend-studio
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: studio-api
+    # Port 9300: OpenSearch pods only (node-to-node transport)
+    - ports:
+        - port: 9300
+          protocol: TCP
+      from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitor-opensearch
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: opensearch

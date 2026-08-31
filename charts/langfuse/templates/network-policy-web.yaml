@@ -1,0 +1,43 @@
+# =============================================================================
+# Langfuse web NetworkPolicy
+#
+# The Studio API and OTel collector require direct internal access. Traefik
+# remains the only external entry point through the Langfuse HTTPRoute.
+# =============================================================================
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: monitor-langfuse-web-network-policy
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: langfuse
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: monitor-langfuse
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: langfuse
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app: web
+  policyTypes:
+    - Ingress
+  ingress:
+    - ports:
+        - port: {{ .Values.monitorLangfuseWrapper.ports.container.http }}
+          protocol: TCP
+      from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: frontend-studio
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: studio-api
+        - podSelector:
+            matchLabels:
+              app: monitor-langfuse-otel-collector
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: traefik

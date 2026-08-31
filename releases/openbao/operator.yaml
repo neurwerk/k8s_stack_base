@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: secret-operator
+  namespace: infra-openbao
+  labels:
+    app.kubernetes.io/name: secret-operator
+    app.kubernetes.io/part-of: infra-openbao
+automountServiceAccountToken: false

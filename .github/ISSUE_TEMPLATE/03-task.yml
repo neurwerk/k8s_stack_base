@@ -1,0 +1,33 @@
+name: Task
+description: Track a bounded platform implementation or maintenance task
+title: "[Task]: "
+labels:
+  - "status: triage"
+type: Task
+
+body:
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Required outcome
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope and non-goals
+    validations:
+      required: true
+  - type: textarea
+    id: contracts
+    attributes:
+      label: Affected contracts
+      description: List affected charts, releases, clients, services, or security boundaries, or state None.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria and validation
+    validations:
+      required: true

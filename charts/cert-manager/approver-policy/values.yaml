@@ -1,0 +1,10 @@
+# IMAGE SOURCE: upstream
+# approver-policy images are controlled by the pinned official subchart.
+cert-manager-approver-policy:
+  crds:
+    enabled: true
+    keep: true
+  app:
+    approveSignerNames:
+      - issuers.cert-manager.io/*
+      - clusterissuers.cert-manager.io/*

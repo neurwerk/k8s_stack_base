@@ -1,0 +1,49 @@
+# Platform placeholder defaults consumed by release packages.
+#
+# ⚠️ These placeholder values are required for the initial deployment to succeed.
+#    Platform HelmReleases need hostnames to render their Gateway settings, but
+#    customer hostnames are supplied by each client's config/client.yaml.
+#
+#    Check: kubectl get gateway -n auth-keycloak auth-keycloak-gateway -o jsonpath='{.spec.listeners[0].hostname}'
+authKeycloak:
+  hostname: "place.holder"
+  librechatRedirectUri: "https://place.holder/*"
+  librechatWebOrigin: "https://place.holder"
+  agentgatewayRedirectUri: "https://place.holder/*"
+  agentgatewayWebOrigin: "https://place.holder"
+  keycloakApiKeyBridgeRedirectUri: "https://place.holder/*"
+  keycloakApiKeyBridgeWebOrigin: "https://place.holder"
+  studioRedirectUri: "https://place.holder/auth/callback"
+  studioWebOrigin: "https://place.holder"
+  difyRedirectUri: "https://place.holder/console/api/oauth/authorize/keycloak"
+  difyWebOrigin: "https://place.holder"
+
+infraAgentgatewayWrapper:
+  hostname: "place.holder"
+
+frontendLibrechat:
+  hostname: "place.holder"
+  adminPanel:
+    hostname: "place.holder"
+
+monitorLangfuseWrapper:
+  hostname: "place.holder"
+
+authKeycloakApiKeyBridge:
+  hostname: "place.holder"
+
+frontendDify:
+  hostname: "place.holder"
+
+frontendStudio:
+  studio:
+    hostname: "place.holder"
+    oidcClientId: "studio"
+  api:
+    keycloakServerUrl: "http://auth-keycloak-keycloak-service.auth-keycloak.svc.cluster.local"
+    keycloakClientId: "studio"
+
+langfuse:
+  langfuse:
+    nextauth:
+      url: "https://place.holder"

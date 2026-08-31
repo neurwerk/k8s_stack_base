@@ -1,0 +1,35 @@
+/.git_backup*/
+
+# Environment - real secrets
+.env
+.env.*
+!.env.example
+!.env.*.example
+.venv/
+venv/
+
+# macOS
+.DS_Store
+
+# Combined yaml files
+all_files_combined*
+
+# Test and Python artifacts
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+__pycache__/
+*.pyc
+.coverage
+.coverage.*
+htmlcov/
+
+# Logs and temporary editor files
+*.log
+*.tmp
+*.bak
+*.orig
+*.rej
+*~
+*.swp
+*.swo

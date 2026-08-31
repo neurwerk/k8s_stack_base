@@ -1,0 +1,24 @@
+# =============================================================================
+# Catch-all HTTP → HTTPS redirect
+#
+# Single Gateway + HTTPRoute on port 80 that redirects ALL HTTP traffic to HTTPS.
+# This replaces per-chart port 80 listeners — cleaner and DRY.
+# =============================================================================
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: traefik-http-to-https-gateway
+  namespace: kube-system
+  labels:
+    app.kubernetes.io/name: traefik-http-to-https
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: kube-system
+spec:
+  gatewayClassName: traefik
+  listeners:
+    - name: http-redirect
+      port: 8000
+      protocol: HTTP
+      allowedRoutes:
+        namespaces:
+          from: Same

@@ -1,0 +1,61 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: pii-engine
+  namespace: monitor-pii-engine
+spec:
+  releaseName: monitor-pii-engine
+  interval: 5m
+  install:
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 1m
+  upgrade:
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 1m
+  timeout: 30m
+  dependsOn:
+    - name: rook-ceph
+      namespace: infra-rook-ceph
+    - name: pii-engine-model-sync
+      namespace: monitor-pii-engine
+    - name: cert-manager-internal-issuer
+      namespace: infra-cert-manager
+    - name: trust-manager
+      namespace: infra-trust-manager
+    - name: kube-prometheus-stack
+      namespace: monitor-kube-prometheus-stack
+  chart:
+    spec:
+      chart: ./charts/pii-engine
+      sourceRef:
+        kind: GitRepository
+        name: k8s-stack
+        namespace: flux-system
+      interval: 1m
+  values:
+    # These exact pins select the mandatory verified transformer bundle.
+    monitorPiiEngine:
+      modelBundle:
+        version: "0.1.2"
+        manifestSha256: a24eb93bc245e220f76ac010a57cf540a6399b2046b2782a07035ae660cc3926
+  valuesFrom:
+    - kind: ConfigMap
+      name: base-shared-resources-config-map
+      valuesKey: values.yaml
+    - kind: ConfigMap
+      name: base-shared-pii-config-map
+      valuesKey: values.yaml
+    - kind: ConfigMap
+      name: monitor-pii-engine-app-defaults
+      valuesKey: values.yaml
+    - kind: Secret
+      name: monitor-pii-engine-secrets
+      valuesKey: values.yaml
+    - kind: ConfigMap
+      name: client-values
+      valuesKey: values.yaml
+    - kind: ConfigMap
+      name: pii-engine-product-values
+      valuesKey: values.yaml

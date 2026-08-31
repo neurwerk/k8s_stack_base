@@ -1,0 +1,48 @@
+# =============================================================================
+# Langfuse OpenTelemetry Collector ConfigMap
+#
+# Receives OTLP traces from AgentGateway via gRPC and forwards them to
+# Langfuse's OTLP HTTP endpoint.
+#
+# Flow:
+#   AgentGateway ──OTLP gRPC (4317)──► OTel Collector ──OTLP HTTP (3000)──► Langfuse
+#                                                                  /api/public/otel
+# =============================================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: monitor-langfuse-otel-collector-config-map
+  namespace: monitor-langfuse
+  labels:
+    app.kubernetes.io/name: otel-collector
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: monitor-langfuse
+data:
+  config.yaml: |
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+            endpoint: 0.0.0.0:{{ .Values.monitorLangfuseWrapper.otelCollector.ports.grpc }}
+          http:
+            endpoint: 0.0.0.0:{{ .Values.monitorLangfuseWrapper.otelCollector.ports.http }}
+    exporters:
+      otlphttp/langfuse:
+        endpoint: http://{{ .Values.monitorLangfuseWrapper.langfuseServiceName }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.monitorLangfuseWrapper.langfuseServicePort }}/api/public/otel
+        headers:
+          Authorization: "Basic ${env:LANGFUSE_BASIC_AUTH}"
+        retry_on_failure:
+          enabled: true
+          initial_interval: 5s
+          max_interval: 30s
+          max_elapsed_time: 300s
+    processors:
+      batch:
+        send_batch_size: 1000
+        timeout: 5s
+    service:
+      pipelines:
+        traces:
+          receivers: [otlp]
+          processors: [batch]
+          exporters: [otlphttp/langfuse]

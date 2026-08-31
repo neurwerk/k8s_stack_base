@@ -1,0 +1,88 @@
+{{- $engine := .Values.guardrails.llmPolicyEngine -}}
+{{- $models := $engine.models | default list -}}
+{{- if gt (len $models) 256 -}}
+{{-   fail "guardrails.llmPolicyEngine.models supports at most 256 destinations" -}}
+{{- end -}}
+{{- if and (gt (len $models) 0) (not $engine.enabled) -}}
+{{-   fail "guardrails.llmPolicyEngine.enabled must be true when model destinations are configured" -}}
+{{- end -}}
+{{- $modelIds := dict -}}
+{{- $modelResourceNames := dict -}}
+{{- range $model := $models -}}
+{{-   $modelName := required "guardrails.llmPolicyEngine.models[].name is required" $model.name -}}
+{{-   if not (regexMatch "^[A-Za-z0-9][A-Za-z0-9._/-]{0,127}$" $modelName) -}}
+{{-     fail (printf "model name %q must be safe for model:<name>:invoke permissions" $modelName) -}}
+{{-   end -}}
+{{-   if hasKey $modelIds $modelName -}}
+{{-     fail (printf "model name %q is duplicated" $modelName) -}}
+{{-   end -}}
+{{-   $_ := set $modelIds $modelName true -}}
+{{-   range $field := list "piiEnabled" "contentTracingEnabled" -}}
+{{-     if and (hasKey $model $field) (not (kindIs "bool" (get $model $field))) -}}
+{{-       fail (printf "model %q %s must be a boolean" $modelName $field) -}}
+{{-     end -}}
+{{-   end -}}
+{{-   $piiEnabled := true -}}
+{{-   if hasKey $model "piiEnabled" -}}
+{{-     $piiEnabled = $model.piiEnabled -}}
+{{-   end -}}
+{{-   if and $model.piiReroute (not $piiEnabled) -}}
+{{-     fail (printf "model %q sets piiReroute:true but piiEnabled:false" $modelName) -}}
+{{-   end -}}
+{{-   $resourceName := include "infra-agentgateway.modelResourceName" $modelName -}}
+{{-   $generatedNames := list $resourceName -}}
+{{-   if $model.piiReroute -}}
+{{-     $generatedNames = append $generatedNames (printf "%s-remote" $resourceName) -}}
+{{-     $generatedNames = append $generatedNames (printf "%s-local" $resourceName) -}}
+{{-   end -}}
+{{-   range $generatedName := $generatedNames -}}
+{{-     if or (gt (len $generatedName) 253) (not (regexMatch "^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$" $generatedName)) -}}
+{{-       fail (printf "model %q generates invalid AgentgatewayModel name %q" $modelName $generatedName) -}}
+{{-     end -}}
+{{-     range $segment := splitList "." $generatedName -}}
+{{-       if gt (len $segment) 63 -}}
+{{-         fail (printf "model %q generates AgentgatewayModel name %q with a DNS segment longer than 63 characters" $modelName $generatedName) -}}
+{{-       end -}}
+{{-     end -}}
+{{-     $labelValue := printf "model-%s" $generatedName -}}
+{{-     if or (gt (len $labelValue) 63) (not (regexMatch "^[a-z0-9]([-a-z0-9_.]*[a-z0-9])?$" $labelValue)) -}}
+{{-       fail (printf "model %q generates invalid app.kubernetes.io/name label %q" $modelName $labelValue) -}}
+{{-     end -}}
+{{-     if hasKey $modelResourceNames $generatedName -}}
+{{-       fail (printf "models %q and %q generate the same AgentgatewayModel name %q" (get $modelResourceNames $generatedName) $modelName $generatedName) -}}
+{{-     end -}}
+{{-     $_ := set $modelResourceNames $generatedName $modelName -}}
+{{-   end -}}
+{{- end -}}
+
+{{- $mcpProtocolVersion := .Values.mcp.protocolVersion | default "" -}}
+{{- if ne $mcpProtocolVersion "2025-11-25" -}}
+{{-   fail "mcp.protocolVersion must be exactly 2025-11-25" -}}
+{{- end -}}
+{{- $mcpServers := .Values.mcp.servers | default list -}}
+{{- if and .Values.mcp.enabled (gt (len $mcpServers) 0) (not $engine.enabled) -}}
+{{-   fail "guardrails.llmPolicyEngine.enabled must be true when MCP destinations are configured" -}}
+{{- end -}}
+{{- $mcpIds := dict -}}
+{{- range $server := $mcpServers -}}
+{{-   $serverId := required "mcp server requires name" $server.name -}}
+{{-   if or (gt (len $serverId) 48) (not (regexMatch "^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$" $serverId)) -}}
+{{-     fail (printf "mcp server %q name must be a 1-48 character lowercase ASCII DNS subdomain" $serverId) -}}
+{{-   end -}}
+{{-   if $server.workload -}}
+{{-     $containerName := printf "mcp-%s" $serverId -}}
+{{-     $serviceName := include "infra-agentgateway.mcpResourceName" (dict "id" $serverId "component" "svc") -}}
+{{-     if or (gt (len $containerName) 63) (gt (len $serviceName) 63) (not (regexMatch "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$" $containerName)) (not (regexMatch "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$" $serviceName)) -}}
+{{-       fail (printf "mcp workload server %q must render directly to valid DNS-label Service and container names" $serverId) -}}
+{{-     end -}}
+{{-   end -}}
+{{-   if hasKey $mcpIds $serverId -}}
+{{-     fail (printf "mcp server name %q is duplicated" $serverId) -}}
+{{-   end -}}
+{{-   $_ := set $mcpIds $serverId true -}}
+{{-   range $field := list "piiEnabled" "contentTracingEnabled" -}}
+{{-     if and (hasKey $server $field) (not (kindIs "bool" (get $server $field))) -}}
+{{-       fail (printf "mcp server %q %s must be a boolean" $serverId $field) -}}
+{{-     end -}}
+{{-   end -}}
+{{- end -}}

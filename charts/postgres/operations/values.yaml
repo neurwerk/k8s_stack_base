@@ -1,0 +1,28 @@
+# IMAGE SOURCE: upstream
+postgresOperations:
+  image: ghcr.io/documentdb/documentdb/documentdb-local:pg18-0.116.0
+  imagePullPolicy: IfNotPresent
+  clusterDomain: cluster.local
+  service:
+    postgresqlPort: 5432
+    documentdbPort: 10260
+  containerPorts:
+    postgresql: 9712
+    documentdb: 10260
+  persistence:
+    size: 50Gi
+    storageClassName: ""
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: "2"
+      memory: 4Gi
+  tls:
+    duration: 2160h
+    issuerName: infra-cert-manager-internal-ca-issuer
+  provisioning:
+    activeDeadlineSeconds: 300
+
+postgresOperationsSecrets: {}

@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-librechat-valkey-service
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "frontend-librechat-valkey.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "frontend-librechat-valkey.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: valkey
+      port: {{ .Values.frontendLibrechat.valkey.service.port }}
+      targetPort: valkey
+      protocol: TCP

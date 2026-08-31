@@ -1,0 +1,33 @@
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayPolicy
+metadata:
+  name: infra-agentgateway-ux-metrics
+  namespace: infra-agentgateway
+  labels:
+    app.kubernetes.io/name: ux-metrics
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: infra-agentgateway
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: infra-agentgateway-gateway
+      sectionName: websecure
+  frontend:
+    metrics:
+      attributes:
+        add:
+          # Serialized request size is a stable prompt-complexity proxy across
+          # providers whose token usage and cache accounting differ.
+          - name: request_size
+            expression: >-
+              !has(request.body) ? "unknown" :
+              size(request.body) <= 4096 ? "0-4KiB" :
+              size(request.body) <= 16384 ? "4-16KiB" :
+              size(request.body) <= 65536 ? "16-64KiB" :
+              size(request.body) <= 262144 ? "64-256KiB" :
+              size(request.body) <= 1048576 ? "256KiB-1MiB" :
+              size(request.body) <= 5242880 ? "1-5MiB" : "5MiB+"
+          - name: llm_streaming
+            expression: >-
+              !has(llm.streaming) ? "unknown" : llm.streaming ? "true" : "false"

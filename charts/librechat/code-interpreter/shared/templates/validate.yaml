@@ -1,0 +1,14 @@
+{{- $product := .Values.frontendLibrechatCodeInterpreter -}}
+{{- $packages := $product.packages.persistence -}}
+{{- if and $product.validation.production (not $packages.enabled) -}}
+  {{- fail "frontendLibrechatCodeInterpreter.packages.persistence.enabled must remain true for direct NsJail" -}}
+{{- end -}}
+{{- if and $product.validation.production $packages.enabled (not $packages.storageClassName) -}}
+  {{- fail "frontendLibrechatCodeInterpreter.packages.persistence.storageClassName is required from client-owned values" -}}
+{{- end -}}
+{{- if not (has $packages.accessMode (list "ReadWriteOnce" "ReadWriteMany")) -}}
+  {{- fail "frontendLibrechatCodeInterpreter.packages.persistence.accessMode must be ReadWriteOnce or ReadWriteMany" -}}
+{{- end -}}
+{{- if ne $packages.lifecycle "Retain" -}}
+  {{- fail "frontendLibrechatCodeInterpreter.packages.persistence.lifecycle must be Retain" -}}
+{{- end -}}

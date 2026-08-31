@@ -1,0 +1,105 @@
+# =============================================================================
+# AgentGateway Parameters — Data Plane Configuration
+#
+# Configures tracing, cost catalog, and other data plane settings for the
+# AgentGateway gateway proxy (infra-agentgateway-gateway). This is the proper
+# way to enable OTLP tracing — environment variables like OTEL_EXPORTER_OTLP_ENDPOINT
+# only affect the control plane's own telemetry, not the LLM request traces.
+#
+# The Gateway must reference this via spec.infrastructure.parametersRef:
+#
+#   spec:
+#     infrastructure:
+#       parametersRef:
+#         name: infra-agentgateway-parameters
+#         group: agentgateway.dev
+#         kind: AgentgatewayParameters
+#
+# Without this reference, tracing config is never pushed to the data plane.
+# See: https://agentgateway.dev/docs/kubernetes/latest/setup/customize/customize
+#
+# ── Sampling ────────────────────────────────────────────────────────────────
+# randomSampling: true  →  CEL expression evaluates to true, meaning 100% of
+#   root spans (requests without an incoming trace context) are sampled.
+#   Default (false/unspecified) = no random sampling (0%).
+# clientSampling: unset  →  defaults to 100% enabled, meaning requests that
+#   already carry a trace context are fully sampled.
+# Together this provides 100% trace coverage.
+#
+# ── Cost Catalog ─────────────────────────────────────────────────────────────
+# modelCatalog references a ConfigMap containing the model cost catalog JSON
+# (USD per 1M tokens per model). AgentGateway computes realized cost for every
+# LLM request and exposes it in logs, traces, metrics, and CEL (llm.cost,
+# llm.costRates). Cost data flows automatically to Langfuse via OTel traces.
+#
+# Flow:
+#   AgentGateway Gateway ──OTLP gRPC (4317)──► OTel Collector ──OTLP HTTP──► Langfuse
+# =============================================================================
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayParameters
+metadata:
+  name: infra-agentgateway-parameters
+  namespace: infra-agentgateway
+  labels:
+    app.kubernetes.io/name: parameters
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: infra-agentgateway
+spec:
+  # AgentGateway otherwise generates a LoadBalancer Service. Keep its data plane
+  # private so external traffic always enters through Traefik's HTTPS Gateway.
+  service:
+    spec:
+      type: ClusterIP
+  {{- if .Values.infraAgentgatewayWrapper.costCatalog }}
+  modelCatalog:
+    sources:
+      # Generated catalog (agctl costs import) — see files/catalog.json
+      - configMap:
+          name: infra-agentgateway-model-cost-catalog
+          key: catalog.json
+      # Manual overrides — merged after the generated catalog, takes precedence.
+      # Adds reviewed OpenRouter pricing. See files/catalog-overrides.json.
+      - configMap:
+          name: infra-agentgateway-model-cost-catalog-overrides
+          key: catalog-overrides.json
+  {{- end }}
+  {{- if or .Values.guardrails.llmPolicyEngine.enabled .Values.infraAgentgatewayWrapper.tracing }}
+  rawConfig:
+    {{- if .Values.guardrails.llmPolicyEngine.enabled }}
+    frontendPolicies:
+      http:
+        maxBufferSize: {{ int .Values.guardrails.llmPolicyEngine.maxBufferSize }}
+    {{- end }}
+{{- if .Values.infraAgentgatewayWrapper.tracing }}
+    {{- $fields := deepCopy (.Values.infraAgentgatewayWrapper.tracing.fields | default dict) }}
+    {{- $add := get $fields "add" | default dict }}
+    {{- $modelContentDisabled := list }}
+    {{- range $model := .Values.guardrails.llmPolicyEngine.models | default list }}
+    {{-   $contentTracingEnabled := true }}
+    {{-   if hasKey $model "contentTracingEnabled" }}{{- $contentTracingEnabled = $model.contentTracingEnabled }}{{- end }}
+    {{-   if not $contentTracingEnabled }}{{- $modelContentDisabled = append $modelContentDisabled $model.name }}{{- end }}
+    {{- end }}
+    {{- $mcpContentDisabled := list }}
+    {{- range $server := .Values.mcp.servers | default list }}
+    {{-   $contentTracingEnabled := true }}
+    {{-   if hasKey $server "contentTracingEnabled" }}{{- $contentTracingEnabled = $server.contentTracingEnabled }}{{- end }}
+    {{-   if not $contentTracingEnabled }}{{- $mcpContentDisabled = append $mcpContentDisabled $server.name }}{{- end }}
+    {{- end }}
+    {{- /* Model routing records the public requested ID before virtual resolution. */}}
+    {{- $_ := set $add "gen_ai.prompt" (printf `has(metadata.agentgateway_user_model) && !(metadata.agentgateway_user_model in %s) ? flattenRecursive(llm.prompt) : null` ($modelContentDisabled | toJson)) }}
+    {{- $_ := set $add "gen_ai.completion" (printf `has(metadata.agentgateway_user_model) && !(metadata.agentgateway_user_model in %s) ? flattenRecursive(llm.completion.map(c, {"role":"assistant", "content": c})) : null` ($modelContentDisabled | toJson)) }}
+    {{- /* MCP backend target names are the exact reviewed server IDs. */}}
+    {{- $_ := set $add "langfuse.observation.input" (printf `has(mcp.tool.arguments) && has(mcp.tool.target) && !(mcp.tool.target in %s) ? flattenRecursive(mcp.tool.arguments) : null` ($mcpContentDisabled | toJson)) }}
+    {{- $_ := set $add "langfuse.observation.output" (printf `has(mcp.tool.result) && has(mcp.tool.target) && !(mcp.tool.target in %s) ? flattenRecursive(mcp.tool.result) : null` ($mcpContentDisabled | toJson)) }}
+    {{- $_ := set $fields "add" $add }}
+    config:
+      tracing:
+        otlpEndpoint: {{ .Values.infraAgentgatewayWrapper.tracing.otlpEndpoint | quote }}
+        otlpProtocol: {{ .Values.infraAgentgatewayWrapper.tracing.otlpProtocol | quote }}
+        randomSampling: {{ .Values.infraAgentgatewayWrapper.tracing.randomSampling }}
+        {{- if $fields }}
+        fields:
+          {{- toYaml $fields | nindent 10 }}
+        {{- end }}
+    {{- end }}
+  {{- end }}

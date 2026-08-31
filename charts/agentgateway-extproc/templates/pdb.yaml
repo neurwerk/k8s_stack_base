@@ -1,0 +1,15 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: monitor-agentgateway-extproc-pdb
+  namespace: monitor-agentgateway-extproc
+  labels:
+    app.kubernetes.io/name: monitor-agentgateway-extproc
+    app.kubernetes.io/instance: monitor-agentgateway-extproc
+    app.kubernetes.io/part-of: monitor-agentgateway-extproc
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: monitor-agentgateway-extproc
+      app.kubernetes.io/instance: monitor-agentgateway-extproc

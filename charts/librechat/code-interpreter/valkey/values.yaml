@@ -1,0 +1,28 @@
+# IMAGE SOURCE: upstream Valkey release image, pinned to an exact version tag.
+frontendLibrechatCodeInterpreter:
+  validation:
+    # The platform HelmRelease forces this true. It stays false so this chart
+    # can be rendered independently with synthetic defaults.
+    production: false
+
+  valkey:
+    image:
+      repository: docker.io/valkey/valkey
+      tag: 9.1.1-alpine
+      pullPolicy: IfNotPresent
+    service:
+      port: 6379
+    authSecretName: librechat-code-interpreter-valkey-auth
+    persistence:
+      # BullMQ jobs, replay state, and egress ledgers must survive Pod restarts.
+      enabled: true
+      size: 5Gi
+      storageClassName: ""
+      lifecycle: Retain
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi

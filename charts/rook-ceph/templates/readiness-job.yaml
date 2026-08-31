@@ -1,0 +1,239 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: infra-rook-ceph-readiness-job
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "5"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+  labels:
+    {{- include "infra-rook-ceph.labels" . | nindent 4 }}
+spec:
+  activeDeadlineSeconds: 2700
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 600
+  template:
+    metadata:
+      labels:
+        {{- include "infra-rook-ceph.labels" . | nindent 8 }}
+    spec:
+      serviceAccountName: infra-rook-ceph-readiness-service-account
+      restartPolicy: OnFailure
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+      containers:
+        - name: wait-for-ceph
+          image: {{ .Values.infraRookCeph.kubectlImage | quote }}
+          command: ["/bin/sh", "-ec"]
+          args:
+            - |
+               cleanup_smoke_test() {
+                 kubectl -n "$POD_NAMESPACE" delete pod "$RBD_WRITER_POD" "$RBD_READER_POD" --ignore-not-found --wait=true --timeout=120s >/dev/null 2>&1 || true
+                 kubectl -n "$POD_NAMESPACE" delete pvc "$RBD_SMOKE_PVC" --ignore-not-found --wait=true --timeout=120s >/dev/null 2>&1 || true
+               }
+               trap cleanup_smoke_test EXIT
+               trap 'exit 1' INT TERM
+
+               ready=false
+               for attempt in $(seq 1 120); do
+                 cluster_phase=$(kubectl -n "$POD_NAMESPACE" get cephcluster "$CEPH_CLUSTER" -o jsonpath='{.status.phase}' 2>/dev/null || true)
+                 cluster_health=$(kubectl -n "$POD_NAMESPACE" get cephcluster "$CEPH_CLUSTER" -o jsonpath='{.status.ceph.health}' 2>/dev/null || true)
+                 store_phase=$(kubectl -n "$POD_NAMESPACE" get cephobjectstore "$OBJECT_STORE" -o jsonpath='{.status.phase}' 2>/dev/null || true)
+                 pool_phase=$(kubectl -n "$POD_NAMESPACE" get cephblockpool "$BLOCK_POOL" -o jsonpath='{.status.phase}' 2>/dev/null || true)
+                 obc_phase=$(kubectl -n "$OBC_NAMESPACE" get objectbucketclaim "$PII_OBC" -o jsonpath='{.status.phase}' 2>/dev/null || true)
+                 publisher_phase=$(kubectl -n "$POD_NAMESPACE" get cephobjectstoreuser "$PUBLISHER_USER" -o jsonpath='{.status.phase}' 2>/dev/null || true)
+                 model_sync_phase=$(kubectl -n "$MODEL_SYNC_NAMESPACE" get cephobjectstoreuser "$MODEL_SYNC_USER" -o jsonpath='{.status.phase}' 2>/dev/null || true)
+                 model_sync_access_key=$(kubectl -n "$MODEL_SYNC_NAMESPACE" get secret "$MODEL_SYNC_SECRET" -o jsonpath='{.data.AccessKey}' 2>/dev/null || true)
+                 model_sync_secret_key=$(kubectl -n "$MODEL_SYNC_NAMESPACE" get secret "$MODEL_SYNC_SECRET" -o jsonpath='{.data.SecretKey}' 2>/dev/null || true)
+                 model_sync_endpoint=$(kubectl -n "$MODEL_SYNC_NAMESPACE" get secret "$MODEL_SYNC_SECRET" -o jsonpath='{.data.Endpoint}' 2>/dev/null || true)
+                 rook_ready=$(kubectl -n "$POD_NAMESPACE" get deployment rook-ceph-operator -o jsonpath='{.status.availableReplicas}' 2>/dev/null || true)
+                 csi_ready=$(kubectl -n "$POD_NAMESPACE" get deployment ceph-csi-controller-manager -o jsonpath='{.status.availableReplicas}' 2>/dev/null || true)
+                 rgw_ready=$(kubectl -n "$POD_NAMESPACE" get deployment "$RGW_DEPLOYMENT" -o jsonpath='{.status.availableReplicas}' 2>/dev/null || true)
+                 if [ "$cluster_phase" = "Ready" ] && [ "$cluster_health" = "HEALTH_OK" ] && [ "$store_phase" = "Ready" ] && [ "$pool_phase" = "Ready" ] && [ "$obc_phase" = "Bound" ] && [ "$publisher_phase" = "Ready" ] && [ "$model_sync_phase" = "Ready" ] && [ -n "$model_sync_access_key" ] && [ -n "$model_sync_secret_key" ] && [ -n "$model_sync_endpoint" ] && [ "$rook_ready" = "1" ] && [ "$csi_ready" = "1" ] && [ "$rgw_ready" = "1" ]; then
+                   rgw_status=$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' --connect-timeout 5 --max-time 10 "$RGW_ENDPOINT/" || true)
+                   if [ "$rgw_status" = "200" ] || [ "$rgw_status" = "403" ]; then
+                     echo "Rook, Ceph storage resources, PII object storage, and RGW are ready."
+                     ready=true
+                     break
+                   fi
+                 fi
+                 echo "Attempt $attempt/120: cluster=$cluster_phase/$cluster_health store=$store_phase pool=$pool_phase obc=$obc_phase users=$publisher_phase/$model_sync_phase credentials=$([ -n "$model_sync_access_key" ] && [ -n "$model_sync_secret_key" ] && [ -n "$model_sync_endpoint" ] && echo ready || echo pending) rook=$rook_ready csi=$csi_ready rgw=$rgw_ready"
+                 sleep 10
+               done
+               if [ "$ready" != "true" ]; then
+                 echo "Timed out waiting for Rook Ceph readiness."
+                 exit 1
+               fi
+
+               cleanup_smoke_test
+               smoke_token="rook-rbd-$(date +%s)-$$"
+               kubectl -n "$POD_NAMESPACE" create -f - <<EOF
+               apiVersion: v1
+               kind: PersistentVolumeClaim
+               metadata:
+                 name: $RBD_SMOKE_PVC
+               spec:
+                 accessModes: ["ReadWriteOnce"]
+                 resources:
+                   requests:
+                     storage: 16Mi
+                 storageClassName: $RBD_STORAGE_CLASS
+               ---
+               apiVersion: v1
+               kind: Pod
+               metadata:
+                 name: $RBD_WRITER_POD
+               spec:
+                 restartPolicy: Never
+                 securityContext:
+                   runAsNonRoot: true
+                   runAsUser: 1000
+                   runAsGroup: 1000
+                   fsGroup: 1000
+                 containers:
+                   - name: write
+                     image: $KUBECTL_IMAGE
+                     command: ["/bin/sh", "-ec"]
+                     args:
+                       - |
+                         printf '%s' "\$SMOKE_TOKEN" > /data/readiness-token
+                         sync
+                     env:
+                       - name: SMOKE_TOKEN
+                         value: "$smoke_token"
+                     resources:
+                       requests:
+                         cpu: 5m
+                         memory: 16Mi
+                       limits:
+                         cpu: 50m
+                         memory: 64Mi
+                     securityContext:
+                       allowPrivilegeEscalation: false
+                       capabilities:
+                         drop: ["ALL"]
+                       readOnlyRootFilesystem: true
+                     volumeMounts:
+                       - name: data
+                         mountPath: /data
+                 volumes:
+                   - name: data
+                     persistentVolumeClaim:
+                       claimName: $RBD_SMOKE_PVC
+               EOF
+
+               for attempt in $(seq 1 60); do
+                 writer_phase=$(kubectl -n "$POD_NAMESPACE" get pod "$RBD_WRITER_POD" -o jsonpath='{.status.phase}' 2>/dev/null || true)
+                 [ "$writer_phase" = "Succeeded" ] && break
+                 [ "$writer_phase" = "Failed" ] && { echo "RBD smoke writer failed."; exit 1; }
+                 sleep 5
+               done
+               [ "$writer_phase" = "Succeeded" ] || { echo "Timed out waiting for the RBD smoke writer."; exit 1; }
+               kubectl -n "$POD_NAMESPACE" delete pod "$RBD_WRITER_POD" --wait=true --timeout=120s
+
+               kubectl -n "$POD_NAMESPACE" create -f - <<EOF
+               apiVersion: v1
+               kind: Pod
+               metadata:
+                 name: $RBD_READER_POD
+               spec:
+                 restartPolicy: Never
+                 securityContext:
+                   runAsNonRoot: true
+                   runAsUser: 1000
+                   runAsGroup: 1000
+                   fsGroup: 1000
+                 containers:
+                   - name: read
+                     image: $KUBECTL_IMAGE
+                     command: ["/bin/sh", "-ec"]
+                     args:
+                       - test "\$(cat /data/readiness-token)" = "\$SMOKE_TOKEN"
+                     env:
+                       - name: SMOKE_TOKEN
+                         value: "$smoke_token"
+                     resources:
+                       requests:
+                         cpu: 5m
+                         memory: 16Mi
+                       limits:
+                         cpu: 50m
+                         memory: 64Mi
+                     securityContext:
+                       allowPrivilegeEscalation: false
+                       capabilities:
+                         drop: ["ALL"]
+                       readOnlyRootFilesystem: true
+                     volumeMounts:
+                       - name: data
+                         mountPath: /data
+                         readOnly: true
+                 volumes:
+                   - name: data
+                     persistentVolumeClaim:
+                       claimName: $RBD_SMOKE_PVC
+               EOF
+
+               for attempt in $(seq 1 60); do
+                 reader_phase=$(kubectl -n "$POD_NAMESPACE" get pod "$RBD_READER_POD" -o jsonpath='{.status.phase}' 2>/dev/null || true)
+                 [ "$reader_phase" = "Succeeded" ] && break
+                 [ "$reader_phase" = "Failed" ] && { echo "RBD smoke reader failed."; exit 1; }
+                 sleep 5
+               done
+               [ "$reader_phase" = "Succeeded" ] || { echo "Timed out waiting for the RBD smoke reader."; exit 1; }
+               echo "RBD dynamic provisioning and persisted write/read succeeded."
+          env:
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: CEPH_CLUSTER
+              value: {{ .Values.infraRookCeph.clusterName | quote }}
+            - name: OBJECT_STORE
+              value: {{ .Values.infraRookCeph.objectStore.name | quote }}
+            - name: BLOCK_POOL
+              value: {{ .Values.infraRookCeph.blockStorage.poolName | quote }}
+            - name: OBC_NAMESPACE
+              value: {{ .Values.infraRookCeph.objectStore.piiModels.namespace | quote }}
+            - name: PII_OBC
+              value: monitor-pii-engine-models-object-bucket-claim
+            - name: PUBLISHER_USER
+              value: {{ .Values.infraRookCeph.objectStore.piiModels.publisherUser | quote }}
+            - name: MODEL_SYNC_NAMESPACE
+              value: {{ .Values.infraRookCeph.objectStore.piiModels.consumerNamespace | quote }}
+            - name: MODEL_SYNC_USER
+              value: {{ .Values.infraRookCeph.objectStore.piiModels.modelSyncUser | quote }}
+            - name: MODEL_SYNC_SECRET
+              value: {{ printf "rook-ceph-object-user-%s-%s" .Values.infraRookCeph.objectStore.name .Values.infraRookCeph.objectStore.piiModels.modelSyncUser | quote }}
+            - name: RGW_DEPLOYMENT
+              value: {{ printf "rook-ceph-rgw-%s-a" .Values.infraRookCeph.objectStore.name | quote }}
+            - name: RGW_ENDPOINT
+              value: {{ printf "http://rook-ceph-rgw-%s.%s.svc:%v" .Values.infraRookCeph.objectStore.name .Release.Namespace .Values.infraRookCeph.objectStore.port | quote }}
+            - name: RBD_STORAGE_CLASS
+              value: {{ .Values.infraRookCeph.blockStorage.storageClassName | quote }}
+            - name: RBD_SMOKE_PVC
+              value: infra-rook-ceph-readiness-pvc
+            - name: RBD_WRITER_POD
+              value: infra-rook-ceph-readiness-writer-pod
+            - name: RBD_READER_POD
+              value: infra-rook-ceph-readiness-reader-pod
+            - name: KUBECTL_IMAGE
+              value: {{ .Values.infraRookCeph.kubectlImage | quote }}
+            - name: HOME
+              value: /tmp
+          resources:
+             {{- toYaml .Values.infraRookCeph.resources.readiness | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            readOnlyRootFilesystem: true
+      volumes:
+        - name: tmp
+          emptyDir: {}

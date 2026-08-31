@@ -1,0 +1,56 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: agentgateway
+  namespace: infra-agentgateway
+spec:
+  releaseName: infra-agentgateway
+  interval: 5m
+  install:
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 1m
+  upgrade:
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 1m
+  dependsOn:
+    - name: traefik
+      namespace: kube-system
+    - name: cert-manager-issuers
+      namespace: infra-cert-manager
+    - name: keycloak-api-key-bridge
+      namespace: auth-keycloak-api-key-bridge
+  chart:
+    spec:
+      chart: ./charts/agentgateway
+      sourceRef:
+        kind: GitRepository
+        name: k8s-stack
+        namespace: flux-system
+      interval: 1m
+  valuesFrom:
+    - kind: ConfigMap
+      name: base-shared-hostnames-config-map
+      valuesKey: values.yaml
+    - kind: ConfigMap
+      name: base-shared-resources-config-map
+      valuesKey: values.yaml
+    - kind: ConfigMap
+      name: base-shared-oidc-clients-config-map
+      valuesKey: values.yaml
+    - kind: ConfigMap
+      name: base-shared-mcp-config-map
+      valuesKey: values.yaml
+    - kind: ConfigMap
+      name: base-shared-pii-config-map
+      valuesKey: values.yaml
+    - kind: Secret
+      name: infra-agentgateway-secrets
+      valuesKey: values.yaml
+    - kind: ConfigMap
+      name: client-values
+      valuesKey: values.yaml
+    - kind: ConfigMap
+      name: agentgateway-product-values
+      valuesKey: values.yaml

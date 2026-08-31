@@ -1,0 +1,14 @@
+apiVersion: ceph.rook.io/v1
+kind: CephBlockPool
+metadata:
+  name: {{ .Values.infraRookCeph.blockStorage.poolName }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "infra-rook-ceph.labels" . | nindent 4 }}
+spec:
+  failureDomain: host
+  parameters:
+    min_size: "1"
+  replicated:
+    size: 1
+    requireSafeReplicaSize: false

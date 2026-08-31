@@ -1,0 +1,48 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: infra-openbao-server-certificate
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: openbao
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: infra-openbao
+spec:
+  secretName: {{ .Values.infraOpenbaoWrapper.tls.secretName }}
+  duration: 2160h
+  renewBefore: 360h
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+    rotationPolicy: Always
+  issuerRef:
+    name: {{ .Values.infraOpenbaoWrapper.tls.issuerName }}
+    kind: ClusterIssuer
+    group: cert-manager.io
+  dnsNames:
+    # Enables TLS-verified local administration through `kubectl port-forward`.
+    - localhost
+    - infra-openbao
+    - infra-openbao.{{ .Release.Namespace }}
+    - infra-openbao.{{ .Release.Namespace }}.svc
+    - infra-openbao.{{ .Release.Namespace }}.svc.{{ .Values.infraOpenbaoWrapper.tls.clusterDomain }}
+    - infra-openbao-internal
+    - infra-openbao-internal.{{ .Release.Namespace }}
+    - infra-openbao-internal.{{ .Release.Namespace }}.svc
+    - infra-openbao-internal.{{ .Release.Namespace }}.svc.{{ .Values.infraOpenbaoWrapper.tls.clusterDomain }}
+    - "*.infra-openbao-internal"
+    - "*.infra-openbao-internal.{{ .Release.Namespace }}"
+    - "*.infra-openbao-internal.{{ .Release.Namespace }}.svc"
+    - "*.infra-openbao-internal.{{ .Release.Namespace }}.svc.{{ .Values.infraOpenbaoWrapper.tls.clusterDomain }}"
+    - infra-openbao-0.infra-openbao-internal.{{ .Release.Namespace }}.svc
+    - infra-openbao-active
+    - infra-openbao-active.{{ .Release.Namespace }}
+    - infra-openbao-active.{{ .Release.Namespace }}.svc
+    - infra-openbao-standby
+    - infra-openbao-standby.{{ .Release.Namespace }}
+    - infra-openbao-standby.{{ .Release.Namespace }}.svc
+    - infra-openbao-ui
+    - infra-openbao-ui.{{ .Release.Namespace }}
+    - infra-openbao-ui.{{ .Release.Namespace }}.svc
+  ipAddresses:
+    - 127.0.0.1

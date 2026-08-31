@@ -1,0 +1,15 @@
+apiVersion: v2
+name: keycloak
+description: |
+  Custom chart — Keycloak (user management).
+
+  Deploys:
+    - Keycloak StatefulSet + Service + Gateway
+    - auth-keycloak-secret
+    - Post-install realm initialization Job
+
+  Namespace: auth-keycloak
+  Deployed by: Flux HelmRelease "keycloak"
+type: application
+version: 0.6.11
+appVersion: "26.7.2"

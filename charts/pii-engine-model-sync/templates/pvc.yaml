@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: monitor-pii-engine-model-cache-pvc
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    helm.sh/resource-policy: keep
+  labels:
+    {{- include "pii-engine-model-sync.labels" . | nindent 4 }}
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: {{ .Values.monitorPiiEngine.storageClassName }}
+  resources:
+    requests:
+      storage: {{ .Values.monitorPiiEngine.modelCacheSize }}

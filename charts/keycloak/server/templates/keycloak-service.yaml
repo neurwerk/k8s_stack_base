@@ -1,0 +1,31 @@
+# =============================================================================
+# Keycloak Service
+#
+# port 80  → container 8080: main HTTP interface (admin console, OIDC, etc.)
+# port 9000 → container 9000: management interface (health/ready, metrics)
+#
+# Port 9000 is used by the init Job's health check and by pod probes.
+# =============================================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-keycloak-keycloak-service
+  namespace: auth-keycloak
+  labels:
+    app: auth-keycloak-keycloak-app
+    app.kubernetes.io/name: keycloak
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: auth-keycloak
+spec:
+  type: ClusterIP
+  selector:
+    app: auth-keycloak-keycloak-app
+    app.kubernetes.io/name: keycloak
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  ports:
+    - name: http
+      port: {{ .Values.authKeycloak.keycloak.ports.service.http }}
+      targetPort: {{ .Values.authKeycloak.keycloak.ports.container.http }}
+    - name: mgmt
+      port: {{ .Values.authKeycloak.keycloak.ports.service.mgmt }}
+      targetPort: {{ .Values.authKeycloak.keycloak.ports.container.mgmt }}

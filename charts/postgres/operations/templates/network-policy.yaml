@@ -1,0 +1,136 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: postgres-operations-ingress
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "postgres-operations.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "postgres-operations.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: frontend-dify
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: api
+              app.kubernetes.io/instance: frontend-dify-api
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: frontend-dify
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: api-migration
+              app.kubernetes.io/instance: frontend-dify-api
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: frontend-dify
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: worker
+              app.kubernetes.io/instance: frontend-dify-worker
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: frontend-dify
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: beat
+              app.kubernetes.io/instance: frontend-dify-beat
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: frontend-dify
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: plugin-daemon
+              app.kubernetes.io/instance: frontend-dify-plugin-daemon
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitor-langfuse
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: langfuse
+              app.kubernetes.io/instance: monitor-langfuse
+              app.kubernetes.io/component: web
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitor-langfuse
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: langfuse
+              app.kubernetes.io/instance: monitor-langfuse
+              app.kubernetes.io/component: worker
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitor-langfuse
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: langfuse-retention-provisioning
+              app.kubernetes.io/instance: monitor-langfuse
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: frontend-librechat
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: frontend-librechat-rag-api
+              app.kubernetes.io/instance: frontend-librechat-rag-api
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: postgres-operations-provisioning
+      ports:
+        - port: {{ .Values.postgresOperations.containerPorts.postgresql }}
+          protocol: TCP
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: frontend-librechat
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: frontend-librechat
+              app.kubernetes.io/instance: frontend-librechat
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: postgres-operations-provisioning
+      ports:
+        - port: {{ .Values.postgresOperations.containerPorts.documentdb }}
+          protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: postgres-operations-provisioning-egress
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "postgres-operations.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: postgres-operations-provisioning
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    - to:
+        - podSelector:
+            matchLabels:
+              {{- include "postgres-operations.selectorLabels" . | nindent 14 }}
+      ports:
+        - port: {{ .Values.postgresOperations.containerPorts.postgresql }}
+          protocol: TCP
+        - port: {{ .Values.postgresOperations.containerPorts.documentdb }}
+          protocol: TCP

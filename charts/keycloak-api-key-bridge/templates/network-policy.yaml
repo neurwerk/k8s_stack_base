@@ -1,0 +1,76 @@
+# =============================================================================
+# keycloak-api-key-bridge NetworkPolicy
+#
+# The bridge accepts validation only from AgentGateway, key management from
+# Studio, and bootstrap traffic from Jobs in its own namespace. It needs DNS
+# plus Keycloak's internal HTTP service for JWKS and user-status checks.
+# =============================================================================
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: auth-keycloak-api-key-bridge-network-policy
+  namespace: auth-keycloak-api-key-bridge
+  labels:
+    {{- include "auth-keycloak-api-key-bridge.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "auth-keycloak-api-key-bridge.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: infra-agentgateway
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: infra-agentgateway-gateway
+      ports:
+        - port: {{ .Values.authKeycloakApiKeyBridge.ports.container.http }}
+          protocol: TCP
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: frontend-studio
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: studio-api
+      ports:
+        - port: {{ .Values.authKeycloakApiKeyBridge.ports.container.http }}
+          protocol: TCP
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: auth-keycloak-api-key-bridge
+      ports:
+        - port: {{ .Values.authKeycloakApiKeyBridge.ports.container.http }}
+          protocol: TCP
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitor-kube-prometheus-stack
+      ports:
+        - port: {{ .Values.authKeycloakApiKeyBridge.ports.container.http }}
+          protocol: TCP
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: auth-keycloak
+          podSelector:
+            matchLabels:
+              app: auth-keycloak-keycloak-app
+      ports:
+        - port: 8080
+          protocol: TCP

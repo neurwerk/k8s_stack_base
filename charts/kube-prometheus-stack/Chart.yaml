@@ -1,0 +1,21 @@
+apiVersion: v2
+name: monitor-kube-prometheus-stack
+description: |
+  Wrapper chart — kube-prometheus-stack (monitor-kube-prometheus-stack namespace).
+
+  Deploys:
+    - Prometheus Operator
+    - Prometheus
+    - Alertmanager
+    - Grafana
+    - kube-state-metrics
+    - prometheus-node-exporter
+
+  No Gateway/HTTPRoute — internal-only monitoring.
+type: application
+version: 0.6.4
+appVersion: "0.82.2"
+dependencies:
+  - name: kube-prometheus-stack
+    version: "72.4.0"
+    repository: oci://ghcr.io/prometheus-community/charts

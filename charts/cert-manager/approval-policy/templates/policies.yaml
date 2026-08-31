@@ -1,0 +1,452 @@
+# approver-policy has no required switch for usages or isCA. These profiles
+# constrain their values exactly when the CertificateRequest carries them.
+apiVersion: policy.cert-manager.io/v1alpha1
+kind: CertificateRequestPolicy
+metadata:
+  name: cert-manager-internal-ca-bootstrap
+  labels:
+    {{- include "cert-manager-approval-policy.labels" . | nindent 4 }}
+spec:
+  allowed:
+    commonName:
+      value: Internal CA
+      required: true
+    isCA: true
+    usages:
+      - digital signature
+      - key encipherment
+      - cert sign
+  constraints:
+    minDuration: 87600h
+    maxDuration: 87600h
+    privateKey:
+      algorithm: RSA
+      minSize: 2048
+      maxSize: 2048
+  selector:
+    issuerRef:
+      group: cert-manager.io
+      kind: ClusterIssuer
+      name: infra-cert-manager-self-signed-issuer
+    namespace:
+      matchNames:
+        - infra-cert-manager
+---
+apiVersion: policy.cert-manager.io/v1alpha1
+kind: CertificateRequestPolicy
+metadata:
+  name: cert-manager-internal-openbao-server
+  labels:
+    {{- include "cert-manager-approval-policy.labels" . | nindent 4 }}
+spec:
+  allowed:
+    dnsNames:
+      values:
+        - localhost
+        - infra-openbao
+        - infra-openbao.infra-openbao
+        - infra-openbao.infra-openbao.svc
+        - infra-openbao.infra-openbao.svc.{{ .Values.infraOpenbaoWrapper.tls.clusterDomain }}
+        - infra-openbao-internal
+        - infra-openbao-internal.infra-openbao
+        - infra-openbao-internal.infra-openbao.svc
+        - infra-openbao-internal.infra-openbao.svc.{{ .Values.infraOpenbaoWrapper.tls.clusterDomain }}
+        - "*.infra-openbao-internal"
+        - "*.infra-openbao-internal.infra-openbao"
+        - "*.infra-openbao-internal.infra-openbao.svc"
+        - "*.infra-openbao-internal.infra-openbao.svc.{{ .Values.infraOpenbaoWrapper.tls.clusterDomain }}"
+        - infra-openbao-0.infra-openbao-internal.infra-openbao.svc
+        - infra-openbao-active
+        - infra-openbao-active.infra-openbao
+        - infra-openbao-active.infra-openbao.svc
+        - infra-openbao-standby
+        - infra-openbao-standby.infra-openbao
+        - infra-openbao-standby.infra-openbao.svc
+        - infra-openbao-ui
+        - infra-openbao-ui.infra-openbao
+        - infra-openbao-ui.infra-openbao.svc
+      required: true
+    ipAddresses:
+      values:
+        - 127.0.0.1
+      required: true
+    isCA: false
+    usages:
+      - digital signature
+      - key encipherment
+  constraints:
+    minDuration: 2160h
+    maxDuration: 2160h
+    privateKey:
+      algorithm: ECDSA
+      minSize: 256
+      maxSize: 256
+  selector:
+    issuerRef:
+      group: cert-manager.io
+      kind: ClusterIssuer
+      name: infra-cert-manager-internal-ca-issuer
+    namespace:
+      matchNames:
+        - infra-openbao
+---
+apiVersion: policy.cert-manager.io/v1alpha1
+kind: CertificateRequestPolicy
+metadata:
+  name: cert-manager-internal-opensearch-http
+  labels:
+    {{- include "cert-manager-approval-policy.labels" . | nindent 4 }}
+spec:
+  allowed:
+    commonName:
+      value: opensearch-cluster-master
+      required: true
+    dnsNames:
+      values:
+        - opensearch-cluster-master
+        - opensearch-cluster-master.monitor-opensearch
+        - opensearch-cluster-master.monitor-opensearch.svc
+        - opensearch-cluster-master.monitor-opensearch.svc.cluster.local
+      required: true
+    isCA: false
+    usages:
+      - server auth
+  constraints:
+    minDuration: 2160h
+    maxDuration: 2160h
+    privateKey:
+      algorithm: RSA
+      minSize: 2048
+      maxSize: 2048
+  selector:
+    issuerRef:
+      group: cert-manager.io
+      kind: ClusterIssuer
+      name: infra-cert-manager-internal-ca-issuer
+    namespace:
+      matchNames:
+        - monitor-opensearch
+---
+apiVersion: policy.cert-manager.io/v1alpha1
+kind: CertificateRequestPolicy
+metadata:
+  name: cert-manager-internal-opensearch-transport
+  labels:
+    {{- include "cert-manager-approval-policy.labels" . | nindent 4 }}
+spec:
+  allowed:
+    commonName:
+      value: opensearch-cluster-master
+      required: true
+    dnsNames:
+      values:
+        - opensearch-cluster-master
+        - opensearch-cluster-master.monitor-opensearch
+        - opensearch-cluster-master.monitor-opensearch.svc
+        - opensearch-cluster-master.monitor-opensearch.svc.cluster.local
+        - opensearch-cluster-master-headless
+        - opensearch-cluster-master-headless.monitor-opensearch.svc.cluster.local
+        - "*.opensearch-cluster-master-headless.monitor-opensearch.svc.cluster.local"
+      required: true
+    isCA: false
+    usages:
+      - server auth
+      - client auth
+  constraints:
+    minDuration: 2160h
+    maxDuration: 2160h
+    privateKey:
+      algorithm: RSA
+      minSize: 2048
+      maxSize: 2048
+  selector:
+    issuerRef:
+      group: cert-manager.io
+      kind: ClusterIssuer
+      name: infra-cert-manager-internal-ca-issuer
+    namespace:
+      matchNames:
+        - monitor-opensearch
+---
+apiVersion: policy.cert-manager.io/v1alpha1
+kind: CertificateRequestPolicy
+metadata:
+  name: cert-manager-internal-opensearch-admin
+  labels:
+    {{- include "cert-manager-approval-policy.labels" . | nindent 4 }}
+spec:
+  allowed:
+    commonName:
+      value: opensearch-security-admin
+      required: true
+    isCA: false
+    usages:
+      - client auth
+  constraints:
+    minDuration: 2160h
+    maxDuration: 2160h
+    privateKey:
+      algorithm: RSA
+      minSize: 2048
+      maxSize: 2048
+  selector:
+    issuerRef:
+      group: cert-manager.io
+      kind: ClusterIssuer
+      name: infra-cert-manager-internal-ca-issuer
+    namespace:
+      matchNames:
+        - monitor-opensearch
+---
+apiVersion: policy.cert-manager.io/v1alpha1
+kind: CertificateRequestPolicy
+metadata:
+  name: cert-manager-internal-pii-engine-server
+  labels:
+    {{- include "cert-manager-approval-policy.labels" . | nindent 4 }}
+spec:
+  allowed:
+    commonName:
+      value: monitor-pii-engine-service
+      required: true
+    dnsNames:
+      values:
+        - monitor-pii-engine-service
+        - monitor-pii-engine-service.monitor-pii-engine
+        - monitor-pii-engine-service.monitor-pii-engine.svc
+        - monitor-pii-engine-service.monitor-pii-engine.svc.cluster.local
+      required: true
+    isCA: false
+    usages:
+      - server auth
+  constraints:
+    minDuration: 2160h
+    maxDuration: 2160h
+    privateKey:
+      algorithm: RSA
+      minSize: 2048
+      maxSize: 2048
+  selector:
+    issuerRef:
+      group: cert-manager.io
+      kind: ClusterIssuer
+      name: infra-cert-manager-internal-ca-issuer
+    namespace:
+      matchNames:
+        - monitor-pii-engine
+---
+apiVersion: policy.cert-manager.io/v1alpha1
+kind: CertificateRequestPolicy
+metadata:
+  name: cert-manager-internal-agentgateway-extproc-client
+  labels:
+    {{- include "cert-manager-approval-policy.labels" . | nindent 4 }}
+spec:
+  allowed:
+    commonName:
+      value: monitor-agentgateway-extproc
+      required: true
+    isCA: false
+    usages:
+      - client auth
+  constraints:
+    minDuration: 2160h
+    maxDuration: 2160h
+    privateKey:
+      algorithm: RSA
+      minSize: 2048
+      maxSize: 2048
+  selector:
+    issuerRef:
+      group: cert-manager.io
+      kind: ClusterIssuer
+      name: infra-cert-manager-internal-ca-issuer
+    namespace:
+      matchNames:
+        - monitor-agentgateway-extproc
+---
+apiVersion: policy.cert-manager.io/v1alpha1
+kind: CertificateRequestPolicy
+metadata:
+  name: cert-manager-internal-studio-pii-engine-client
+  labels:
+    {{- include "cert-manager-approval-policy.labels" . | nindent 4 }}
+spec:
+  allowed:
+    commonName:
+      value: frontend-studio-api
+      required: true
+    isCA: false
+    usages:
+      - client auth
+  constraints:
+    minDuration: 2160h
+    maxDuration: 2160h
+    privateKey:
+      algorithm: RSA
+      minSize: 2048
+      maxSize: 2048
+  selector:
+    issuerRef:
+      group: cert-manager.io
+      kind: ClusterIssuer
+      name: infra-cert-manager-internal-ca-issuer
+    namespace:
+      matchNames:
+        - frontend-studio
+---
+apiVersion: policy.cert-manager.io/v1alpha1
+kind: CertificateRequestPolicy
+metadata:
+  name: cert-manager-internal-trust-manager-webhook
+  labels:
+    {{- include "cert-manager-approval-policy.labels" . | nindent 4 }}
+spec:
+  allowed:
+    commonName:
+      value: trust-manager.infra-trust-manager.svc
+      required: true
+    dnsNames:
+      values:
+        - trust-manager.infra-trust-manager.svc
+      required: true
+    isCA: false
+    usages:
+      - digital signature
+      - key encipherment
+  constraints:
+    minDuration: 2160h
+    maxDuration: 2160h
+    privateKey:
+      algorithm: RSA
+      minSize: 2048
+      maxSize: 2048
+  selector:
+    issuerRef:
+      group: cert-manager.io
+      kind: Issuer
+      name: trust-manager
+    namespace:
+      matchNames:
+        - infra-trust-manager
+{{- $publicPolicies := list
+  (dict "name" "cert-manager-public-keycloak" "namespace" "auth-keycloak" "hostname" .Values.authKeycloak.hostname)
+  (dict "name" "cert-manager-public-agentgateway" "namespace" "infra-agentgateway" "hostname" .Values.infraAgentgatewayWrapper.hostname)
+  (dict "name" "cert-manager-public-librechat" "namespace" "frontend-librechat" "hostname" .Values.frontendLibrechat.hostname)
+  (dict "name" "cert-manager-public-librechat-admin" "namespace" "frontend-librechat" "hostname" .Values.frontendLibrechat.adminPanel.hostname)
+  (dict "name" "cert-manager-public-dify" "namespace" "frontend-dify" "hostname" .Values.frontendDify.hostname)
+  (dict "name" "cert-manager-public-studio" "namespace" "frontend-studio" "hostname" .Values.frontendStudio.studio.hostname)
+  (dict "name" "cert-manager-public-langfuse" "namespace" "monitor-langfuse" "hostname" .Values.monitorLangfuseWrapper.hostname)
+  (dict "name" "cert-manager-public-rook-object-gateway" "namespace" "infra-rook-ceph" "hostname" .Values.infraRookCeph.objectStore.publicHostname)
+-}}
+{{- $publicIssuers := list
+  (dict "name" "staging" "issuer" "letsencrypt-staging-cluster-issuer")
+  (dict "name" "production" "issuer" "letsencrypt-production-cluster-issuer")
+-}}
+{{- range $policy := $publicPolicies }}
+{{- if eq (include "cert-manager-approval-policy.validHostname" $policy.hostname) "true" }}
+{{- range $issuer := $publicIssuers }}
+---
+{{ include "cert-manager-approval-policy.public" (dict "name" (printf "%s-%s" $policy.name $issuer.name) "namespace" $policy.namespace "hostname" $policy.hostname "issuer" $issuer.issuer "root" $) }}
+{{- end }}
+{{- end }}
+{{- end }}
+---
+apiVersion: policy.cert-manager.io/v1alpha1
+kind: CertificateRequestPolicy
+metadata:
+  name: cert-manager-internal-postgres-auth
+  labels:
+    {{- include "cert-manager-approval-policy.labels" . | nindent 4 }}
+spec:
+  allowed:
+    commonName:
+      value: postgres-auth
+      required: true
+    dnsNames:
+      values:
+        - postgres-auth
+        - postgres-auth.infra-postgres-auth
+        - postgres-auth.infra-postgres-auth.svc
+        - postgres-auth.infra-postgres-auth.svc.cluster.local
+      required: true
+    isCA: false
+    usages:
+      - server auth
+  constraints:
+    minDuration: 2160h
+    maxDuration: 2160h
+    privateKey:
+      algorithm: RSA
+      minSize: 2048
+      maxSize: 2048
+  selector:
+    issuerRef:
+      group: cert-manager.io
+      kind: ClusterIssuer
+      name: infra-cert-manager-internal-ca-issuer
+    namespace:
+      matchNames:
+        - infra-postgres-auth
+---
+apiVersion: policy.cert-manager.io/v1alpha1
+kind: CertificateRequestPolicy
+metadata:
+  name: cert-manager-internal-postgres-operations-documentdb
+  labels:
+    {{- include "cert-manager-approval-policy.labels" . | nindent 4 }}
+spec:
+  allowed:
+    commonName:
+      value: postgres-operations
+      required: true
+    dnsNames:
+      values:
+        - localhost
+        - postgres-operations
+        - postgres-operations.infra-postgres-operations
+        - postgres-operations.infra-postgres-operations.svc
+        - postgres-operations.infra-postgres-operations.svc.cluster.local
+      required: true
+    ipAddresses:
+      values:
+        - 127.0.0.1
+      required: true
+    isCA: false
+    usages:
+      - server auth
+  constraints:
+    minDuration: 2160h
+    maxDuration: 2160h
+    privateKey:
+      algorithm: RSA
+      minSize: 2048
+      maxSize: 2048
+  selector:
+    issuerRef:
+      group: cert-manager.io
+      kind: ClusterIssuer
+      name: infra-cert-manager-internal-ca-issuer
+    namespace:
+      matchNames:
+        - infra-postgres-operations
+---
+apiVersion: policy.cert-manager.io/v1alpha1
+kind: CertificateRequestPolicy
+metadata:
+  name: cert-manager-deny-unmatched
+  labels:
+    {{- include "cert-manager-approval-policy.labels" . | nindent 4 }}
+spec:
+  allowed:
+    # A required empty common name can never permit a request. This policy is
+    # appropriate for every cert-manager Issuer signer, making misses terminal.
+    commonName:
+      value: ""
+      required: true
+  selector:
+    issuerRef:
+      group: cert-manager.io
+      kind: "*Issuer"
+      name: "*"
+    namespace: {}

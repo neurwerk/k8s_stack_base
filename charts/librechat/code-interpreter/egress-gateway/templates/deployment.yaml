@@ -1,0 +1,126 @@
+{{- $product := .Values.frontendLibrechatCodeInterpreter -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "librechat-code-interpreter-egress-gateway.fullname" . }}
+  annotations:
+    secret.reloader.stakater.com/reload: {{ printf "%s,%s,%s" $product.internalAuthSecretName $product.valkey.authSecretName $product.egressGrant.secretName | quote }}
+  labels:
+    {{- include "librechat-code-interpreter-egress-gateway.labels" . | nindent 4 }}
+spec:
+  replicas: {{ $product.egressGateway.replicas }}
+  selector:
+    matchLabels:
+      {{- include "librechat-code-interpreter-egress-gateway.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "librechat-code-interpreter-egress-gateway.labels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "librechat-code-interpreter-egress-gateway.fullname" . }}
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: egress-gateway
+          image: {{ printf "%s:%s" $product.image.repository $product.image.tag | quote }}
+          imagePullPolicy: {{ $product.image.pullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          ports:
+            - name: http
+              containerPort: {{ $product.egressGateway.port }}
+              protocol: TCP
+          env:
+            - name: SERVICE_NAME
+              value: egress-gateway
+            - name: CODEAPI_HARDENED_SANDBOX_MODE
+              value: {{ $product.hardenedSandboxMode | quote }}
+            - name: CODEAPI_EGRESS_LEDGER_REQUIRED
+              value: {{ $product.egressGrant.ledgerRequired | quote }}
+            - name: CODEAPI_EGRESS_LEDGER_TTL_GRACE_SECONDS
+              value: {{ $product.egressGrant.ledgerTtlGraceSeconds | quote }}
+            - name: EGRESS_GATEWAY_PORT
+              value: {{ $product.egressGateway.port | quote }}
+            - name: EGRESS_GATEWAY_FILE_SERVER_URL
+              value: {{ printf "http://%s:%v" $product.fileServer.host $product.fileServer.port | quote }}
+            - name: EGRESS_GATEWAY_TOOL_CALL_SERVER_URL
+              value: {{ printf "http://%s:%v" $product.toolCallServer.host $product.toolCallServer.port | quote }}
+            - name: EGRESS_GATEWAY_MAX_TOOL_CALL_BYTES
+              value: {{ $product.egressGateway.maxToolCallBytes | quote }}
+            - name: EGRESS_GATEWAY_MAX_FILE_BYTES
+              value: {{ $product.egressGateway.maxFileBytes | quote }}
+            - name: EGRESS_GATEWAY_MAX_PATH_LENGTH
+              value: {{ $product.egressGateway.maxPathLength | quote }}
+            - name: EGRESS_GATEWAY_MAX_NESTING_DEPTH
+              value: {{ $product.egressGateway.maxNestingDepth | quote }}
+            - name: EGRESS_GATEWAY_REQUEST_TIMEOUT_MS
+              value: {{ $product.egressGateway.requestTimeoutMs | quote }}
+            - name: EGRESS_GATEWAY_REVOKE_TIMEOUT_MS
+              value: {{ $product.egressGateway.revokeTimeoutMs | quote }}
+            - name: CODEAPI_EGRESS_GRANT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $product.egressGrant.secretName }}
+                  key: secret
+            - name: CODEAPI_INTERNAL_SERVICE_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $product.internalAuthSecretName }}
+                  key: token
+            - name: REDIS_HOST
+              value: {{ $product.valkey.host | quote }}
+            - name: REDIS_PORT
+              value: {{ $product.valkey.port | quote }}
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $product.valkey.authSecretName }}
+                  key: password
+          startupProbe:
+            httpGet:
+              path: /ready
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 30
+          livenessProbe:
+            httpGet:
+              path: /live
+              port: http
+            periodSeconds: 30
+            timeoutSeconds: 3
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            {{- toYaml $product.egressGateway.resources | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    {{- include "librechat-code-interpreter-egress-gateway.selectorLabels" . | nindent 20 }}
+                topologyKey: kubernetes.io/hostname

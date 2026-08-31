@@ -1,0 +1,19 @@
+frontendLibrechat:
+  valkey:
+    image: docker.io/valkey/valkey:9.1.1-alpine
+    imagePullPolicy: IfNotPresent
+    replicas: 1
+    service:
+      port: 6379
+    persistence:
+      size: 5Gi
+      storageClassName: ""
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+frontendLibrechatSecrets: {}

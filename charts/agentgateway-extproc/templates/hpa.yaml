@@ -1,0 +1,23 @@
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: monitor-agentgateway-extproc-hpa
+  namespace: monitor-agentgateway-extproc
+  labels:
+    app.kubernetes.io/name: monitor-agentgateway-extproc
+    app.kubernetes.io/instance: monitor-agentgateway-extproc
+    app.kubernetes.io/part-of: monitor-agentgateway-extproc
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: monitor-agentgateway-extproc-deployment
+  minReplicas: {{ .Values.monitorAgentgatewayExtproc.replicas }}
+  maxReplicas: {{ mul .Values.monitorAgentgatewayExtproc.replicas 3 }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70

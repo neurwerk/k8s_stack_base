@@ -1,0 +1,73 @@
+{{- $nodeName := required "infraRookCeph.storage.nodeName must name the approved Kubernetes node" .Values.infraRookCeph.storage.nodeName -}}
+{{- $devicePath := required "infraRookCeph.storage.devicePath must name the approved raw udev device" .Values.infraRookCeph.storage.devicePath -}}
+apiVersion: ceph.rook.io/v1
+kind: CephCluster
+metadata:
+  name: {{ .Values.infraRookCeph.clusterName }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "infra-rook-ceph.labels" . | nindent 4 }}
+spec:
+  dataDirHostPath: /var/lib/rook
+  cephVersion:
+    image: {{ .Values.infraRookCeph.cephImage | quote }}
+    allowUnsupported: false
+  mon:
+    count: 1
+    allowMultiplePerNode: true
+  mgr:
+    count: 1
+    allowMultiplePerNode: true
+    modules:
+      - name: rook
+        enabled: true
+  dashboard:
+    enabled: false
+  crashCollector:
+    disable: true
+  skipUpgradeChecks: false
+  monitoring:
+    enabled: false
+  resources:
+    mon:
+      {{- toYaml .Values.infraRookCeph.resources.mon | nindent 6 }}
+    mgr:
+      {{- toYaml .Values.infraRookCeph.resources.mgr | nindent 6 }}
+    osd:
+      {{- toYaml .Values.infraRookCeph.resources.osd | nindent 6 }}
+    prepareosd:
+      {{- toYaml .Values.infraRookCeph.resources.prepareOsd | nindent 6 }}
+    cmd-reporter:
+      {{- toYaml .Values.infraRookCeph.resources.cmdReporter | nindent 6 }}
+  priorityClassNames:
+    mon: system-node-critical
+    osd: system-node-critical
+    mgr: system-cluster-critical
+  storage:
+    useAllNodes: false
+    useAllDevices: false
+    allowDeviceClassUpdate: false
+    allowOsdCrushWeightUpdate: false
+    nodes:
+      - name: {{ $nodeName | quote }}
+        devices:
+          - name: {{ $devicePath | quote }}
+  healthCheck:
+    daemonHealth:
+      mon:
+        interval: 45s
+        timeout: 10m
+      osd:
+        interval: 60s
+      status:
+        interval: 60s
+  disruptionManagement:
+    managePodBudgets: true
+  cephConfig:
+    global:
+      osd_pool_default_size: "1"
+      osd_pool_default_min_size: "1"
+      mon_warn_on_pool_no_redundancy: "false"
+      mon_data_avail_warn: "10"
+      bdev_flock_retry: "20"
+      bluefs_buffered_io: "false"

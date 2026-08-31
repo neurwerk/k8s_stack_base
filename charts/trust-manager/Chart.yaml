@@ -1,0 +1,10 @@
+apiVersion: v2
+name: infra-trust-manager
+description: trust-manager controller for internal CA bundle distribution
+type: application
+version: 0.6.3
+appVersion: "0.24.0"
+dependencies:
+  - name: trust-manager
+    version: "v0.24.0"
+    repository: oci://quay.io/jetstack/charts

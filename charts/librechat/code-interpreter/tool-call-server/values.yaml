@@ -1,0 +1,27 @@
+# IMAGE SOURCE: expected first-party build of the pinned upstream source.
+# Upstream publishes no image at this commit; verify this exact-SHA mirror
+# before deployment.
+frontendLibrechatCodeInterpreter:
+  image:
+    repository: ghcr.io/neurwerk/librechat-code-interpreter-tool-call-server
+    tag: fea707467600f3802d65596a6875c7822f25cfd8
+    pullPolicy: IfNotPresent
+
+  toolCallServer:
+    replicas: 1
+    port: 3033
+    requestTimeoutMs: 300000
+    sessionExpirySeconds: 600
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        cpu: 250m
+        memory: 256Mi
+
+  valkey:
+    host: librechat-code-interpreter-valkey
+    port: 6379
+    authSecretName: librechat-code-interpreter-valkey-auth
+  internalAuthSecretName: librechat-code-interpreter-internal-auth

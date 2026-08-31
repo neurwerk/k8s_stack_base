@@ -1,0 +1,78 @@
+# IMAGE SOURCE: ce-builder
+# Base: langgenius/dify-api + dify_ce_builder Keycloak OIDC overlay
+# Pinned here (chart defaults)
+# NOTE: apiImage is shared by api, beat, and worker pods — same image,
+#       differentiated by the MODE env var (api/beat/worker).
+authKeycloak:
+  difyAgentgatewayClientRoles: []
+
+frontendDify:
+  apiImage: ghcr.io/neurwerk/addon-dify-ce-builder-api:1.15.0-kc-v14
+  pullPolicy: IfNotPresent
+  hostname: ""
+  postgres:
+    host: postgres-operations.infra-postgres-operations.svc.cluster.local
+    servicePort: 5432
+    providerPodPort: 9712
+    user: dify
+    database: dify
+    vectorDatabase: dify_vector
+  config:
+    MODE: api
+    LOG_LEVEL: INFO
+    SERVER_WORKER_AMOUNT: "2"
+    STORAGE_TYPE: local
+    STORAGE_LOCAL_PATH: /app/api/storage
+    VECTOR_STORE: pgvector
+    PLUGIN_DAEMON_URL: http://frontend-dify-plugin-daemon-service:5002
+    SANDBOX_API_URL: http://frontend-dify-sandbox-service:8194
+    ENABLE_SOCIAL_OAUTH_LOGIN: "true"
+    ALLOW_REGISTER: "false"
+    ALLOW_CREATE_WORKSPACE: "false"
+    ALLOW_SSO_REGISTER: "true"
+    ENFORCE_SINGLE_WORKSPACE: "true"
+    ENABLE_EMAIL_PASSWORD_LOGIN: "false"
+    ENABLE_EMAIL_CODE_LOGIN: "false"
+    AUTO_SETUP_ADMIN_EMAIL: "breakglass@place.holder"
+    DEFAULT_WORKSPACE_NAME: "default"
+    # Serializes overlapping model-provider setup init containers through a
+    # PostgreSQL advisory lock. The HelmRelease timeout must cover this wait
+    # plus daemon, plugin installation, and provider validation.
+    DIFY_BOOTSTRAP_LOCK_TIMEOUT_SECONDS: "1800"
+    # Model provider auto-provisioning for the setup-model-provider initContainer.
+    # $(VAR) references are expanded by Kubernetes from the pod env
+    # (LLM_PROXY_API_KEY from frontend-dify-openbao-secret and
+    # LLM_PROXY_ENDPOINT from frontend-dify-secret).
+    # Override per client via the values layering chain.
+    modelProviderCredentials: |
+      {
+        "openai_api_compatible": {
+          "provider": "openai_api_compatible",
+          "model_type": "llm",
+          "model": "remote/openrouter/deepseek-v4-flash",
+          "credentials": {
+            "api_key": "$(LLM_PROXY_API_KEY)",
+            "endpoint_url": "$(LLM_PROXY_ENDPOINT)",
+            "context_size": "65536"
+          },
+          "as_default": true
+        }
+      }
+  api:
+    ports:
+      container: { http: 5001 }
+      service:   { http: 80 }
+    replicas: 1
+    resources:
+      # 2 Gi / 2 000m is bare-minimum — 2 gevent workers + gevent gunicorn
+      # quickly saturate a single core under console bursts, causing probe
+      # timeouts and liveness kills even with timeoutSeconds: 5.
+      requests:
+        cpu: 500m
+        memory: 1Gi
+      limits:
+        cpu: 2000m
+        memory: 2Gi
+  storage:
+    size: 20Gi
+    storageClassName: infra-rook-ceph-rbd

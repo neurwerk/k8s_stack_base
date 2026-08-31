@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: snapshot-controller
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "infra-rook-ceph.labels" . | nindent 4 }}
+    app.kubernetes.io/component: snapshot-controller
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: snapshot-controller
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        {{- include "infra-rook-ceph.labels" . | nindent 8 }}
+        app.kubernetes.io/component: snapshot-controller
+    spec:
+      serviceAccountName: snapshot-controller
+      containers:
+        - name: snapshot-controller
+          image: {{ .Values.infraRookCeph.snapshotControllerImage | quote }}
+          imagePullPolicy: IfNotPresent
+          args:
+            - --v=2
+            - --leader-election=true

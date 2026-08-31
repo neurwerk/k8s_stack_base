@@ -1,0 +1,155 @@
+# =============================================================================
+# Keycloak StatefulSet
+#
+# Uses the official quay.io/keycloak/keycloak image (Red Hat / quay.io —
+# public, always free, no Docker Hub rate limits).
+#
+# Configured for production behind a Traefik reverse proxy:
+#   - HTTP enabled (TLS terminated at Traefik)
+#   - KC_PROXY_HEADERS=xforwarded (trusts X-Forwarded-* from Traefik)
+#   - KC_HOSTNAME fixed to the full external HTTPS URL
+#   - KC_HEALTH_ENABLED for readiness/liveness probes
+# =============================================================================
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: auth-keycloak-keycloak-stateful-set
+  namespace: auth-keycloak
+  {{- if .Values.authKeycloak.activeDirectory.enabled }}
+  annotations:
+    configmap.reloader.stakater.com/reload: {{ .Values.authKeycloak.activeDirectory.caConfigMapName | quote }}
+  {{- end }}
+  labels:
+    app: auth-keycloak-keycloak-app
+    app.kubernetes.io/name: keycloak
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: auth-keycloak
+spec:
+  serviceName: auth-keycloak-keycloak
+  replicas: 1
+  selector:
+    matchLabels:
+      app: auth-keycloak-keycloak-app
+      app.kubernetes.io/name: keycloak
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: auth-keycloak-keycloak-app
+        app.kubernetes.io/name: keycloak
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/part-of: auth-keycloak
+    spec:
+      containers:
+        - name: keycloak
+          image: {{ .Values.authKeycloak.keycloakImage | quote }}
+          args: ["start"]
+          ports:
+            - name: http
+              containerPort: {{ .Values.authKeycloak.keycloak.ports.container.http }}
+            - name: mgmt
+              containerPort: {{ .Values.authKeycloak.keycloak.ports.container.mgmt }}
+          env:
+            # ── Database ──────────────────────────────────────────────────
+            - name: KC_DB
+              value: postgres
+            - name: KC_DB_URL
+              value: {{ printf "jdbc:postgresql://%s:%v/%s?sslmode=verify-full&sslrootcert=%s/ca.crt" .Values.authKeycloak.database.host .Values.authKeycloak.database.port .Values.authKeycloak.database.name .Values.authKeycloak.database.caMountPath | quote }}
+            - name: KC_DB_USERNAME
+              value: {{ .Values.authKeycloak.database.username | quote }}
+            - name: KC_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: auth-keycloak-secret
+                  key: dbPassword
+            # ── Network / proxy ───────────────────────────────────────────
+            - name: KC_HTTP_ENABLED
+              value: "true"
+            - name: KC_PROXY_HEADERS
+              value: xforwarded
+            - name: KC_HOSTNAME
+              value: {{ printf "https://%s" (required "authKeycloak.hostname is required" .Values.authKeycloak.hostname) | quote }}
+            - name: KC_HOSTNAME_STRICT
+              value: "true"
+            - name: KC_HOSTNAME_BACKCHANNEL_DYNAMIC
+              value: "false"
+            {{- if .Values.authKeycloak.activeDirectory.enabled }}
+            - name: KC_TRUSTSTORE_PATHS
+              value: /opt/keycloak/conf/truststores/active-directory
+            {{- end }}
+            # ── Features ─────────────────────────────────────────────────
+            - name: KC_HEALTH_ENABLED
+              value: "true"
+            - name: KC_CACHE
+              value: local
+            - name: KC_HTTP_MANAGEMENT_PORT
+              value: {{ .Values.authKeycloak.keycloak.ports.container.mgmt | quote }}
+            # ── Event logging ─────────────────────────────────────────────
+            # jboss-logging event listener log levels (realm enables the
+            # listener via upsert-realm; default success level is DEBUG,
+            # which is filtered by the root INFO log level).
+            # Login + admin events land in stdout → Fluent Bit → OpenSearch.
+            - name: KC_SPI_EVENTS_LISTENER_JBOSS_LOGGING_SUCCESS_LEVEL
+              value: info
+            - name: KC_SPI_EVENTS_LISTENER_JBOSS_LOGGING_ERROR_LEVEL
+              value: error
+            # ── Bootstrap admin (only used on first start) ────────────────
+            - name: KC_BOOTSTRAP_ADMIN_USERNAME
+              value: {{ .Values.authKeycloak.adminUser | quote }}
+            - name: KC_BOOTSTRAP_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: auth-keycloak-secret
+                  key: adminPassword
+          volumeMounts:
+            - name: postgres-ca
+              mountPath: {{ .Values.authKeycloak.database.caMountPath | quote }}
+              readOnly: true
+            {{- if .Values.authKeycloak.activeDirectory.enabled }}
+            - name: active-directory-ca
+              mountPath: /opt/keycloak/conf/truststores/active-directory/ca.crt
+              subPath: ca.crt
+              readOnly: true
+            {{- end }}
+          # Startup probe: generous timeout while Keycloak + DB initialise
+          startupProbe:
+            httpGet:
+              path: /health/started
+              port: {{ .Values.authKeycloak.keycloak.ports.container.mgmt }}
+            initialDelaySeconds: 30
+            periodSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: {{ .Values.authKeycloak.keycloak.ports.container.mgmt }}
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: {{ .Values.authKeycloak.keycloak.ports.container.mgmt }}
+            periodSeconds: 10
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: {{ .Values.authKeycloak.keycloak.resources.requests.cpu }}
+              memory: {{ .Values.authKeycloak.keycloak.resources.requests.memory }}
+            limits:
+              cpu: {{ .Values.authKeycloak.keycloak.resources.limits.cpu }}
+              memory: {{ .Values.authKeycloak.keycloak.resources.limits.memory }}
+      volumes:
+        - name: postgres-ca
+          configMap:
+            name: {{ .Values.authKeycloak.database.caConfigMapName | quote }}
+            items:
+              - key: {{ .Values.authKeycloak.database.caKey | quote }}
+                path: ca.crt
+        {{- if .Values.authKeycloak.activeDirectory.enabled }}
+        - name: active-directory-ca
+          configMap:
+            name: {{ .Values.authKeycloak.activeDirectory.caConfigMapName | quote }}
+            items:
+              - key: {{ .Values.authKeycloak.activeDirectory.caKey | quote }}
+                path: ca.crt
+        {{- end }}

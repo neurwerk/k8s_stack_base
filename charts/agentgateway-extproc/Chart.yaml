@@ -1,0 +1,9 @@
+apiVersion: v2
+name: agentgateway-extproc
+description: |
+  Transport-only Envoy ext_proc adapter for the shared PII Engine.
+  Called by AgentGateway via extProc traffic policy.
+  No Gateway/HTTPRoute — internal-only.
+type: application
+version: 0.6.19
+appVersion: "0.6.3"

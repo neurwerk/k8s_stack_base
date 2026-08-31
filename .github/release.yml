@@ -1,0 +1,30 @@
+changelog:
+  exclude:
+    labels:
+      - "release: none"
+      - "skip-changelog"
+  categories:
+    - title: Breaking Changes
+      labels:
+        - "breaking"
+    - title: Features
+      labels:
+        - "feature"
+    - title: Fixes
+      labels:
+        - "fix"
+    - title: Operations
+      labels:
+        - "operations"
+    - title: Security
+      labels:
+        - "security"
+    - title: Documentation
+      labels:
+        - "documentation"
+    - title: Maintenance
+      labels:
+        - "maintenance"
+    - title: Other Changes
+      labels:
+        - "*"

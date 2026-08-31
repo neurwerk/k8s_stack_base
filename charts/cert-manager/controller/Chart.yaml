@@ -1,0 +1,9 @@
+apiVersion: v2
+name: infra-cert-manager-controller
+description: Cert-manager controller (local wrapper)
+type: application
+version: 0.6.2
+dependencies:
+  - name: cert-manager
+    version: "v1.20.2"
+    repository: oci://quay.io/jetstack/charts

@@ -1,0 +1,76 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: auth-keycloak-api-key-bridge-external-secrets
+  namespace: auth-keycloak-api-key-bridge
+  labels:
+    app.kubernetes.io/name: external-secrets
+    app.kubernetes.io/instance: auth-keycloak-api-key-bridge-secret-sync
+    app.kubernetes.io/part-of: auth-keycloak-api-key-bridge
+---
+apiVersion: external-secrets.io/v1
+kind: SecretStore
+metadata:
+  name: auth-keycloak-api-key-bridge-openbao-secret-store
+  namespace: auth-keycloak-api-key-bridge
+  labels:
+    app.kubernetes.io/name: external-secrets
+    app.kubernetes.io/instance: auth-keycloak-api-key-bridge-secret-sync
+    app.kubernetes.io/part-of: auth-keycloak-api-key-bridge
+spec:
+  provider:
+    vault:
+      server: https://infra-openbao.infra-openbao.svc:8200
+      path: secret
+      version: v2
+      caProvider:
+        type: ConfigMap
+        name: infra-openbao-ca-bundle
+        key: ca.crt
+      auth:
+        kubernetes:
+          mountPath: kubernetes
+          role: auth-keycloak-api-key-bridge
+          serviceAccountRef:
+            name: auth-keycloak-api-key-bridge-external-secrets
+            audiences:
+              - openbao
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: auth-keycloak-api-key-bridge-openbao-secret
+  namespace: auth-keycloak-api-key-bridge
+  labels:
+    app.kubernetes.io/name: external-secrets
+    app.kubernetes.io/instance: auth-keycloak-api-key-bridge-secret-sync
+    app.kubernetes.io/part-of: auth-keycloak-api-key-bridge
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: auth-keycloak-api-key-bridge-openbao-secret-store
+    kind: SecretStore
+  target:
+    name: auth-keycloak-api-key-bridge-openbao-secret
+    creationPolicy: Owner
+    deletionPolicy: Retain
+    template:
+      engineVersion: v2
+      type: Opaque
+      data:
+        KEYCLOAK_API_KEY_BRIDGE_KEYCLOAK_CLIENT_SECRET: '{{ .keycloakClientSecret }}'
+        difyAgentgatewayPrimaryVerifierSha256: '{{ .difyAgentgatewayPrimaryVerifierSha256 }}'
+        difyAgentgatewaySecondaryVerifierSha256: '{{ .difyAgentgatewaySecondaryVerifierSha256 }}'
+  data:
+    - secretKey: keycloakClientSecret
+      remoteRef:
+        key: auth-keycloak-api-key-bridge/internal
+        property: keycloakClientSecret
+    - secretKey: difyAgentgatewayPrimaryVerifierSha256
+      remoteRef:
+        key: auth-keycloak-api-key-bridge/internal
+        property: difyAgentgatewayPrimaryVerifierSha256
+    - secretKey: difyAgentgatewaySecondaryVerifierSha256
+      remoteRef:
+        key: auth-keycloak-api-key-bridge/internal
+        property: difyAgentgatewaySecondaryVerifierSha256

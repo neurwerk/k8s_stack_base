@@ -1,0 +1,63 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: monitor-fluent-bit-external-secrets
+  namespace: monitor-fluent-bit
+  labels:
+    app.kubernetes.io/name: external-secrets
+    app.kubernetes.io/instance: monitor-fluent-bit-secret-sync
+    app.kubernetes.io/part-of: monitor-fluent-bit
+---
+apiVersion: external-secrets.io/v1
+kind: SecretStore
+metadata:
+  name: monitor-fluent-bit-openbao-secret-store
+  namespace: monitor-fluent-bit
+  labels:
+    app.kubernetes.io/name: external-secrets
+    app.kubernetes.io/instance: monitor-fluent-bit-secret-sync
+    app.kubernetes.io/part-of: monitor-fluent-bit
+spec:
+  provider:
+    vault:
+      server: https://infra-openbao.infra-openbao.svc:8200
+      path: secret
+      version: v2
+      caProvider:
+        type: ConfigMap
+        name: infra-openbao-ca-bundle
+        key: ca.crt
+      auth:
+        kubernetes:
+          mountPath: kubernetes
+          role: monitor-fluent-bit
+          serviceAccountRef:
+            name: monitor-fluent-bit-external-secrets
+            audiences:
+              - openbao
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: monitor-fluent-bit-shared-ingest-secret
+  namespace: monitor-fluent-bit
+  labels:
+    app.kubernetes.io/name: external-secrets
+    app.kubernetes.io/instance: monitor-fluent-bit-secret-sync
+    app.kubernetes.io/part-of: monitor-fluent-bit
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: monitor-fluent-bit-openbao-secret-store
+    kind: SecretStore
+  target:
+    name: monitor-fluent-bit-shared-ingest-secret
+    creationPolicy: Owner
+    deletionPolicy: Retain
+    template:
+      type: Opaque
+  data:
+    - secretKey: ingestPassword
+      remoteRef:
+        key: monitor-fluent-bit/internal
+        property: ingestPassword

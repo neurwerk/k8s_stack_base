@@ -1,0 +1,39 @@
+{{- if .Values.infraOpenbaoWrapper.monitoring.prometheusRule.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: infra-openbao-prometheus-rule
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: openbao
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: infra-openbao
+    release: monitor-kube-prometheus-stack
+spec:
+  groups:
+    - name: infra-openbao
+      rules:
+        - alert: OpenBaoSealed
+          expr: max(vault_core_unsealed{namespace="infra-openbao"}) == 0
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: OpenBao is sealed
+        - alert: OpenBaoNoLeader
+          expr: sum(vault_core_active{namespace="infra-openbao"}) < 1
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: OpenBao Raft has no active leader
+        {{- if .Values.infraOpenbaoWrapper.monitoring.prometheusRule.snapshotAge.enabled }}
+        - alert: OpenBaoSnapshotStale
+          expr: ({{ required "snapshotAge.expression is required when snapshot age alerting is enabled" .Values.infraOpenbaoWrapper.monitoring.prometheusRule.snapshotAge.expression }}) > {{ .Values.infraOpenbaoWrapper.monitoring.prometheusRule.snapshotAge.maximumSeconds }}
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: OpenBao snapshot is stale
+        {{- end }}
+{{- end }}

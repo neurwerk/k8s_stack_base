@@ -1,0 +1,32 @@
+# IMAGE SOURCE: owned service
+# Built by the pii_engine repository and pinned here.
+monitorPiiEngine:
+  image: ghcr.io/neurwerk/k8s-stack-pii-engine:0.7.2-cpu
+  resources:
+    requests:
+      cpu: 1000m
+      memory: 4Gi
+    limits:
+      cpu: 4000m
+      memory: 12Gi
+  modelCacheSize: 12Gi
+  storageClassName: infra-rook-ceph-rbd
+  modelBundle:
+    version: "0.1.2"
+    # Digest of the immutable manifest published to RGW.
+    manifestSha256: a24eb93bc245e220f76ac010a57cf540a6399b2046b2782a07035ae660cc3926
+    referencePath: /cache/desired-bundle.json
+  modelSync:
+    image: ghcr.io/neurwerk/k8s-stack-pii-engine:0.7.2-cpu
+    schedule: "*/15 * * * *"
+    bucket: pii-models
+    rgwTargetPort: 8080
+    cachePath: /cache
+    secretName: rook-ceph-object-user-infra-rook-ceph-object-store-pii-model-sync
+    resources:
+      requests:
+        cpu: 500m
+        memory: 1Gi
+      limits:
+        cpu: 2000m
+        memory: 4Gi

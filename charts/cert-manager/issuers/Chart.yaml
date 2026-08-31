@@ -1,0 +1,5 @@
+apiVersion: v2
+name: infra-cert-manager-issuers
+description: Public Route53 ACME ClusterIssuers and credentials for cert-manager
+type: application
+version: 0.6.1

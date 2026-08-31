@@ -1,0 +1,91 @@
+{{- if not (contains "-cpu" .Values.monitorPiiEngine.modelSync.image) }}
+{{- fail "monitorPiiEngine.modelSync.image must use the CPU image variant" }}
+{{- end }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: monitor-pii-engine-model-sync
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "pii-engine-model-sync.labels" . | nindent 4 }}
+    app.kubernetes.io/component: model-sync
+spec:
+  schedule: {{ .Values.monitorPiiEngine.modelSync.schedule | quote }}
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 300
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 1800
+      template:
+        metadata:
+          labels:
+            {{- include "pii-engine-model-sync.labels" . | nindent 12 }}
+            app.kubernetes.io/component: model-sync
+        spec:
+          automountServiceAccountToken: false
+          restartPolicy: Never
+          securityContext:
+            runAsUser: 1000
+            runAsGroup: 1000
+            runAsNonRoot: true
+            fsGroup: 1000
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: model-sync
+              image: {{ .Values.monitorPiiEngine.modelSync.image }}
+              imagePullPolicy: IfNotPresent
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop: [ALL]
+                readOnlyRootFilesystem: true
+              command: [pii-engine-model-sync]
+              args:
+                - --version
+                - {{ required "monitorPiiEngine.modelBundle.version is required" .Values.monitorPiiEngine.modelBundle.version | quote }}
+                - --manifest-sha256
+                - {{ required "monitorPiiEngine.modelBundle.manifestSha256 is required" .Values.monitorPiiEngine.modelBundle.manifestSha256 | quote }}
+                - --rgw-endpoint
+                - $(RGW_ENDPOINT)
+                - --bucket
+                - {{ .Values.monitorPiiEngine.modelSync.bucket | quote }}
+                - --cache-path
+                - {{ .Values.monitorPiiEngine.modelSync.cachePath | quote }}
+                - --reference-path
+                - {{ required "monitorPiiEngine.modelBundle.referencePath is required" .Values.monitorPiiEngine.modelBundle.referencePath | quote }}
+                - --missing-manifest-ok
+              env:
+                - name: AWS_ACCESS_KEY_ID
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .Values.monitorPiiEngine.modelSync.secretName }}
+                      key: AccessKey
+                - name: AWS_SECRET_ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .Values.monitorPiiEngine.modelSync.secretName }}
+                      key: SecretKey
+                - name: RGW_ENDPOINT
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .Values.monitorPiiEngine.modelSync.secretName }}
+                      key: Endpoint
+                - name: AWS_DEFAULT_REGION
+                  value: auto
+              volumeMounts:
+                - name: model-cache
+                  mountPath: /cache
+                - name: tmp
+                  mountPath: /tmp
+              resources:
+                {{- toYaml .Values.monitorPiiEngine.modelSync.resources | nindent 16 }}
+          volumes:
+            - name: model-cache
+              persistentVolumeClaim:
+                claimName: monitor-pii-engine-model-cache-pvc
+            - name: tmp
+              emptyDir: {}

@@ -1,0 +1,79 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: infra-agentgateway-data-plane-network-policy
+  namespace: infra-agentgateway
+  labels:
+    app.kubernetes.io/name: infra-agentgateway-gateway
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: infra-agentgateway
+spec:
+  # These labels are applied by the AgentGateway controller to its generated pods.
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: infra-agentgateway-gateway
+      gateway.networking.k8s.io/gateway-name: infra-agentgateway-gateway
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        # Public HTTPS traffic is terminated by Traefik before it reaches the
+        # private ClusterIP data-plane Service.
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: traefik
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: frontend-librechat
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: frontend-librechat
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: frontend-dify
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: api
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: frontend-dify
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: worker
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: frontend-dify
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: plugin-daemon
+      ports:
+        - port: {{ .Values.infraAgentgatewayWrapper.ports.service.http }}
+          protocol: TCP
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitor-kube-prometheus-stack
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus
+              operator.prometheus.io/name: monitor-kube-prometheus-st
+      ports:
+        # The generated data-plane Pod exposes its Prometheus endpoint here.
+        - port: metrics
+          protocol: TCP
+    {{- if .Values.internalRagEmbedding.enabled }}
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: frontend-librechat
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: frontend-librechat-rag-api
+              app.kubernetes.io/component: rag-api
+      ports:
+        - port: {{ required "internalRagEmbedding.listenerPort is required when internalRagEmbedding is enabled" .Values.internalRagEmbedding.listenerPort }}
+          protocol: TCP
+    {{- end }}

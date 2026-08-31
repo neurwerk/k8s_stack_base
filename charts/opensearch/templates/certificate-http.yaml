@@ -1,0 +1,30 @@
+# HTTP/REST certificate (port 9200) — used by Fluent-Bit.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: monitor-opensearch-http-certificate
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: opensearch
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: monitor-opensearch
+spec:
+  commonName: opensearch-cluster-master
+  secretName: monitor-opensearch-http-tls
+  privateKey:
+    algorithm: RSA
+    size: 2048
+    encoding: PKCS8
+  duration: 2160h
+  renewBefore: 360h
+  usages:
+    - server auth
+  dnsNames:
+    - opensearch-cluster-master
+    - opensearch-cluster-master.monitor-opensearch
+    - opensearch-cluster-master.monitor-opensearch.svc
+    - opensearch-cluster-master.monitor-opensearch.svc.cluster.local
+  issuerRef:
+    name: infra-cert-manager-internal-ca-issuer
+    kind: ClusterIssuer
+    group: cert-manager.io

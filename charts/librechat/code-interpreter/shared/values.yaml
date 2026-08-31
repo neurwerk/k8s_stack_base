@@ -1,0 +1,44 @@
+# This chart renders namespace foundations. It never carries real credentials;
+# production values come from the namespace-local runtime Secret.
+frontendLibrechatCodeInterpreter:
+  validation:
+    # Standalone chart rendering leaves this false. The platform HelmRelease
+    # forces it true so missing OpenBao-backed values fail before installation.
+    production: false
+
+  objectStorage:
+    # The platform Rook/Ceph bucket StorageClass has reclaimPolicy: Retain.
+    # The OBC is also kept by Helm so uninstalling this release cannot remove
+    # the credential binding for durable user files.
+    lifecycle: Retain
+    claimName: librechat-code-interpreter-files
+    bucketName: librechat-code-interpreter-files
+    storageClassName: ""
+
+  packages:
+    persistence:
+      enabled: true
+      size: 20Gi
+      accessMode: ReadWriteOnce
+      storageClassName: ""
+      # Runtime packages are expensive but reproducible. Preserve the direct
+      # claim across Helm uninstall; deleting it is an explicit operator action.
+      lifecycle: Retain
+
+  secretNames:
+    internalAuth: librechat-code-interpreter-internal-auth
+    valkeyAuth: librechat-code-interpreter-valkey-auth
+    egressGrant: librechat-code-interpreter-egress-grant
+    executionSigner: librechat-code-interpreter-execution-signer
+    executionVerifier: librechat-code-interpreter-execution-verifier
+    jwtVerifier: librechat-code-interpreter-jwt-verifier
+
+# Populated by frontend-librechat-code-interpreter-runtime-secret through the
+# HelmRelease valuesFrom chain. Empty values are synthetic render defaults only.
+frontendLibrechatCodeInterpreterSecrets:
+  internalServiceToken: ""
+  valkeyPassword: ""
+  egressGrantSecret: ""
+  executionManifestPrivateKey: ""
+  executionManifestPublicKey: ""
+  jwtPublicKey: ""

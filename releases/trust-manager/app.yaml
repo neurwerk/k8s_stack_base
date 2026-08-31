@@ -1,0 +1,38 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: trust-manager
+  namespace: infra-trust-manager
+spec:
+  releaseName: infra-trust-manager
+  targetNamespace: infra-trust-manager
+  interval: 5m
+  timeout: 15m
+  install:
+    crds: CreateReplace
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 1m
+  upgrade:
+    crds: CreateReplace
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 1m
+  waitStrategy:
+    name: poller
+  healthCheckExprs:
+    - apiVersion: trust.cert-manager.io/v1alpha1
+      kind: Bundle
+      inProgress: status.conditions.filter(e, e.type == 'Synced').exists(e, e.status == 'False')
+      current: status.conditions.filter(e, e.type == 'Synced').exists(e, e.status == 'True')
+  dependsOn:
+    - name: cert-manager-internal-issuer
+      namespace: infra-cert-manager
+  chart:
+    spec:
+      chart: ./charts/trust-manager
+      sourceRef:
+        kind: GitRepository
+        name: k8s-stack
+        namespace: flux-system
+      interval: 1m

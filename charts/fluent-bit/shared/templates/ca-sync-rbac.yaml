@@ -1,0 +1,39 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: monitor-fluent-bit-opensearch-ca-sync-role
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: fluent-bit-shared
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: monitor-fluent-bit
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    resourceNames: ["monitor-fluent-bit-shared-opensearch-ca"]
+    verbs: ["get", "patch", "update"]
+  - apiGroups: ["apps"]
+    resources: ["daemonsets"]
+    resourceNames: ["monitor-fluent-bit"]
+    verbs: ["get", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: monitor-fluent-bit-opensearch-ca-sync-role-binding
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: fluent-bit-shared
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: monitor-fluent-bit
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: monitor-fluent-bit-opensearch-ca-sync-role
+subjects:
+  - kind: ServiceAccount
+    name: monitor-opensearch-ca-sync-service-account
+    namespace: monitor-opensearch
+  - kind: ServiceAccount
+    name: monitor-opensearch-ca-recovery-service-account
+    namespace: monitor-opensearch

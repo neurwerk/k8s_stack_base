@@ -1,0 +1,17 @@
+# IMAGE SOURCE: upstream
+# cert-manager images are controlled by the vendor subchart.
+# =============================================================================
+# charts/cert-manager/controller/values.yaml — default values
+# =============================================================================
+
+cert-manager:
+  namespace: infra-cert-manager
+  disableAutoApproval: true
+  global:
+    rbac:
+      aggregateClusterRoles: false
+  crds:
+    enabled: false
+  replicaCount: 1
+  config:
+    enableGatewayAPI: true

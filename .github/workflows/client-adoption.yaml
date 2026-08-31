@@ -1,0 +1,145 @@
+name: Prepare Client Adoption PRs
+
+on:
+  workflow_run:
+    workflows:
+      - Release Platform
+    types:
+      - completed
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Published platform tag to propose (v0.2.7 or newer)
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  prepare:
+    if: >-
+      vars.CLIENT_ADOPTION_ENABLED == 'true' &&
+      (github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'workflow_run'))
+    runs-on: ubuntu-latest
+    environment: client-adoption
+    strategy:
+      fail-fast: false
+      matrix:
+        target: ${{ fromJSON(vars.CLIENT_ADOPTION_REPOSITORIES || '[{"repository":"not-configured","name":"not-configured"}]') }}
+    steps:
+      - name: Checkout trusted default-branch tooling
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+          path: release-tooling
+          persist-credentials: false
+
+      - name: Download published release identity
+        if: github.event_name == 'workflow_run'
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: published-platform-release
+          path: ${{ runner.temp }}/published-release
+          github-token: ${{ github.token }}
+          run-id: ${{ github.event.workflow_run.id }}
+
+      - name: Resolve exact release tag
+        id: release
+        env:
+          REQUESTED_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || '' }}
+          PUBLISHED_TAG_FILE: ${{ runner.temp }}/published-release/release-tag.txt
+        run: |
+          if [[ -n "$REQUESTED_TAG" ]]; then
+            tag="$REQUESTED_TAG"
+          else
+            tag="$(<"$PUBLISHED_TAG_FILE")"
+          fi
+          if [[ ! "$tag" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            printf '%s\n' "invalid release tag: $tag" >&2
+            exit 1
+          fi
+          printf 'tag=%s\n' "$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout release tag as data
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          ref: ${{ steps.release.outputs.tag }}
+          fetch-depth: 0
+          path: release-data
+          persist-credentials: false
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+
+      - name: Install Python
+        run: uv python install 3.12
+
+      - name: Verify published release with trusted tooling
+        working-directory: release-data
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          GH_TOKEN: ${{ github.token }}
+          PLATFORM_RELEASE_ALLOWED_SIGNER: ${{ vars.PLATFORM_RELEASE_ALLOWED_SIGNER }}
+          PLATFORM_RELEASE_PUBLIC_KEY_FILE: ${{ github.workspace }}/release-tooling/release/trust/platform-release.sshpub
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          bash ../release-tooling/scripts/verify_release_tag.sh "$RELEASE_TAG"
+          git fetch origin \
+            "refs/heads/$DEFAULT_BRANCH:refs/remotes/origin/$DEFAULT_BRANCH"
+          git merge-base --is-ancestor \
+            "$RELEASE_TAG^{commit}" "refs/remotes/origin/$DEFAULT_BRANCH"
+          uv run --project ../release-tooling --frozen python \
+            ../release-tooling/scripts/platform_release.py inspect-release \
+            --release-root . --tag "$RELEASE_TAG"
+          gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null
+
+      - name: Generate repository-scoped GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ secrets.CLIENT_ADOPTION_APP_ID }}
+          private-key: ${{ secrets.CLIENT_ADOPTION_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ matrix.target.name }}
+          permission-contents: write
+          permission-pull-requests: write
+
+      - name: Checkout client repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          repository: ${{ matrix.target.repository }}
+          token: ${{ steps.app-token.outputs.token }}
+          path: client
+          persist-credentials: false
+
+      - name: Update only the verified platform source tag
+        working-directory: release-tooling
+        env:
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+        run: >-
+          uv run --frozen python scripts/platform_release.py update-client-source
+          --path ../client/clusters/prod-eu-1/platform-source.yaml
+          --tag "$RELEASE_TAG"
+
+      - name: Open or update draft client adoption pull request
+        uses: peter-evans/create-pull-request@271a8d0340265f705b14b6d32b9829c1cb33d45e # v7.0.8
+        with:
+          path: client
+          token: ${{ steps.app-token.outputs.token }}
+          branch: platform-adoption/${{ steps.release.outputs.tag }}
+          commit-message: "chore: propose platform ${{ steps.release.outputs.tag }}"
+          title: "chore: propose platform ${{ steps.release.outputs.tag }}"
+          body: |
+            Proposes adoption of signed platform release `${{ steps.release.outputs.tag }}`.
+
+            Review the release manifest, migration document, compatibility contract,
+            and client-specific values before approval. This draft pull request does
+            not authorize merge, deployment, or cluster reconciliation.
+          draft: always-true
+          delete-branch: false
+          add-paths: clusters/prod-eu-1/platform-source.yaml

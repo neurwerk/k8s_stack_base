@@ -1,0 +1,48 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: pii-engine-model-sync
+  namespace: monitor-pii-engine
+spec:
+  releaseName: monitor-pii-engine-model-sync
+  interval: 5m
+  # The WFFC cache PVC binds when the first 15-minute CronJob run is scheduled.
+  timeout: 20m
+  install:
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 1m
+  upgrade:
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 1m
+  dependsOn:
+    - name: rook-ceph
+      namespace: infra-rook-ceph
+  chart:
+    spec:
+      chart: ./charts/pii-engine-model-sync
+      sourceRef:
+        kind: GitRepository
+        name: k8s-stack
+        namespace: flux-system
+      interval: 1m
+  values:
+    # The hook must verify these exact pins before the runtime can roll out.
+    monitorPiiEngine:
+      modelBundle:
+        version: "0.1.2"
+        manifestSha256: a24eb93bc245e220f76ac010a57cf540a6399b2046b2782a07035ae660cc3926
+  valuesFrom:
+    - kind: ConfigMap
+      name: base-shared-resources-config-map
+      valuesKey: values.yaml
+    - kind: ConfigMap
+      name: monitor-pii-engine-app-defaults
+      valuesKey: values.yaml
+    - kind: ConfigMap
+      name: client-values
+      valuesKey: values.yaml
+    - kind: ConfigMap
+      name: pii-engine-product-values
+      valuesKey: values.yaml

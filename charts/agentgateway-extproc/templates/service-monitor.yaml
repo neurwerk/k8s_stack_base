@@ -1,0 +1,19 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: monitor-agentgateway-extproc-service-monitor
+  namespace: monitor-agentgateway-extproc
+  labels:
+    app.kubernetes.io/name: monitor-agentgateway-extproc
+    app.kubernetes.io/instance: monitor-agentgateway-extproc
+    app.kubernetes.io/part-of: monitor-agentgateway-extproc
+    release: monitor-kube-prometheus-stack
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: monitor-agentgateway-extproc
+      app.kubernetes.io/instance: monitor-agentgateway-extproc
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 30s

@@ -1,0 +1,80 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rook-csi-operator-image-set-configmap
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "infra-rook-ceph.labels" . | nindent 4 }}
+data:
+  provisioner: {{ .Values.infraRookCeph.csiProvisionerImage | quote }}
+  attacher: {{ .Values.infraRookCeph.csiAttacherImage | quote }}
+  resizer: {{ .Values.infraRookCeph.csiResizerImage | quote }}
+  snapshotter: {{ .Values.infraRookCeph.csiSnapshotterImage | quote }}
+  registrar: {{ .Values.infraRookCeph.csiRegistrarImage | quote }}
+  plugin: {{ .Values.infraRookCeph.csiPluginImage | quote }}
+  addons: {{ .Values.infraRookCeph.csiAddonsImage | quote }}
+---
+apiVersion: csi.ceph.io/v1
+kind: OperatorConfig
+metadata:
+  name: ceph-csi-operator-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "infra-rook-ceph.labels" . | nindent 4 }}
+spec:
+  driverSpecDefaults:
+    log:
+      verbosity: 0
+    imageSet:
+      name: rook-csi-operator-image-set-configmap
+    enableMetadata: true
+    generateOMapInfo: false
+    snapshotPolicy: volumeSnapshot
+    fsGroupPolicy: File
+    deployCsiAddons: false
+    cephFsClientType: kernel
+    nodePlugin:
+      priorityClassName: system-node-critical
+      kubeletDirPath: /var/lib/kubelet
+      enableSeLinuxHostMount: false
+      updateStrategy:
+        type: RollingUpdate
+      resources:
+        {{- toYaml .Values.infraRookCeph.resources.csiNode | nindent 8 }}
+    controllerPlugin:
+      priorityClassName: system-cluster-critical
+      replicas: 1
+      deploymentStrategy:
+        type: Recreate
+      resources:
+        {{- toYaml .Values.infraRookCeph.resources.csiController | nindent 8 }}
+---
+apiVersion: csi.ceph.io/v1
+kind: Driver
+metadata:
+  name: rook-ceph.rbd.csi.ceph.com
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "infra-rook-ceph.labels" . | nindent 4 }}
+spec:
+  fsGroupPolicy: File
+  snapshotPolicy: volumeSnapshot
+  nodePlugin:
+    updateStrategy:
+      type: RollingUpdate
+  controllerPlugin: {}
+---
+apiVersion: csi.ceph.io/v1
+kind: Driver
+metadata:
+  name: rook-ceph.cephfs.csi.ceph.com
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "infra-rook-ceph.labels" . | nindent 4 }}
+spec:
+  fsGroupPolicy: File
+  cephFsClientType: kernel
+  nodePlugin:
+    updateStrategy:
+      type: RollingUpdate
+  controllerPlugin: {}

@@ -1,0 +1,206 @@
+{{- $device := .Values.monitorPiiEngine.device -}}
+{{- $accelerator := .Values.monitorPiiEngine.accelerator -}}
+{{- $image := .Values.monitorPiiEngine.image -}}
+{{- $logLevel := .Values.monitorPiiEngine.logging.level -}}
+{{- $maxStudioEvaluationResponseBytes := .Values.monitorPiiEngine.capacity.maxStudioEvaluationResponseBytes -}}
+{{- if not (or (eq $device "cpu") (hasPrefix "cuda" $device)) }}
+{{- fail "monitorPiiEngine.device must be cpu or cuda[:index]" }}
+{{- end }}
+{{- if and (hasPrefix "cuda" $device) (not $accelerator.enabled) }}
+{{- fail "monitorPiiEngine.accelerator.enabled must be true for a CUDA device" }}
+{{- end }}
+{{- if and $accelerator.enabled (not (hasPrefix "cuda" $device)) }}
+{{- fail "monitorPiiEngine.device must select CUDA when the accelerator is enabled" }}
+{{- end }}
+{{- if and (eq $device "cpu") (not (contains "-cpu" $image)) }}
+{{- fail "monitorPiiEngine.image must use the CPU variant for device cpu" }}
+{{- end }}
+{{- if and (hasPrefix "cuda" $device) (not (contains "-cu124" $image)) }}
+{{- fail "monitorPiiEngine.image must use the cu124 variant for a CUDA device" }}
+{{- end }}
+{{- if and $accelerator.enabled (or (empty $accelerator.resourceName) (lt (int $accelerator.count) 1)) }}
+{{- fail "monitorPiiEngine.accelerator requires a resource name and positive count" }}
+{{- end }}
+{{- if not (has $logLevel (list "DEBUG" "INFO" "WARNING" "ERROR")) }}
+{{- fail "monitorPiiEngine.logging.level must be DEBUG, INFO, WARNING, or ERROR" }}
+{{- end }}
+{{- if not (regexMatch "^[0-9]+$" (toString $maxStudioEvaluationResponseBytes)) }}
+{{- fail "monitorPiiEngine.capacity.maxStudioEvaluationResponseBytes must be an integer" }}
+{{- end }}
+{{- if or (lt (int $maxStudioEvaluationResponseBytes) 1024) (gt (int $maxStudioEvaluationResponseBytes) 10485760) }}
+{{- fail "monitorPiiEngine.capacity.maxStudioEvaluationResponseBytes must be between 1024 and 10485760" }}
+{{- end }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: monitor-pii-engine-deployment
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    secret.reloader.stakater.com/reload: {{ .Values.monitorPiiEngine.tls.serverSecretName | quote }}
+  labels:
+    {{- include "monitor-pii-engine.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.monitorPiiEngine.replicas }}
+  strategy:
+    type: {{ .Values.monitorPiiEngine.strategy }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: pii-engine
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        {{- include "monitor-pii-engine.labels" . | nindent 8 }}
+        app.kubernetes.io/component: runtime
+        monitor-pii-engine-valkey-client: "true"
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        checksum/runtime-secret: {{ include (print $.Template.BasePath "/runtime-secret.yaml") . | sha256sum }}
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        {{- toYaml .Values.monitorPiiEngine.securityContext | nindent 8 }}
+      {{- with .Values.monitorPiiEngine.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.monitorPiiEngine.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: pii-engine
+          image: {{ .Values.monitorPiiEngine.image }}
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            {{- toYaml .Values.monitorPiiEngine.containerSecurityContext | nindent 12 }}
+          ports:
+            - name: application
+              containerPort: {{ .Values.monitorPiiEngine.ports.container.application }}
+            - name: management
+              containerPort: {{ .Values.monitorPiiEngine.ports.container.management }}
+          env:
+            - name: PII_ENGINE_ANALYSIS_PORT
+              value: {{ .Values.monitorPiiEngine.ports.container.application | quote }}
+            - name: PII_ENGINE_MANAGEMENT_PORT
+              value: {{ .Values.monitorPiiEngine.ports.container.management | quote }}
+            - name: PII_ENGINE_POLICY_VERSION
+              value: {{ .Values.monitorPiiEngine.policyVersion | quote }}
+            - name: PII_ENGINE_LOG_LEVEL
+              value: {{ $logLevel | quote }}
+            - name: PII_ENGINE_DEVICE
+              value: {{ $device | quote }}
+            - name: HF_HUB_OFFLINE
+              value: "1"
+            - name: TRANSFORMERS_OFFLINE
+              value: "1"
+            - name: TOKENIZERS_PARALLELISM
+              value: "false"
+            - name: PII_ENGINE_MODEL_CACHE_PATH
+              value: /cache
+            - name: PII_ENGINE_MODEL_BUNDLE_REFERENCE
+              value: {{ required "monitorPiiEngine.modelBundle.referencePath is required" .Values.monitorPiiEngine.modelBundle.referencePath | quote }}
+            - name: PII_ENGINE_MODEL_BUNDLE_VERSION
+              value: {{ required "monitorPiiEngine.modelBundle.version is required" .Values.monitorPiiEngine.modelBundle.version | quote }}
+            - name: PII_ENGINE_MODEL_MANIFEST_SHA256
+              value: {{ required "monitorPiiEngine.modelBundle.manifestSha256 is required" .Values.monitorPiiEngine.modelBundle.manifestSha256 | quote }}
+            - name: PII_ENGINE_MAX_REQUEST_BYTES
+              value: {{ .Values.monitorPiiEngine.capacity.maxRequestBytes | quote }}
+            - name: PII_ENGINE_MAX_ADAPTER_RESPONSE_BYTES
+              value: {{ .Values.monitorPiiEngine.capacity.maxAdapterResponseBytes | quote }}
+            - name: PII_ENGINE_MAX_STUDIO_EVALUATION_RESPONSE_BYTES
+              value: {{ $maxStudioEvaluationResponseBytes | quote }}
+            - name: PII_ENGINE_MAX_TEXT_LEAVES
+              value: {{ .Values.monitorPiiEngine.capacity.maxTextLeaves | quote }}
+            - name: PII_ENGINE_MAX_TEXT_CHARACTERS
+              value: {{ .Values.monitorPiiEngine.capacity.maxTextCharacters | quote }}
+            - name: PII_ENGINE_MAX_NESTING_DEPTH
+              value: {{ .Values.monitorPiiEngine.capacity.maxNestingDepth | quote }}
+            - name: PII_ENGINE_MAX_CONCURRENT_ANALYSES
+              value: {{ .Values.monitorPiiEngine.capacity.maxConcurrentAnalyses | quote }}
+            - name: PII_ENGINE_MAX_QUEUED_ANALYSES
+              value: {{ .Values.monitorPiiEngine.capacity.maxQueuedAnalyses | quote }}
+            - name: PII_ENGINE_STUDIO_MAX_CONCURRENT_ANALYSES
+              value: {{ .Values.monitorPiiEngine.capacity.studioMaxConcurrentAnalyses | quote }}
+            - name: PII_ENGINE_QUEUE_WAIT_TIMEOUT
+              value: {{ .Values.monitorPiiEngine.capacity.queueWaitTimeout | quote }}
+            - name: PII_ENGINE_ANALYSIS_TIMEOUT
+              value: {{ .Values.monitorPiiEngine.capacity.analysisTimeout | quote }}
+            - name: PII_ENGINE_STUDIO_ANALYSIS_TIMEOUT
+              value: {{ .Values.monitorPiiEngine.capacity.studioAnalysisTimeout | quote }}
+            - name: PII_ENGINE_TLS_CERT
+              value: /var/run/pii-engine/tls/tls.crt
+            - name: PII_ENGINE_TLS_KEY
+              value: /var/run/pii-engine/tls/tls.key
+            - name: PII_ENGINE_TLS_CA
+              value: {{ .Values.monitorPiiEngine.tls.clientCaFile | quote }}
+            - name: PII_ENGINE_VALKEY_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: monitor-pii-engine-valkey
+                  key: valkey-password
+            - name: PII_ENGINE_VALKEY_URL
+              value: redis://:$(PII_ENGINE_VALKEY_PASSWORD)@monitor-pii-engine-valkey-primary:6379/0
+            - name: PII_ENGINE_HASH_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.monitorPiiEngine.runtimeSecret.name }}
+                  key: hash-key
+            - name: PII_ENGINE_ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.monitorPiiEngine.runtimeSecret.name }}
+                  key: encryption-key
+            - name: PII_ENGINE_POLICY_CONFIG
+              value: /etc/pii-engine/policy.yaml
+          volumeMounts:
+            - name: model-cache
+              mountPath: /cache
+              readOnly: true
+            - name: tls
+              mountPath: /var/run/pii-engine/tls
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+            - name: policy
+              mountPath: /etc/pii-engine
+              readOnly: true
+          startupProbe:
+            httpGet:
+              path: /live
+              port: management
+            failureThreshold: 60
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /live
+              port: management
+            periodSeconds: 20
+            timeoutSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: management
+            periodSeconds: 10
+            timeoutSeconds: 5
+          resources:
+            requests:
+              {{- toYaml .Values.monitorPiiEngine.resources.requests | nindent 14 }}
+            limits:
+              {{- toYaml .Values.monitorPiiEngine.resources.limits | nindent 14 }}
+              {{- if $accelerator.enabled }}
+              {{ $accelerator.resourceName | quote }}: {{ $accelerator.count }}
+              {{- end }}
+      volumes:
+        - name: model-cache
+          persistentVolumeClaim:
+            claimName: monitor-pii-engine-model-cache-pvc
+        - name: tls
+          secret:
+            secretName: {{ .Values.monitorPiiEngine.tls.serverSecretName }}
+        - name: tmp
+          emptyDir: {}
+        - name: policy
+          configMap:
+            name: monitor-pii-engine-config-map

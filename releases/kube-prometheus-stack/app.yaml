@@ -1,0 +1,47 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: kube-prometheus-stack
+  namespace: monitor-kube-prometheus-stack
+spec:
+  releaseName: monitor-kube-prometheus-stack
+  interval: 5m
+  timeout: 30m
+  install:
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 1m
+  upgrade:
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 1m
+  dependsOn:
+    - name: traefik
+      namespace: kube-system
+    - name: rook-ceph
+      namespace: infra-rook-ceph
+  chart:
+    spec:
+      chart: ./charts/kube-prometheus-stack
+      sourceRef:
+        kind: GitRepository
+        name: k8s-stack
+        namespace: flux-system
+      interval: 1m
+  valuesFrom:
+    - kind: ConfigMap
+      name: base-shared-resources-config-map
+      valuesKey: values.yaml
+    - kind: ConfigMap
+      name: monitor-kube-prometheus-stack-app-defaults
+      valuesKey: values.yaml
+    - kind: ConfigMap
+      name: client-values
+      valuesKey: values.yaml
+    - kind: ConfigMap
+      name: kube-prometheus-stack-product-values
+      valuesKey: values.yaml
+    - kind: Secret
+      name: monitor-kube-prometheus-stack-smtp-secret
+      valuesKey: values.yaml
+      optional: true

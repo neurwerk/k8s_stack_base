@@ -1,0 +1,31 @@
+# IMAGE SOURCE: tooling
+# k8sTools is a pinned neurwerk image used by this realm bootstrap Job.
+# =============================================================================
+# values.yaml — keycloak-realm-config/initial-admin
+#
+# Default values for the initial admin user bootstrap Job.
+# The user establishes a password through a short-lived Keycloak action email.
+# =============================================================================
+
+authKeycloak:
+  # Keycloak master realm admin credentials — used to authenticate
+  # to the Admin REST API. Set by the chart; override per-client if needed.
+  adminUser: admin
+
+  # ---- Initial admin user ----
+  # Once the user is created, initialAdminUsername MUST NOT be changed —
+  # the username is the lookup key. Changing it would create a second user
+  # and leave the old one orphaned. Other fields (email, name, groups) can
+  # be safely changed and will be updated on the next Helm upgrade.
+  initialAdminUsername: ""
+  initialAdminEmail: ""
+  initialAdminFirstName: ""
+  initialAdminLastName: ""
+
+  # Access groups to assign (JSON array of group paths). The user's role claims
+  # are derived from group mappings; never grant a human direct realm roles.
+  initialAdminGroups: '["/access/platform-admins"]'
+  initialAdminRequiredActions: '["VERIFY_EMAIL", "UPDATE_PASSWORD", "CONFIGURE_TOTP"]'
+
+k8sTools:
+  image: ghcr.io/neurwerk/k8s-stack-tooling:0.5.4

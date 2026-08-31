@@ -1,0 +1,40 @@
+# =============================================================================
+# kube-linter configuration
+#
+# Suppresses checks that are expected to fail for:
+#   - External subcharts (kube-prometheus-stack, langfuse, cert-manager)
+#   - Third-party images that cannot run as non-root or with read-only FS
+#     (postgres and redis official images)
+# =============================================================================
+
+checks:
+  exclude:
+    # ── Subchart-specific checks ──────────────────────────────────────────────
+    # kube-prometheus-stack: node-exporter needs host network/PID/host mounts
+    - "host-network"
+    - "host-pid"
+    - "sensitive-host-mounts"
+    # kube-prometheus-stack: daemonsets/services for cluster components not in template
+    - "dangling-service"
+    # kube-prometheus-stack: kube-state-metrics readiness probe uses port 8081
+    - "readiness-port"
+    # langfuse: PDBs from upstream bitnami charts without explicit policy
+    - "pdb-unhealthy-pod-eviction-policy"
+    # cert-manager: startupapicheck job lacks ttlSecondsAfterFinished
+    - "job-ttl-seconds-after-finished"
+    # Locator variables such as TARGET_SECRET_NAME contain no secret value.
+    # Secret values themselves are injected with secretKeyRef.
+    - "env-var-secret"
+
+    # ── Third-party image checks ──────────────────────────────────────────────
+    # Official postgres/redis images run as root and need writable FS
+    - "no-read-only-root-fs"
+    - "run-as-non-root"
+
+    # ── Subchart resource checks ──────────────────────────────────────────────
+    # External subchart containers (cert-manager, kube-prometheus-stack, langfuse)
+    # have `resources: {}` in chart defaults. Resources are provided at deploy time
+    # via the ConfigMap layering chain (app-defaults, client overrides, etc.).
+    # Rendered standalone without those overlays, these checks always fire.
+    - "unset-cpu-requirements"
+    - "unset-memory-requirements"

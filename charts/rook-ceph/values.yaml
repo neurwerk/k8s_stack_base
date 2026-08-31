@@ -1,0 +1,185 @@
+# IMAGE SOURCE: upstream
+# Rook and Ceph images are pulled directly from their upstream registries.
+# Pinned here (chart defaults).
+# --- Rook Ceph ---
+# This chart vendors the Rook v1.20.3 CRDs and RBAC, while keeping the
+# deployment-specific topology, image pins, and resource settings explicit.
+#
+# The storage node and raw device path are intentionally empty. They must be
+# supplied by a client override; this chart never discovers or selects disks.
+infraRookCeph:
+  clusterName: infra-rook-ceph
+
+  storage:
+    nodeName: ""
+    devicePath: ""
+
+  rookImage: docker.io/rook/ceph:v1.20.3
+  cephImage: quay.io/ceph/ceph:v20.2.2
+  csiOperatorImage: quay.io/cephcsi/ceph-csi-operator:v1.0.4
+  csiPluginImage: quay.io/cephcsi/cephcsi:v3.17.0
+  csiProvisionerImage: registry.k8s.io/sig-storage/csi-provisioner:v6.2.0
+  csiAttacherImage: registry.k8s.io/sig-storage/csi-attacher:v4.12.0
+  csiResizerImage: registry.k8s.io/sig-storage/csi-resizer:v2.1.0
+  csiSnapshotterImage: registry.k8s.io/sig-storage/csi-snapshotter:v8.5.0
+  snapshotControllerImage: registry.k8s.io/sig-storage/snapshot-controller:v8.5.0
+  csiRegistrarImage: registry.k8s.io/sig-storage/csi-node-driver-registrar:v2.17.0
+  csiAddonsImage: quay.io/csiaddons/k8s-sidecar:v0.14.0
+  kubectlImage: docker.io/alpine/k8s:1.35.5
+
+  objectStore:
+    name: infra-rook-ceph-object-store
+    port: 80
+    bucketStorageClassName: infra-rook-ceph-object-bucket
+    # Client-owned browser-reachable endpoint for private presigned object URLs.
+    publicHostname: ""
+    externalGateway:
+      enabled: false
+      port: 443
+    allowUsersInNamespaces:
+      - monitor-pii-engine
+    piiModels:
+      bucketName: pii-models
+      namespace: infra-rook-ceph
+      consumerNamespace: monitor-pii-engine
+      publisherUser: pii-publisher
+      modelSyncUser: pii-model-sync
+
+  blockStorage:
+    poolName: infra-rook-ceph-rbd
+    storageClassName: infra-rook-ceph-rbd
+    openbaoStorageClassName: infra-rook-ceph-rbd-openbao
+    volumeSnapshotClassName: infra-rook-ceph-rbd-snapshots
+
+  resources:
+    operator:
+      requests:
+        cpu: 200m
+        memory: 256Mi
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+    csiOperator:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 250m
+        memory: 256Mi
+    mon:
+      requests:
+        cpu: 250m
+        memory: 512Mi
+      limits:
+        cpu: 1000m
+        memory: 2Gi
+    mgr:
+      requests:
+        cpu: 250m
+        memory: 512Mi
+      limits:
+        cpu: 1000m
+        memory: 2Gi
+    osd:
+      requests:
+        cpu: 500m
+        memory: 1Gi
+      limits:
+        cpu: 2000m
+        memory: 4Gi
+    prepareOsd:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+    cmdReporter:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        cpu: 250m
+        memory: 256Mi
+    rgw:
+      requests:
+        cpu: 250m
+        memory: 512Mi
+      limits:
+        cpu: 1000m
+        memory: 2Gi
+    csiController:
+      attacher:
+        requests:
+          cpu: 25m
+          memory: 64Mi
+        limits:
+          cpu: 250m
+          memory: 256Mi
+      provisioner:
+        requests:
+          cpu: 25m
+          memory: 64Mi
+        limits:
+          cpu: 250m
+          memory: 256Mi
+      resizer:
+        requests:
+          cpu: 25m
+          memory: 64Mi
+        limits:
+          cpu: 250m
+          memory: 256Mi
+      snapshotter:
+        requests:
+          cpu: 25m
+          memory: 64Mi
+        limits:
+          cpu: 250m
+          memory: 256Mi
+      liveness:
+        requests:
+          cpu: 25m
+          memory: 64Mi
+        limits:
+          cpu: 250m
+          memory: 256Mi
+      plugin:
+        requests:
+          cpu: 50m
+          memory: 128Mi
+        limits:
+          cpu: 500m
+          memory: 512Mi
+    csiNode:
+      registrar:
+        requests:
+          cpu: 25m
+          memory: 64Mi
+        limits:
+          cpu: 250m
+          memory: 256Mi
+      liveness:
+        requests:
+          cpu: 25m
+          memory: 64Mi
+        limits:
+          cpu: 250m
+          memory: 256Mi
+      plugin:
+        requests:
+          cpu: 50m
+          memory: 128Mi
+        limits:
+          cpu: 500m
+          memory: 512Mi
+    readiness:
+      requests:
+        cpu: 25m
+        memory: 64Mi
+      limits:
+        cpu: 100m
+        memory: 128Mi
+
+publicCertificates:
+  useProduction: false

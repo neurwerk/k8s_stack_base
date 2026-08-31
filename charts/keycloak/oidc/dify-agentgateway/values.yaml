@@ -1,0 +1,9 @@
+# IMAGE SOURCE: tooling
+authKeycloak:
+  agentgatewayClientId: agentgateway
+  difyAgentgatewayClientId: dify-agentgateway
+  agentgatewayClientRoles: []
+  difyAgentgatewayClientRoles: []
+
+k8sTools:
+  image: ghcr.io/neurwerk/k8s-stack-tooling:0.5.4

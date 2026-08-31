@@ -1,0 +1,128 @@
+# =============================================================================
+# keycloak-api-key-bridge Deployment
+# =============================================================================
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: auth-keycloak-api-key-bridge-service-account
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "auth-keycloak-api-key-bridge.labels" . | nindent 4 }}
+automountServiceAccountToken: false
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-keycloak-api-key-bridge-deployment
+  namespace: auth-keycloak-api-key-bridge
+  annotations:
+    ignore-check.kube-linter.io/non-existent-service-account: "Rendered by this chart."
+    secret.reloader.stakater.com/reload: "auth-keycloak-api-key-bridge-openbao-secret"
+  labels:
+    {{- include "auth-keycloak-api-key-bridge.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "auth-keycloak-api-key-bridge.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "auth-keycloak-api-key-bridge.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: auth-keycloak-api-key-bridge-service-account
+      automountServiceAccountToken: false
+      securityContext:
+        runAsUser: {{ .Values.authKeycloakApiKeyBridge.securityContext.runAsUser }}
+        runAsGroup: {{ .Values.authKeycloakApiKeyBridge.securityContext.runAsGroup }}
+        runAsNonRoot: {{ .Values.authKeycloakApiKeyBridge.securityContext.runAsNonRoot }}
+        fsGroup: {{ .Values.authKeycloakApiKeyBridge.securityContext.fsGroup }}
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: keycloak-api-key-bridge
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            readOnlyRootFilesystem: true
+          image: {{ .Values.authKeycloakApiKeyBridge.bridgeImage | quote }}
+          imagePullPolicy: Always
+          env:
+            - name: SQLITE_TMPDIR
+              value: /data
+            - name: KEYCLOAK_API_KEY_BRIDGE_KEYCLOAK_URL
+              value: "http://auth-keycloak-keycloak-service.auth-keycloak.svc.cluster.local"
+            - name: KEYCLOAK_API_KEY_BRIDGE_KEYCLOAK_ISSUER
+              value: {{ printf "https://%s/realms/%s" .Values.authKeycloak.hostname .Values.authKeycloak.realm | quote }}
+            - name: KEYCLOAK_API_KEY_BRIDGE_KEYCLOAK_REALM
+              value: {{ .Values.authKeycloak.realm | quote }}
+            - name: KEYCLOAK_API_KEY_BRIDGE_KEYCLOAK_CLIENT_ID
+              value: "keycloak-api-key-bridge"
+            - name: KEYCLOAK_API_KEY_BRIDGE_KEYCLOAK_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: auth-keycloak-api-key-bridge-openbao-secret
+                  key: KEYCLOAK_API_KEY_BRIDGE_KEYCLOAK_CLIENT_SECRET
+            - name: KEYCLOAK_API_KEY_BRIDGE_DATABASE_URL
+              value: {{ .Values.authKeycloakApiKeyBridge.config.database_url | quote }}
+            - name: KEYCLOAK_API_KEY_BRIDGE_MAX_KEYS_PER_USER
+              value: {{ .Values.authKeycloakApiKeyBridge.config.max_keys_per_user | quote }}
+            - name: KEYCLOAK_API_KEY_BRIDGE_LOG_LEVEL
+              value: {{ .Values.authKeycloakApiKeyBridge.config.log_level | quote }}
+            - name: KEYCLOAK_API_KEY_BRIDGE_MANAGED_PRIMARY_GRANT_FILE
+              value: /var/run/managed-api-key-grants/primary.json
+            - name: KEYCLOAK_API_KEY_BRIDGE_MANAGED_PRIMARY_VERIFIER_FILE
+              value: /var/run/managed-api-key-verifiers/primary.sha256
+            - name: KEYCLOAK_API_KEY_BRIDGE_MANAGED_SECONDARY_GRANT_FILE
+              value: /var/run/managed-api-key-grants/secondary.json
+            - name: KEYCLOAK_API_KEY_BRIDGE_MANAGED_SECONDARY_VERIFIER_FILE
+              value: /var/run/managed-api-key-verifiers/secondary.sha256
+          ports:
+            - name: http
+              containerPort: {{ .Values.authKeycloakApiKeyBridge.ports.container.http }}
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /live
+              port: http
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 1
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: managed-grants
+              mountPath: /var/run/managed-api-key-grants
+              readOnly: true
+            - name: managed-verifiers
+              mountPath: /var/run/managed-api-key-verifiers
+              readOnly: true
+          resources:
+            {{- toYaml .Values.authKeycloakApiKeyBridge.resources | nindent 12 }}
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: auth-keycloak-api-key-bridge-v2-pvc
+        - name: managed-grants
+          configMap:
+            name: auth-keycloak-api-key-bridge-managed-key-grants
+            items:
+              - key: primary.json
+                path: primary.json
+              - key: secondary.json
+                path: secondary.json
+        - name: managed-verifiers
+          secret:
+            secretName: auth-keycloak-api-key-bridge-openbao-secret
+            items:
+              - key: difyAgentgatewayPrimaryVerifierSha256
+                path: primary.sha256
+              - key: difyAgentgatewaySecondaryVerifierSha256
+                path: secondary.sha256

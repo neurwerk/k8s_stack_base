@@ -1,0 +1,77 @@
+{{- if .Values.mcp.enabled }}
+{{- range .Values.mcp.servers | default list }}
+{{- $serverName := .name }}
+{{- $routeName := include "infra-agentgateway.mcpResourceName" (dict "id" $serverName "component" "route") }}
+{{- $backendName := include "infra-agentgateway.mcpResourceName" (dict "id" $serverName "component" "be") }}
+{{- $policyName := include "infra-agentgateway.mcpResourceName" (dict "id" $serverName "component" "policy") }}
+{{- $permission := printf "mcp:%s:invoke" .name }}
+{{- $authorization := printf `((has(jwt.resource_access.agentgateway.roles) && "%s" in jwt.resource_access.agentgateway.roles) || (has(extauthz.permissions) && "%s" in extauthz.permissions))` $permission $permission }}
+{{- $piiEnabled := true }}
+{{- if hasKey . "piiEnabled" }}{{- $piiEnabled = .piiEnabled }}{{- end }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ $routeName }}
+  namespace: infra-agentgateway
+  labels:
+    app.kubernetes.io/name: mcp-{{ $serverName }}
+    app.kubernetes.io/instance: infra-agentgateway
+    app.kubernetes.io/part-of: infra-agentgateway
+spec:
+  parentRefs:
+    - name: infra-agentgateway-gateway
+      sectionName: websecure
+  rules:
+    - matches:
+        - path:
+            type: Exact
+            value: {{ printf "/mcp/%s" .name | quote }}
+      backendRefs:
+        - name: {{ $backendName }}
+          group: agentgateway.dev
+          kind: AgentgatewayBackend
+---
+# Gateway authentication supplies JWT/extAuth state and this route policy adds
+# only the focused destination permission. AgentGateway's MCP parser and the
+# fail-closed route extProc own protocol validation; piiEnabled controls analysis.
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayPolicy
+metadata:
+  name: {{ $policyName }}
+  namespace: infra-agentgateway
+  labels:
+    app.kubernetes.io/name: mcp-{{ $serverName }}
+    app.kubernetes.io/instance: infra-agentgateway
+    app.kubernetes.io/part-of: infra-agentgateway
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: {{ $routeName }}
+  traffic:
+    phase: PostRouting
+    authorization:
+      action: Allow
+      policy:
+        matchExpressions:
+          - {{ $authorization | quote }}
+    extProc:
+      backendRef:
+        group: agentgateway.dev
+        kind: AgentgatewayBackend
+        name: infra-agentgateway-extproc-backend
+      failureMode: FailClosed
+      metadataContext:
+        neurwerk.destination_policy:
+          contract_version: "1"
+          destination_kind: '"mcp"'
+          principal_id: 'has(jwt.sub) ? jwt.sub : extauthz.principal_id'
+          destination_id: {{ printf "%q" .name | quote }}
+          pii_enabled: {{ $piiEnabled | toString | quote }}
+      processingOptions:
+        requestBodyMode: Buffered
+        responseBodyMode: FullDuplexStreamed
+        allowModeOverride: true
+{{- end }}
+{{- end }}

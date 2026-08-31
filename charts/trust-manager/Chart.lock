@@ -1,0 +1,6 @@
+dependencies:
+- name: trust-manager
+  repository: oci://quay.io/jetstack/charts
+  version: v0.24.0
+digest: sha256:b8613e99af1551de1d4db051763128504bb4013f8f41b6cc61c067c36ce48c38
+generated: "2026-08-17T15:21:41.227736+02:00"

@@ -1,0 +1,99 @@
+name: Bug report
+description: Report platform behavior that is not working as expected
+labels:
+  - "status: triage"
+type: Bug
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for problems in platform charts, release contracts, namespaces,
+        defaults, or validation. Report service behavior and client-specific
+        configuration in their owning repositories.
+
+        Do not disclose vulnerabilities, credentials, private keys, tokens, or client
+        data here. Report vulnerabilities through the private security advisory link.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues and did not find a duplicate.
+          required: true
+        - label: This report covers one problem and belongs in the base platform repository.
+          required: true
+        - label: This is not a security vulnerability.
+          required: true
+
+  - type: input
+    id: component
+    attributes:
+      label: Affected component
+      description: Identify the chart, release, namespace, validation command, or relevant path.
+      placeholder: "For example: charts/traefik or releases/keycloak/server.yaml"
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Affected platform version or commit
+      placeholder: "For example: v0.1.2 or commit 0123456 on main"
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened?
+      description: Describe the observed behavior and its impact.
+      placeholder: Tell us what you observed and who or what is affected.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Configure ...
+        2. Run ...
+        3. Observe ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior and acceptance criteria
+      description: State the expected, objectively verifiable outcome.
+      placeholder: |
+        - [ ] ...
+        - [ ] ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include relevant tool, Kubernetes, or deployment versions.
+      placeholder: |
+        Kubernetes:
+        Helm:
+        Kustomize:
+        Deployment context:
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Logs, screenshots, or additional context
+      description: Remove secrets, credentials, and sensitive client information before posting.
+
+  - type: textarea
+    id: related
+    attributes:
+      label: Related work
+      description: Link related issues, pull requests, designs, or documentation.

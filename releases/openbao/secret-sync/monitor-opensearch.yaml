@@ -1,0 +1,71 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: monitor-opensearch-external-secrets
+  namespace: monitor-opensearch
+  labels:
+    app.kubernetes.io/name: external-secrets
+    app.kubernetes.io/instance: monitor-opensearch-secret-sync
+    app.kubernetes.io/part-of: monitor-opensearch
+---
+apiVersion: external-secrets.io/v1
+kind: SecretStore
+metadata:
+  name: monitor-opensearch-openbao-secret-store
+  namespace: monitor-opensearch
+  labels:
+    app.kubernetes.io/name: external-secrets
+    app.kubernetes.io/instance: monitor-opensearch-secret-sync
+    app.kubernetes.io/part-of: monitor-opensearch
+spec:
+  provider:
+    vault:
+      server: https://infra-openbao.infra-openbao.svc:8200
+      path: secret
+      version: v2
+      caProvider:
+        type: ConfigMap
+        name: infra-openbao-ca-bundle
+        key: ca.crt
+      auth:
+        kubernetes:
+          mountPath: kubernetes
+          role: monitor-opensearch
+          serviceAccountRef:
+            name: monitor-opensearch-external-secrets
+            audiences:
+              - openbao
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: monitor-opensearch-secret
+  namespace: monitor-opensearch
+  labels:
+    app.kubernetes.io/name: external-secrets
+    app.kubernetes.io/instance: monitor-opensearch-secret-sync
+    app.kubernetes.io/part-of: monitor-opensearch
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: monitor-opensearch-openbao-secret-store
+    kind: SecretStore
+  target:
+    name: monitor-opensearch-secret
+    creationPolicy: Owner
+    deletionPolicy: Retain
+    template:
+      type: Opaque
+  data:
+    - secretKey: adminPassword
+      remoteRef:
+        key: monitor-opensearch/internal
+        property: adminPassword
+    - secretKey: fluentBitPassword
+      remoteRef:
+        key: monitor-opensearch/internal
+        property: fluentBitPassword
+    - secretKey: studioPassword
+      remoteRef:
+        key: monitor-opensearch/internal
+        property: studioPassword

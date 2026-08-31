@@ -1,0 +1,50 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: frontend-dify-worker
+  namespace: frontend-dify
+spec:
+  releaseName: frontend-dify-worker
+  interval: 5m
+  install:
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 1m
+  upgrade:
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 1m
+  dependsOn:
+    - name: frontend-dify-shared
+      namespace: frontend-dify
+    - name: postgres-operations
+      namespace: infra-postgres-operations
+    - name: frontend-dify-api
+      namespace: frontend-dify
+  chart:
+    spec:
+      chart: ./charts/dify/worker
+      sourceRef:
+        kind: GitRepository
+        name: k8s-stack
+        namespace: flux-system
+      interval: 1m
+  valuesFrom:
+    - kind: ConfigMap
+      name: base-shared-hostnames-config-map
+      valuesKey: values.yaml
+    - kind: ConfigMap
+      name: base-shared-resources-config-map
+      valuesKey: values.yaml
+    - kind: ConfigMap
+      name: base-shared-oidc-clients-config-map
+      valuesKey: values.yaml
+    - kind: ConfigMap
+      name: frontend-dify-app-defaults
+      valuesKey: values.yaml
+    - kind: ConfigMap
+      name: client-values
+      valuesKey: values.yaml
+    - kind: ConfigMap
+      name: dify-product-values
+      valuesKey: values.yaml

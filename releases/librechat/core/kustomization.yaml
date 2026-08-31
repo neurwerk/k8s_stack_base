@@ -1,0 +1,24 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: frontend-librechat
+resources:
+  - shared.yaml
+  - valkey.yaml
+  - meilisearch.yaml
+  - app.yaml
+  - admin-panel.yaml
+generatorOptions:
+  disableNameSuffixHash: true
+configMapGenerator:
+  - name: base-shared-hostnames-config-map
+    files:
+      - values.yaml=../../shared/hostnames.yaml
+  - name: base-shared-resources-config-map
+    files:
+      - values.yaml=../../shared/resources.yaml
+  - name: base-shared-mcp-config-map
+    files:
+      - values.yaml=../../shared/default-mcp-settings.yaml
+  - name: frontend-librechat-app-defaults
+    files:
+      - values.yaml=app-defaults.yaml

@@ -1,0 +1,27 @@
+# =============================================================================
+# AgentGateway Backend wrapper for keycloak-api-key-bridge extAuth
+#
+# Wraps the keycloak-api-key-bridge Service in an AgentgatewayBackend so we
+# can set policies.http.requestTimeout.  The default extAuth subrequest timeout
+# (200ms) is too short for the /validate endpoint, causing intermittent 504s.
+#
+# extAuth.backendRef supports both Service and Backend kinds.  When this
+# wrapper is present, the policy references this Backend instead of the
+# Service directly, and the requestTimeout is applied to the extAuth call.
+# =============================================================================
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayBackend
+metadata:
+  name: infra-agentgateway-extauth-apikey-bridge-backend
+  namespace: infra-agentgateway
+  labels:
+    app.kubernetes.io/name: extauth-apikey-bridge
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: infra-agentgateway
+spec:
+  static:
+    host: auth-keycloak-api-key-bridge-service.auth-keycloak-api-key-bridge.svc.cluster.local
+    port: 3010
+  policies:
+    http:
+      requestTimeout: {{ .Values.infraAgentgatewayWrapper.extAuthTimeout | default "5s" | quote }}
