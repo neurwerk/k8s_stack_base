@@ -26,6 +26,14 @@ SPEC.loader.exec_module(platform_release)
 
 
 class ReleaseContractTest(unittest.TestCase):
+    def _release_integration_tag(self) -> str:
+        tag = os.environ.get("PLATFORM_RELEASE_TEST_TAG", "")
+        if not tag:
+            self.skipTest(
+                "release tag integration runs through make release-check TAG=vX.Y.Z"
+            )
+        return tag
+
     def test_release_evidence_is_consistent(self) -> None:
         platform_release.validate()
 
@@ -385,13 +393,15 @@ Recovery classification: Forward fix.
                     platform_release.inspect_release_data(root, "v0.2.7")
 
     def test_release_provenance_matches_exact_git_history(self) -> None:
-        included = platform_release.git("rev-parse", "v0.2.6^{commit}")
-        provenance = platform_release.provenance_from_git("v0.2.5", included)
-        self.assertEqual(provenance["includedThrough"], included)
-        self.assertEqual(provenance["commits"], [included])
+        self._release_integration_tag()
+        expected = platform_release.build_manifest()["spec"].get("provenance")
+        if expected is None:
+            self.skipTest("bootstrap release has no predecessor provenance")
         self.assertEqual(
-            provenance["compareUrl"],
-            f"https://github.com/neurwerk/k8s_stack_base/compare/v0.2.5...{included}",
+            platform_release.provenance_from_git(
+                expected["previousTag"], expected["includedThrough"]
+            ),
+            expected,
         )
 
     def test_release_provenance_rejects_divergent_history(self) -> None:
@@ -504,8 +514,9 @@ Recovery classification: Forward fix.
         )
 
     def test_current_commit_resolves_to_one_release_tag(self) -> None:
-        commit = platform_release.git("rev-parse", "v0.2.6^{commit}")
-        self.assertEqual(platform_release.release_tag_for_commit(commit), "v0.2.6")
+        tag = self._release_integration_tag()
+        commit = platform_release.git("rev-parse", f"{tag}^{{commit}}")
+        self.assertEqual(platform_release.release_tag_for_commit(commit), tag)
 
     def test_release_schema_rejects_incomplete_provenance(self) -> None:
         manifest = copy.deepcopy(platform_release.build_manifest())
@@ -810,16 +821,19 @@ spec:
                 self.assertNotEqual(result.returncode, 0)
 
     def test_release_signer_accepts_the_exact_canonical_line(self) -> None:
+        tag = self._release_integration_tag()
         key = (ROOT / "release/trust/platform-release.sshpub").read_text().split()
         allowed_signer = f'platform-release namespaces="git" {key[0]} {key[1]}'
-        result = self._verify_release_tag(allowed_signer)
+        result = self._verify_release_tag(allowed_signer, tag)
         self.assertEqual(result.returncode, 0, result.stderr)
 
-    def _verify_release_tag(self, allowed_signer: str) -> subprocess.CompletedProcess[str]:
+    def _verify_release_tag(
+        self, allowed_signer: str, tag: str = "v1.2.3"
+    ) -> subprocess.CompletedProcess[str]:
         env = os.environ.copy()
         env["PLATFORM_RELEASE_ALLOWED_SIGNER"] = allowed_signer
         return subprocess.run(
-            ["bash", "scripts/verify_release_tag.sh", "v0.2.6"],
+            ["bash", "scripts/verify_release_tag.sh", tag],
             cwd=ROOT,
             env=env,
             capture_output=True,
