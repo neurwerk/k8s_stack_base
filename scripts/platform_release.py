@@ -216,6 +216,15 @@ def latest_release_tag(repository: Path = ROOT) -> str:
     return max(reachable, key=lambda tag: semver_tuple(tag.removeprefix("v")))
 
 
+def release_evidence_endpoint(version: str) -> str:
+    """Bound evidence checks at the released tag once development resumes."""
+    tag = f"v{version}"
+    if tag not in repository_tags():
+        return "HEAD"
+    commit = git("rev-parse", "--verify", f"{tag}^{{commit}}")
+    return commit if git_is_ancestor(commit, "HEAD") else "HEAD"
+
+
 def verify_release_tag_signature(tag: str, expected_ref: str, repository: Path = ROOT) -> None:
     result = subprocess.run(
         ["bash", str(ROOT / "scripts/verify_release_tag.sh"), tag, expected_ref],
@@ -786,7 +795,10 @@ def validate_provenance(config: dict[str, Any], version: str, errors: list[str])
         except ReleaseError as exc:
             errors.append(str(exc))
 
-    omitted_paths = git("diff", "--name-only", f"{included_through}..HEAD").splitlines()
+    evidence_endpoint = release_evidence_endpoint(version)
+    omitted_paths = git(
+        "diff", "--name-only", f"{included_through}..{evidence_endpoint}"
+    ).splitlines()
     unexpected_paths = [
         path for path in omitted_paths if not is_release_evidence_path(path, version)
     ]

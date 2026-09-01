@@ -488,6 +488,25 @@ Recovery classification: Forward fix.
                     "v0.0.9", "a" * 40
                 )
 
+    def test_released_version_bounds_evidence_at_its_tag(self) -> None:
+        commit = "a" * 40
+        with (
+            mock.patch.object(
+                platform_release, "repository_tags", return_value=["v0.1.0"]
+            ),
+            mock.patch.object(platform_release, "git", return_value=commit),
+            mock.patch.object(platform_release, "git_is_ancestor", return_value=True),
+        ):
+            self.assertEqual(
+                platform_release.release_evidence_endpoint("0.1.0"), commit
+            )
+
+    def test_unreleased_version_checks_evidence_through_head(self) -> None:
+        with mock.patch.object(platform_release, "repository_tags", return_value=[]):
+            self.assertEqual(
+                platform_release.release_evidence_endpoint("0.1.1"), "HEAD"
+            )
+
     def test_final_validation_checks_version_at_included_through(self) -> None:
         provenance = {
             "previousTag": "v0.1.0",
