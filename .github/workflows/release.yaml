@@ -97,6 +97,9 @@ jobs:
       - name: Validate signed release data
         working-directory: release-data
         run: |
+          uv run --project ../release-tooling --frozen python \
+            ../release-tooling/scripts/platform_release.py inspect-release \
+            --release-root . --tag "$GITHUB_REF_NAME"
           make check
           make release-check TAG="$GITHUB_REF_NAME"
 

@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Published platform tag to propose (v0.2.7 or newer)
+        description: Published platform tag to propose (v0.1.0 or newer)
         required: true
         type: string
 

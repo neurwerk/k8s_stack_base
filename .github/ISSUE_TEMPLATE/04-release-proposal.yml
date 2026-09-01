@@ -17,13 +17,22 @@ body:
       placeholder: vX.Y.Z
     validations:
       required: true
+  - type: dropdown
+    id: provenance
+    attributes:
+      label: Provenance mode
+      description: Use bootstrap only for the repository's first exact v0.1.0 release.
+      options:
+        - Signed predecessor
+        - One-time v0.1.0 bootstrap
+    validations:
+      required: true
   - type: input
     id: previous
     attributes:
       label: Previous release tag
-      placeholder: vX.Y.Z
-    validations:
-      required: true
+      description: Required for signed-predecessor releases; leave empty only for the v0.1.0 bootstrap.
+      placeholder: vX.Y.Z or empty for bootstrap
   - type: textarea
     id: changes
     attributes:

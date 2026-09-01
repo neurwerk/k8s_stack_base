@@ -11,6 +11,10 @@ permissions:
   actions: read
   contents: read
 
+concurrency:
+  group: platform-release-publication
+  cancel-in-progress: false
+
 jobs:
   publish:
     if: >-
@@ -64,11 +68,12 @@ jobs:
       - name: Install Python
         run: uv python install 3.12
 
-      - name: Reverify tag, predecessor, ancestry, and release contract
+      - name: Reverify tag, provenance, ancestry, and release contract
         id: contract
         working-directory: release-data
         env:
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          GH_TOKEN: ${{ github.token }}
           PLATFORM_RELEASE_ALLOWED_SIGNER: ${{ vars.PLATFORM_RELEASE_ALLOWED_SIGNER }}
           PLATFORM_RELEASE_PUBLIC_KEY_FILE: ${{ github.workspace }}/release-tooling/release/trust/platform-release.sshpub
           RELEASE_TAG: ${{ steps.release.outputs.tag }}
@@ -80,22 +85,52 @@ jobs:
             "refs/heads/$DEFAULT_BRANCH:refs/remotes/origin/$DEFAULT_BRANCH"
           git merge-base --is-ancestor \
             "$RELEASE_TAG^{commit}" "refs/remotes/origin/$DEFAULT_BRANCH"
-          previous_tag="$(uv run --project ../release-tooling --frozen python \
+          provenance_mode="$(uv run --project ../release-tooling --frozen python \
             ../release-tooling/scripts/platform_release.py inspect-release \
-            --release-root . --tag "$RELEASE_TAG" --field previous-tag)"
-          bash ../release-tooling/scripts/verify_release_tag.sh \
-            "$previous_tag" "$previous_tag"
-          printf 'previous-tag=%s\n' "$previous_tag" >> "$GITHUB_OUTPUT"
+            --release-root . --tag "$RELEASE_TAG" --field provenance-mode)"
+          printf 'provenance-mode=%s\n' "$provenance_mode" >> "$GITHUB_OUTPUT"
 
-      - name: Generate GitHub notes from the explicit previous tag
+          if [[ "$provenance_mode" == "bootstrap" ]]; then
+            if [[ "$RELEASE_TAG" != "v0.1.0" ]]; then
+              echo "bootstrap publication is allowed only for v0.1.0" >&2
+              exit 1
+            fi
+            mapfile -t all_tags < <(git tag --list)
+            if [[ "${#all_tags[@]}" -ne 1 || "${all_tags[0]}" != "$RELEASE_TAG" ]]; then
+              echo "bootstrap publication requires v0.1.0 to be the repository's only tag" >&2
+              exit 1
+            fi
+            existing_releases="$(gh api --paginate \
+              "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq '.[].id')"
+            if [[ -n "$existing_releases" ]]; then
+              echo "bootstrap publication requires zero existing GitHub Releases" >&2
+              exit 1
+            fi
+          elif [[ "$provenance_mode" == "predecessor" ]]; then
+            previous_tag="$(uv run --project ../release-tooling --frozen python \
+              ../release-tooling/scripts/platform_release.py inspect-release \
+              --release-root . --tag "$RELEASE_TAG" --field previous-tag)"
+            bash ../release-tooling/scripts/verify_release_tag.sh \
+              "$previous_tag" "$previous_tag"
+            printf 'previous-tag=%s\n' "$previous_tag" >> "$GITHUB_OUTPUT"
+          else
+            echo "unsupported provenance mode: $provenance_mode" >&2
+            exit 1
+          fi
+
+      - name: Generate GitHub notes from the explicit release boundary
         env:
           GH_TOKEN: ${{ github.token }}
+          PROVENANCE_MODE: ${{ steps.contract.outputs.provenance-mode }}
           RELEASE_TAG: ${{ steps.release.outputs.tag }}
           PREVIOUS_TAG: ${{ steps.contract.outputs.previous-tag }}
         run: |
+          note_args=(-f tag_name="$RELEASE_TAG")
+          if [[ "$PROVENANCE_MODE" == "predecessor" ]]; then
+            note_args+=(-f previous_tag_name="$PREVIOUS_TAG")
+          fi
           gh api --method POST "repos/$GITHUB_REPOSITORY/releases/generate-notes" \
-            -f tag_name="$RELEASE_TAG" \
-            -f previous_tag_name="$PREVIOUS_TAG" \
+            "${note_args[@]}" \
             --jq .body > "$RUNNER_TEMP/generated-notes.md"
 
       - name: Build curated and generated release notes with trusted tooling

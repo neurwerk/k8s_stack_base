@@ -33,8 +33,10 @@ RELEASE_TAG = re.compile(r"^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")
 GIT_COMMIT = re.compile(r"^[0-9a-f]{40}$")
 IMAGE_TAG = re.compile(r"^(?P<repository>.+):(?P<tag>[^/:]+)$")
 REPOSITORY_URL = "https://github.com/neurwerk/k8s_stack_base"
-PROVENANCE_BOOTSTRAP_VERSION = "0.2.6"
-MINIMUM_PROVENANCE_RELEASE = "0.2.7"
+UNPUBLISHED_BASELINE_VERSION = "0.0.0"
+BOOTSTRAP_RELEASE_VERSION = "0.1.0"
+BOOTSTRAP_RELEASE_TAG = f"v{BOOTSTRAP_RELEASE_VERSION}"
+MINIMUM_PROVENANCE_RELEASE = BOOTSTRAP_RELEASE_VERSION
 RECOVERY_ACTIONS = (
     "configuration-revert",
     "forward-fix",
@@ -146,6 +148,40 @@ def provenance_from_git(previous_tag: str, included_through: str | None = None) 
         "commits": commits,
         "compareUrl": f"{REPOSITORY_URL}/compare/{previous_tag}...{included}",
     }
+
+
+def repository_tags(repository: Path = ROOT) -> list[str]:
+    """Return every tag in the repository in stable order."""
+    return sorted(git("tag", "--list", repository=repository).splitlines())
+
+
+def bootstrap_provenance_from_git(
+    included_through: str | None = None, repository: Path = ROOT
+) -> dict[str, Any]:
+    """Record the complete reachable history for the first platform release."""
+    included = git("rev-parse", included_through or "HEAD", repository=repository)
+    if GIT_COMMIT.fullmatch(included) is None:
+        raise ReleaseError("includedThrough must resolve to a full Git commit")
+    commits = git("rev-list", "--reverse", included, repository=repository).splitlines()
+    if not commits:
+        raise ReleaseError("bootstrap provenance contains no reachable commits")
+    return {
+        "bootstrap": True,
+        "includedThrough": included,
+        "commits": commits,
+        "historyUrl": f"{REPOSITORY_URL}/commits/{included}",
+    }
+
+
+def provenance_mode(provenance: Any) -> str:
+    """Return the validated provenance variant name."""
+    if not isinstance(provenance, dict):
+        raise ReleaseError("release provenance must be an object")
+    if provenance.get("bootstrap") is True:
+        return "bootstrap"
+    if "previousTag" in provenance:
+        return "predecessor"
+    raise ReleaseError("release provenance has no recognized mode")
 
 
 def release_tag_for_commit(commit: str, repository: Path = ROOT) -> str:
@@ -429,9 +465,10 @@ def image_inventory(config: dict[str, Any]) -> list[dict[str, Any]]:
 def build_manifest() -> dict[str, Any]:
     config = load_yaml(CONFIG_PATH)
     version = VERSION_PATH.read_text().strip()
+    release_date = config["releaseDate"]
     spec = {
         "version": version,
-        "releaseDate": str(config["releaseDate"]),
+        "releaseDate": None if release_date is None else str(release_date),
         "summary": str(config["summary"]),
         "trust": config["trust"],
         "compatibility": config["compatibility"],
@@ -677,21 +714,34 @@ def validate_release_prose(config: dict[str, Any], version: str, errors: list[st
 
 def validate_provenance(config: dict[str, Any], version: str, errors: list[str]) -> None:
     provenance = config.get("provenance")
-    if provenance is None:
-        if version != PROVENANCE_BOOTSTRAP_VERSION:
-            errors.append("release provenance is missing")
+    if version == UNPUBLISHED_BASELINE_VERSION:
+        if provenance is not None:
+            errors.append(
+                f"unpublished baseline {version} must not declare release provenance"
+            )
         return
-    if not isinstance(provenance, dict):
-        errors.append("release provenance must be an object")
+    if provenance is None:
+        errors.append("release provenance is missing")
+        return
+    try:
+        mode = provenance_mode(provenance)
+    except ReleaseError as exc:
+        errors.append(str(exc))
         return
 
-    previous_tag = provenance.get("previousTag")
+    if version == BOOTSTRAP_RELEASE_VERSION and mode != "bootstrap":
+        errors.append(
+            f"bootstrap release {BOOTSTRAP_RELEASE_TAG} requires bootstrap provenance"
+        )
+        return
+    if version != BOOTSTRAP_RELEASE_VERSION and mode == "bootstrap":
+        errors.append(
+            f"bootstrap provenance is allowed only for {BOOTSTRAP_RELEASE_TAG}"
+        )
+        return
+
     included_through = provenance.get("includedThrough")
     commits = provenance.get("commits")
-    compare_url = provenance.get("compareUrl")
-    if not isinstance(previous_tag, str) or RELEASE_TAG.fullmatch(previous_tag) is None:
-        errors.append("release provenance previousTag is not a strict release tag")
-        return
     if not isinstance(included_through, str) or GIT_COMMIT.fullmatch(included_through) is None:
         errors.append("release provenance includedThrough is not a full commit")
         return
@@ -700,21 +750,42 @@ def validate_provenance(config: dict[str, Any], version: str, errors: list[str])
     ):
         errors.append("release provenance commits must be a non-empty list of full commits")
         return
+    if commits[-1] != included_through:
+        errors.append("release provenance includedThrough must equal the final commit")
 
-    expected_url = f"{REPOSITORY_URL}/compare/{previous_tag}...{included_through}"
-    if compare_url != expected_url:
-        errors.append("release provenance compareUrl is not canonical")
-    try:
-        expected = provenance_from_git(previous_tag, included_through)
-    except ReleaseError as exc:
-        errors.append(str(exc))
-        return
-    if commits != expected["commits"]:
-        errors.append("release provenance commit list does not match Git history")
-    try:
-        validate_previous_tag_at_included_through(previous_tag, included_through)
-    except ReleaseError as exc:
-        errors.append(str(exc))
+    if mode == "bootstrap":
+        expected_url = f"{REPOSITORY_URL}/commits/{included_through}"
+        if provenance.get("historyUrl") != expected_url:
+            errors.append("release provenance historyUrl is not canonical")
+        try:
+            expected = bootstrap_provenance_from_git(included_through)
+        except ReleaseError as exc:
+            errors.append(str(exc))
+            return
+        if commits != expected["commits"]:
+            errors.append(
+                "release provenance commit list does not match complete Git history"
+            )
+    else:
+        previous_tag = provenance.get("previousTag")
+        if not isinstance(previous_tag, str) or RELEASE_TAG.fullmatch(previous_tag) is None:
+            errors.append("release provenance previousTag is not a strict release tag")
+            return
+        expected_url = f"{REPOSITORY_URL}/compare/{previous_tag}...{included_through}"
+        if provenance.get("compareUrl") != expected_url:
+            errors.append("release provenance compareUrl is not canonical")
+        try:
+            expected = provenance_from_git(previous_tag, included_through)
+        except ReleaseError as exc:
+            errors.append(str(exc))
+            return
+        if commits != expected["commits"]:
+            errors.append("release provenance commit list does not match Git history")
+        try:
+            validate_previous_tag_at_included_through(previous_tag, included_through)
+        except ReleaseError as exc:
+            errors.append(str(exc))
+
     omitted_paths = git("diff", "--name-only", f"{included_through}..HEAD").splitlines()
     unexpected_paths = [
         path for path in omitted_paths if not is_release_evidence_path(path, version)
@@ -737,14 +808,26 @@ def validate(tag: str | None = None) -> None:
         errors.append(f"VERSION is not SemVer: {version!r}")
     if str(config.get("version")) != version:
         errors.append("release/config.yaml version does not match VERSION")
-    try:
-        validate_release_date(str(config.get("releaseDate", "")))
-    except ReleaseError as exc:
-        errors.append(str(exc))
+    if version == UNPUBLISHED_BASELINE_VERSION:
+        if config.get("releaseDate") is not None:
+            errors.append("unpublished baseline releaseDate must be null")
+    else:
+        try:
+            validate_release_date(str(config.get("releaseDate", "")))
+        except ReleaseError as exc:
+            errors.append(str(exc))
     if tag and tag != f"v{version}":
         errors.append(f"tag {tag!r} does not match v{version}")
     if tag and RELEASE_TAG.fullmatch(tag) is None:
         errors.append(f"tag is not strict SemVer: {tag!r}")
+    if (
+        tag
+        and SEMVER.fullmatch(version)
+        and semver_tuple(version) < semver_tuple(BOOTSTRAP_RELEASE_VERSION)
+    ):
+        errors.append(
+            f"unpublished pre-v{BOOTSTRAP_RELEASE_VERSION} history cannot be released"
+        )
 
     validate_provenance(config, version, errors)
     previous_tag = config.get("provenance", {}).get("previousTag")
@@ -752,6 +835,17 @@ def validate(tag: str | None = None) -> None:
         previous_version = previous_tag.removeprefix("v")
         if SEMVER.fullmatch(version) and semver_tuple(version) <= semver_tuple(previous_version):
             errors.append("release version is not newer than provenance previousTag")
+
+    compatibility = config.get("compatibility")
+    if version == BOOTSTRAP_RELEASE_VERSION and (
+        not isinstance(compatibility, dict)
+        or compatibility.get("freshInstall") != "supported"
+        or compatibility.get("upgradesFrom") != []
+        or compatibility.get("downgrade") != "unsupported"
+    ):
+        errors.append(
+            f"bootstrap release {BOOTSTRAP_RELEASE_TAG} must be fresh-install-only"
+        )
 
     trust = config.get("trust", {})
     key_algorithm, key_fingerprint, key_comment = public_key_fingerprint()
@@ -766,7 +860,8 @@ def validate(tag: str | None = None) -> None:
     if key_comment != "platform-release@neurwerk":
         errors.append("release public key has the wrong identity comment")
 
-    validate_release_prose(config, version, errors)
+    if version != UNPUBLISHED_BASELINE_VERSION:
+        validate_release_prose(config, version, errors)
 
     for package in config.get("packages", {}).get("default", []):
         if not (ROOT / str(package)).is_dir():
@@ -841,42 +936,90 @@ def inspect_release_data(
         raise ReleaseError("release config and manifest compatibility do not match")
 
     provenance = config.get("provenance")
-    if not isinstance(provenance, dict) or spec.get("provenance") != provenance:
+    if spec.get("provenance") != provenance:
         raise ReleaseError("release config and manifest provenance do not match")
-    previous_tag = provenance.get("previousTag")
+    mode = provenance_mode(provenance)
     included_through = provenance.get("includedThrough")
     commits = provenance.get("commits")
-    if not isinstance(previous_tag, str) or RELEASE_TAG.fullmatch(previous_tag) is None:
-        raise ReleaseError("release provenance has no strict previousTag")
     if not isinstance(included_through, str) or GIT_COMMIT.fullmatch(included_through) is None:
         raise ReleaseError("release provenance has no full includedThrough commit")
-    if not isinstance(commits, list):
-        raise ReleaseError("release provenance commits are missing")
+    if not isinstance(commits, list) or not commits or not all(
+        isinstance(commit, str) and GIT_COMMIT.fullmatch(commit) for commit in commits
+    ):
+        raise ReleaseError("release provenance commits are missing or invalid")
+    if commits[-1] != included_through:
+        raise ReleaseError("release provenance includedThrough is not the final commit")
 
-    validate_previous_tag_at_included_through(
-        previous_tag, included_through, repository=release_root
-    )
-    previous_version = git(
-        "show", f"{previous_tag}:VERSION", repository=release_root
-    ).strip()
-    if previous_tag != f"v{previous_version}":
-        raise ReleaseError("previousTag does not match VERSION in the previous release")
-    previous_commit = git(
-        "rev-parse", "--verify", f"{previous_tag}^{{commit}}", repository=release_root
-    )
     tag_commit = git("rev-parse", "--verify", f"{tag}^{{commit}}", repository=release_root)
-    if not git_is_ancestor(previous_commit, included_through, repository=release_root):
-        raise ReleaseError("previousTag is not an ancestor of includedThrough")
     if not git_is_ancestor(included_through, tag_commit, repository=release_root):
         raise ReleaseError("includedThrough is not an ancestor of the release tag")
-    expected_commits = git(
-        "rev-list", "--reverse", f"{previous_tag}..{included_through}", repository=release_root
-    ).splitlines()
-    if commits != expected_commits or not expected_commits:
-        raise ReleaseError("release provenance commit list does not match Git history")
-    expected_url = f"{REPOSITORY_URL}/compare/{previous_tag}...{included_through}"
-    if provenance.get("compareUrl") != expected_url:
-        raise ReleaseError("release provenance compareUrl is not canonical")
+
+    if mode == "bootstrap":
+        if version != BOOTSTRAP_RELEASE_VERSION or tag != BOOTSTRAP_RELEASE_TAG:
+            raise ReleaseError(
+                f"bootstrap provenance is allowed only for {BOOTSTRAP_RELEASE_TAG}"
+            )
+        if (
+            not isinstance(config_compatibility, dict)
+            or config_compatibility.get("freshInstall") != "supported"
+            or config_compatibility.get("upgradesFrom") != []
+            or config_compatibility.get("downgrade") != "unsupported"
+        ):
+            raise ReleaseError(
+                f"bootstrap release {BOOTSTRAP_RELEASE_TAG} must be fresh-install-only"
+            )
+        expected = bootstrap_provenance_from_git(included_through, release_root)
+        if commits != expected["commits"]:
+            raise ReleaseError(
+                "release provenance commit list does not match complete Git history"
+            )
+        if provenance.get("historyUrl") != expected["historyUrl"]:
+            raise ReleaseError("release provenance historyUrl is not canonical")
+        older_tags = [
+            candidate
+            for candidate in repository_tags(release_root)
+            if RELEASE_TAG.fullmatch(candidate)
+            and semver_tuple(candidate.removeprefix("v"))
+            < semver_tuple(BOOTSTRAP_RELEASE_VERSION)
+        ]
+        if older_tags:
+            raise ReleaseError(
+                "bootstrap release cannot follow existing platform release tags: "
+                + ", ".join(older_tags)
+            )
+    else:
+        if version == BOOTSTRAP_RELEASE_VERSION:
+            raise ReleaseError(
+                f"bootstrap release {BOOTSTRAP_RELEASE_TAG} requires bootstrap provenance"
+            )
+        previous_tag = provenance.get("previousTag")
+        if not isinstance(previous_tag, str) or RELEASE_TAG.fullmatch(previous_tag) is None:
+            raise ReleaseError("release provenance has no strict previousTag")
+        validate_previous_tag_at_included_through(
+            previous_tag, included_through, repository=release_root
+        )
+        previous_version = git(
+            "show", f"{previous_tag}:VERSION", repository=release_root
+        ).strip()
+        if previous_tag != f"v{previous_version}":
+            raise ReleaseError("previousTag does not match VERSION in the previous release")
+        previous_commit = git(
+            "rev-parse", "--verify", f"{previous_tag}^{{commit}}", repository=release_root
+        )
+        if not git_is_ancestor(previous_commit, included_through, repository=release_root):
+            raise ReleaseError("previousTag is not an ancestor of includedThrough")
+        expected_commits = git(
+            "rev-list",
+            "--reverse",
+            f"{previous_tag}..{included_through}",
+            repository=release_root,
+        ).splitlines()
+        if commits != expected_commits or not expected_commits:
+            raise ReleaseError("release provenance commit list does not match Git history")
+        expected_url = f"{REPOSITORY_URL}/compare/{previous_tag}...{included_through}"
+        if provenance.get("compareUrl") != expected_url:
+            raise ReleaseError("release provenance compareUrl is not canonical")
+
     changed_after = git(
         "diff", "--name-only", f"{included_through}..{tag_commit}", repository=release_root
     ).splitlines()
@@ -934,31 +1077,53 @@ def prepare_release(args: argparse.Namespace) -> None:
     current_version = VERSION_PATH.read_text().strip()
     if SEMVER.fullmatch(current_version) is None:
         raise ReleaseError(f"current VERSION is not strict SemVer: {current_version!r}")
-    expected_previous_tag = f"v{current_version}"
-    if args.previous_tag != expected_previous_tag:
-        raise ReleaseError(
-            f"previous-tag must match current VERSION: expected {expected_previous_tag}"
-        )
-    latest_tag = latest_release_tag()
-    if args.previous_tag != latest_tag:
-        raise ReleaseError(
-            f"previous-tag must be the latest release reachable from HEAD: {latest_tag}"
-        )
-    verify_release_tag_signature(args.previous_tag, args.previous_tag)
-
+    bootstrap = bool(getattr(args, "bootstrap", False))
     target = semver_tuple(args.version)
-    previous_match = RELEASE_TAG.fullmatch(args.previous_tag)
-    if previous_match is None:
-        raise ReleaseError(f"invalid previous release tag: {args.previous_tag!r}")
-    previous = tuple(int(part) for part in previous_match.groups())
-    if target <= previous:
-        raise ReleaseError("target version must be newer than the previous release tag")
     validate_release_date(args.release_date)
-
     upgrades_from = parse_upgrades_from(args.upgrades_from)
-    for source_tag in upgrades_from:
-        git("rev-parse", "--verify", f"{source_tag}^{{commit}}")
-    provenance = provenance_from_git(args.previous_tag)
+
+    if bootstrap:
+        if current_version != UNPUBLISHED_BASELINE_VERSION:
+            raise ReleaseError(
+                "bootstrap requires the exact unpublished "
+                f"{UNPUBLISHED_BASELINE_VERSION} baseline"
+            )
+        if args.version != BOOTSTRAP_RELEASE_VERSION:
+            raise ReleaseError(f"bootstrap target must be {BOOTSTRAP_RELEASE_TAG}")
+        tags = repository_tags()
+        if tags:
+            raise ReleaseError(
+                "bootstrap requires a repository with zero tags; found: "
+                + ", ".join(tags)
+            )
+        if args.fresh_install != "supported" or upgrades_from:
+            raise ReleaseError(
+                "bootstrap compatibility must support fresh installation and no upgrades"
+            )
+        provenance = bootstrap_provenance_from_git()
+    else:
+        previous_tag = getattr(args, "previous_tag", None)
+        expected_previous_tag = f"v{current_version}"
+        if previous_tag != expected_previous_tag:
+            raise ReleaseError(
+                f"previous-tag must match current VERSION: expected {expected_previous_tag}"
+            )
+        latest_tag = latest_release_tag()
+        if previous_tag != latest_tag:
+            raise ReleaseError(
+                f"previous-tag must be the latest release reachable from HEAD: {latest_tag}"
+            )
+        verify_release_tag_signature(previous_tag, previous_tag)
+
+        previous_match = RELEASE_TAG.fullmatch(previous_tag)
+        if previous_match is None:
+            raise ReleaseError(f"invalid previous release tag: {previous_tag!r}")
+        previous = tuple(int(part) for part in previous_match.groups())
+        if target <= previous:
+            raise ReleaseError("target version must be newer than the previous release tag")
+        for source_tag in upgrades_from:
+            git("rev-parse", "--verify", f"{source_tag}^{{commit}}")
+        provenance = provenance_from_git(previous_tag)
 
     config = load_yaml(CONFIG_PATH)
     config["version"] = args.version
@@ -1154,10 +1319,12 @@ def main() -> int:
     inspect.add_argument("--release-root", type=Path, required=True)
     inspect.add_argument("--tag", required=True)
     inspect.add_argument("--minimum-version", default=MINIMUM_PROVENANCE_RELEASE)
-    inspect.add_argument("--field", choices=("previous-tag",))
+    inspect.add_argument("--field", choices=("previous-tag", "provenance-mode"))
     prepare = subparsers.add_parser("prepare")
     prepare.add_argument("--version", required=True)
-    prepare.add_argument("--previous-tag", required=True)
+    preparation_mode = prepare.add_mutually_exclusive_group(required=True)
+    preparation_mode.add_argument("--bootstrap", action="store_true")
+    preparation_mode.add_argument("--previous-tag")
     prepare.add_argument("--release-date", required=True)
     prepare.add_argument("--summary", required=True)
     prepare.add_argument("--fresh-install", choices=("supported", "unsupported"), required=True)
@@ -1179,7 +1346,10 @@ def main() -> int:
             )
         elif args.command == "previous-tag":
             config = load_yaml(args.release_root.resolve() / "release/config.yaml")
-            print(config["provenance"]["previousTag"])
+            provenance = config.get("provenance")
+            if provenance_mode(provenance) != "predecessor":
+                raise ReleaseError("bootstrap release has no previous tag")
+            print(provenance["previousTag"])
         elif args.command == "tag-for-commit":
             print(release_tag_for_commit(args.commit, args.repository.resolve()))
         elif args.command == "inspect-release":
@@ -1187,7 +1357,11 @@ def main() -> int:
                 args.release_root, args.tag, args.minimum_version
             )
             if args.field == "previous-tag":
+                if provenance_mode(provenance) != "predecessor":
+                    raise ReleaseError("bootstrap release has no previous tag")
                 print(provenance["previousTag"])
+            elif args.field == "provenance-mode":
+                print(provenance_mode(provenance))
         elif args.command == "prepare":
             prepare_release(args)
         else:

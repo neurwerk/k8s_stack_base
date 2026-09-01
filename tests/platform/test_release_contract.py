@@ -82,7 +82,7 @@ class ReleaseContractTest(unittest.TestCase):
         for name, field, value in (
             ("invalid fresh install", "freshInstall", "yes"),
             ("non-tag upgrade", "upgradesFrom", ["0.2.5"]),
-            ("duplicate upgrades", "upgradesFrom", ["v0.2.5", "v0.2.5"]),
+            ("duplicate upgrades", "upgradesFrom", ["v0.1.0", "v0.1.0"]),
             ("supported downgrade", "downgrade", "supported"),
             ("unknown recovery", "recovery", "database-restore"),
         ):
@@ -100,11 +100,10 @@ class ReleaseContractTest(unittest.TestCase):
                 with self.assertRaises(platform_release.ReleaseError):
                     platform_release.validate_manifest_schema(invalid_manifest)
 
-    def test_migration_compatibility_matches_current_release(self) -> None:
-        migration = (ROOT / "release/migrations/v0.2.6.md").read_text()
-        compatibility = platform_release.parse_migration_compatibility(migration)
+    def test_unpublished_baseline_has_no_migration(self) -> None:
+        self.assertEqual(list((ROOT / "release/migrations").glob("v*.md")), [])
         self.assertEqual(
-            compatibility,
+            platform_release.build_manifest()["spec"]["compatibility"],
             {
                 "freshInstall": "supported",
                 "upgradesFrom": [],
@@ -112,28 +111,35 @@ class ReleaseContractTest(unittest.TestCase):
                 "recovery": "replacement-restore",
             },
         )
-        platform_release.validate_migration_compatibility(
-            migration,
-            platform_release.build_manifest()["spec"]["compatibility"],
-            "release manifest compatibility",
-        )
 
     def test_migration_compatibility_parses_wrapped_source_versions(self) -> None:
-        migration = (ROOT / "release/migrations/v0.2.5.md").read_text()
-        compatibility = platform_release.parse_migration_compatibility(migration)
-        self.assertEqual(
-            compatibility["upgradesFrom"],
-            ["v0.2.0", "v0.2.1", "v0.2.2", "v0.2.3", "v0.2.4"],
-        )
-
-    def test_migration_compatibility_rejects_invalid_declarations(self) -> None:
-        migration = """# Platform v0.2.7
+        migration = """# Platform v0.1.2
 
 ## Support
 
 - Fresh installation: Supported.
-- Supported source versions: `v0.2.5`,
-  `v0.2.6`.
+- Supported source versions: `v0.1.0`,
+  `v0.1.1`.
+- Downgrade: Unsupported.
+
+## Recovery
+
+Recovery classification: Replacement restore.
+"""
+        compatibility = platform_release.parse_migration_compatibility(migration)
+        self.assertEqual(
+            compatibility["upgradesFrom"],
+            ["v0.1.0", "v0.1.1"],
+        )
+
+    def test_migration_compatibility_rejects_invalid_declarations(self) -> None:
+        migration = """# Platform v0.1.2
+
+## Support
+
+- Fresh installation: Supported.
+- Supported source versions: `v0.1.0`,
+  `v0.1.1`.
 - Downgrade: Unsupported.
 
 ## Recovery
@@ -175,38 +181,38 @@ Recovery classification: Replacement restore.
             (
                 "missing source versions",
                 migration.replace(
-                    "- Supported source versions: `v0.2.5`,\n  `v0.2.6`.\n", ""
+                    "- Supported source versions: `v0.1.0`,\n  `v0.1.1`.\n", ""
                 ),
                 "exactly one supported source versions declaration",
             ),
             (
                 "duplicate source versions",
                 migration.replace(
-                    "- Supported source versions: `v0.2.5`,",
+                    "- Supported source versions: `v0.1.0`,",
                     "- Supported source versions: None.\n"
-                    "- Supported source versions: `v0.2.5`,",
+                    "- Supported source versions: `v0.1.0`,",
                 ),
                 "exactly one supported source versions declaration",
             ),
             (
                 "malformed source versions",
-                migration.replace("`v0.2.5`,", "v0.2.5,"),
+                migration.replace("`v0.1.0`,", "v0.1.0,"),
                 "must be None or comma-separated strict tags",
             ),
             (
                 "duplicate source tags",
-                migration.replace("`v0.2.6`.", "`v0.2.5`."),
+                migration.replace("`v0.1.1`.", "`v0.1.0`."),
                 "source versions contain duplicate tags",
             ),
             (
                 "invalid source continuation",
-                migration.replace("  `v0.2.6`.", "`v0.2.6`."),
+                migration.replace("  `v0.1.1`.", "`v0.1.1`."),
                 "source versions declaration has invalid continuation",
             ),
             (
                 "misplaced source versions",
                 migration.replace(
-                    "- Supported source versions: `v0.2.5`,\n  `v0.2.6`.\n", ""
+                    "- Supported source versions: `v0.1.0`,\n  `v0.1.1`.\n", ""
                 ).replace(
                     "Recovery classification: Replacement restore.",
                     "- Supported source versions: None.\n"
@@ -289,7 +295,7 @@ Recovery classification: Replacement restore.
         migration = """## Support
 
 - Fresh installation: Supported.
-- Supported source versions: `v0.2.5`, `v0.2.6`.
+- Supported source versions: `v0.1.0`, `v0.1.1`.
 - Downgrade: Unsupported.
 
 ## Recovery
@@ -298,7 +304,7 @@ Recovery classification: Forward fix.
 """
         matching = {
             "freshInstall": "supported",
-            "upgradesFrom": ["v0.2.5", "v0.2.6"],
+            "upgradesFrom": ["v0.1.0", "v0.1.1"],
             "downgrade": "unsupported",
             "recovery": "forward-fix",
         }
@@ -310,12 +316,12 @@ Recovery classification: Forward fix.
             ),
             (
                 "upgradesFrom set",
-                {**matching, "upgradesFrom": ["v0.2.4", "v0.2.5"]},
+                {**matching, "upgradesFrom": ["v0.0.9", "v0.1.0"]},
                 "migration upgradesFrom set does not match release config compatibility.upgradesFrom",
             ),
             (
                 "upgradesFrom order",
-                {**matching, "upgradesFrom": ["v0.2.6", "v0.2.5"]},
+                {**matching, "upgradesFrom": ["v0.1.1", "v0.1.0"]},
                 "migration upgradesFrom order does not match release config compatibility.upgradesFrom",
             ),
             (
@@ -340,17 +346,38 @@ Recovery classification: Forward fix.
                     )
 
     def test_final_validation_uses_migration_compatibility(self) -> None:
-        config = platform_release.load_yaml(ROOT / "release/config.yaml")
+        config = {
+            "releaseDate": "2026-09-01",
+            "summary": "Reviewed release.",
+            "compatibility": {
+                "freshInstall": "supported",
+                "upgradesFrom": [],
+                "downgrade": "unsupported",
+                "recovery": "replacement-restore",
+            },
+        }
         mismatch = platform_release.ReleaseError(
             "release migration recovery does not match release config compatibility.recovery"
         )
         errors: list[str] = []
-        with mock.patch.object(
-            platform_release,
-            "validate_migration_compatibility",
-            side_effect=mismatch,
-        ) as validate_compatibility:
-            platform_release.validate_release_prose(config, "0.2.6", errors)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "release/migrations").mkdir(parents=True)
+            (root / "release/migrations/v0.1.0.md").write_text("Reviewed migration.\n")
+            changelog = root / "CHANGELOG.md"
+            changelog.write_text(
+                "# Changelog\n\n## [0.1.0] - 2026-09-01\n\nReviewed release.\n"
+            )
+            with (
+                mock.patch.object(platform_release, "ROOT", root),
+                mock.patch.object(platform_release, "CHANGELOG_PATH", changelog),
+                mock.patch.object(
+                    platform_release,
+                    "validate_migration_compatibility",
+                    side_effect=mismatch,
+                ) as validate_compatibility,
+            ):
+                platform_release.validate_release_prose(config, "0.1.0", errors)
         validate_compatibility.assert_called_once()
         self.assertIn(str(mismatch), errors)
 
@@ -362,14 +389,14 @@ Recovery classification: Forward fix.
             "recovery": "replacement-restore",
         }
         config = {
-            "version": "0.2.7",
+            "version": "0.1.1",
             "releaseDate": "2026-09-01",
             "compatibility": compatibility,
         }
         manifest = {
-            "metadata": {"name": "v0.2.7"},
+            "metadata": {"name": "v0.1.1"},
             "spec": {
-                "version": "0.2.7",
+                "version": "0.1.1",
                 "releaseDate": "2026-09-01",
                 "compatibility": {**compatibility, "recovery": "forward-fix"},
             },
@@ -377,7 +404,7 @@ Recovery classification: Forward fix.
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             (root / "release").mkdir()
-            (root / "VERSION").write_text("0.2.7\n")
+            (root / "VERSION").write_text("0.1.1\n")
             (root / "release/config.yaml").write_text("{}\n")
             (root / "release/manifest.yaml").write_text("{}\n")
             with (
@@ -390,7 +417,7 @@ Recovery classification: Forward fix.
                     platform_release.ReleaseError,
                     "config and manifest compatibility do not match",
                 ):
-                    platform_release.inspect_release_data(root, "v0.2.7")
+                    platform_release.inspect_release_data(root, "v0.1.1")
 
     def test_release_provenance_matches_exact_git_history(self) -> None:
         self._release_integration_tag()
@@ -414,28 +441,56 @@ Recovery classification: Forward fix.
             mock.patch.object(platform_release, "git_is_ancestor", return_value=False),
         ):
             with self.assertRaisesRegex(platform_release.ReleaseError, "not an ancestor"):
-                platform_release.provenance_from_git("v0.2.6", "b" * 40)
+                platform_release.provenance_from_git("v0.1.0", "b" * 40)
+
+    def test_bootstrap_provenance_records_complete_history(self) -> None:
+        included = "b" * 40
+        commits = ["a" * 40, included]
+
+        def git_result(*arguments: str, repository: Path = ROOT) -> str:
+            self.assertEqual(repository, ROOT)
+            if arguments == ("rev-parse", "HEAD"):
+                return included
+            if arguments == ("rev-list", "--reverse", included):
+                return "\n".join(commits)
+            self.fail(f"unexpected git arguments: {arguments}")
+
+        with mock.patch.object(platform_release, "git", side_effect=git_result):
+            provenance = platform_release.bootstrap_provenance_from_git()
+
+        self.assertEqual(
+            provenance,
+            {
+                "bootstrap": True,
+                "includedThrough": included,
+                "commits": commits,
+                "historyUrl": (
+                    "https://github.com/neurwerk/k8s_stack_base/commits/"
+                    f"{included}"
+                ),
+            },
+        )
 
     def test_previous_tag_must_match_version_at_included_through(self) -> None:
-        with mock.patch.object(platform_release, "git", return_value="0.2.5"):
+        with mock.patch.object(platform_release, "git", return_value="0.1.0"):
             platform_release.validate_previous_tag_at_included_through(
-                "v0.2.5", "a" * 40
+                "v0.1.0", "a" * 40
             )
             with self.assertRaisesRegex(
                 platform_release.ReleaseError,
                 "previousTag does not match VERSION at includedThrough",
             ):
                 platform_release.validate_previous_tag_at_included_through(
-                    "v0.2.4", "a" * 40
+                    "v0.0.9", "a" * 40
                 )
 
     def test_final_validation_checks_version_at_included_through(self) -> None:
         provenance = {
-            "previousTag": "v0.2.5",
+            "previousTag": "v0.1.0",
             "includedThrough": "a" * 40,
             "commits": ["a" * 40],
             "compareUrl": (
-                "https://github.com/neurwerk/k8s_stack_base/compare/v0.2.5..."
+                "https://github.com/neurwerk/k8s_stack_base/compare/v0.1.0..."
                 f"{'a' * 40}"
             ),
         }
@@ -456,30 +511,30 @@ Recovery classification: Forward fix.
             mock.patch.object(platform_release, "git_is_ancestor", return_value=True),
         ):
             platform_release.validate_provenance(
-                {"provenance": provenance}, "0.2.6", errors
+                {"provenance": provenance}, "0.1.1", errors
             )
-        validate_previous.assert_called_once_with("v0.2.5", "a" * 40)
+        validate_previous.assert_called_once_with("v0.1.0", "a" * 40)
         self.assertIn(str(mismatch), errors)
 
     def test_publication_inspection_checks_version_at_included_through(self) -> None:
         provenance = {
-            "previousTag": "v0.2.5",
+            "previousTag": "v0.1.0",
             "includedThrough": "a" * 40,
             "commits": ["a" * 40],
             "compareUrl": (
-                "https://github.com/neurwerk/k8s_stack_base/compare/v0.2.5..."
+                "https://github.com/neurwerk/k8s_stack_base/compare/v0.1.0..."
                 f"{'a' * 40}"
             ),
         }
         config = {
-            "version": "0.2.7",
+            "version": "0.1.1",
             "releaseDate": "2026-09-01",
             "provenance": provenance,
         }
         manifest = {
-            "metadata": {"name": "v0.2.7"},
+            "metadata": {"name": "v0.1.1"},
             "spec": {
-                "version": "0.2.7",
+                "version": "0.1.1",
                 "releaseDate": "2026-09-01",
                 "provenance": provenance,
             },
@@ -490,7 +545,7 @@ Recovery classification: Forward fix.
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             (root / "release").mkdir()
-            (root / "VERSION").write_text("0.2.7\n")
+            (root / "VERSION").write_text("0.1.1\n")
             (root / "release/config.yaml").write_text("{}\n")
             (root / "release/manifest.yaml").write_text("{}\n")
             with (
@@ -498,6 +553,10 @@ Recovery classification: Forward fix.
                     platform_release, "load_yaml", side_effect=[config, manifest]
                 ),
                 mock.patch.object(platform_release, "validate_manifest_schema"),
+                mock.patch.object(platform_release, "git", return_value="b" * 40),
+                mock.patch.object(
+                    platform_release, "git_is_ancestor", return_value=True
+                ),
                 mock.patch.object(
                     platform_release,
                     "validate_previous_tag_at_included_through",
@@ -508,10 +567,95 @@ Recovery classification: Forward fix.
                     platform_release.ReleaseError,
                     "previousTag does not match VERSION at includedThrough",
                 ):
-                    platform_release.inspect_release_data(root, "v0.2.7")
+                    platform_release.inspect_release_data(root, "v0.1.1")
         validate_previous.assert_called_once_with(
-            "v0.2.5", "a" * 40, repository=root.resolve()
+            "v0.1.0", "a" * 40, repository=root.resolve()
         )
+
+    def test_publication_inspects_bootstrap_complete_history(self) -> None:
+        included = "a" * 40
+        tag_commit = "b" * 40
+        compatibility = {
+            "freshInstall": "supported",
+            "upgradesFrom": [],
+            "downgrade": "unsupported",
+            "recovery": "replacement-restore",
+        }
+        provenance = {
+            "bootstrap": True,
+            "includedThrough": included,
+            "commits": [included],
+            "historyUrl": (
+                "https://github.com/neurwerk/k8s_stack_base/commits/" f"{included}"
+            ),
+        }
+        config = {
+            "version": "0.1.0",
+            "releaseDate": "2026-09-01",
+            "compatibility": compatibility,
+            "provenance": provenance,
+        }
+        manifest = {
+            "metadata": {"name": "v0.1.0"},
+            "spec": {
+                "version": "0.1.0",
+                "releaseDate": "2026-09-01",
+                "compatibility": compatibility,
+                "provenance": provenance,
+            },
+        }
+
+        def git_result(*arguments: str, repository: Path = ROOT) -> str:
+            if arguments == ("rev-parse", "--verify", "v0.1.0^{commit}"):
+                return tag_commit
+            if arguments == (
+                "diff",
+                "--name-only",
+                f"{included}..{tag_commit}",
+            ):
+                return ""
+            self.fail(f"unexpected git arguments: {arguments}")
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "release/migrations").mkdir(parents=True)
+            (root / "VERSION").write_text("0.1.0\n")
+            (root / "release/config.yaml").write_text("{}\n")
+            (root / "release/manifest.yaml").write_text("{}\n")
+            (root / "CHANGELOG.md").write_text(
+                "# Changelog\n\n## [0.1.0] - 2026-09-01\n\nReviewed release.\n"
+            )
+            (root / "release/migrations/v0.1.0.md").write_text(
+                "# Platform v0.1.0\n\n"
+                "## Support\n\n"
+                "- Fresh installation: Supported.\n"
+                "- Supported source versions: None.\n"
+                "- Downgrade: Unsupported.\n\n"
+                "## Recovery\n\n"
+                "Recovery classification: Replacement restore.\n\n"
+                "Use the reviewed replacement procedure.\n"
+            )
+            with (
+                mock.patch.object(
+                    platform_release, "load_yaml", side_effect=[config, manifest]
+                ),
+                mock.patch.object(platform_release, "validate_manifest_schema"),
+                mock.patch.object(platform_release, "git", side_effect=git_result),
+                mock.patch.object(
+                    platform_release, "git_is_ancestor", return_value=True
+                ),
+                mock.patch.object(
+                    platform_release,
+                    "bootstrap_provenance_from_git",
+                    return_value=provenance,
+                ),
+                mock.patch.object(
+                    platform_release, "repository_tags", return_value=["v0.1.0"]
+                ),
+            ):
+                inspected = platform_release.inspect_release_data(root, "v0.1.0")
+
+        self.assertEqual(inspected, provenance)
 
     def test_current_commit_resolves_to_one_release_tag(self) -> None:
         tag = self._release_integration_tag()
@@ -520,19 +664,70 @@ Recovery classification: Forward fix.
 
     def test_release_schema_rejects_incomplete_provenance(self) -> None:
         manifest = copy.deepcopy(platform_release.build_manifest())
+        manifest["spec"]["version"] = "0.1.1"
+        manifest["spec"]["releaseDate"] = "2026-09-01"
         manifest["spec"]["provenance"] = {
-            "previousTag": "v0.2.5",
+            "previousTag": "v0.1.0",
             "includedThrough": "f2289fc9e668d6de7b5738ed825378874b9540d4",
-            "compareUrl": "https://github.com/neurwerk/k8s_stack_base/compare/v0.2.5...f2289fc9e668d6de7b5738ed825378874b9540d4",
+            "compareUrl": "https://github.com/neurwerk/k8s_stack_base/compare/v0.1.0...f2289fc9e668d6de7b5738ed825378874b9540d4",
         }
         with self.assertRaises(platform_release.ReleaseError):
             platform_release.validate_manifest_schema(manifest)
 
     def test_release_schema_requires_provenance_after_bootstrap(self) -> None:
         manifest = copy.deepcopy(platform_release.build_manifest())
-        manifest["spec"]["version"] = "0.2.7"
+        manifest["spec"]["version"] = "0.1.1"
+        manifest["spec"]["releaseDate"] = "2026-09-01"
         with self.assertRaises(platform_release.ReleaseError):
             platform_release.validate_manifest_schema(manifest)
+
+    def test_release_schema_reserves_bootstrap_for_exact_v0_1_0(self) -> None:
+        manifest = copy.deepcopy(platform_release.build_manifest())
+        included = "a" * 40
+        bootstrap = {
+            "bootstrap": True,
+            "includedThrough": included,
+            "commits": [included],
+            "historyUrl": (
+                "https://github.com/neurwerk/k8s_stack_base/commits/" f"{included}"
+            ),
+        }
+        predecessor = {
+            "previousTag": "v0.1.0",
+            "includedThrough": included,
+            "commits": [included],
+            "compareUrl": (
+                "https://github.com/neurwerk/k8s_stack_base/compare/v0.1.0..."
+                f"{included}"
+            ),
+        }
+
+        manifest["spec"]["version"] = "0.1.0"
+        manifest["spec"]["releaseDate"] = "2026-09-01"
+        manifest["spec"]["provenance"] = bootstrap
+        platform_release.validate_manifest_schema(manifest)
+
+        manifest["spec"]["provenance"] = predecessor
+        with self.assertRaises(platform_release.ReleaseError):
+            platform_release.validate_manifest_schema(manifest)
+
+        manifest["spec"]["version"] = "0.1.1"
+        manifest["spec"]["provenance"] = bootstrap
+        with self.assertRaises(platform_release.ReleaseError):
+            platform_release.validate_manifest_schema(manifest)
+
+    def test_unpublished_baseline_rejects_release_fields(self) -> None:
+        manifest = copy.deepcopy(platform_release.build_manifest())
+        manifest["spec"]["releaseDate"] = "2026-09-01"
+        with self.assertRaises(platform_release.ReleaseError):
+            platform_release.validate_manifest_schema(manifest)
+
+    def test_unpublished_baseline_cannot_be_tagged(self) -> None:
+        with self.assertRaisesRegex(
+            platform_release.ReleaseError,
+            "unpublished pre-v0.1.0 history cannot be released",
+        ):
+            platform_release.validate("v0.0.0")
 
     def test_release_scaffolds_remain_invalid_until_curated(self) -> None:
         self.assertTrue(platform_release.contains_todo("TODO: write migration evidence"))
@@ -544,13 +739,106 @@ Recovery classification: Forward fix.
             "CHANGELOG.md",
             "release/config.yaml",
             "release/manifest.yaml",
-            "release/migrations/v0.2.7.md",
+            "release/migrations/v0.1.1.md",
         ):
             with self.subTest(path=path):
-                self.assertTrue(platform_release.is_release_evidence_path(path, "0.2.7"))
+                self.assertTrue(platform_release.is_release_evidence_path(path, "0.1.1"))
         for path in ("charts/studio/api/Chart.yaml", ".github/workflows/release.yaml"):
             with self.subTest(path=path):
-                self.assertFalse(platform_release.is_release_evidence_path(path, "0.2.7"))
+                self.assertFalse(platform_release.is_release_evidence_path(path, "0.1.1"))
+
+    def test_bootstrap_preparation_requires_zero_tags(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            version = Path(directory) / "VERSION"
+            version.write_text("0.0.0\n")
+            args = SimpleNamespace(
+                bootstrap=True,
+                version="0.1.0",
+                release_date="2026-09-01",
+                upgrades_from="",
+                fresh_install="supported",
+            )
+            with (
+                mock.patch.object(platform_release, "VERSION_PATH", version),
+                mock.patch.object(
+                    platform_release, "repository_tags", return_value=["legacy"]
+                ),
+            ):
+                with self.assertRaisesRegex(
+                    platform_release.ReleaseError, "requires a repository with zero tags"
+                ):
+                    platform_release.prepare_release(args)
+
+    def test_bootstrap_preparation_writes_complete_history_provenance(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            release_dir = root / "release"
+            (release_dir / "migrations").mkdir(parents=True)
+            config = release_dir / "config.yaml"
+            manifest = release_dir / "manifest.yaml"
+            version = root / "VERSION"
+            changelog = root / "CHANGELOG.md"
+            config.write_text("version: 0.0.0\npackages: {}\n")
+            version.write_text("0.0.0\n")
+            changelog.write_text("# Changelog\n\n## [Unreleased]\n")
+            included = "a" * 40
+            provenance = {
+                "bootstrap": True,
+                "includedThrough": included,
+                "commits": [included],
+                "historyUrl": (
+                    "https://github.com/neurwerk/k8s_stack_base/commits/"
+                    f"{included}"
+                ),
+            }
+            args = SimpleNamespace(
+                bootstrap=True,
+                version="0.1.0",
+                previous_tag=None,
+                release_date="2026-09-01",
+                summary="Establish the first reviewed platform release.",
+                fresh_install="supported",
+                upgrades_from="",
+                recovery="replacement-restore",
+            )
+            with (
+                mock.patch.object(platform_release, "ROOT", root),
+                mock.patch.object(platform_release, "CONFIG_PATH", config),
+                mock.patch.object(platform_release, "MANIFEST_PATH", manifest),
+                mock.patch.object(platform_release, "VERSION_PATH", version),
+                mock.patch.object(platform_release, "CHANGELOG_PATH", changelog),
+                mock.patch.object(platform_release, "repository_tags", return_value=[]),
+                mock.patch.object(
+                    platform_release,
+                    "bootstrap_provenance_from_git",
+                    return_value=provenance,
+                ),
+                mock.patch.object(
+                    platform_release,
+                    "verify_release_tag_signature",
+                ) as verify_signature,
+                mock.patch.object(
+                    platform_release,
+                    "build_manifest",
+                    return_value={"spec": {"provenance": provenance}},
+                ),
+                mock.patch.object(platform_release, "validate_manifest_schema"),
+            ):
+                platform_release.prepare_release(args)
+
+            verify_signature.assert_not_called()
+            prepared = yaml.safe_load(config.read_text())
+            self.assertEqual(prepared["provenance"], provenance)
+            self.assertEqual(
+                prepared["compatibility"],
+                {
+                    "freshInstall": "supported",
+                    "upgradesFrom": [],
+                    "downgrade": "unsupported",
+                    "recovery": "replacement-restore",
+                },
+            )
+            self.assertEqual(version.read_text(), "0.1.0\n")
 
     def test_release_preparation_writes_only_release_evidence(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -562,21 +850,21 @@ Recovery classification: Forward fix.
             manifest = release_dir / "manifest.yaml"
             version = root / "VERSION"
             changelog = root / "CHANGELOG.md"
-            config.write_text("version: 0.2.6\npackages: {}\n")
-            version.write_text("0.2.6\n")
+            config.write_text("version: 0.1.0\npackages: {}\n")
+            version.write_text("0.1.0\n")
             changelog.write_text("# Changelog\n\n## [Unreleased]\n")
             provenance = {
-                "previousTag": "v0.2.6",
+                "previousTag": "v0.1.0",
                 "includedThrough": "a" * 40,
                 "commits": ["a" * 40],
                 "compareUrl": (
-                    "https://github.com/neurwerk/k8s_stack_base/compare/v0.2.6..."
+                    "https://github.com/neurwerk/k8s_stack_base/compare/v0.1.0..."
                     f"{'a' * 40}"
                 ),
             }
             args = SimpleNamespace(
-                version="0.2.7",
-                previous_tag="v0.2.6",
+                version="0.1.1",
+                previous_tag="v0.1.0",
                 release_date="2026-09-01",
                 summary="Prepare the next reviewed platform release.",
                 fresh_install="supported",
@@ -590,7 +878,7 @@ Recovery classification: Forward fix.
                 mock.patch.object(platform_release, "VERSION_PATH", version),
                 mock.patch.object(platform_release, "CHANGELOG_PATH", changelog),
                 mock.patch.object(
-                    platform_release, "latest_release_tag", return_value="v0.2.6"
+                    platform_release, "latest_release_tag", return_value="v0.1.0"
                 ),
                 mock.patch.object(
                     platform_release, "verify_release_tag_signature"
@@ -606,16 +894,16 @@ Recovery classification: Forward fix.
                 mock.patch.object(platform_release, "validate_manifest_schema"),
             ):
                 platform_release.prepare_release(args)
-            verify_signature.assert_called_once_with("v0.2.6", "v0.2.6")
+            verify_signature.assert_called_once_with("v0.1.0", "v0.1.0")
 
             prepared = yaml.safe_load(config.read_text())
             self.assertEqual(prepared["provenance"], provenance)
             self.assertEqual(prepared["compatibility"]["downgrade"], "unsupported")
-            self.assertEqual(version.read_text(), "0.2.7\n")
+            self.assertEqual(version.read_text(), "0.1.1\n")
             self.assertTrue(platform_release.contains_todo(changelog.read_text()))
             self.assertTrue(
                 platform_release.contains_todo(
-                    (migration_dir / "v0.2.7.md").read_text()
+                    (migration_dir / "v0.1.1.md").read_text()
                 )
             )
             self.assertTrue(manifest.is_file())
@@ -624,7 +912,7 @@ Recovery classification: Forward fix.
                 mock.patch.object(platform_release, "ROOT", root),
                 mock.patch.object(platform_release, "CHANGELOG_PATH", changelog),
             ):
-                platform_release.validate_release_prose(prepared, "0.2.7", prose_errors)
+                platform_release.validate_release_prose(prepared, "0.1.1", prose_errors)
             self.assertIn("release changelog section contains TODO markers", prose_errors)
             self.assertIn("release migration document contains TODO markers", prose_errors)
             self.assertEqual(
@@ -634,7 +922,7 @@ Recovery classification: Forward fix.
                     "VERSION",
                     "release/config.yaml",
                     "release/manifest.yaml",
-                    "release/migrations/v0.2.7.md",
+                    "release/migrations/v0.1.1.md",
                 },
             )
 
@@ -648,23 +936,28 @@ Recovery classification: Forward fix.
     def test_release_preparation_requires_current_signed_predecessor(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             version = Path(directory) / "VERSION"
-            version.write_text("0.2.6\n")
-            args = SimpleNamespace(previous_tag="v0.2.5")
+            version.write_text("0.1.0\n")
+            args = SimpleNamespace(
+                version="0.1.1",
+                previous_tag="v0.0.9",
+                release_date="2026-09-01",
+                upgrades_from="",
+            )
             with mock.patch.object(platform_release, "VERSION_PATH", version):
                 with self.assertRaisesRegex(
-                    platform_release.ReleaseError, "expected v0.2.6"
+                    platform_release.ReleaseError, "expected v0.1.0"
                 ):
                     platform_release.prepare_release(args)
 
     def test_legacy_release_adoption_has_actionable_minimum_version(self) -> None:
         with self.assertRaisesRegex(
             platform_release.ReleaseError,
-            "client adoption requires v0.2.7 or newer",
+            "client adoption requires v0.1.0 or newer",
         ):
-            platform_release.inspect_release_data(ROOT, "v0.2.6")
+            platform_release.inspect_release_data(ROOT, "v0.0.0")
 
     def test_release_versions_are_strict_semver(self) -> None:
-        for value in ("v1.2.3", "v0.2.6"):
+        for value in ("v1.2.3", "v0.1.0"):
             with self.subTest(value=value):
                 self.assertIsNotNone(platform_release.RELEASE_TAG.fullmatch(value))
         for value in ("v1.2", "v01.2.3", "v1.2.3-rc.1", "1.2.3"):
@@ -698,6 +991,10 @@ Recovery classification: Forward fix.
         self.assertIn("environment: platform-release", publish)
         self.assertIn("contents: write", publish)
         self.assertIn("inspect-release", publish)
+        self.assertIn("group: platform-release-publication", publish)
+        self.assertIn("bootstrap publication requires v0.1.0", publish)
+        self.assertIn("requires zero existing GitHub Releases", publish)
+        self.assertIn("repository's only tag", publish)
         self.assertIn('previous_tag_name="$PREVIOUS_TAG"', publish)
         self.assertIn("git merge-base --is-ancestor", publish)
         self.assertIn(
@@ -716,6 +1013,9 @@ Recovery classification: Forward fix.
         self.assertIn("continue-on-error: true", workflow)
         self.assertIn("permissions:\n  contents: read", workflow)
         self.assertIn("permission-contents: write", workflow)
+        self.assertIn("bootstrap-v0.1.0", workflow)
+        self.assertIn('mode_args=(--bootstrap)', workflow)
+        self.assertIn('mode_args=(--previous-tag "$PREVIOUS_TAG")', workflow)
         self.assertNotIn("${{ inputs.downgrade }}", workflow)
         self.assertNotIn("--downgrade", workflow)
         self.assertNotIn("git tag", workflow)
@@ -777,6 +1077,10 @@ Recovery classification: Forward fix.
             (issue_dir / "04-release-proposal.yml").read_text()
         )
         self.assertIn("release: platform", proposal["labels"])
+        provenance = next(item for item in proposal["body"] if item.get("id") == "provenance")
+        self.assertIn("One-time v0.1.0 bootstrap", provenance["attributes"]["options"])
+        previous = next(item for item in proposal["body"] if item.get("id") == "previous")
+        self.assertNotIn("validations", previous)
 
     def test_client_source_update_preserves_signature_verification(self) -> None:
         original = """apiVersion: source.toolkit.fluxcd.io/v1
@@ -784,14 +1088,14 @@ kind: GitRepository
 metadata:
   annotations:
     platform.neurwerk.com/adoption-mode: fresh-install
-    platform.neurwerk.com/adoption-target: v0.2.6
+    platform.neurwerk.com/adoption-target: v0.1.0
   name: k8s-stack
   namespace: flux-system
 spec:
   interval: 30s
   url: https://github.com/neurwerk/k8s_stack_base.git
   ref:
-    tag: v0.2.6
+    tag: v0.1.0
   verify:
     mode: Tag
     secretRef:
@@ -802,9 +1106,9 @@ spec:
             candidate.write_text(original)
             platform_release.update_client_source(candidate, "v1.2.3")
             updated = candidate.read_text()
-        expected = original.replace("tag: v0.2.6", "tag: v1.2.3")
+        expected = original.replace("tag: v0.1.0", "tag: v1.2.3")
         expected = expected.replace(
-            "platform.neurwerk.com/adoption-target: v0.2.6",
+            "platform.neurwerk.com/adoption-target: v0.1.0",
             "platform.neurwerk.com/adoption-target: v1.2.3",
         )
         expected = expected.replace(
@@ -837,14 +1141,14 @@ kind: GitRepository
 metadata:
   annotations:
     platform.neurwerk.com/adoption-mode: 'upgrade' # reviewed target state
-    platform.neurwerk.com/adoption-target: "v0.2.6" # current target
+    platform.neurwerk.com/adoption-target: "v0.1.0" # current target
   name: k8s-stack
   namespace: flux-system
 spec:
   interval: 30s
   url: https://github.com/neurwerk/k8s_stack_base.git
   ref:
-    tag: 'v0.2.6' # current platform
+    tag: 'v0.1.0' # current platform
   verify:
     mode: Tag
     secretRef:
