@@ -12,6 +12,15 @@ metadata:
     app.kubernetes.io/part-of: kube-system
 spec:
   valuesContent: |-
+    # Direct host ports provide node ingress; K3s ServiceLB must not claim them.
+    service:
+      spec:
+        type: ClusterIP
+
+    # A singleton host-port pod cannot use a surging rolling update.
+    updateStrategy:
+      type: Recreate
+
     # ── Ports ────────────────────────────────────────────────────────────────
     ports:
       web:
