@@ -2,5 +2,5 @@ apiVersion: v2
 name: studio-api
 description: AI Stack Studio API — FastAPI backend for managing AI infrastructure
 type: application
-version: 0.6.12
-appVersion: "0.6.2"
+version: 0.6.13
+appVersion: "0.1.0"

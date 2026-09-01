@@ -4,7 +4,7 @@
 # NOTE: apiImage is shared by api, beat, and worker pods — same image,
 #       differentiated by the MODE env var (api/beat/worker).
 frontendDify:
-  apiImage: ghcr.io/neurwerk/addon-dify-ce-builder-api:1.15.0-kc-v14
+  apiImage: ghcr.io/neurwerk/addon-dify-ce-builder-api:1.15.0-kc-v2
   pullPolicy: IfNotPresent
   postgres:
     host: postgres-operations.infra-postgres-operations.svc.cluster.local

@@ -10,4 +10,4 @@ authKeycloak:
   # difyWebOrigin: "" => set in client_*/config/client.yaml
 
 k8sTools:
-  image: ghcr.io/neurwerk/k8s-stack-tooling:0.5.4
+  image: ghcr.io/neurwerk/k8s-stack-tooling:0.1.0

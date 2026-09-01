@@ -197,7 +197,7 @@ monitorPiiEngine:
 
     def test_extproc_release_and_dependency_readiness_contract(self) -> None:
         self.assertIn(
-            "k8s-stack-agentgateway-extproc:0.6.3", self.extproc_manifest
+            "k8s-stack-agentgateway-extproc:0.1.0", self.extproc_manifest
         )
         self.assertIn("name: EXTPROC_ENGINE__READINESS_TIMEOUT", self.extproc_manifest)
         self.assertIn('value: "1"', self.extproc_manifest)
@@ -266,7 +266,7 @@ monitorPiiEngine:
 
     def test_cpu_and_cuda_images_have_explicit_scheduling_contracts(self) -> None:
         """Default to CPU and request an NVIDIA resource only for CUDA."""
-        self.assertIn("k8s-stack-pii-engine:0.7.2-cpu", self.runtime_manifest)
+        self.assertIn("k8s-stack-pii-engine:0.1.0-cpu", self.runtime_manifest)
         self.assertIn('name: PII_ENGINE_DEVICE\n              value: "cpu"', self.runtime_manifest)
         self.assertNotIn('"nvidia.com/gpu": 1', self.runtime_manifest)
         self.assertIn("k8s-stack-pii-engine:test-cu124", self.gpu_manifest)
@@ -335,7 +335,7 @@ monitorPiiEngine:
         self.assertIn("helm.sh/resource-policy: keep", self.sync_manifest)
         self.assertIn("kind: PersistentVolumeClaim", self.sync_manifest)
         self.assertNotIn("monitor-pii-engine-model-sync-network-policy", self.runtime_manifest)
-        self.assertIn("k8s-stack-pii-engine:0.7.2-cpu", self.sync_manifest)
+        self.assertIn("k8s-stack-pii-engine:0.1.0-cpu", self.sync_manifest)
 
     def test_runtime_enforces_analysis_limits_and_timeouts(self) -> None:
         expected_env = {

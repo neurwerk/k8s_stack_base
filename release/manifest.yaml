@@ -92,8 +92,8 @@ spec:
           sha256: aace0555ba061920b705b976a31cb967a0806e9e4e1bbd71b31a7bb87271d59f
     - path: charts/agentgateway-extproc
       name: agentgateway-extproc
-      version: 0.6.19
-      appVersion: 0.6.3
+      version: 0.6.20
+      appVersion: 0.1.0
     - path: charts/cert-manager/approval-policy
       name: infra-cert-manager-approval-policy
       version: 0.6.4
@@ -130,11 +130,11 @@ spec:
       version: 0.6.1
     - path: charts/dify/api
       name: frontend-dify-api
-      version: 0.6.9
+      version: 0.6.10
       appVersion: 1.15.0
     - path: charts/dify/beat
       name: frontend-dify-beat
-      version: 0.6.5
+      version: 0.6.6
       appVersion: 1.15.0
     - path: charts/dify/plugin-daemon
       name: frontend-dify-plugin-daemon
@@ -154,11 +154,11 @@ spec:
       appVersion: 1.0.0
     - path: charts/dify/web
       name: frontend-dify-web-gui
-      version: 0.6.3
+      version: 0.6.4
       appVersion: 1.15.0
     - path: charts/dify/worker
       name: frontend-dify-worker
-      version: 0.6.5
+      version: 0.6.6
       appVersion: 1.15.0
     - path: charts/external-secrets
       name: infra-external-secrets
@@ -192,45 +192,45 @@ spec:
       appVersion: '1.0'
     - path: charts/keycloak/oidc/agentgateway
       name: agentgateway
-      version: 0.6.5
+      version: 0.6.6
       appVersion: '1.0'
     - path: charts/keycloak/oidc/dify
       name: dify
-      version: 0.6.5
+      version: 0.6.6
       appVersion: '1.0'
     - path: charts/keycloak/oidc/dify-agentgateway
       name: dify-agentgateway
-      version: 0.6.6
+      version: 0.6.7
       appVersion: '1.0'
     - path: charts/keycloak/oidc/keycloak-api-key-bridge
       name: keycloak-api-key-bridge
-      version: 0.6.6
+      version: 0.6.7
       appVersion: '1.0'
     - path: charts/keycloak/oidc/librechat
       name: librechat
-      version: 0.6.7
+      version: 0.6.8
       appVersion: '1.0'
     - path: charts/keycloak/oidc/studio
       name: studio
-      version: 0.6.6
+      version: 0.6.7
       appVersion: '1.0'
     - path: charts/keycloak/realm-config/active-directory
       name: keycloak-active-directory
-      version: 0.1.0
+      version: 0.1.1
     - path: charts/keycloak/realm-config/initial-admin
       name: keycloak-oidc-configurations-initial-admin
-      version: 0.6.5
+      version: 0.6.6
     - path: charts/keycloak/realm-config/realm-roles
       name: keycloak-oidc-configurations-realm-roles
-      version: 0.6.5
+      version: 0.6.6
     - path: charts/keycloak/server
       name: keycloak
-      version: 0.6.11
+      version: 0.6.12
       appVersion: 26.7.2
     - path: charts/keycloak-api-key-bridge
       name: auth-keycloak-api-key-bridge
-      version: 0.6.3
-      appVersion: 0.5.3
+      version: 0.6.4
+      appVersion: 0.1.0
     - path: charts/kube-prometheus-stack
       name: monitor-kube-prometheus-stack
       version: 0.6.4
@@ -328,7 +328,7 @@ spec:
           sha256: 646d932f597632a7328bd300994e66c2cabaa1b6763372cbabb559cd84ff3f2f
     - path: charts/opensearch
       name: monitor-opensearch
-      version: 0.6.10
+      version: 0.6.11
       appVersion: 2.18.0
       dependencyLock:
         digest: sha256:59f3aee22c25979b8b3287d24f2bb2915274394629658f88af2d1004899efe23
@@ -341,12 +341,12 @@ spec:
           sha256: a9de76017a82a38954dfb453a030c42a349c015fe1493641f457aa0e71590267
     - path: charts/pii-engine
       name: pii-engine
-      version: 0.6.16
-      appVersion: 0.7.2
+      version: 0.6.17
+      appVersion: 0.1.0
     - path: charts/pii-engine-model-sync
       name: pii-engine-model-sync
-      version: 0.6.13
-      appVersion: 0.7.2
+      version: 0.6.14
+      appVersion: 0.1.0
     - path: charts/postgres/auth
       name: infra-postgres-auth
       version: 0.1.1
@@ -374,15 +374,15 @@ spec:
       appVersion: v1.20.3
     - path: charts/studio/api
       name: studio-api
-      version: 0.6.12
-      appVersion: 0.6.2
+      version: 0.6.13
+      appVersion: 0.1.0
     - path: charts/studio/shared
       name: studio-shared
       version: 0.6.1
     - path: charts/studio/web
       name: studio
-      version: 0.6.11
-      appVersion: 0.6.2
+      version: 0.6.12
+      appVersion: 0.1.0
     - path: charts/traefik
       name: traefik
       version: 0.6.0
@@ -750,45 +750,45 @@ spec:
       eligibility: included
       origins:
       - charts/external-secrets/values.yaml
-    - reference: ghcr.io/neurwerk/addon-dify-ce-builder-api:1.15.0-kc-v14
+    - reference: ghcr.io/neurwerk/addon-dify-ce-builder-api:1.15.0-kc-v2
       pinned: true
       eligibility: included
       origins:
       - charts/dify/api/values.yaml
       - charts/dify/beat/values.yaml
       - charts/dify/worker/values.yaml
-    - reference: ghcr.io/neurwerk/addon-dify-ce-builder-web:1.15.0-kc-v11
+    - reference: ghcr.io/neurwerk/addon-dify-ce-builder-web:1.15.0-kc-v2
       pinned: true
       eligibility: included
       origins:
       - charts/dify/web/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.6.3
+    - reference: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.1.0
       pinned: true
       eligibility: included
       origins:
       - charts/agentgateway-extproc/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-keycloak-api-key-bridge:0.5.3
+    - reference: ghcr.io/neurwerk/k8s-stack-keycloak-api-key-bridge:0.1.0
       pinned: true
       eligibility: included
       origins:
       - charts/keycloak-api-key-bridge/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-pii-engine:0.7.2-cpu
+    - reference: ghcr.io/neurwerk/k8s-stack-pii-engine:0.1.0-cpu
       pinned: true
       eligibility: included
       origins:
       - charts/pii-engine-model-sync/values.yaml
       - charts/pii-engine/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-studio-api:0.6.2
+    - reference: ghcr.io/neurwerk/k8s-stack-studio-api:0.1.0
       pinned: true
       eligibility: included
       origins:
       - charts/studio/api/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-studio-web:0.6.2
+    - reference: ghcr.io/neurwerk/k8s-stack-studio-web:0.1.0
       pinned: true
       eligibility: included
       origins:
       - charts/studio/web/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-tooling:0.5.4
+    - reference: ghcr.io/neurwerk/k8s-stack-tooling:0.1.0
       pinned: true
       eligibility: included
       origins:
