@@ -773,7 +773,7 @@ Recovery classification: Forward fix.
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             release_dir = root / "release"
-            (release_dir / "migrations").mkdir(parents=True)
+            release_dir.mkdir()
             config = release_dir / "config.yaml"
             manifest = release_dir / "manifest.yaml"
             version = root / "VERSION"
