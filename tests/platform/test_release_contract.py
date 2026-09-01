@@ -424,14 +424,16 @@ Recovery classification: Forward fix.
     def test_release_provenance_matches_exact_git_history(self) -> None:
         self._release_integration_tag()
         expected = platform_release.build_manifest()["spec"].get("provenance")
-        if expected is None:
-            self.skipTest("bootstrap release has no predecessor provenance")
-        self.assertEqual(
-            platform_release.provenance_from_git(
+        self.assertIsNotNone(expected)
+        if expected.get("bootstrap"):
+            actual = platform_release.bootstrap_provenance_from_git(
+                expected["includedThrough"]
+            )
+        else:
+            actual = platform_release.provenance_from_git(
                 expected["previousTag"], expected["includedThrough"]
-            ),
-            expected,
-        )
+            )
+        self.assertEqual(actual, expected)
 
     def test_release_provenance_rejects_divergent_history(self) -> None:
         with (
