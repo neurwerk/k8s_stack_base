@@ -1097,29 +1097,33 @@ def update_client_source(path: Path, tag: str) -> None:
     replacements = (
         (
             re.compile(
-                r"^(?P<prefix>\s*tag:\s*)"
-                r"v(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\s*$",
+                r"^(?P<prefix>[ \t]*tag:[ \t]*)(?P<quote>['\"]?)"
+                r"v(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)"
+                r"(?P=quote)(?P<suffix>[ \t]*(?:#[^\r\n]*)?)$",
                 re.MULTILINE,
             ),
-            rf"\g<prefix>{tag}",
+            rf"\g<prefix>\g<quote>{tag}\g<quote>\g<suffix>",
             "platform tag",
         ),
         (
             re.compile(
-                r"^(?P<prefix>\s*platform\.neurwerk\.com/adoption-target:\s*)"
-                r"v(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\s*$",
+                r"^(?P<prefix>[ \t]*platform\.neurwerk\.com/adoption-target:[ \t]*)"
+                r"(?P<quote>['\"]?)"
+                r"v(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)"
+                r"(?P=quote)(?P<suffix>[ \t]*(?:#[^\r\n]*)?)$",
                 re.MULTILINE,
             ),
-            rf"\g<prefix>{tag}",
+            rf"\g<prefix>\g<quote>{tag}\g<quote>\g<suffix>",
             "adoption target",
         ),
         (
             re.compile(
-                r"^(?P<prefix>\s*platform\.neurwerk\.com/adoption-mode:\s*)"
-                r"(?:fresh-install|upgrade)\s*$",
+                r"^(?P<prefix>[ \t]*platform\.neurwerk\.com/adoption-mode:[ \t]*)"
+                r"(?P<quote>['\"]?)(?:fresh-install|upgrade)(?P=quote)"
+                r"(?P<suffix>[ \t]*(?:#[^\r\n]*)?)$",
                 re.MULTILINE,
             ),
-            r"\g<prefix>review-required",
+            r"\g<prefix>\g<quote>review-required\g<quote>\g<suffix>",
             "adoption mode",
         ),
     )
