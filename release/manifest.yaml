@@ -57,12 +57,12 @@ spec:
     version: x86-64-v3
     source: https://github.com/documentdb/documentdb/blob/v0.116-0/pg_documentdb_gw/.cargo/config.toml
   exceptions:
-  - artifact: ghcr.io/danny-avila/librechat-dev@sha256:909958b41c7035be776aa6a1365016a66007d85fe5cfc8614320e0f24c1810e1
+  - artifact: ghcr.io/danny-avila/librechat-dev@sha256:f309d33a0f0b22fe5d3a804c5d197f40d58e69f74d49b68f250cbc502da7e6b2
     owner: platform
     expires: 2026-09-30
     reason: Required streaming and reasoning behavior currently exists only in the reviewed upstream source
-      commit. The initial release pins its exact multi-architecture image digest; moving development tags
-      remain prohibited.
+      commit. The platform pins its exact multi-architecture image digest; moving development tags remain
+      prohibited.
   - artifact: charts/postgres/operations:documentdb-database-rbac
     owner: platform
     expires: 2026-11-27
@@ -263,8 +263,8 @@ spec:
       appVersion: 1.0.0
     - path: charts/librechat/app
       name: frontend-librechat
-      version: 1.0.0
-      appVersion: 14d4f2789d8f1d308713f7acd98fab925f8aa74d
+      version: 1.0.1
+      appVersion: cdfe54c3498818b21b33fb609fee02f2742b37ea
     - path: charts/librechat/code-interpreter/api
       name: librechat-code-interpreter-api
       version: 1.0.0
@@ -307,8 +307,8 @@ spec:
       appVersion: v0.9.0
     - path: charts/librechat/shared
       name: frontend-librechat-shared
-      version: 1.0.0
-      appVersion: 14d4f2789d8f1d308713f7acd98fab925f8aa74d
+      version: 1.0.1
+      appVersion: cdfe54c3498818b21b33fb609fee02f2742b37ea
     - path: charts/librechat/valkey
       name: frontend-librechat-valkey
       version: 1.0.0
@@ -735,7 +735,7 @@ spec:
       eligibility: included
       origins:
       - charts/librechat/admin-panel/values.yaml
-    - reference: ghcr.io/danny-avila/librechat-dev@sha256:909958b41c7035be776aa6a1365016a66007d85fe5cfc8614320e0f24c1810e1
+    - reference: ghcr.io/danny-avila/librechat-dev@sha256:f309d33a0f0b22fe5d3a804c5d197f40d58e69f74d49b68f250cbc502da7e6b2
       pinned: true
       eligibility: included
       origins:

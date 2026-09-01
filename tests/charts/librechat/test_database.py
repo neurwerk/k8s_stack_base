@@ -35,7 +35,7 @@ WORKLOAD_COMPONENTS = {
         "Deployment",
         "frontend-librechat",
         "frontend-librechat",
-        "ghcr.io/danny-avila/librechat-dev@sha256:909958b41c7035be776aa6a1365016a66007d85fe5cfc8614320e0f24c1810e1",
+        "ghcr.io/danny-avila/librechat-dev@sha256:f309d33a0f0b22fe5d3a804c5d197f40d58e69f74d49b68f250cbc502da7e6b2",
     ),
     "admin-panel": (
         "frontend-librechat-admin-panel",
