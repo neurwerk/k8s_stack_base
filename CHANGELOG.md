@@ -9,6 +9,12 @@ upgrade path.
 
 ## [Unreleased]
 
+### Changed
+
+- Update the reviewed LibreChat development snapshot to source commit
+  `cdfe54c3498818b21b33fb609fee02f2742b37ea` and its exact multi-architecture
+  image digest.
+
 ## [0.1.0] - 2026-09-01
 
 ### Added
