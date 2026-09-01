@@ -757,6 +757,10 @@ Recovery classification: Forward fix.
                 with self.subTest(workflow=path.name, action=action):
                     self.assertRegex(action, r"@[0-9a-f]{40}$")
 
+    def test_normal_validation_exposes_required_ci_context(self) -> None:
+        workflow = yaml.safe_load((ROOT / ".github/workflows/validate.yaml").read_text())
+        self.assertEqual(workflow["jobs"]["validate"]["name"], "Required CI")
+
     def test_issue_forms_and_release_note_configuration_are_valid_yaml(self) -> None:
         issue_dir = ROOT / ".github/ISSUE_TEMPLATE"
         for path in sorted(issue_dir.glob("*.yml")):
@@ -778,6 +782,9 @@ Recovery classification: Forward fix.
         original = """apiVersion: source.toolkit.fluxcd.io/v1
 kind: GitRepository
 metadata:
+  annotations:
+    platform.neurwerk.com/adoption-mode: fresh-install
+    platform.neurwerk.com/adoption-target: v0.2.6
   name: k8s-stack
   namespace: flux-system
 spec:
@@ -795,9 +802,76 @@ spec:
             candidate.write_text(original)
             platform_release.update_client_source(candidate, "v1.2.3")
             updated = candidate.read_text()
-        self.assertEqual(updated, original.replace("tag: v0.2.6", "tag: v1.2.3"))
+        expected = original.replace("tag: v0.2.6", "tag: v1.2.3")
+        expected = expected.replace(
+            "platform.neurwerk.com/adoption-target: v0.2.6",
+            "platform.neurwerk.com/adoption-target: v1.2.3",
+        )
+        expected = expected.replace(
+            "platform.neurwerk.com/adoption-mode: fresh-install",
+            "platform.neurwerk.com/adoption-mode: review-required",
+        )
+        self.assertEqual(updated, expected)
         self.assertIn("mode: Tag", updated)
         self.assertIn("name: k8s-stack-release-trust", updated)
+        self.assertIn("adoption-mode: review-required", updated)
+
+        expanded = original.replace(
+            "  verify:\n",
+            "  include:\n"
+            "    - repository:\n"
+            "        name: flux-system\n"
+            "  verify:\n",
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            candidate = Path(directory) / "platform-source.yaml"
+            candidate.write_text(expanded)
+            with self.assertRaisesRegex(
+                platform_release.ReleaseError, "canonical source spec"
+            ):
+                platform_release.update_client_source(candidate, "v1.2.3")
+
+    def test_client_source_update_preserves_scalar_quotes_and_comments(self) -> None:
+        original = """apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  annotations:
+    platform.neurwerk.com/adoption-mode: 'upgrade' # reviewed target state
+    platform.neurwerk.com/adoption-target: "v0.2.6" # current target
+  name: k8s-stack
+  namespace: flux-system
+spec:
+  interval: 30s
+  url: https://github.com/neurwerk/k8s_stack_base.git
+  ref:
+    tag: 'v0.2.6' # current platform
+  verify:
+    mode: Tag
+    secretRef:
+      name: k8s-stack-release-trust
+"""
+        with tempfile.TemporaryDirectory() as directory:
+            candidate = Path(directory) / "platform-source.yaml"
+            candidate.write_text(original)
+            platform_release.update_client_source(candidate, "v1.2.3")
+            updated = candidate.read_text()
+
+        self.assertIn(
+            "platform.neurwerk.com/adoption-mode: 'review-required' "
+            "# reviewed target state",
+            updated,
+        )
+        self.assertIn(
+            'platform.neurwerk.com/adoption-target: "v1.2.3" # current target',
+            updated,
+        )
+        self.assertIn("tag: 'v1.2.3' # current platform", updated)
+        parsed = yaml.safe_load(updated)
+        self.assertEqual(parsed["spec"]["ref"]["tag"], "v1.2.3")
+        self.assertEqual(
+            parsed["metadata"]["annotations"]["platform.neurwerk.com/adoption-mode"],
+            "review-required",
+        )
 
     def test_release_verifier_constructs_only_the_canonical_trust_line(self) -> None:
         verifier = (ROOT / "scripts/verify_release_tag.sh").read_text()
