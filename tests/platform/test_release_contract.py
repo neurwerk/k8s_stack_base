@@ -101,6 +101,8 @@ class ReleaseContractTest(unittest.TestCase):
                     platform_release.validate_manifest_schema(invalid_manifest)
 
     def test_unpublished_baseline_has_no_migration(self) -> None:
+        if platform_release.VERSION_PATH.read_text().strip() != "0.0.0":
+            self.skipTest("repository is prepared for a release")
         self.assertEqual(list((ROOT / "release/migrations").glob("v*.md")), [])
         self.assertEqual(
             platform_release.build_manifest()["spec"]["compatibility"],
@@ -718,11 +720,15 @@ Recovery classification: Forward fix.
 
     def test_unpublished_baseline_rejects_release_fields(self) -> None:
         manifest = copy.deepcopy(platform_release.build_manifest())
+        manifest["spec"]["version"] = "0.0.0"
+        manifest["spec"].pop("provenance", None)
         manifest["spec"]["releaseDate"] = "2026-09-01"
         with self.assertRaises(platform_release.ReleaseError):
             platform_release.validate_manifest_schema(manifest)
 
     def test_unpublished_baseline_cannot_be_tagged(self) -> None:
+        if platform_release.VERSION_PATH.read_text().strip() != "0.0.0":
+            self.skipTest("repository is prepared for a release")
         with self.assertRaisesRegex(
             platform_release.ReleaseError,
             "unpublished pre-v0.1.0 history cannot be released",
@@ -950,11 +956,17 @@ Recovery classification: Forward fix.
                     platform_release.prepare_release(args)
 
     def test_legacy_release_adoption_has_actionable_minimum_version(self) -> None:
-        with self.assertRaisesRegex(
-            platform_release.ReleaseError,
-            "client adoption requires v0.1.0 or newer",
-        ):
-            platform_release.inspect_release_data(ROOT, "v0.0.0")
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "release").mkdir()
+            (root / "VERSION").write_text("0.0.0\n")
+            (root / "release/config.yaml").touch()
+            (root / "release/manifest.yaml").touch()
+            with self.assertRaisesRegex(
+                platform_release.ReleaseError,
+                "client adoption requires v0.1.0 or newer",
+            ):
+                platform_release.inspect_release_data(root, "v0.0.0")
 
     def test_release_versions_are_strict_semver(self) -> None:
         for value in ("v1.2.3", "v0.1.0"):
