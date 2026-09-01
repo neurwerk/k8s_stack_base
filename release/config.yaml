@@ -72,7 +72,7 @@ exceptions:
     before dropping back to UID 1000.
 provenance:
   bootstrap: true
-  includedThrough: 6e69a3c431ced519a17adcdcc1550a84170ade6f
+  includedThrough: 45ae3c9f7087f827b27d6723eda00823b275b9ff
   commits:
   - 35a1fe7754f65a5fe19f17fe31ad81e48800ed01
   - f5790d7284e223b7a592169a60c520ca2faecdc8
@@ -92,4 +92,7 @@ provenance:
   - b28f2e68a061dd04315db7dc1caf7d061218f251
   - da18701bbbd657f65b4180a6e265d3b08241dbcc
   - 6e69a3c431ced519a17adcdcc1550a84170ade6f
-  historyUrl: https://github.com/neurwerk/k8s_stack_base/commits/6e69a3c431ced519a17adcdcc1550a84170ade6f
+  - 3fe63f7a78b33a987cfa8d35a26da5a44c170844
+  - 1fe77376799c3520491230785b0359a07e73a49b
+  - 45ae3c9f7087f827b27d6723eda00823b275b9ff
+  historyUrl: https://github.com/neurwerk/k8s_stack_base/commits/45ae3c9f7087f827b27d6723eda00823b275b9ff
