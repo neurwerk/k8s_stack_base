@@ -2,5 +2,5 @@ apiVersion: v2
 name: librechat-code-interpreter-valkey
 description: Durable authenticated Valkey queue and replay state for LibreChat Code Interpreter
 type: application
-version: 0.1.1
+version: 1.0.0
 appVersion: "9.1.1"

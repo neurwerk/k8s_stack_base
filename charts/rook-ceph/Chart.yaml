@@ -2,7 +2,7 @@ apiVersion: v2
 name: rook-ceph
 description: First-party Rook Ceph v1.20.3 deployment with single-node RGW and RBD storage.
 type: application
-version: 0.6.4
+version: 1.0.0
 appVersion: "v1.20.3"
 sources:
   - https://github.com/rook/rook/tree/v1.20.3

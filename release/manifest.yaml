@@ -79,7 +79,7 @@ spec:
     charts:
     - path: charts/agentgateway
       name: infra-agentgateway
-      version: 0.7.13
+      version: 1.0.0
       appVersion: 1.4.1
       dependencyLock:
         digest: sha256:d6537b3577ee451a84014c482ba921070155da599c512e7c8ce25ab776708d1b
@@ -92,14 +92,14 @@ spec:
           sha256: aace0555ba061920b705b976a31cb967a0806e9e4e1bbd71b31a7bb87271d59f
     - path: charts/agentgateway-extproc
       name: agentgateway-extproc
-      version: 0.6.20
+      version: 1.0.0
       appVersion: 0.1.0
     - path: charts/cert-manager/approval-policy
       name: infra-cert-manager-approval-policy
-      version: 0.6.4
+      version: 1.0.0
     - path: charts/cert-manager/approver-policy
       name: infra-cert-manager-approver-policy
-      version: 0.6.0
+      version: 1.0.0
       appVersion: v0.25.1
       dependencyLock:
         digest: sha256:973de2ff27eceacb81fd7b61810a9e307c21557e526f158a4bda9e815bcda778
@@ -112,7 +112,7 @@ spec:
           sha256: 47d7510a1a9120fc4f26a026599b96c4316a0d1bd5ab53cd5178a69e0f8d4488
     - path: charts/cert-manager/controller
       name: infra-cert-manager-controller
-      version: 0.6.2
+      version: 1.0.0
       dependencyLock:
         digest: sha256:9a5ee0de189d2c08f867194829020c540f3af2577e25e55f2f68bb7fabd8ba72
         dependencies:
@@ -124,45 +124,45 @@ spec:
           sha256: d2a50bd44a09d838c2576a8f3dfca1524597c7393cf8d82ab3ec8a465b9eeb79
     - path: charts/cert-manager/internal-issuer
       name: infra-cert-manager-internal-issuer
-      version: 0.6.0
+      version: 1.0.0
     - path: charts/cert-manager/issuers
       name: infra-cert-manager-issuers
-      version: 0.6.1
+      version: 1.0.0
     - path: charts/dify/api
       name: frontend-dify-api
-      version: 0.6.10
+      version: 1.0.0
       appVersion: 1.15.0
     - path: charts/dify/beat
       name: frontend-dify-beat
-      version: 0.6.6
+      version: 1.0.0
       appVersion: 1.15.0
     - path: charts/dify/plugin-daemon
       name: frontend-dify-plugin-daemon
-      version: 0.6.3
+      version: 1.0.0
       appVersion: 0.6.3
     - path: charts/dify/redis
       name: frontend-dify-redis
-      version: 0.6.2
+      version: 1.0.0
       appVersion: '7'
     - path: charts/dify/sandbox
       name: frontend-dify-sandbox
-      version: 0.6.1
+      version: 1.0.0
       appVersion: 0.2.15
     - path: charts/dify/shared
       name: frontend-dify-shared
-      version: 0.6.1
+      version: 1.0.0
       appVersion: 1.0.0
     - path: charts/dify/web
       name: frontend-dify-web-gui
-      version: 0.6.4
+      version: 1.0.0
       appVersion: 1.15.0
     - path: charts/dify/worker
       name: frontend-dify-worker
-      version: 0.6.6
+      version: 1.0.0
       appVersion: 1.15.0
     - path: charts/external-secrets
       name: infra-external-secrets
-      version: 0.6.0
+      version: 1.0.0
       appVersion: 2.9.0
       dependencyLock:
         digest: sha256:f29853b9f97cc5a9a2eed070aab1047ada3464720356c31851017390487a3233
@@ -175,7 +175,7 @@ spec:
           sha256: da2d5c126a103b4c1b16a9dc1c168c4332a3687144e88ac070e594f81a0b6578
     - path: charts/fluent-bit
       name: monitor-fluent-bit
-      version: 0.6.1
+      version: 1.0.0
       appVersion: 3.2.8
       dependencyLock:
         digest: sha256:90275c51b97202d8b18e353f33c38e5800924b94be0b21d2adf9a62590334d17
@@ -188,52 +188,52 @@ spec:
           sha256: bbc6500b93ab4dca44872d6ab9fb0ac6b84409202c952a6802b62ef03c5e6dc8
     - path: charts/fluent-bit/shared
       name: monitor-fluent-bit-shared
-      version: 0.6.0
+      version: 1.0.0
       appVersion: '1.0'
     - path: charts/keycloak/oidc/agentgateway
       name: agentgateway
-      version: 0.6.6
+      version: 1.0.0
       appVersion: '1.0'
     - path: charts/keycloak/oidc/dify
       name: dify
-      version: 0.6.6
+      version: 1.0.0
       appVersion: '1.0'
     - path: charts/keycloak/oidc/dify-agentgateway
       name: dify-agentgateway
-      version: 0.6.7
+      version: 1.0.0
       appVersion: '1.0'
     - path: charts/keycloak/oidc/keycloak-api-key-bridge
       name: keycloak-api-key-bridge
-      version: 0.6.7
+      version: 1.0.0
       appVersion: '1.0'
     - path: charts/keycloak/oidc/librechat
       name: librechat
-      version: 0.6.8
+      version: 1.0.0
       appVersion: '1.0'
     - path: charts/keycloak/oidc/studio
       name: studio
-      version: 0.6.7
+      version: 1.0.0
       appVersion: '1.0'
     - path: charts/keycloak/realm-config/active-directory
       name: keycloak-active-directory
-      version: 0.1.1
+      version: 1.0.0
     - path: charts/keycloak/realm-config/initial-admin
       name: keycloak-oidc-configurations-initial-admin
-      version: 0.6.6
+      version: 1.0.0
     - path: charts/keycloak/realm-config/realm-roles
       name: keycloak-oidc-configurations-realm-roles
-      version: 0.6.6
+      version: 1.0.0
     - path: charts/keycloak/server
       name: keycloak
-      version: 0.6.12
+      version: 1.0.0
       appVersion: 26.7.2
     - path: charts/keycloak-api-key-bridge
       name: auth-keycloak-api-key-bridge
-      version: 0.6.4
+      version: 1.0.0
       appVersion: 0.1.0
     - path: charts/kube-prometheus-stack
       name: monitor-kube-prometheus-stack
-      version: 0.6.4
+      version: 1.0.0
       appVersion: 0.82.2
       dependencyLock:
         digest: sha256:52ccce9875b52ce65fb7e2e05455cc672e2ddac98d7c5b2d94ff99ec174af431
@@ -246,7 +246,7 @@ spec:
           sha256: b344a03d0006aba69a8c20ae1ff0354ac7687bdf72c3611c4f330b59a22b7548
     - path: charts/langfuse
       name: monitor-langfuse
-      version: 0.6.9
+      version: 1.0.0
       appVersion: 3.179.1
       dependencyLock:
         digest: sha256:7cf67e5faa4c8c8f8003ec78dacb365443e246ecd982a2bca43ffb34992b6496
@@ -259,63 +259,63 @@ spec:
           sha256: 1334697bf93ea6b4fed2503e30551c3b3a1ecfa9fcacff4a5bd8980f385c9ffa
     - path: charts/librechat/admin-panel
       name: librechat-admin-panel
-      version: 0.1.2
+      version: 1.0.0
       appVersion: 1.0.0
     - path: charts/librechat/app
       name: frontend-librechat
-      version: 0.7.6
+      version: 1.0.0
       appVersion: 14d4f2789d8f1d308713f7acd98fab925f8aa74d
     - path: charts/librechat/code-interpreter/api
       name: librechat-code-interpreter-api
-      version: 0.1.0
+      version: 1.0.0
       appVersion: fea707467600f3802d65596a6875c7822f25cfd8
     - path: charts/librechat/code-interpreter/egress-gateway
       name: librechat-code-interpreter-egress-gateway
-      version: 0.1.0
+      version: 1.0.0
       appVersion: fea707467600f3802d65596a6875c7822f25cfd8
     - path: charts/librechat/code-interpreter/file-server
       name: librechat-code-interpreter-file-server
-      version: 0.1.0
+      version: 1.0.0
       appVersion: fea707467600f3802d65596a6875c7822f25cfd8
     - path: charts/librechat/code-interpreter/package-init
       name: librechat-code-interpreter-package-init
-      version: 0.2.0
+      version: 1.0.0
       appVersion: fea707467600f3802d65596a6875c7822f25cfd8
     - path: charts/librechat/code-interpreter/shared
       name: librechat-code-interpreter-shared
-      version: 0.2.0
+      version: 1.0.0
       appVersion: fea707467600f3802d65596a6875c7822f25cfd8
     - path: charts/librechat/code-interpreter/tool-call-server
       name: librechat-code-interpreter-tool-call-server
-      version: 0.1.0
+      version: 1.0.0
       appVersion: fea707467600f3802d65596a6875c7822f25cfd8
     - path: charts/librechat/code-interpreter/valkey
       name: librechat-code-interpreter-valkey
-      version: 0.1.1
+      version: 1.0.0
       appVersion: 9.1.1
     - path: charts/librechat/code-interpreter/worker
       name: librechat-code-interpreter-worker
-      version: 0.2.0
+      version: 1.0.0
       appVersion: fea707467600f3802d65596a6875c7822f25cfd8
     - path: charts/librechat/meilisearch
       name: frontend-librechat-meilisearch
-      version: 0.1.0
+      version: 1.0.0
       appVersion: v1.35.1
     - path: charts/librechat/rag-api
       name: frontend-librechat-rag-api
-      version: 0.1.1
+      version: 1.0.0
       appVersion: v0.9.0
     - path: charts/librechat/shared
       name: frontend-librechat-shared
-      version: 0.1.4
+      version: 1.0.0
       appVersion: 14d4f2789d8f1d308713f7acd98fab925f8aa74d
     - path: charts/librechat/valkey
       name: frontend-librechat-valkey
-      version: 0.1.1
+      version: 1.0.0
       appVersion: 9.1.1
     - path: charts/openbao
       name: infra-openbao
-      version: 0.6.3
+      version: 1.0.0
       appVersion: 2.6.1
       dependencyLock:
         digest: sha256:eb8bd30f37213b0ac042d707f4a099f2b0fd783ffd190845a3cd29479162b6d4
@@ -328,7 +328,7 @@ spec:
           sha256: 646d932f597632a7328bd300994e66c2cabaa1b6763372cbabb559cd84ff3f2f
     - path: charts/opensearch
       name: monitor-opensearch
-      version: 0.6.11
+      version: 1.0.0
       appVersion: 2.18.0
       dependencyLock:
         digest: sha256:59f3aee22c25979b8b3287d24f2bb2915274394629658f88af2d1004899efe23
@@ -341,23 +341,23 @@ spec:
           sha256: a9de76017a82a38954dfb453a030c42a349c015fe1493641f457aa0e71590267
     - path: charts/pii-engine
       name: pii-engine
-      version: 0.6.17
+      version: 1.0.0
       appVersion: 0.1.0
     - path: charts/pii-engine-model-sync
       name: pii-engine-model-sync
-      version: 0.6.14
+      version: 1.0.0
       appVersion: 0.1.0
     - path: charts/postgres/auth
       name: infra-postgres-auth
-      version: 0.1.1
+      version: 1.0.0
       appVersion: '18.6'
     - path: charts/postgres/operations
       name: infra-postgres-operations
-      version: 0.1.2
+      version: 1.0.0
       appVersion: pg18-0.116.0
     - path: charts/reloader
       name: infra-reloader
-      version: 0.6.3
+      version: 1.0.0
       appVersion: 1.4.21
       dependencyLock:
         digest: sha256:8c52e34407bf2a9b16f138cc98a015ded77e35c1f64d6cca5b02064809dac593
@@ -370,25 +370,25 @@ spec:
           sha256: 5389fb496a120d6aac8f2b33c54ba21ed59014131def14cfc78f9d4a9374d2b7
     - path: charts/rook-ceph
       name: rook-ceph
-      version: 0.6.4
+      version: 1.0.0
       appVersion: v1.20.3
     - path: charts/studio/api
       name: studio-api
-      version: 0.6.13
+      version: 1.0.0
       appVersion: 0.1.0
     - path: charts/studio/shared
       name: studio-shared
-      version: 0.6.1
+      version: 1.0.0
     - path: charts/studio/web
       name: studio
-      version: 0.6.12
+      version: 1.0.0
       appVersion: 0.1.0
     - path: charts/traefik
       name: traefik
-      version: 0.6.0
+      version: 1.0.0
     - path: charts/trust-manager
       name: infra-trust-manager
-      version: 0.6.3
+      version: 1.0.0
       appVersion: 0.24.0
       dependencyLock:
         digest: sha256:b8613e99af1551de1d4db051763128504bb4013f8f41b6cc61c067c36ce48c38

@@ -14,7 +14,7 @@ description: |
     - Secret with Langfuse credentials (salt, encryption key, DB passwords)
     - Init Job for data retention
 type: application
-version: 0.6.9
+version: 1.0.0
 appVersion: "3.179.1"
 dependencies:
   - name: langfuse

@@ -10,7 +10,7 @@ description: |
 
   No Gateway/HTTPRoute — internal-only log shipping.
 type: application
-version: 0.6.1
+version: 1.0.0
 appVersion: "3.2.8"
 dependencies:
   - name: fluent-bit

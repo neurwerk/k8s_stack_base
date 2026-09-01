@@ -2,7 +2,7 @@ apiVersion: v2
 name: infra-external-secrets
 description: External Secrets Operator controller
 type: application
-version: 0.6.0
+version: 1.0.0
 appVersion: "2.9.0"
 dependencies:
   - name: external-secrets

@@ -2,7 +2,7 @@ apiVersion: v2
 name: infra-trust-manager
 description: trust-manager controller for internal CA bundle distribution
 type: application
-version: 0.6.3
+version: 1.0.0
 appVersion: "0.24.0"
 dependencies:
   - name: trust-manager

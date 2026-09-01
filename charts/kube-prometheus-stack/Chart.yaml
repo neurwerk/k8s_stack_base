@@ -13,7 +13,7 @@ description: |
 
   No Gateway/HTTPRoute — internal-only monitoring.
 type: application
-version: 0.6.4
+version: 1.0.0
 appVersion: "0.82.2"
 dependencies:
   - name: kube-prometheus-stack

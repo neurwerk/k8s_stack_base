@@ -2,5 +2,5 @@ apiVersion: v2
 name: infra-postgres-auth
 description: Shared PostgreSQL 18 server for authentication state
 type: application
-version: 0.1.1
+version: 1.0.0
 appVersion: "18.6"

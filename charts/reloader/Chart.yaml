@@ -2,7 +2,7 @@ apiVersion: v2
 name: infra-reloader
 description: Stakater Reloader with opt-in annotations and namespace-scoped RBAC
 type: application
-version: 0.6.3
+version: 1.0.0
 appVersion: "1.4.21"
 dependencies:
   - name: reloader
