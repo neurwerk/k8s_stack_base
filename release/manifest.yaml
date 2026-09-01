@@ -992,7 +992,7 @@ spec:
       uv: 0.11.21
   provenance:
     bootstrap: true
-    includedThrough: bb7349a024ffeeb0e47ccccd1d1774358656f807
+    includedThrough: 6e69a3c431ced519a17adcdcc1550a84170ade6f
     commits:
     - 35a1fe7754f65a5fe19f17fe31ad81e48800ed01
     - f5790d7284e223b7a592169a60c520ca2faecdc8
@@ -1009,4 +1009,7 @@ spec:
     - 2d3430c37f7b7d2d8a5a7b1ef0717f9281de6ef2
     - e1150705f4dba3d61235e09b4f2002b4eb2c7e3b
     - bb7349a024ffeeb0e47ccccd1d1774358656f807
-    historyUrl: https://github.com/neurwerk/k8s_stack_base/commits/bb7349a024ffeeb0e47ccccd1d1774358656f807
+    - b28f2e68a061dd04315db7dc1caf7d061218f251
+    - da18701bbbd657f65b4180a6e265d3b08241dbcc
+    - 6e69a3c431ced519a17adcdcc1550a84170ade6f
+    historyUrl: https://github.com/neurwerk/k8s_stack_base/commits/6e69a3c431ced519a17adcdcc1550a84170ade6f
