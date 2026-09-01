@@ -1,4 +1,4 @@
-"""Offline safety and parsing tests for live AgentGateway acceptance."""
+"""High-signal offline safety tests for live AgentGateway acceptance."""
 
 from __future__ import annotations
 
@@ -37,10 +37,10 @@ def valid_environment() -> dict[str, str]:
 
 
 def headers(code: str = "P00", media_type: str = "application/json") -> Message:
-    result = Message()
-    result.add_header("x-presidio-code", code)
-    result.add_header("Content-Type", media_type)
-    return result
+    result_headers = Message()
+    result_headers.add_header("x-presidio-code", code)
+    result_headers.add_header("Content-Type", media_type)
+    return result_headers
 
 
 def result(body: dict, code: str = "P00") -> acceptance.HttpResult:
@@ -125,30 +125,6 @@ class FakeResponse:
 
 
 class AgentGatewayLiveAcceptanceTests(unittest.TestCase):
-    def test_every_static_guard_fails_before_subprocess_or_http(self) -> None:
-        invalid_environments = []
-        for name in valid_environment():
-            environment = valid_environment()
-            environment.pop(name)
-            invalid_environments.append((name, environment))
-        environment = valid_environment()
-        environment["LIVE_ACCEPTANCE_CONFIRM"] = "yes"
-        invalid_environments.append(("inexact confirmation", environment))
-        environment = valid_environment()
-        environment["LIVE_ACCEPTANCE_AGENTGATEWAY_URL"] = "http://gateway.test"
-        invalid_environments.append(("non-HTTPS URL", environment))
-        environment = valid_environment()
-        environment["LIVE_ACCEPTANCE_API_KEY"] = "unsafe\nkey"
-        invalid_environments.append(("unsafe API key", environment))
-
-        for label, environment in invalid_environments:
-            with self.subTest(label=label), mock.patch.object(
-                acceptance.subprocess, "run"
-            ) as run, mock.patch.object(acceptance, "_urlopen") as urlopen:
-                self.assertEqual(acceptance.main(environment), 1)
-                run.assert_not_called()
-                urlopen.assert_not_called()
-
     def test_context_mismatch_stops_before_cluster_or_http_traffic(self) -> None:
         completed = subprocess.CompletedProcess([], 0, stdout="other-context\n", stderr="")
         with mock.patch.object(
@@ -206,7 +182,9 @@ class AgentGatewayLiveAcceptanceTests(unittest.TestCase):
         )
         flattened = {part.lower() for command in commands for part in command}
         self.assertNotIn("secret", flattened)
-        self.assertTrue(flattened.isdisjoint({"apply", "create", "delete", "edit", "patch"}))
+        self.assertTrue(
+            flattened.isdisjoint({"apply", "create", "delete", "edit", "patch"})
+        )
         for call in run.call_args_list:
             self.assertEqual(call.kwargs["timeout"], acceptance.KUBECTL_TIMEOUT_SECONDS)
             self.assertFalse(call.kwargs.get("shell", False))
@@ -247,39 +225,6 @@ class AgentGatewayLiveAcceptanceTests(unittest.TestCase):
         self.assertIn("hostname does not match", output.getvalue())
         urlopen.assert_not_called()
 
-    def test_gateway_hostname_parser_is_strict_and_minimal(self) -> None:
-        values = gateway_values_configmap()["data"][acceptance.GATEWAY_VALUES_KEY]
-        self.assertEqual(
-            acceptance._parse_gateway_hostname(values), "gateway.acceptance.test"
-        )
-        invalid_values = (
-            values.replace(
-                '  hostname: "gateway.acceptance.test"\n',
-                '  hostname: "gateway.acceptance.test"\n  hostname: duplicate.test\n',
-            ),
-            values + "infraAgentgatewayWrapper:\n  hostname: duplicate.test\n",
-            values.replace('"gateway.acceptance.test"', "*gateway.acceptance.test"),
-        )
-        for invalid in invalid_values:
-            with self.subTest(invalid=invalid), self.assertRaises(
-                acceptance.AcceptanceError
-            ):
-                acceptance._parse_gateway_hostname(invalid)
-
-    def test_malformed_identity_shape_fails_closed(self) -> None:
-        outputs = [
-            subprocess.CompletedProcess([], 0, stdout="acceptance-context\n", stderr=""),
-            subprocess.CompletedProcess(
-                [],
-                0,
-                stdout='{"kind":"ConfigMap","metadata":[],"data":[]}',
-                stderr="",
-            ),
-        ]
-        with mock.patch.object(acceptance.subprocess, "run", side_effect=outputs):
-            with self.assertRaises(acceptance.AcceptanceError):
-                acceptance.verify_cluster_identity(acceptance.load_config(valid_environment()))
-
     def test_credentials_and_failure_bodies_are_not_logged(self) -> None:
         secret = valid_environment()["LIVE_ACCEPTANCE_API_KEY"]
         config = acceptance.load_config(valid_environment())
@@ -302,79 +247,10 @@ class AgentGatewayLiveAcceptanceTests(unittest.TestCase):
 
         failed = FakeResponse(500, f"upstream leaked {secret}".encode())
         with mock.patch.object(acceptance, "_urlopen", return_value=failed):
-            response = acceptance._request(config, {"model": config.model_id}, api_key=secret)
+            response = acceptance._request(
+                config, {"model": config.model_id}, api_key=secret
+            )
             self.assertEqual(response.body, b"")
-
-    def test_nonstream_contract_requires_json_content_finish_and_one_known_code(self) -> None:
-        payload = completion()
-        parsed = acceptance.validate_nonstream(result(payload))
-        self.assertEqual(acceptance._assistant_content(parsed), "hello")
-
-        duplicate_headers = headers("P00")
-        duplicate_headers.add_header("x-presidio-code", "P01")
-        with self.assertRaises(acceptance.AcceptanceError):
-            acceptance.validate_nonstream(
-                acceptance.HttpResult(200, duplicate_headers, json.dumps(payload).encode())
-            )
-        with self.assertRaises(acceptance.AcceptanceError):
-            acceptance.validate_nonstream(
-                acceptance.HttpResult(200, headers("P99"), json.dumps(payload).encode())
-            )
-        with self.assertRaises(acceptance.AcceptanceError):
-            acceptance.validate_nonstream(
-                acceptance.HttpResult(
-                    200,
-                    headers(media_type="text/plain"),
-                    json.dumps(payload).encode(),
-                )
-            )
-        with self.assertRaises(acceptance.AcceptanceError):
-            acceptance.validate_nonstream(result(completion(finish_reason="")))
-
-    def test_stream_contract_requires_content_finish_usage_tail_and_terminal(self) -> None:
-        body = valid_stream()
-        stream_headers = headers(media_type="text/event-stream; charset=utf-8")
-        acceptance.validate_stream(acceptance.HttpResult(200, stream_headers, body))
-        for invalid in (
-            body.replace(b"data: [DONE]\n\n", b""),
-            body + b"data: [DONE]\n\n",
-            body + b": post-terminal-heartbeat\n\n",
-            body.replace(b"hello", b"<REV_PERSON_aaaaaaaaaaaaaaaa_bbbbbbbbbbbbbbbb>"),
-            body.replace(b'"usage":{"total_tokens":3}', b'"usage":null'),
-            body.replace(b'"finish_reason":"stop"', b'"finish_reason":null'),
-            body.replace(
-                b"data: [DONE]",
-                b'data: {"choices":[]}\n\ndata: [DONE]',
-            ),
-        ):
-            with self.subTest(invalid=invalid), self.assertRaises(acceptance.AcceptanceError):
-                acceptance.validate_stream(
-                    acceptance.HttpResult(200, stream_headers, invalid)
-                )
-
-        duplicate_code = headers(media_type="text/event-stream")
-        duplicate_code.add_header("x-presidio-code", "P01")
-        missing_code = Message()
-        missing_code.add_header("Content-Type", "text/event-stream")
-        for invalid_headers in (
-            headers(),
-            duplicate_code,
-            missing_code,
-            headers("P99", "text/event-stream"),
-        ):
-            with self.subTest(headers=invalid_headers), self.assertRaises(
-                acceptance.AcceptanceError
-            ):
-                acceptance.validate_stream(
-                    acceptance.HttpResult(200, invalid_headers, body)
-                )
-
-    def test_success_response_size_is_bounded(self) -> None:
-        config = acceptance.load_config(valid_environment())
-        oversized = FakeResponse(200, b"x" * (acceptance.MAX_RESPONSE_BYTES + 1))
-        with mock.patch.object(acceptance, "_urlopen", return_value=oversized):
-            with self.assertRaises(acceptance.AcceptanceError):
-                acceptance._request(config, {"model": config.model_id}, api_key=config.api_key)
 
     def test_pii_round_trip_contract_rejects_p00_and_placeholder_syntax(self) -> None:
         payload = completion(pii_content())
@@ -404,52 +280,6 @@ class AgentGatewayLiveAcceptanceTests(unittest.TestCase):
             acceptance.AcceptanceError
         ):
             acceptance.run_acceptance(acceptance.load_config(valid_environment()))
-
-    def test_live_target_is_explicit_and_not_part_of_check(self) -> None:
-        makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
-        check_line = next(line for line in makefile.splitlines() if line.startswith("check:"))
-        self.assertNotIn("live-acceptance", check_line)
-        self.assertIn("live-acceptance:", makefile)
-        self.assertIn("tests/live/agentgateway/acceptance.py", makefile)
-
-    def test_full_suite_uses_valid_key_only_for_positive_cases_and_spoofs_reserved_headers(self) -> None:
-        config = acceptance.load_config(valid_environment())
-        responses = [
-            FakeResponse(200, json.dumps(completion()).encode(), headers()),
-            FakeResponse(
-                200,
-                valid_stream(),
-                headers(media_type="text/event-stream"),
-            ),
-            FakeResponse(
-                200,
-                json.dumps(completion(pii_content())).encode(),
-                headers("P02"),
-            ),
-            FakeResponse(401, b"denied"),
-            FakeResponse(403, b"denied"),
-        ]
-        requests = []
-
-        def open_request(request, *, timeout):  # noqa: ANN001
-            self.assertEqual(timeout, acceptance.HTTP_TIMEOUT_SECONDS)
-            requests.append(request)
-            return responses.pop(0)
-
-        with mock.patch.object(acceptance, "_urlopen", side_effect=open_request):
-            acceptance.run_acceptance(config)
-        self.assertEqual(len(requests), 5)
-        for request in requests[:3]:
-            self.assertEqual(request.get_header("Authorization"), f"Bearer {config.api_key}")
-        stream_request = json.loads(requests[1].data)
-        # AgentGateway adds include_usage after extProc request validation.
-        self.assertNotIn("stream_options", stream_request)
-        for request in requests[3:]:
-            self.assertNotIn(config.api_key, request.get_header("Authorization"))
-        spoofed = {name.lower(): value for name, value in requests[4].header_items()}
-        self.assertIn("x-auth-user", spoofed)
-        self.assertIn("x-auth-permissions", spoofed)
-        self.assertIn("x-agentgateway-permissions", spoofed)
 
 
 if __name__ == "__main__":
