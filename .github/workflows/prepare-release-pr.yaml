@@ -37,6 +37,10 @@ on:
         description: Comma-separated exact source tags, or empty for none
         required: false
         type: string
+      upgrades_from_alpha_revisions:
+        description: Comma-separated full lowercase alpha source commits, or empty for none
+        required: false
+        type: string
       recovery:
         description: Reviewed recovery action
         required: true
@@ -90,6 +94,7 @@ jobs:
           SUMMARY: ${{ inputs.summary }}
           FRESH_INSTALL: ${{ inputs.fresh_install }}
           UPGRADES_FROM: ${{ inputs.upgrades_from }}
+          UPGRADES_FROM_ALPHA_REVISIONS: ${{ inputs.upgrades_from_alpha_revisions }}
           RECOVERY: ${{ inputs.recovery }}
           PLATFORM_RELEASE_ALLOWED_SIGNER: ${{ vars.PLATFORM_RELEASE_ALLOWED_SIGNER }}
         run: |
@@ -124,6 +129,7 @@ jobs:
             --summary "$SUMMARY" \
             --fresh-install "$FRESH_INSTALL" \
             --upgrades-from "$UPGRADES_FROM" \
+            --upgrades-from-alpha-revisions "$UPGRADES_FROM_ALPHA_REVISIONS" \
             --recovery "$RECOVERY"
 
       - name: Open or update the draft release pull request

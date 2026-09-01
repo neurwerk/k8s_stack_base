@@ -165,9 +165,9 @@ signer, provenance boundary, release contract, and default-branch ancestry befor
 entering the write-capable `platform-release` environment. It fails closed when
 the variable is absent, malformed, inconsistent with the trusted default-branch
 public key, or not the documented fingerprint. The environment contains no
-configuration variables or credentials; it is a reviewer gate. Require a
-reviewer who did not trigger the run and disallow protection-rule bypass where
-the repository plan supports those controls.
+configuration variables or credentials and does not require a deployment
+reviewer. Successful verified publication authorizes the GitHub Release only;
+it does not authorize client adoption or deployment.
 
 The environment is not a substitute for repository rules. An active tag ruleset
 must restrict creation, update, and deletion of `v*` tags to release custodians.
@@ -190,10 +190,14 @@ request. Generated prose contains deliberate `TODO` markers. The one-time
 the repository has zero tags. It records complete reachable history, supports
 fresh installation, declares no upgrade sources, and has no predecessor. Every
 successor must name the latest signed release matching the pre-prepare `VERSION`
-and records only the commits after that predecessor. Downgrade is currently
+and records only the commits after that predecessor. Successor compatibility may
+also list exact full lowercase alpha source commits when a reviewed forward
+alpha-to-stable migration is supported. Downgrade is currently
 always recorded as unsupported; enabling it requires a coordinated schema,
-validation, preparation, and client change. Require an environment reviewer and
-restrict deployment branches to the default branch.
+validation, preparation, and client change. Restrict environment deployment
+branches to the default branch without requiring a deployment reviewer. Manual
+dispatch authorizes draft preparation only; it does not authorize tagging,
+publication, adoption, or deployment.
 
 ## Client Adoption Proposals
 
@@ -205,7 +209,8 @@ These values are evaluated in the job condition and matrix before an environment
 is attached, so they must not be environment variables. Keep
 `PLATFORM_RELEASE_ALLOWED_SIGNER` at repository or organization scope as well.
 
-The `client-adoption` environment is only a reviewer gate and secret boundary.
+The `client-adoption` environment is only a branch and credential boundary and
+does not require a deployment reviewer.
 Store `CLIENT_ADOPTION_APP_ID` and `CLIENT_ADOPTION_APP_PRIVATE_KEY` there for a
 dedicated GitHub App installed only on approved client repositories with contents
 and pull-request write permissions. No customer repository fact is committed
@@ -217,7 +222,9 @@ tag checkout only as data. It rejects releases older than `v0.1.0` with an
 explicit provenance-contract message, re-verifies the tag and main ancestry,
 scopes each installation token to one matrix repository, changes only
 `clusters/prod-eu-1/platform-source.yaml`, and opens a draft pull request. It
-never merges, deploys, or reconciles a cluster.
+never merges, deploys, or reconciles a cluster. Successful publication or an
+authorized manual dispatch may create the draft; maintainer merge of the exact
+reviewed client change is the adoption authorization.
 
 ## Initialization Defaults
 

@@ -95,6 +95,11 @@
                 "pattern": "^v(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
               }
             },
+            "upgradesFromAlphaRevisions": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {"$ref": "#/$defs/commit"}
+            },
             "downgrade": {
               "const": "unsupported"
             },
@@ -162,6 +167,21 @@
             "then": {
               "properties": {
                 "provenance": {"$ref": "#/$defs/predecessorProvenance"}
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "version": {"enum": ["0.0.0", "0.1.0"]}
+            },
+            "required": ["version"]
+          },
+          "else": {
+            "properties": {
+              "compatibility": {
+                "required": ["upgradesFromAlphaRevisions"]
               }
             }
           }

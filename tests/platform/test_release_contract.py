@@ -83,6 +83,21 @@ class ReleaseContractTest(unittest.TestCase):
             ("invalid fresh install", "freshInstall", "yes"),
             ("non-tag upgrade", "upgradesFrom", ["0.2.5"]),
             ("duplicate upgrades", "upgradesFrom", ["v0.1.0", "v0.1.0"]),
+            (
+                "short alpha revision",
+                "upgradesFromAlphaRevisions",
+                ["a" * 39],
+            ),
+            (
+                "uppercase alpha revision",
+                "upgradesFromAlphaRevisions",
+                ["A" * 40],
+            ),
+            (
+                "duplicate alpha revisions",
+                "upgradesFromAlphaRevisions",
+                ["a" * 40, "a" * 40],
+            ),
             ("supported downgrade", "downgrade", "supported"),
             ("unknown recovery", "recovery", "database-restore"),
         ):
@@ -99,6 +114,37 @@ class ReleaseContractTest(unittest.TestCase):
                 invalid_manifest["spec"]["compatibility"] = candidate
                 with self.assertRaises(platform_release.ReleaseError):
                     platform_release.validate_manifest_schema(invalid_manifest)
+
+    def test_release_schema_allows_historical_compatibility_without_alpha_revisions(
+        self,
+    ) -> None:
+        manifest = copy.deepcopy(platform_release.build_manifest())
+        manifest["spec"]["compatibility"].pop(
+            "upgradesFromAlphaRevisions", None
+        )
+        self.assertNotIn(
+            "upgradesFromAlphaRevisions", manifest["spec"]["compatibility"]
+        )
+        platform_release.validate_manifest_schema(manifest)
+
+    def test_release_schema_requires_alpha_revisions_for_future_releases(self) -> None:
+        manifest = copy.deepcopy(platform_release.build_manifest())
+        included = "a" * 40
+        manifest["spec"]["version"] = "0.1.1"
+        manifest["spec"]["provenance"] = {
+            "previousTag": "v0.1.0",
+            "includedThrough": included,
+            "commits": [included],
+            "compareUrl": (
+                "https://github.com/neurwerk/k8s_stack_base/compare/v0.1.0..."
+                f"{included}"
+            ),
+        }
+        manifest["spec"]["compatibility"].pop(
+            "upgradesFromAlphaRevisions", None
+        )
+        with self.assertRaises(platform_release.ReleaseError):
+            platform_release.validate_manifest_schema(manifest)
 
     def test_unpublished_baseline_has_no_migration(self) -> None:
         if platform_release.VERSION_PATH.read_text().strip() != "0.0.0":
@@ -122,6 +168,7 @@ class ReleaseContractTest(unittest.TestCase):
 - Fresh installation: Supported.
 - Supported source versions: `v0.1.0`,
   `v0.1.1`.
+- Supported alpha source revisions: `aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa`, `bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb`.
 - Downgrade: Unsupported.
 
 ## Recovery
@@ -133,6 +180,10 @@ Recovery classification: Replacement restore.
             compatibility["upgradesFrom"],
             ["v0.1.0", "v0.1.1"],
         )
+        self.assertEqual(
+            compatibility["upgradesFromAlphaRevisions"],
+            ["a" * 40, "b" * 40],
+        )
 
     def test_migration_compatibility_rejects_invalid_declarations(self) -> None:
         migration = """# Platform v0.1.2
@@ -142,6 +193,7 @@ Recovery classification: Replacement restore.
 - Fresh installation: Supported.
 - Supported source versions: `v0.1.0`,
   `v0.1.1`.
+- Supported alpha source revisions: None.
 - Downgrade: Unsupported.
 
 ## Recovery
@@ -293,11 +345,99 @@ Recovery classification: Replacement restore.
                 with self.assertRaisesRegex(platform_release.ReleaseError, message):
                     platform_release.parse_migration_compatibility(candidate)
 
+    def test_migration_compatibility_rejects_invalid_alpha_revisions(self) -> None:
+        migration = """## Support
+
+- Fresh installation: Supported.
+- Supported source versions: None.
+- Supported alpha source revisions: `aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa`, `bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb`.
+- Downgrade: Unsupported.
+
+## Recovery
+
+Recovery classification: Forward fix.
+"""
+        invalid_migrations = (
+            (
+                "duplicate declaration",
+                migration.replace(
+                    "- Supported alpha source revisions:",
+                    "- Supported alpha source revisions: None.\n"
+                    "- Supported alpha source revisions:",
+                ),
+                "exactly one supported alpha source revisions declaration",
+            ),
+            (
+                "short revision",
+                migration.replace("`aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa`", "`abc123`"),
+                "comma-separated backticked full lowercase commits",
+            ),
+            (
+                "uppercase revision",
+                migration.replace("a" * 40, "A" * 40),
+                "comma-separated backticked full lowercase commits",
+            ),
+            (
+                "duplicate revisions",
+                migration.replace("b" * 40, "a" * 40),
+                "contain duplicate commits",
+            ),
+            (
+                "misplaced declaration",
+                migration.replace(
+                    "- Supported alpha source revisions: `aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa`, `bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb`.\n",
+                    "",
+                ).replace(
+                    "Recovery classification: Forward fix.",
+                    "- Supported alpha source revisions: None.\n"
+                    "Recovery classification: Forward fix.",
+                ),
+                "declaration must appear in ## Support",
+            ),
+        )
+        for name, candidate, message in invalid_migrations:
+            with self.subTest(name=name):
+                with self.assertRaisesRegex(platform_release.ReleaseError, message):
+                    platform_release.parse_migration_compatibility(candidate)
+
+    def test_migration_compatibility_allows_historical_missing_alpha_declaration(
+        self,
+    ) -> None:
+        migration = """## Support
+
+- Fresh installation: Supported.
+- Supported source versions: None.
+- Downgrade: Unsupported.
+
+## Recovery
+
+Recovery classification: Forward fix.
+"""
+        compatibility = platform_release.parse_migration_compatibility(migration, False)
+        self.assertEqual(compatibility["upgradesFromAlphaRevisions"], [])
+        platform_release.validate_migration_compatibility(
+            migration,
+            {
+                "freshInstall": "supported",
+                "upgradesFrom": [],
+                "downgrade": "unsupported",
+                "recovery": "forward-fix",
+            },
+            require_alpha_revisions=False,
+        )
+
+        with self.assertRaisesRegex(
+            platform_release.ReleaseError,
+            "exactly one supported alpha source revisions declaration",
+        ):
+            platform_release.parse_migration_compatibility(migration)
+
     def test_migration_compatibility_rejects_contract_mismatch(self) -> None:
         migration = """## Support
 
 - Fresh installation: Supported.
 - Supported source versions: `v0.1.0`, `v0.1.1`.
+- Supported alpha source revisions: `aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa`, `bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb`.
 - Downgrade: Unsupported.
 
 ## Recovery
@@ -307,6 +447,7 @@ Recovery classification: Forward fix.
         matching = {
             "freshInstall": "supported",
             "upgradesFrom": ["v0.1.0", "v0.1.1"],
+            "upgradesFromAlphaRevisions": ["a" * 40, "b" * 40],
             "downgrade": "unsupported",
             "recovery": "forward-fix",
         }
@@ -325,6 +466,22 @@ Recovery classification: Forward fix.
                 "upgradesFrom order",
                 {**matching, "upgradesFrom": ["v0.1.1", "v0.1.0"]},
                 "migration upgradesFrom order does not match release config compatibility.upgradesFrom",
+            ),
+            (
+                "upgradesFromAlphaRevisions set",
+                {
+                    **matching,
+                    "upgradesFromAlphaRevisions": ["c" * 40, "b" * 40],
+                },
+                "migration upgradesFromAlphaRevisions set does not match release config compatibility.upgradesFromAlphaRevisions",
+            ),
+            (
+                "upgradesFromAlphaRevisions order",
+                {
+                    **matching,
+                    "upgradesFromAlphaRevisions": ["b" * 40, "a" * 40],
+                },
+                "migration upgradesFromAlphaRevisions order does not match release config compatibility.upgradesFromAlphaRevisions",
             ),
             (
                 "downgrade",
@@ -354,6 +511,7 @@ Recovery classification: Forward fix.
             "compatibility": {
                 "freshInstall": "supported",
                 "upgradesFrom": [],
+                "upgradesFromAlphaRevisions": [],
                 "downgrade": "unsupported",
                 "recovery": "replacement-restore",
             },
@@ -387,6 +545,7 @@ Recovery classification: Forward fix.
         compatibility = {
             "freshInstall": "supported",
             "upgradesFrom": [],
+            "upgradesFromAlphaRevisions": [],
             "downgrade": "unsupported",
             "recovery": "replacement-restore",
         }
@@ -595,7 +754,9 @@ Recovery classification: Forward fix.
             "v0.1.0", "a" * 40, repository=root.resolve()
         )
 
-    def test_publication_inspects_bootstrap_complete_history(self) -> None:
+    def test_publication_inspects_historical_bootstrap_evidence_without_alpha_field(
+        self,
+    ) -> None:
         included = "a" * 40
         tag_commit = "b" * 40
         compatibility = {
@@ -861,11 +1022,34 @@ Recovery classification: Forward fix.
                 {
                     "freshInstall": "supported",
                     "upgradesFrom": [],
+                    "upgradesFromAlphaRevisions": [],
                     "downgrade": "unsupported",
                     "recovery": "replacement-restore",
                 },
             )
             self.assertEqual(version.read_text(), "0.1.0\n")
+
+    def test_bootstrap_preparation_rejects_alpha_source_revisions(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            version = Path(directory) / "VERSION"
+            version.write_text("0.0.0\n")
+            args = SimpleNamespace(
+                bootstrap=True,
+                version="0.1.0",
+                release_date="2026-09-01",
+                upgrades_from="",
+                upgrades_from_alpha_revisions="a" * 40,
+                fresh_install="supported",
+            )
+            with (
+                mock.patch.object(platform_release, "VERSION_PATH", version),
+                mock.patch.object(platform_release, "repository_tags", return_value=[]),
+            ):
+                with self.assertRaisesRegex(
+                    platform_release.ReleaseError,
+                    "bootstrap compatibility must support fresh installation and no upgrades",
+                ):
+                    platform_release.prepare_release(args)
 
     def test_release_preparation_writes_only_release_evidence(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -896,6 +1080,10 @@ Recovery classification: Forward fix.
                 summary="Prepare the next reviewed platform release.",
                 fresh_install="supported",
                 upgrades_from="",
+                upgrades_from_alpha_revisions=(
+                    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa,"
+                    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+                ),
                 recovery="replacement-restore",
             )
             with (
@@ -914,6 +1102,9 @@ Recovery classification: Forward fix.
                     platform_release, "provenance_from_git", return_value=provenance
                 ),
                 mock.patch.object(
+                    platform_release, "validate_alpha_source_revisions"
+                ) as validate_alpha_revisions,
+                mock.patch.object(
                     platform_release,
                     "build_manifest",
                     return_value={"spec": {"provenance": provenance}},
@@ -922,16 +1113,27 @@ Recovery classification: Forward fix.
             ):
                 platform_release.prepare_release(args)
             verify_signature.assert_called_once_with("v0.1.0", "v0.1.0")
+            validate_alpha_revisions.assert_called_once_with(["a" * 40, "b" * 40])
 
             prepared = yaml.safe_load(config.read_text())
             self.assertEqual(prepared["provenance"], provenance)
             self.assertEqual(prepared["compatibility"]["downgrade"], "unsupported")
+            self.assertEqual(
+                prepared["compatibility"]["upgradesFromAlphaRevisions"],
+                ["a" * 40, "b" * 40],
+            )
             self.assertEqual(version.read_text(), "0.1.1\n")
             self.assertTrue(platform_release.contains_todo(changelog.read_text()))
             self.assertTrue(
                 platform_release.contains_todo(
                     (migration_dir / "v0.1.1.md").read_text()
                 )
+            )
+            self.assertIn(
+                "- Supported alpha source revisions: "
+                "`aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa`, "
+                "`bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb`.",
+                (migration_dir / "v0.1.1.md").read_text(),
             )
             self.assertTrue(manifest.is_file())
             prose_errors: list[str] = []
@@ -959,6 +1161,210 @@ Recovery classification: Forward fix.
             with self.subTest(value=value):
                 with self.assertRaises(platform_release.ReleaseError):
                     platform_release.validate_release_date(value)
+
+    def test_prepare_rejects_invalid_and_duplicate_alpha_revisions(self) -> None:
+        for value, message in (
+            ("abc123", "full lowercase commits"),
+            ("A" * 40, "full lowercase commits"),
+            (f"{'a' * 40},{'a' * 40}", "contains duplicate commits"),
+        ):
+            with self.subTest(value=value):
+                with tempfile.TemporaryDirectory() as directory:
+                    version = Path(directory) / "VERSION"
+                    version.write_text("0.1.0\n")
+                    args = SimpleNamespace(
+                        version="0.1.1",
+                        previous_tag="v0.1.0",
+                        release_date="2026-09-01",
+                        upgrades_from="",
+                        upgrades_from_alpha_revisions=value,
+                    )
+                    with mock.patch.object(platform_release, "VERSION_PATH", version):
+                        with self.assertRaisesRegex(
+                            platform_release.ReleaseError, message
+                        ):
+                            platform_release.prepare_release(args)
+
+    def test_prepare_rejects_nonexistent_alpha_revision(self) -> None:
+        revision = "a" * 40
+        with tempfile.TemporaryDirectory() as directory:
+            version = Path(directory) / "VERSION"
+            version.write_text("0.1.0\n")
+            args = SimpleNamespace(
+                version="0.1.1",
+                previous_tag="v0.1.0",
+                release_date="2026-09-01",
+                upgrades_from="",
+                upgrades_from_alpha_revisions=revision,
+            )
+            with (
+                mock.patch.object(platform_release, "VERSION_PATH", version),
+                mock.patch.object(
+                    platform_release, "latest_release_tag", return_value="v0.1.0"
+                ),
+                mock.patch.object(platform_release, "verify_release_tag_signature"),
+                mock.patch.object(
+                    platform_release,
+                    "git",
+                    side_effect=platform_release.ReleaseError("unknown revision"),
+                ),
+            ):
+                with self.assertRaisesRegex(
+                    platform_release.ReleaseError,
+                    f"alpha source revision does not resolve to a commit: {revision}",
+                ):
+                    platform_release.prepare_release(args)
+
+    def test_prepare_rejects_divergent_alpha_revision(self) -> None:
+        revision = "b" * 40
+        with tempfile.TemporaryDirectory() as directory:
+            version = Path(directory) / "VERSION"
+            version.write_text("0.1.0\n")
+            args = SimpleNamespace(
+                version="0.1.1",
+                previous_tag="v0.1.0",
+                release_date="2026-09-01",
+                upgrades_from="",
+                upgrades_from_alpha_revisions=revision,
+            )
+            with (
+                mock.patch.object(platform_release, "VERSION_PATH", version),
+                mock.patch.object(
+                    platform_release, "latest_release_tag", return_value="v0.1.0"
+                ),
+                mock.patch.object(platform_release, "verify_release_tag_signature"),
+                mock.patch.object(platform_release, "git", return_value=revision),
+                mock.patch.object(
+                    platform_release, "git_is_ancestor", return_value=False
+                ),
+            ):
+                with self.assertRaisesRegex(
+                    platform_release.ReleaseError,
+                    f"alpha source revision is not an ancestor of HEAD: {revision}",
+                ):
+                    platform_release.prepare_release(args)
+
+    def test_final_validation_rejects_fabricated_alpha_revision(self) -> None:
+        revision = "c" * 40
+        compatibility = {
+            "freshInstall": "supported",
+            "upgradesFrom": ["v0.1.0"],
+            "upgradesFromAlphaRevisions": [revision],
+            "downgrade": "unsupported",
+            "recovery": "forward-fix",
+        }
+        config = {
+            "version": "0.1.1",
+            "releaseDate": "2026-09-01",
+            "summary": "Reviewed release.",
+            "compatibility": compatibility,
+            "trust": {
+                "signerIdentity": "platform-release",
+                "algorithm": "ssh-ed25519",
+                "fingerprint": "SHA256:test",
+            },
+            "packages": {},
+        }
+        manifest = {"spec": {"compatibility": compatibility}}
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            version = root / "VERSION"
+            rendered_manifest = root / "manifest.yaml"
+            version.write_text("0.1.1\n")
+            rendered_manifest.write_text(
+                yaml.safe_dump(manifest, sort_keys=False, width=100)
+            )
+            with (
+                mock.patch.object(platform_release, "VERSION_PATH", version),
+                mock.patch.object(platform_release, "MANIFEST_PATH", rendered_manifest),
+                mock.patch.object(platform_release, "load_yaml", return_value=config),
+                mock.patch.object(platform_release, "validate_provenance"),
+                mock.patch.object(platform_release, "validate_release_prose"),
+                mock.patch.object(platform_release, "release_evidence_endpoint", return_value="HEAD"),
+                mock.patch.object(
+                    platform_release,
+                    "public_key_fingerprint",
+                    return_value=("ssh-ed25519", "SHA256:test", "platform-release@neurwerk"),
+                ),
+                mock.patch.object(platform_release, "image_inventory", return_value=[]),
+                mock.patch.object(platform_release, "build_manifest", return_value=manifest),
+                mock.patch.object(platform_release, "validate_manifest_schema"),
+                mock.patch.object(
+                    platform_release,
+                    "git",
+                    side_effect=platform_release.ReleaseError("unknown revision"),
+                ),
+            ):
+                with self.assertRaisesRegex(
+                    platform_release.ReleaseError,
+                    f"alpha source revision does not resolve to a commit: {revision}",
+                ):
+                    platform_release.validate()
+
+    def test_release_inspection_rejects_divergent_alpha_revision(self) -> None:
+        included = "a" * 40
+        tag_commit = "b" * 40
+        revision = "c" * 40
+        compatibility = {
+            "freshInstall": "supported",
+            "upgradesFrom": ["v0.1.0"],
+            "upgradesFromAlphaRevisions": [revision],
+            "downgrade": "unsupported",
+            "recovery": "forward-fix",
+        }
+        provenance = {
+            "previousTag": "v0.1.0",
+            "includedThrough": included,
+            "commits": [included],
+            "compareUrl": (
+                "https://github.com/neurwerk/k8s_stack_base/compare/v0.1.0..."
+                f"{included}"
+            ),
+        }
+        config = {
+            "version": "0.1.1",
+            "releaseDate": "2026-09-01",
+            "compatibility": compatibility,
+            "provenance": provenance,
+        }
+        manifest = {
+            "metadata": {"name": "v0.1.1"},
+            "spec": {
+                "version": "0.1.1",
+                "releaseDate": "2026-09-01",
+                "compatibility": compatibility,
+                "provenance": provenance,
+            },
+        }
+
+        def git_result(*arguments: str, repository: Path = ROOT) -> str:
+            if arguments == ("rev-parse", "--verify", "v0.1.1^{commit}"):
+                return tag_commit
+            if arguments == ("rev-parse", "--verify", f"{revision}^{{commit}}"):
+                return revision
+            self.fail(f"unexpected git arguments: {arguments}")
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "release").mkdir()
+            (root / "VERSION").write_text("0.1.1\n")
+            (root / "release/config.yaml").write_text("{}\n")
+            (root / "release/manifest.yaml").write_text("{}\n")
+            with (
+                mock.patch.object(
+                    platform_release, "load_yaml", side_effect=[config, manifest]
+                ),
+                mock.patch.object(platform_release, "validate_manifest_schema"),
+                mock.patch.object(platform_release, "git", side_effect=git_result),
+                mock.patch.object(
+                    platform_release, "git_is_ancestor", side_effect=[True, False]
+                ),
+            ):
+                with self.assertRaisesRegex(
+                    platform_release.ReleaseError,
+                    f"alpha source revision is not an ancestor of {tag_commit}: {revision}",
+                ):
+                    platform_release.inspect_release_data(root, "v0.1.1")
 
     def test_release_preparation_requires_current_signed_predecessor(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -1049,6 +1455,8 @@ Recovery classification: Forward fix.
         self.assertIn("bootstrap-v0.1.0", workflow)
         self.assertIn('mode_args=(--bootstrap)', workflow)
         self.assertIn('mode_args=(--previous-tag "$PREVIOUS_TAG")', workflow)
+        self.assertIn("upgrades_from_alpha_revisions:", workflow)
+        self.assertIn("--upgrades-from-alpha-revisions", workflow)
         self.assertNotIn("${{ inputs.downgrade }}", workflow)
         self.assertNotIn("--downgrade", workflow)
         self.assertNotIn("git tag", workflow)
@@ -1079,7 +1487,9 @@ Recovery classification: Forward fix.
             readme,
         )
         self.assertIn("must not be environment variables", readme)
-        self.assertIn("only a reviewer gate and secret boundary", readme)
+        self.assertIn("only a branch and credential boundary", readme)
+        self.assertIn("does not require a deployment reviewer", readme)
+        self.assertIn("maintainer merge of the exact", readme)
 
     def test_workflow_actions_are_pinned_to_full_commits(self) -> None:
         for path in sorted((ROOT / ".github/workflows").glob("*.yaml")):
