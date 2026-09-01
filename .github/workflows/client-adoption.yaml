@@ -117,7 +117,7 @@ jobs:
           path: client
           persist-credentials: false
 
-      - name: Update only the verified platform source tag
+      - name: Prepare review-required platform source transition
         working-directory: release-tooling
         env:
           RELEASE_TAG: ${{ steps.release.outputs.tag }}
@@ -138,8 +138,10 @@ jobs:
             Proposes adoption of signed platform release `${{ steps.release.outputs.tag }}`.
 
             Review the release manifest, migration document, compatibility contract,
-            and client-specific values before approval. This draft pull request does
-            not authorize merge, deployment, or cluster reconciliation.
+            target state, and client-specific values. Replace the committed
+            `review-required` adoption mode with exactly `upgrade` or `fresh-install`
+            before approval. This draft pull request does not authorize merge,
+            deployment, or cluster reconciliation.
           draft: always-true
           delete-branch: false
           add-paths: clusters/prod-eu-1/platform-source.yaml

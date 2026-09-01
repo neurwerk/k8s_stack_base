@@ -1021,21 +1021,113 @@ def update_client_source(path: Path, tag: str) -> None:
     if RELEASE_TAG.fullmatch(tag) is None:
         raise ReleaseError(f"invalid release tag: {tag!r}")
     data = load_yaml(path)
-    if data.get("kind") != "GitRepository" or data.get("metadata", {}).get("name") != "k8s-stack":
-        raise ReleaseError("client source must be GitRepository/k8s-stack")
+    metadata = data.get("metadata", {})
     spec = data.get("spec", {})
+    if not isinstance(metadata, dict) or not isinstance(spec, dict):
+        raise ReleaseError("client source must use canonical mappings")
+    annotations = metadata.get("annotations", {})
+    reference = spec.get("ref", {})
+    verification = spec.get("verify", {})
+    if not all(
+        isinstance(value, dict)
+        for value in (annotations, reference, verification)
+    ):
+        raise ReleaseError("client source must use canonical mappings")
+    secret_reference = verification.get("secretRef", {})
+    mappings = (
+        metadata,
+        spec,
+        annotations,
+        reference,
+        verification,
+        secret_reference,
+    )
+    if not all(isinstance(value, dict) for value in mappings):
+        raise ReleaseError("client source must use canonical mappings")
+    if set(data) != {"apiVersion", "kind", "metadata", "spec"}:
+        raise ReleaseError("client source must use the canonical source shape")
+    if data.get("apiVersion") != "source.toolkit.fluxcd.io/v1":
+        raise ReleaseError("client source must use the canonical source API")
+    if data.get("kind") != "GitRepository":
+        raise ReleaseError("client source must be GitRepository/k8s-stack")
+    if set(metadata) != {"annotations", "name", "namespace"}:
+        raise ReleaseError("client source must use canonical metadata")
+    if (
+        metadata.get("name") != "k8s-stack"
+        or metadata.get("namespace") != "flux-system"
+    ):
+        raise ReleaseError(
+            "client source must be GitRepository/k8s-stack in flux-system"
+        )
+    if set(annotations) != {
+        "platform.neurwerk.com/adoption-mode",
+        "platform.neurwerk.com/adoption-target",
+    }:
+        raise ReleaseError("client source must use canonical adoption annotations")
+    if set(spec) != {"interval", "url", "ref", "verify"}:
+        raise ReleaseError("client source must use the canonical source spec")
+    if spec.get("interval") != "30s":
+        raise ReleaseError("client source must retain the canonical interval")
     if spec.get("url") != f"{REPOSITORY_URL}.git":
-        raise ReleaseError("client source does not use the canonical platform repository")
-    if spec.get("verify", {}).get("mode") != "Tag":
+        raise ReleaseError(
+            "client source does not use the canonical platform repository"
+        )
+    if set(reference) != {"tag"}:
+        raise ReleaseError("client source must select exactly one platform tag")
+    if set(verification) != {"mode", "secretRef"} or set(secret_reference) != {
+        "name"
+    }:
+        raise ReleaseError("client source must use canonical tag verification")
+    if verification.get("mode") != "Tag":
         raise ReleaseError("client source must retain tag verification")
-    if spec.get("verify", {}).get("secretRef", {}).get("name") != "k8s-stack-release-trust":
+    if secret_reference.get("name") != "k8s-stack-release-trust":
         raise ReleaseError("client source must retain the release trust reference")
+    current_tag = reference.get("tag")
+    if RELEASE_TAG.fullmatch(str(current_tag)) is None:
+        raise ReleaseError("client source must contain one strict current platform tag")
+    if annotations.get("platform.neurwerk.com/adoption-target") != current_tag:
+        raise ReleaseError("client source adoption target must match its current tag")
+    if annotations.get("platform.neurwerk.com/adoption-mode") not in {
+        "fresh-install",
+        "upgrade",
+    }:
+        raise ReleaseError("client source must contain a reviewed adoption mode")
 
     content = path.read_text()
-    pattern = re.compile(r"^(?P<prefix>\s*tag:\s*)v(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\s*$", re.MULTILINE)
-    updated, count = pattern.subn(rf"\g<prefix>{tag}", content)
-    if count != 1:
-        raise ReleaseError("client source must contain exactly one strict platform tag")
+    replacements = (
+        (
+            re.compile(
+                r"^(?P<prefix>\s*tag:\s*)"
+                r"v(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\s*$",
+                re.MULTILINE,
+            ),
+            rf"\g<prefix>{tag}",
+            "platform tag",
+        ),
+        (
+            re.compile(
+                r"^(?P<prefix>\s*platform\.neurwerk\.com/adoption-target:\s*)"
+                r"v(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\s*$",
+                re.MULTILINE,
+            ),
+            rf"\g<prefix>{tag}",
+            "adoption target",
+        ),
+        (
+            re.compile(
+                r"^(?P<prefix>\s*platform\.neurwerk\.com/adoption-mode:\s*)"
+                r"(?:fresh-install|upgrade)\s*$",
+                re.MULTILINE,
+            ),
+            r"\g<prefix>review-required",
+            "adoption mode",
+        ),
+    )
+    updated = content
+    for pattern, replacement, field in replacements:
+        updated, count = pattern.subn(replacement, updated)
+        if count != 1:
+            raise ReleaseError(f"client source must contain exactly one {field}")
     path.write_text(updated)
 
 
