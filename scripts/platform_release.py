@@ -619,7 +619,52 @@ def migration_source_versions(migration: str, support: str) -> list[str]:
     return tags
 
 
-def parse_migration_compatibility(migration: str) -> dict[str, Any]:
+def requires_alpha_revision_evidence(version: str) -> bool:
+    return version not in (UNPUBLISHED_BASELINE_VERSION, BOOTSTRAP_RELEASE_VERSION)
+
+
+def migration_alpha_source_revisions(
+    migration: str, support: str, required: bool = True
+) -> list[str]:
+    prefix = "- Supported alpha source revisions: "
+    declarations = [line for line in migration.splitlines() if line.startswith(prefix)]
+    if not declarations:
+        if required:
+            raise ReleaseError(
+                "release migration must contain exactly one supported alpha source "
+                "revisions declaration"
+            )
+        return []
+    if len(declarations) != 1:
+        raise ReleaseError(
+            "release migration must contain exactly one supported alpha source revisions declaration"
+        )
+    declaration = declarations[0]
+    if declaration not in support.splitlines():
+        raise ReleaseError(
+            "release migration supported alpha source revisions declaration must appear in ## Support"
+        )
+
+    value = declaration.removeprefix(prefix)
+    if value == "None.":
+        return []
+    revisions = re.findall(r"`([0-9a-f]{40})`", value)
+    canonical = ", ".join(f"`{revision}`" for revision in revisions)
+    if not revisions or value != f"{canonical}.":
+        raise ReleaseError(
+            "release migration supported alpha source revisions must be None or "
+            "comma-separated backticked full lowercase commits"
+        )
+    if len(revisions) != len(set(revisions)):
+        raise ReleaseError(
+            "release migration supported alpha source revisions contain duplicate commits"
+        )
+    return revisions
+
+
+def parse_migration_compatibility(
+    migration: str, require_alpha_revisions: bool = True
+) -> dict[str, Any]:
     support = migration_section(migration, "Support")
     recovery_section = migration_section(migration, "Recovery")
 
@@ -635,6 +680,9 @@ def parse_migration_compatibility(migration: str) -> dict[str, Any]:
             f"release migration has unknown fresh installation value: {fresh_install}"
         )
     upgrades_from = migration_source_versions(migration, support)
+    upgrades_from_alpha_revisions = migration_alpha_source_revisions(
+        migration, support, require_alpha_revisions
+    )
     downgrade = migration_declaration(
         migration, support, "Support", "- Downgrade: ", "downgrade"
     ).lower()
@@ -654,17 +702,21 @@ def parse_migration_compatibility(migration: str) -> dict[str, Any]:
     return {
         "freshInstall": fresh_install,
         "upgradesFrom": upgrades_from,
+        "upgradesFromAlphaRevisions": upgrades_from_alpha_revisions,
         "downgrade": downgrade,
         "recovery": recovery,
     }
 
 
 def validate_migration_compatibility(
-    migration: str, compatibility: Any, source: str = "release compatibility"
+    migration: str,
+    compatibility: Any,
+    source: str = "release compatibility",
+    require_alpha_revisions: bool = True,
 ) -> None:
     if not isinstance(compatibility, dict):
         raise ReleaseError(f"{source} must be an object")
-    declared = parse_migration_compatibility(migration)
+    declared = parse_migration_compatibility(migration, require_alpha_revisions)
     for field in ("freshInstall", "downgrade", "recovery"):
         if declared[field] != compatibility.get(field):
             raise ReleaseError(
@@ -683,6 +735,23 @@ def validate_migration_compatibility(
             mismatch = "set"
         raise ReleaseError(
             f"release migration upgradesFrom {mismatch} does not match {source}.upgradesFrom"
+        )
+    expected_alpha_revisions = compatibility.get("upgradesFromAlphaRevisions", [])
+    if declared["upgradesFromAlphaRevisions"] != expected_alpha_revisions:
+        if (
+            isinstance(expected_alpha_revisions, list)
+            and all(isinstance(revision, str) for revision in expected_alpha_revisions)
+            and len(declared["upgradesFromAlphaRevisions"])
+            == len(expected_alpha_revisions)
+            and set(declared["upgradesFromAlphaRevisions"])
+            == set(expected_alpha_revisions)
+        ):
+            mismatch = "order"
+        else:
+            mismatch = "set"
+        raise ReleaseError(
+            "release migration upgradesFromAlphaRevisions "
+            f"{mismatch} does not match {source}.upgradesFromAlphaRevisions"
         )
 
 
@@ -713,7 +782,10 @@ def validate_release_prose(config: dict[str, Any], version: str, errors: list[st
             errors.append("release migration document contains TODO markers")
         try:
             validate_migration_compatibility(
-                migration_text, config.get("compatibility"), "release config compatibility"
+                migration_text,
+                config.get("compatibility"),
+                "release config compatibility",
+                requires_alpha_revision_evidence(version),
             )
         except ReleaseError as exc:
             errors.append(str(exc))
@@ -853,11 +925,27 @@ def validate(tag: str | None = None) -> None:
         not isinstance(compatibility, dict)
         or compatibility.get("freshInstall") != "supported"
         or compatibility.get("upgradesFrom") != []
+        or compatibility.get("upgradesFromAlphaRevisions", []) != []
         or compatibility.get("downgrade") != "unsupported"
     ):
         errors.append(
             f"bootstrap release {BOOTSTRAP_RELEASE_TAG} must be fresh-install-only"
         )
+    if isinstance(compatibility, dict):
+        alpha_revisions = compatibility.get("upgradesFromAlphaRevisions", [])
+        if isinstance(alpha_revisions, list) and all(
+            isinstance(revision, str) and GIT_COMMIT.fullmatch(revision)
+            for revision in alpha_revisions
+        ):
+            try:
+                descendant = (
+                    release_evidence_endpoint(version)
+                    if SEMVER.fullmatch(version)
+                    else "HEAD"
+                )
+                validate_alpha_source_revisions(alpha_revisions, descendant)
+            except ReleaseError as exc:
+                errors.append(str(exc))
 
     trust = config.get("trust", {})
     key_algorithm, key_fingerprint, key_comment = public_key_fingerprint()
@@ -965,6 +1053,13 @@ def inspect_release_data(
     tag_commit = git("rev-parse", "--verify", f"{tag}^{{commit}}", repository=release_root)
     if not git_is_ancestor(included_through, tag_commit, repository=release_root):
         raise ReleaseError("includedThrough is not an ancestor of the release tag")
+    if isinstance(config_compatibility, dict):
+        alpha_revisions = config_compatibility.get("upgradesFromAlphaRevisions", [])
+        if isinstance(alpha_revisions, list) and all(
+            isinstance(revision, str) and GIT_COMMIT.fullmatch(revision)
+            for revision in alpha_revisions
+        ):
+            validate_alpha_source_revisions(alpha_revisions, tag_commit, release_root)
 
     if mode == "bootstrap":
         if version != BOOTSTRAP_RELEASE_VERSION or tag != BOOTSTRAP_RELEASE_TAG:
@@ -975,6 +1070,7 @@ def inspect_release_data(
             not isinstance(config_compatibility, dict)
             or config_compatibility.get("freshInstall") != "supported"
             or config_compatibility.get("upgradesFrom") != []
+            or config_compatibility.get("upgradesFromAlphaRevisions", []) != []
             or config_compatibility.get("downgrade") != "unsupported"
         ):
             raise ReleaseError(
@@ -1047,10 +1143,16 @@ def inspect_release_data(
     if not migration.is_file() or contains_todo(migration.read_text()):
         raise ReleaseError("release migration evidence is missing or incomplete")
     validate_migration_compatibility(
-        migration.read_text(), config_compatibility, "release config compatibility"
+        migration.read_text(),
+        config_compatibility,
+        "release config compatibility",
+        requires_alpha_revision_evidence(version),
     )
     validate_migration_compatibility(
-        migration.read_text(), manifest_compatibility, "release manifest compatibility"
+        migration.read_text(),
+        manifest_compatibility,
+        "release manifest compatibility",
+        requires_alpha_revision_evidence(version),
     )
     if contains_todo(changelog_section(changelog, version)):
         raise ReleaseError("release changelog contains TODO markers")
@@ -1085,6 +1187,43 @@ def parse_upgrades_from(value: str) -> list[str]:
     return tags
 
 
+def parse_upgrades_from_alpha_revisions(value: str) -> list[str]:
+    if not value.strip():
+        return []
+    revisions = [item.strip() for item in value.split(",")]
+    if any(GIT_COMMIT.fullmatch(revision) is None for revision in revisions):
+        raise ReleaseError(
+            "upgrades-from-alpha-revisions must be a comma-separated list of full "
+            "lowercase commits"
+        )
+    if len(revisions) != len(set(revisions)):
+        raise ReleaseError("upgrades-from-alpha-revisions contains duplicate commits")
+    return revisions
+
+
+def validate_alpha_source_revisions(
+    revisions: list[str], descendant: str = "HEAD", repository: Path = ROOT
+) -> None:
+    for revision in revisions:
+        try:
+            resolved = git(
+                "rev-parse",
+                "--verify",
+                f"{revision}^{{commit}}",
+                repository=repository,
+            )
+        except ReleaseError as exc:
+            raise ReleaseError(
+                f"alpha source revision does not resolve to a commit: {revision}"
+            ) from exc
+        if resolved != revision:
+            raise ReleaseError(f"alpha source revision is not a commit: {revision}")
+        if not git_is_ancestor(revision, descendant, repository=repository):
+            raise ReleaseError(
+                f"alpha source revision is not an ancestor of {descendant}: {revision}"
+            )
+
+
 def prepare_release(args: argparse.Namespace) -> None:
     current_version = VERSION_PATH.read_text().strip()
     if SEMVER.fullmatch(current_version) is None:
@@ -1093,6 +1232,9 @@ def prepare_release(args: argparse.Namespace) -> None:
     target = semver_tuple(args.version)
     validate_release_date(args.release_date)
     upgrades_from = parse_upgrades_from(args.upgrades_from)
+    upgrades_from_alpha_revisions = parse_upgrades_from_alpha_revisions(
+        getattr(args, "upgrades_from_alpha_revisions", "")
+    )
 
     if bootstrap:
         if current_version != UNPUBLISHED_BASELINE_VERSION:
@@ -1108,7 +1250,11 @@ def prepare_release(args: argparse.Namespace) -> None:
                 "bootstrap requires a repository with zero tags; found: "
                 + ", ".join(tags)
             )
-        if args.fresh_install != "supported" or upgrades_from:
+        if (
+            args.fresh_install != "supported"
+            or upgrades_from
+            or upgrades_from_alpha_revisions
+        ):
             raise ReleaseError(
                 "bootstrap compatibility must support fresh installation and no upgrades"
             )
@@ -1133,6 +1279,7 @@ def prepare_release(args: argparse.Namespace) -> None:
         previous = tuple(int(part) for part in previous_match.groups())
         if target <= previous:
             raise ReleaseError("target version must be newer than the previous release tag")
+        validate_alpha_source_revisions(upgrades_from_alpha_revisions)
         for source_tag in upgrades_from:
             git("rev-parse", "--verify", f"{source_tag}^{{commit}}")
         provenance = provenance_from_git(previous_tag)
@@ -1147,6 +1294,7 @@ def prepare_release(args: argparse.Namespace) -> None:
     config["compatibility"] = {
         "freshInstall": args.fresh_install,
         "upgradesFrom": upgrades_from,
+        "upgradesFromAlphaRevisions": upgrades_from_alpha_revisions,
         "downgrade": "unsupported",
         "recovery": args.recovery,
     }
@@ -1172,12 +1320,17 @@ def prepare_release(args: argparse.Namespace) -> None:
     if not migration.exists():
         migration.parent.mkdir(parents=True, exist_ok=True)
         supported = ", ".join(f"`{tag}`" for tag in upgrades_from) or "None"
+        supported_alpha = (
+            ", ".join(f"`{revision}`" for revision in upgrades_from_alpha_revisions)
+            or "None"
+        )
         migration.write_text(
             f"# Platform v{args.version}\n\n"
             "> TODO: Replace every TODO with reviewed release-specific evidence.\n\n"
             "## Support\n\n"
             f"- Fresh installation: {args.fresh_install.title()}.\n"
             f"- Supported source versions: {supported}.\n"
+            f"- Supported alpha source revisions: {supported_alpha}.\n"
             "- Downgrade: Unsupported.\n\n"
             "## Prerequisites\n\nTODO.\n\n"
             "## Client Actions\n\nTODO.\n\n"
@@ -1342,6 +1495,7 @@ def main() -> int:
     prepare.add_argument("--summary", required=True)
     prepare.add_argument("--fresh-install", choices=("supported", "unsupported"), required=True)
     prepare.add_argument("--upgrades-from", default="")
+    prepare.add_argument("--upgrades-from-alpha-revisions", default="")
     prepare.add_argument("--recovery", choices=RECOVERY_ACTIONS, required=True)
     client = subparsers.add_parser("update-client-source")
     client.add_argument("--path", type=Path, required=True)
