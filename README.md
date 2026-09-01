@@ -128,21 +128,22 @@ Obtain the expected fingerprint through an independent, operator-controlled
 channel before trusting the repository, a release page, CI output, or a cluster
 Secret. If the out-of-band value differs, stop.
 
-After independently authenticating the fingerprint:
+After independently authenticating the fingerprint and after the first release
+has been published:
 
 ```bash
 ssh-keygen -lf release/trust/platform-release.sshpub -E sha256
 awk '{print "platform-release namespaces=\"git\" " $1 " " $2}' \
   release/trust/platform-release.sshpub > allowed_signers
-git fetch origin tag v0.2.6
+git fetch origin tag v0.1.0
 git -c gpg.format=ssh \
   -c gpg.ssh.allowedSignersFile="$PWD/allowed_signers" \
-  verify-tag v0.2.6
-git show v0.2.6:VERSION
+  verify-tag v0.1.0
+git show v0.1.0:VERSION
 rm allowed_signers
 ```
 
-Replace `v0.2.6` with the intended exact tag and confirm `VERSION` matches it
+Replace `v0.1.0` with the intended exact tag and confirm `VERSION` matches it
 without the leading `v`. Do not create a Flux trust Secret from repository key
 material until the fingerprint has been authenticated independently.
 
@@ -160,7 +161,7 @@ The read-only tag workflow verifies the signed tag with tooling checked out from
 the default branch, then runs the tag's complete validation without write
 permission. A separate default-branch `workflow_run` independently verifies the
 tag workflow matches its trusted default-branch definition, then verifies the
-signer, predecessor, release contract, and default-branch ancestry before
+signer, provenance boundary, release contract, and default-branch ancestry before
 entering the write-capable `platform-release` environment. It fails closed when
 the variable is absent, malformed, inconsistent with the trusted default-branch
 public key, or not the documented fingerprint. The environment contains no
@@ -184,12 +185,15 @@ pull requests trigger normal pull-request checks.
 
 Preparation may write only the version, changelog, release configuration,
 generated manifest, and version-specific migration document to a draft pull
-request. Generated prose contains deliberate `TODO` markers. The predecessor
-must equal the release matching the pre-prepare `VERSION`, be the latest release
-reachable from the default branch, and pass the external signer check. Downgrade
-is currently always recorded as unsupported; enabling it requires a coordinated
-schema, validation, preparation, and client change. Require an environment
-reviewer and restrict deployment branches to the default branch.
+request. Generated prose contains deliberate `TODO` markers. The one-time
+`bootstrap-v0.1.0` mode is valid only from the unpublished `0.0.0` baseline when
+the repository has zero tags. It records complete reachable history, supports
+fresh installation, declares no upgrade sources, and has no predecessor. Every
+successor must name the latest signed release matching the pre-prepare `VERSION`
+and records only the commits after that predecessor. Downgrade is currently
+always recorded as unsupported; enabling it requires a coordinated schema,
+validation, preparation, and client change. Require an environment reviewer and
+restrict deployment branches to the default branch.
 
 ## Client Adoption Proposals
 
@@ -209,7 +213,7 @@ here.
 
 Adoption downloads the exact tag artifact from successful default-branch
 publication, checks out default-branch tooling separately, and treats the signed
-tag checkout only as data. It rejects releases older than `v0.2.7` with an
+tag checkout only as data. It rejects releases older than `v0.1.0` with an
 explicit provenance-contract message, re-verifies the tag and main ancestry,
 scopes each installation token to one matrix repository, changes only
 `clusters/prod-eu-1/platform-source.yaml`, and opens a draft pull request. It
@@ -219,13 +223,11 @@ never merges, deploys, or reconciles a cluster.
 
 Langfuse's default organization, project, and display names are generic
 initialization placeholders. Client-owned values should set the intended
-non-secret identity before first initialization. Signed platform `v0.2.6` also
-retains the historical `admin@org.com` fallback. Because changing packaged chart
-defaults requires a chart version and coordinated image/platform release, this
-repository does not rewrite that released contract as a documentation-only
-change. Do not treat the fallback as an operational account. Replacing it and
-moving generic identities into client-owned values requires coordinated client
-changes and a later release.
+non-secret identity before first initialization. The unpublished imported
+baseline also retains the historical `admin@org.com` fallback. Do not treat the
+fallback as an operational account. Replacing it and moving generic identities
+into client-owned values requires coordinated client changes and a later
+release.
 
 ## Workflow Supply Chain
 

@@ -7,9 +7,16 @@ on:
         description: Strict SemVer without the v prefix
         required: true
         type: string
-      previous_tag:
-        description: Exact current platform release tag
+      preparation_mode:
+        description: One-time v0.1.0 bootstrap or signed-predecessor successor
         required: true
+        type: choice
+        options:
+          - successor
+          - bootstrap-v0.1.0
+      previous_tag:
+        description: Exact current platform release tag; empty only for bootstrap-v0.1.0
+        required: false
         type: string
       release_date:
         description: Release date in strict YYYY-MM-DD format
@@ -74,9 +81,10 @@ jobs:
       - name: Install Python
         run: uv python install 3.12
 
-      - name: Prepare release evidence from the signed predecessor
+      - name: Prepare release evidence
         env:
           VERSION: ${{ inputs.version }}
+          PREPARATION_MODE: ${{ inputs.preparation_mode }}
           PREVIOUS_TAG: ${{ inputs.previous_tag }}
           RELEASE_DATE: ${{ inputs.release_date }}
           SUMMARY: ${{ inputs.summary }}
@@ -86,9 +94,32 @@ jobs:
           PLATFORM_RELEASE_ALLOWED_SIGNER: ${{ vars.PLATFORM_RELEASE_ALLOWED_SIGNER }}
         run: |
           uv lock --check
+
+          mode_args=()
+          case "$PREPARATION_MODE" in
+            bootstrap-v0.1.0)
+              if [[ -n "$PREVIOUS_TAG" ]]; then
+                echo "bootstrap-v0.1.0 must not declare previous_tag" >&2
+                exit 1
+              fi
+              mode_args=(--bootstrap)
+              ;;
+            successor)
+              if [[ -z "$PREVIOUS_TAG" ]]; then
+                echo "successor preparation requires previous_tag" >&2
+                exit 1
+              fi
+              mode_args=(--previous-tag "$PREVIOUS_TAG")
+              ;;
+            *)
+              echo "unsupported preparation mode: $PREPARATION_MODE" >&2
+              exit 1
+              ;;
+          esac
+
           uv run --frozen python scripts/platform_release.py prepare \
             --version "$VERSION" \
-            --previous-tag "$PREVIOUS_TAG" \
+            "${mode_args[@]}" \
             --release-date "$RELEASE_DATE" \
             --summary "$SUMMARY" \
             --fresh-install "$FRESH_INSTALL" \

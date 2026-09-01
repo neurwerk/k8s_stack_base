@@ -1,6 +1,6 @@
-version: 0.2.6
-releaseDate: 2026-08-31
-summary: Preserve stable PII aliases and opaque reasoning with an exact LibreChat snapshot.
+version: 0.0.0
+releaseDate: null
+summary: Unpublished development baseline for the first aggregate platform release.
 
 trust:
   signerIdentity: platform-release
@@ -61,10 +61,10 @@ exceptions:
     owner: platform
     expires: 2026-09-30
     reason: >-
-      Core LibreChat requires the reviewed upstream streaming and reasoning
-      changes before a non-RC release is available. This fresh-install-only
-      release pins the exact multi-architecture development image digest and
-      records its source commit; moving development tags remain prohibited.
+      Required streaming and reasoning behavior currently exists only in the
+      reviewed upstream source commit. The initial release pins its exact
+      multi-architecture image digest; moving development tags remain
+      prohibited.
   - artifact: charts/postgres/operations:documentdb-database-rbac
     owner: platform
     expires: 2026-11-27
