@@ -1158,6 +1158,7 @@ def prepare_release(args: argparse.Namespace) -> None:
 
     migration = ROOT / f"release/migrations/v{args.version}.md"
     if not migration.exists():
+        migration.parent.mkdir(parents=True, exist_ok=True)
         supported = ", ".join(f"`{tag}`" for tag in upgrades_from) or "None"
         migration.write_text(
             f"# Platform v{args.version}\n\n"
