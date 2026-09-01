@@ -1,83 +1,92 @@
-version: 0.0.0
-releaseDate: null
-summary: Unpublished development baseline for the first aggregate platform release.
-
+version: 0.1.0
+releaseDate: '2026-09-01'
+summary: Establish the initial aggregate platform contract with immutable service and runtime pins.
 trust:
   signerIdentity: platform-release
   algorithm: ssh-ed25519
   fingerprint: SHA256:+rDcofrsfRE3ElJJxnUVoB3gmoEzZJUrisDqLZMHimw
-
 compatibility:
   freshInstall: supported
   upgradesFrom: []
   downgrade: unsupported
   recovery: replacement-restore
-
 packages:
   default:
-    - releases/namespaces
-    - releases/infrastructure
-    - releases/applications
+  - releases/namespaces
+  - releases/infrastructure
+  - releases/applications
   optional:
-    - path: releases/librechat/rag
-      status: excluded
-      reason: Deployment readiness and effective client rendering are not complete.
-      chartPrefixes:
-        - charts/librechat/rag-api
-    - path: releases/librechat/code-interpreter
-      status: excluded
-      reason: First-party versioned runtime images have not been published.
-      chartPrefixes:
-        - charts/librechat/code-interpreter
-
+  - path: releases/librechat/rag
+    status: excluded
+    reason: Deployment readiness and effective client rendering are not complete.
+    chartPrefixes:
+    - charts/librechat/rag-api
+  - path: releases/librechat/code-interpreter
+    status: excluded
+    reason: First-party versioned runtime images have not been published.
+    chartPrefixes:
+    - charts/librechat/code-interpreter
 prerequisites:
-  - name: flux
-    version: 2.9.4
-    source: client bootstrap manifests
-  - name: openbao-stack-setup
-    version: 0.2.10
-    source: https://github.com/neurwerk/k8s_stack_tooling/commit/fbf91a133e755e5f5b3a79e0e73c2506fc09021f
-  - name: gateway-api-experimental
-    version: 1.6.0
-    source: https://github.com/kubernetes-sigs/gateway-api/releases/tag/v1.6.0
-  - name: cert-manager-crds
-    version: 1.20.2
-    source: https://github.com/cert-manager/cert-manager/releases/tag/v1.20.2
-  - name: prometheus-operator-crds
-    version: 72.4.0
-    source: oci://ghcr.io/prometheus-community/charts/kube-prometheus-stack
-  - name: agentgateway-crds
-    version: 1.4.1
-    source: oci://cr.agentgateway.dev/charts/agentgateway-crds
-  - name: external-secrets-crds
-    version: 2.9.0
-    source: https://github.com/external-secrets/external-secrets/releases/tag/v2.9.0
-  - name: documentdb-cpu-baseline
-    version: x86-64-v3
-    source: https://github.com/documentdb/documentdb/blob/v0.116-0/pg_documentdb_gw/.cargo/config.toml
-
+- name: flux
+  version: 2.9.4
+  source: client bootstrap manifests
+- name: openbao-stack-setup
+  version: 0.2.10
+  source: https://github.com/neurwerk/k8s_stack_tooling/commit/fbf91a133e755e5f5b3a79e0e73c2506fc09021f
+- name: gateway-api-experimental
+  version: 1.6.0
+  source: https://github.com/kubernetes-sigs/gateway-api/releases/tag/v1.6.0
+- name: cert-manager-crds
+  version: 1.20.2
+  source: https://github.com/cert-manager/cert-manager/releases/tag/v1.20.2
+- name: prometheus-operator-crds
+  version: 72.4.0
+  source: oci://ghcr.io/prometheus-community/charts/kube-prometheus-stack
+- name: agentgateway-crds
+  version: 1.4.1
+  source: oci://cr.agentgateway.dev/charts/agentgateway-crds
+- name: external-secrets-crds
+  version: 2.9.0
+  source: https://github.com/external-secrets/external-secrets/releases/tag/v2.9.0
+- name: documentdb-cpu-baseline
+  version: x86-64-v3
+  source: https://github.com/documentdb/documentdb/blob/v0.116-0/pg_documentdb_gw/.cargo/config.toml
 exceptions:
-  - artifact: ghcr.io/danny-avila/librechat-dev@sha256:909958b41c7035be776aa6a1365016a66007d85fe5cfc8614320e0f24c1810e1
-    owner: platform
-    expires: 2026-09-30
-    reason: >-
-      Required streaming and reasoning behavior currently exists only in the
-      reviewed upstream source commit. The initial release pins its exact
-      multi-architecture image digest; moving development tags remain
-      prohibited.
-  - artifact: charts/postgres/operations:documentdb-database-rbac
-    owner: platform
-    expires: 2026-11-27
-    reason: >-
-      DocumentDB 0.116.0 requires readWriteAnyDatabase plus clusterAdmin for a
-      secondary write user and does not support database-scoped readWrite.
-      LibreChat is the gateway's only application consumer; another
-      Mongo-compatible consumer requires a separate instance. Native user
-      creation also requires narrowly scoped, temporary PostgreSQL CREATEROLE
-      and documentdb_admin_role delegation capabilities.
-  - artifact: charts/postgres/operations:privilege-escalation-container
-    owner: platform
-    expires: 2026-11-27
-    reason: >-
-      The reviewed upstream DocumentDB local image requires passwordless sudo
-      to prepare runtime directories before dropping back to UID 1000.
+- artifact: ghcr.io/danny-avila/librechat-dev@sha256:909958b41c7035be776aa6a1365016a66007d85fe5cfc8614320e0f24c1810e1
+  owner: platform
+  expires: 2026-09-30
+  reason: Required streaming and reasoning behavior currently exists only in the reviewed upstream source
+    commit. The initial release pins its exact multi-architecture image digest; moving development tags
+    remain prohibited.
+- artifact: charts/postgres/operations:documentdb-database-rbac
+  owner: platform
+  expires: 2026-11-27
+  reason: DocumentDB 0.116.0 requires readWriteAnyDatabase plus clusterAdmin for a secondary write user
+    and does not support database-scoped readWrite. LibreChat is the gateway's only application consumer;
+    another Mongo-compatible consumer requires a separate instance. Native user creation also requires
+    narrowly scoped, temporary PostgreSQL CREATEROLE and documentdb_admin_role delegation capabilities.
+- artifact: charts/postgres/operations:privilege-escalation-container
+  owner: platform
+  expires: 2026-11-27
+  reason: The reviewed upstream DocumentDB local image requires passwordless sudo to prepare runtime directories
+    before dropping back to UID 1000.
+provenance:
+  bootstrap: true
+  includedThrough: bb7349a024ffeeb0e47ccccd1d1774358656f807
+  commits:
+  - 35a1fe7754f65a5fe19f17fe31ad81e48800ed01
+  - f5790d7284e223b7a592169a60c520ca2faecdc8
+  - ba75c76d4f6f1c2830ca56470fdf52acacc0d5f2
+  - 8a68752e1b57734085b7c3e1b7345478373783eb
+  - 6f5f50c9a55de50c710efd926b26f47769c1fa10
+  - 5cc6e0df7551cfdb23c4005f6ddda9be4fc77247
+  - fd28536279eacbfeddb39c77374a92f86813c994
+  - 89e3575d3b537d345bfca6a0119a36179f4209eb
+  - e6012fcbc06b8bd6bbd776af5105869427202247
+  - 6ecd5e70f8ade1a04cc53142dac8411dafcc4105
+  - a142381461435695f45eb167eb770a76a908ad57
+  - 347af0c523ff67f2b50d886962237000f9d16122
+  - 2d3430c37f7b7d2d8a5a7b1ef0717f9281de6ef2
+  - e1150705f4dba3d61235e09b4f2002b4eb2c7e3b
+  - bb7349a024ffeeb0e47ccccd1d1774358656f807
+  historyUrl: https://github.com/neurwerk/k8s_stack_base/commits/bb7349a024ffeeb0e47ccccd1d1774358656f807

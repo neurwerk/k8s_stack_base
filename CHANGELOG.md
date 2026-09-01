@@ -4,8 +4,21 @@ All notable aggregate platform changes will be documented here. Platform
 versions follow Semantic Versioning, but upgrade compatibility is declared
 separately in each release manifest and migration document.
 
-The repository is currently an unpublished `0.0.0` development baseline. It has
-no platform release tags, GitHub Releases, predecessors, or supported upgrade
-paths.
+The initial platform release is `v0.1.0`. It has no predecessor or supported
+upgrade path.
 
 ## [Unreleased]
+
+## [0.1.0] - 2026-09-01
+
+### Added
+
+- Establish the aggregate platform package with immutable application and image
+  pins, signed-tag trust, and complete-history provenance.
+- Include the namespace, infrastructure, and application packages by default.
+- Record optional LibreChat packages and reviewed exceptions explicitly.
+
+### Compatibility
+
+- Fresh installation is supported. Upgrades and downgrades are unsupported.
+- Recovery requires replacement restore.

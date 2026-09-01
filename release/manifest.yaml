@@ -1,11 +1,11 @@
 apiVersion: platform.neurwerk.com/v1alpha1
 kind: PlatformRelease
 metadata:
-  name: v0.0.0
+  name: v0.1.0
 spec:
-  version: 0.0.0
-  releaseDate: null
-  summary: Unpublished development baseline for the first aggregate platform release.
+  version: 0.1.0
+  releaseDate: '2026-09-01'
+  summary: Establish the initial aggregate platform contract with immutable service and runtime pins.
   trust:
     signerIdentity: platform-release
     algorithm: ssh-ed25519
@@ -990,3 +990,23 @@ spec:
       kube-linter: 0.8.3
       pre-commit: 4.6.1
       uv: 0.11.21
+  provenance:
+    bootstrap: true
+    includedThrough: bb7349a024ffeeb0e47ccccd1d1774358656f807
+    commits:
+    - 35a1fe7754f65a5fe19f17fe31ad81e48800ed01
+    - f5790d7284e223b7a592169a60c520ca2faecdc8
+    - ba75c76d4f6f1c2830ca56470fdf52acacc0d5f2
+    - 8a68752e1b57734085b7c3e1b7345478373783eb
+    - 6f5f50c9a55de50c710efd926b26f47769c1fa10
+    - 5cc6e0df7551cfdb23c4005f6ddda9be4fc77247
+    - fd28536279eacbfeddb39c77374a92f86813c994
+    - 89e3575d3b537d345bfca6a0119a36179f4209eb
+    - e6012fcbc06b8bd6bbd776af5105869427202247
+    - 6ecd5e70f8ade1a04cc53142dac8411dafcc4105
+    - a142381461435695f45eb167eb770a76a908ad57
+    - 347af0c523ff67f2b50d886962237000f9d16122
+    - 2d3430c37f7b7d2d8a5a7b1ef0717f9281de6ef2
+    - e1150705f4dba3d61235e09b4f2002b4eb2c7e3b
+    - bb7349a024ffeeb0e47ccccd1d1774358656f807
+    historyUrl: https://github.com/neurwerk/k8s_stack_base/commits/bb7349a024ffeeb0e47ccccd1d1774358656f807
