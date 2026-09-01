@@ -2,7 +2,7 @@ apiVersion: v2
 name: infra-cert-manager-approver-policy
 description: Official cert-manager approver-policy controller (local wrapper)
 type: application
-version: 0.6.0
+version: 1.0.0
 appVersion: "v0.25.1"
 dependencies:
   - name: cert-manager-approver-policy

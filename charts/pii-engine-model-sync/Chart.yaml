@@ -2,5 +2,5 @@ apiVersion: v2
 name: pii-engine-model-sync
 description: Optional synchronization and activation of a pinned PII model bundle.
 type: application
-version: 0.6.13
-appVersion: "0.7.2"
+version: 1.0.0
+appVersion: "0.1.0"

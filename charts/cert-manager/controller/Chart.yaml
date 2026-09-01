@@ -2,7 +2,7 @@ apiVersion: v2
 name: infra-cert-manager-controller
 description: Cert-manager controller (local wrapper)
 type: application
-version: 0.6.2
+version: 1.0.0
 dependencies:
   - name: cert-manager
     version: "v1.20.2"

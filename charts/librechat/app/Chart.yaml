@@ -2,7 +2,7 @@ apiVersion: v2
 name: frontend-librechat
 description: First-party LibreChat UI and API workload
 type: application
-version: 0.7.6
+version: 1.0.0
 appVersion: "14d4f2789d8f1d308713f7acd98fab925f8aa74d"
 annotations:
   source.commit: 14d4f2789d8f1d308713f7acd98fab925f8aa74d

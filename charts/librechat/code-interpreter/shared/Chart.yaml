@@ -2,7 +2,7 @@ apiVersion: v2
 name: librechat-code-interpreter-shared
 description: Shared secrets, durable storage, and network isolation for LibreChat Code Interpreter
 type: application
-version: 0.2.0
+version: 1.0.0
 appVersion: "fea707467600f3802d65596a6875c7822f25cfd8"
 annotations:
   source.commit: fea707467600f3802d65596a6875c7822f25cfd8

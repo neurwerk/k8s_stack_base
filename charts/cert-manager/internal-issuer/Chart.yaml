@@ -2,4 +2,4 @@ apiVersion: v2
 name: infra-cert-manager-internal-issuer
 description: Secret-free self-signed issuer and internal certificate authority
 type: application
-version: 0.6.0
+version: 1.0.0

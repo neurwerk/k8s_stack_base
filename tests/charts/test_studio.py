@@ -86,9 +86,9 @@ class StudioLifecycleTests(unittest.TestCase):
                     rf".*?periodSeconds: {period}.*?failureThreshold: {failures}",
                 )
 
-    def test_release_images_are_pinned_to_0_6_2(self) -> None:
-        self.assertIn("ghcr.io/neurwerk/k8s-stack-studio-api:0.6.2", self.deployment)
-        self.assertIn("ghcr.io/neurwerk/k8s-stack-studio-web:0.6.2", self.web_manifest)
+    def test_release_images_are_pinned_to_0_1_0(self) -> None:
+        self.assertIn("ghcr.io/neurwerk/k8s-stack-studio-api:0.1.0", self.deployment)
+        self.assertIn("ghcr.io/neurwerk/k8s-stack-studio-web:0.1.0", self.web_manifest)
 
     def test_api_has_no_direct_agentgateway_configuration_or_egress(self) -> None:
         self.assertNotIn("K8S_STUDIO_AGENTGATEWAY_URL", self.deployment)

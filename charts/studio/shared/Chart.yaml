@@ -2,4 +2,4 @@ apiVersion: v2
 name: studio-shared
 description: OpenSearch CA trust target and sync RBAC for Studio
 type: application
-version: 0.6.1
+version: 1.0.0

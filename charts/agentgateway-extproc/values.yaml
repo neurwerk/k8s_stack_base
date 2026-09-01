@@ -13,7 +13,7 @@
 
 # ── extProc gRPC service ──────────────────────────────────────────────────────
 monitorAgentgatewayExtproc:
-  extprocImage: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.6.3
+  extprocImage: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.1.0
 
   replicas: 2
 

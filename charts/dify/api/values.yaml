@@ -7,7 +7,7 @@ authKeycloak:
   difyAgentgatewayClientRoles: []
 
 frontendDify:
-  apiImage: ghcr.io/neurwerk/addon-dify-ce-builder-api:1.15.0-kc-v14
+  apiImage: ghcr.io/neurwerk/addon-dify-ce-builder-api:1.15.0-kc-v2
   pullPolicy: IfNotPresent
   hostname: ""
   postgres:

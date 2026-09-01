@@ -2,7 +2,7 @@ apiVersion: v2
 name: infra-openbao
 description: OpenBao server with internal TLS and restricted same-stack access
 type: application
-version: 0.6.3
+version: 1.0.0
 appVersion: "2.6.1"
 dependencies:
   - name: openbao

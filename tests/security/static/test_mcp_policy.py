@@ -800,7 +800,7 @@ infraAgentgatewayWrapperSecrets:
         chart_lock = (AGENTGATEWAY_CHART / "Chart.lock").read_text(encoding="ascii")
         package = AGENTGATEWAY_CHART / "charts/agentgateway-1.4.1.tgz"
 
-        self.assertIn("version: 0.7.13", chart_metadata)
+        self.assertIn("version: 1.0.0", chart_metadata)
         self.assertEqual(chart_metadata.count('1.4.1'), 2)
         self.assertIn("version: 1.4.1", chart_lock)
         with tarfile.open(package, mode="r:gz") as archive:

@@ -289,17 +289,17 @@ class KeycloakActiveDirectoryTests(unittest.TestCase):
 
     def test_tooling_pin_and_chart_versions_are_coordinated(self) -> None:
         expected_versions = {
-            "charts/keycloak/oidc/agentgateway": "0.6.5",
-            "charts/keycloak/oidc/dify": "0.6.5",
-            "charts/keycloak/oidc/dify-agentgateway": "0.6.6",
-            "charts/keycloak/oidc/keycloak-api-key-bridge": "0.6.6",
-            "charts/keycloak/oidc/librechat": "0.6.7",
-            "charts/keycloak/oidc/studio": "0.6.6",
-            "charts/keycloak/realm-config/active-directory": "0.1.0",
-            "charts/keycloak/realm-config/initial-admin": "0.6.5",
-            "charts/keycloak/realm-config/realm-roles": "0.6.5",
-            "charts/keycloak/server": "0.6.11",
-            "charts/opensearch": "0.6.10",
+            "charts/keycloak/oidc/agentgateway": "1.0.0",
+            "charts/keycloak/oidc/dify": "1.0.0",
+            "charts/keycloak/oidc/dify-agentgateway": "1.0.0",
+            "charts/keycloak/oidc/keycloak-api-key-bridge": "1.0.0",
+            "charts/keycloak/oidc/librechat": "1.0.0",
+            "charts/keycloak/oidc/studio": "1.0.0",
+            "charts/keycloak/realm-config/active-directory": "1.0.0",
+            "charts/keycloak/realm-config/initial-admin": "1.0.0",
+            "charts/keycloak/realm-config/realm-roles": "1.0.0",
+            "charts/keycloak/server": "1.0.0",
+            "charts/opensearch": "1.0.0",
         }
         tooling_consumers = [
             path.parent
@@ -315,12 +315,11 @@ class KeycloakActiveDirectoryTests(unittest.TestCase):
                 values = (path / "values.yaml").read_text(encoding="utf-8")
                 chart = (path / "Chart.yaml").read_text(encoding="utf-8")
                 relative = path.relative_to(ROOT).as_posix()
-                self.assertIn("ghcr.io/neurwerk/k8s-stack-tooling:0.5.4", values)
-                self.assertNotIn("k8s-stack-tooling:0.5.3", values)
+                self.assertIn("ghcr.io/neurwerk/k8s-stack-tooling:0.1.0", values)
                 self.assertRegex(
                     chart, rf"(?m)^version: {re.escape(expected_versions[relative])}$"
                 )
-                self.assertNotRegex(chart, r"(?m)^appVersion: [\"']?0\.5\.4")
+                self.assertNotRegex(chart, r"(?m)^appVersion: [\"']?0\.1\.0")
 
     def test_keycloak_pin_includes_ldap_group_filter_fix(self) -> None:
         chart = (ROOT / "charts/keycloak/server/Chart.yaml").read_text(encoding="utf-8")
