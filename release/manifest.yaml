@@ -92,8 +92,8 @@ spec:
           sha256: aace0555ba061920b705b976a31cb967a0806e9e4e1bbd71b31a7bb87271d59f
     - path: charts/agentgateway-extproc
       name: agentgateway-extproc
-      version: 1.0.0
-      appVersion: 0.1.0
+      version: 1.0.1
+      appVersion: 0.1.1
     - path: charts/cert-manager/approval-policy
       name: infra-cert-manager-approval-policy
       version: 1.0.0
@@ -385,7 +385,7 @@ spec:
       appVersion: 0.1.0
     - path: charts/traefik
       name: traefik
-      version: 1.0.0
+      version: 1.0.1
     - path: charts/trust-manager
       name: infra-trust-manager
       version: 1.0.0
@@ -762,7 +762,7 @@ spec:
       eligibility: included
       origins:
       - charts/dify/web/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.1.0
+    - reference: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.1.1
       pinned: true
       eligibility: included
       origins:
