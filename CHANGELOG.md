@@ -11,6 +11,8 @@ upgrade path.
 
 ### Changed
 
+- Enable LibreChat agent tools with MCP and place custom endpoint reasoning
+  options under the configuration block consumed by LibreChat.
 - Send the initial Keycloak administrator's required-action email only after
   the public HTTPS issuer is ready, with a configurable 30-minute link lifetime.
 - Update the Kubernetes initialization Tooling image to `0.1.1`.
