@@ -192,40 +192,40 @@ spec:
       appVersion: '1.0'
     - path: charts/keycloak/oidc/agentgateway
       name: agentgateway
-      version: 1.0.0
+      version: 1.0.1
       appVersion: '1.0'
     - path: charts/keycloak/oidc/dify
       name: dify
-      version: 1.0.0
+      version: 1.0.1
       appVersion: '1.0'
     - path: charts/keycloak/oidc/dify-agentgateway
       name: dify-agentgateway
-      version: 1.0.0
+      version: 1.0.1
       appVersion: '1.0'
     - path: charts/keycloak/oidc/keycloak-api-key-bridge
       name: keycloak-api-key-bridge
-      version: 1.0.0
+      version: 1.0.1
       appVersion: '1.0'
     - path: charts/keycloak/oidc/librechat
       name: librechat
-      version: 1.0.0
+      version: 1.0.1
       appVersion: '1.0'
     - path: charts/keycloak/oidc/studio
       name: studio
-      version: 1.0.0
+      version: 1.0.1
       appVersion: '1.0'
     - path: charts/keycloak/realm-config/active-directory
       name: keycloak-active-directory
-      version: 1.0.0
+      version: 1.0.1
     - path: charts/keycloak/realm-config/initial-admin
       name: keycloak-oidc-configurations-initial-admin
-      version: 1.0.0
+      version: 1.0.1
     - path: charts/keycloak/realm-config/realm-roles
       name: keycloak-oidc-configurations-realm-roles
-      version: 1.0.0
+      version: 1.0.1
     - path: charts/keycloak/server
       name: keycloak
-      version: 1.0.0
+      version: 1.0.1
       appVersion: 26.7.2
     - path: charts/keycloak-api-key-bridge
       name: auth-keycloak-api-key-bridge
@@ -328,7 +328,7 @@ spec:
           sha256: 646d932f597632a7328bd300994e66c2cabaa1b6763372cbabb559cd84ff3f2f
     - path: charts/opensearch
       name: monitor-opensearch
-      version: 1.0.0
+      version: 1.0.1
       appVersion: 2.18.0
       dependencyLock:
         digest: sha256:59f3aee22c25979b8b3287d24f2bb2915274394629658f88af2d1004899efe23
@@ -788,7 +788,7 @@ spec:
       eligibility: included
       origins:
       - charts/studio/web/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-tooling:0.1.0
+    - reference: ghcr.io/neurwerk/k8s-stack-tooling:0.1.1
       pinned: true
       eligibility: included
       origins:

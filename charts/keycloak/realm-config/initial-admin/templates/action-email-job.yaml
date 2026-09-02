@@ -1,0 +1,60 @@
+{{- if and .Values.authKeycloak.smtp.enabled .Values.externalGateway.enabled }}
+{{- $hostname := required "authKeycloak.hostname is required for the initial administrator action email" .Values.authKeycloak.hostname }}
+{{- if eq $hostname "place.holder" }}{{ fail "place.holder cannot be used for the initial administrator action email" }}{{ end }}
+{{- $lifespan := int .Values.authKeycloak.adminActionTokenLifespan }}
+{{- if or (lt $lifespan 300) (gt $lifespan 3600) }}{{ fail "authKeycloak.adminActionTokenLifespan must be between 300 and 3600 seconds" }}{{ end }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: auth-keycloak-initial-admin-action-email-job
+  namespace: auth-keycloak
+  labels:
+    app.kubernetes.io/name: initial-admin
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: auth-keycloak
+    app.kubernetes.io/component: configuration
+  annotations:
+    "helm.sh/hook": post-install
+    "helm.sh/hook-weight": "0"
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 86400
+  activeDeadlineSeconds: 720
+  template:
+    metadata:
+      name: auth-keycloak-initial-admin-action-email-job
+      labels:
+        app: auth-keycloak-initial-admin-job
+        job: auth-keycloak-initial-admin-action-email-job
+        app.kubernetes.io/name: initial-admin
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/part-of: auth-keycloak
+        app.kubernetes.io/component: configuration
+    spec:
+      automountServiceAccountToken: false
+      restartPolicy: OnFailure
+      containers:
+        - name: send
+          image: {{ (.Values.k8sTools).image | quote }}
+          command:
+            - send-user-actions-email
+          env:
+            - name: KC_INTERNAL_URL
+              value: "http://auth-keycloak-keycloak-service.auth-keycloak.svc.cluster.local"
+            - name: KC_PUBLIC_URL
+              value: {{ printf "https://%s" $hostname | quote }}
+            - name: KC_ADMIN_USER
+              value: {{ required "authKeycloak.adminUser is required" .Values.authKeycloak.adminUser | quote }}
+            - name: KC_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: auth-keycloak-secret
+                  key: adminPassword
+            - name: KC_REALM
+              value: {{ required "authKeycloak.realm is required" .Values.authKeycloak.realm | quote }}
+            - name: KC_INITIAL_USER_USERNAME
+              value: {{ required "authKeycloak.initialAdminUsername is required" .Values.authKeycloak.initialAdminUsername | quote }}
+            - name: KC_ACTION_EMAIL_LIFESPAN
+              value: {{ $lifespan | quote }}
+{{- end }}

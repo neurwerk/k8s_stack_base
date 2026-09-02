@@ -9,8 +9,9 @@ spec:
   timeout: 15m
   install:
     strategy:
-      name: RetryOnFailure
-      retryInterval: 1m
+      name: RemediateOnFailure
+    remediation:
+      retries: -1
   upgrade:
     strategy:
       name: RetryOnFailure

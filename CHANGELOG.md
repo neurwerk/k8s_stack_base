@@ -11,6 +11,9 @@ upgrade path.
 
 ### Changed
 
+- Send the initial Keycloak administrator's required-action email only after
+  the public HTTPS issuer is ready, with a configurable 30-minute link lifetime.
+- Update the Kubernetes initialization Tooling image to `0.1.1`.
 - Update the reviewed LibreChat development snapshot to source commit
   `cdfe54c3498818b21b33fb609fee02f2742b37ea` and its exact multi-architecture
   image digest.
