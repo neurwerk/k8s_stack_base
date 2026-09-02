@@ -27,8 +27,11 @@ data:
       allowedAddresses:
         - {{ .Values.frontendLibrechat.agentGateway.hostPort | quote }}
       agents:
-        {{- if or .Values.frontendLibrechat.codeInterpreter.enabled .Values.frontendLibrechat.rag.enabled }}
+        {{- if or .Values.mcp.enabled .Values.frontendLibrechat.codeInterpreter.enabled .Values.frontendLibrechat.rag.enabled }}
         capabilities:
+          {{- if .Values.mcp.enabled }}
+          - tools
+          {{- end }}
           {{- if .Values.frontendLibrechat.codeInterpreter.enabled }}
           - execute_code
           {{- end }}
@@ -50,9 +53,10 @@ data:
           titleTiming: final
           summarize: false
           forcePrompt: false
-          reasoningKey: reasoning_content
-          includeReasoningContent: true
-          includeReasoningHistory: true
+          customParams:
+            reasoningKey: reasoning_content
+            includeReasoningContent: true
+            includeReasoningHistory: true
           addParams:
             disableStreaming: {{ not .Values.frontendLibrechat.agentGateway.streaming }}
           headers:
