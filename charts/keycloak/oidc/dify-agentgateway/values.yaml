@@ -6,4 +6,4 @@ authKeycloak:
   difyAgentgatewayClientRoles: []
 
 k8sTools:
-  image: ghcr.io/neurwerk/k8s-stack-tooling:0.1.0
+  image: ghcr.io/neurwerk/k8s-stack-tooling:0.1.1

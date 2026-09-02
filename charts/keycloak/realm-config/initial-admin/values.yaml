@@ -11,6 +11,12 @@ authKeycloak:
   # Keycloak master realm admin credentials — used to authenticate
   # to the Admin REST API. Set by the chart; override per-client if needed.
   adminUser: admin
+  hostname: ""
+  smtp:
+    enabled: false
+  # Administrator-issued onboarding links default to 30 minutes and must stay
+  # within the Tooling-enforced range of 5 to 60 minutes.
+  adminActionTokenLifespan: 1800
 
   # ---- Initial admin user ----
   # Once the user is created, initialAdminUsername MUST NOT be changed —
@@ -28,4 +34,7 @@ authKeycloak:
   initialAdminRequiredActions: '["VERIFY_EMAIL", "UPDATE_PASSWORD", "CONFIGURE_TOTP"]'
 
 k8sTools:
-  image: ghcr.io/neurwerk/k8s-stack-tooling:0.1.0
+  image: ghcr.io/neurwerk/k8s-stack-tooling:0.1.1
+
+externalGateway:
+  enabled: false

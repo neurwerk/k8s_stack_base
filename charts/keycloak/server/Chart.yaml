@@ -11,5 +11,5 @@ description: |
   Namespace: auth-keycloak
   Deployed by: Flux HelmRelease "keycloak"
 type: application
-version: 1.0.0
+version: 1.0.1
 appVersion: "26.7.2"
