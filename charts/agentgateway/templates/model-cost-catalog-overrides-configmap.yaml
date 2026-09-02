@@ -16,7 +16,7 @@
 # AgentgatewayParameters lists this ConfigMap as a SECOND modelCatalog source;
 # sources are merged in order and later entries take precedence, so these
 # overrides win without touching the generated catalog.json (which stays
-# pristine for future `agctl costs import` runs).
+# pristine for future `agctl catalog import` runs).
 #
 # =============================================================================
 {{- $overrides := .Files.Get "files/catalog-overrides.json" }}

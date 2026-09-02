@@ -53,7 +53,7 @@ spec:
   {{- if .Values.infraAgentgatewayWrapper.costCatalog }}
   modelCatalog:
     sources:
-      # Generated catalog (agctl costs import) — see files/catalog.json
+      # Generated catalog (agctl catalog import) — see files/catalog.json
       - configMap:
           name: infra-agentgateway-model-cost-catalog
           key: catalog.json

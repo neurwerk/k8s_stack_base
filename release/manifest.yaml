@@ -48,7 +48,7 @@ spec:
     version: 72.4.0
     source: oci://ghcr.io/prometheus-community/charts/kube-prometheus-stack
   - name: agentgateway-crds
-    version: 1.4.1
+    version: 1.5.0
     source: oci://cr.agentgateway.dev/charts/agentgateway-crds
   - name: external-secrets-crds
     version: 2.9.0
@@ -79,17 +79,17 @@ spec:
     charts:
     - path: charts/agentgateway
       name: infra-agentgateway
-      version: 1.0.0
-      appVersion: 1.4.1
+      version: 1.1.0
+      appVersion: 1.5.0
       dependencyLock:
-        digest: sha256:d6537b3577ee451a84014c482ba921070155da599c512e7c8ce25ab776708d1b
+        digest: sha256:e5b8cfb3b1e062b8e9268a42405a466d71d22bdb18ae83ff7496788af21abedd
         dependencies:
         - name: agentgateway
           repository: oci://cr.agentgateway.dev/charts
-          version: 1.4.1
+          version: 1.5.0
         archives:
-        - path: charts/agentgateway/charts/agentgateway-1.4.1.tgz
-          sha256: aace0555ba061920b705b976a31cb967a0806e9e4e1bbd71b31a7bb87271d59f
+        - path: charts/agentgateway/charts/agentgateway-1.5.0.tgz
+          sha256: a22cfb7dcc56da05d31b18c0a969e1b8eee35d19a4493d88b5d4720efcc85945
     - path: charts/agentgateway-extproc
       name: agentgateway-extproc
       version: 1.0.1
@@ -633,7 +633,7 @@ spec:
       name: trust-manager
       chart: ./charts/trust-manager
     images:
-    - reference: cr.agentgateway.dev/controller:v1.4.1
+    - reference: cr.agentgateway.dev/controller:v1.5.0
       pinned: true
       eligibility: included
       origins:

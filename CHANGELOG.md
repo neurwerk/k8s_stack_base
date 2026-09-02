@@ -11,6 +11,9 @@ upgrade path.
 
 ### Changed
 
+- Update Agentgateway to 1.5.0, including its controller, data plane, Helm
+  dependency, and out-of-band CRD prerequisite. The release requires JWT issuer
+  and configured audience claims and normalizes cached-token usage accounting.
 - Enable LibreChat agent tools with MCP and place custom endpoint reasoning
   options under the configuration block consumed by LibreChat.
 - Send the initial Keycloak administrator's required-action email only after

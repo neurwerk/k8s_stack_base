@@ -43,7 +43,7 @@ prerequisites:
   version: 72.4.0
   source: oci://ghcr.io/prometheus-community/charts/kube-prometheus-stack
 - name: agentgateway-crds
-  version: 1.4.1
+  version: 1.5.0
   source: oci://cr.agentgateway.dev/charts/agentgateway-crds
 - name: external-secrets-crds
   version: 2.9.0
