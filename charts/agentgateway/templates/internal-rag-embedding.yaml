@@ -51,7 +51,7 @@ spec:
         expression: '"{{ $model }}"'
 {{- if .Values.infraAgentgatewayWrapper.tracing }}
 ---
-# AgentGateway 1.4.1 requires a backendRef on a tracing override. Both sampling
+# AgentGateway requires a backendRef on a tracing override. Both sampling
 # paths and export are disabled below; this reserved sink keeps failures local
 # if a future data-plane regression attempts an export anyway.
 apiVersion: agentgateway.dev/v1alpha1

@@ -18,7 +18,7 @@ digests; `release/manifest.yaml` records each archive's SHA-256 digest.
 | [`LICENSES/Apache-2.0.txt`](LICENSES/Apache-2.0.txt) | Exact Apache-2.0 text from [cert-manager `v1.20.2`](https://github.com/cert-manager/cert-manager/blob/v1.20.2/LICENSE); the mapped upstream chart metadata or repository root declares Apache-2.0 |
 | [`LICENSES/Langfuse-MIT.txt`](LICENSES/Langfuse-MIT.txt) | Exact [Langfuse Kubernetes `langfuse-1.5.34` license](https://github.com/langfuse/langfuse-k8s/blob/langfuse-1.5.34/LICENSE) |
 | [`LICENSES/OpenBao-MPL-2.0.txt`](LICENSES/OpenBao-MPL-2.0.txt) | Exact [OpenBao Helm `openbao-0.29.1` license](https://github.com/openbao/openbao-helm/blob/openbao-0.29.1/LICENSE) |
-| [`LICENSES/AgentGateway-ATTRIBUTION.txt`](LICENSES/AgentGateway-ATTRIBUTION.txt) | Copyright attribution from [AgentGateway `v1.4.1`](https://github.com/agentgateway/agentgateway/blob/v1.4.1/LICENSE) |
+| [`LICENSES/AgentGateway-ATTRIBUTION.txt`](LICENSES/AgentGateway-ATTRIBUTION.txt) | Copyright attribution from [AgentGateway `v1.5.0`](https://github.com/agentgateway/agentgateway/blob/v1.5.0/LICENSE) |
 | [`LICENSES/Bitnami-Charts-2024-ATTRIBUTION.txt`](LICENSES/Bitnami-Charts-2024-ATTRIBUTION.txt) | Exact attribution preamble from [Bitnami Charts at `minio/14.10.5`](https://github.com/bitnami/charts/blob/minio/14.10.5/LICENSE.md), used by the mapped 2024 chart tags |
 | [`LICENSES/Bitnami-Charts-2025-ATTRIBUTION.txt`](LICENSES/Bitnami-Charts-2025-ATTRIBUTION.txt) | Exact attribution preamble from [Bitnami Charts at `clickhouse/8.0.5`](https://github.com/bitnami/charts/blob/clickhouse/8.0.5/LICENSE.md), used by the mapped 2025 chart tags |
 | [`LICENSES/Grafana-Helm-Charts-ATTRIBUTION.txt`](LICENSES/Grafana-Helm-Charts-ATTRIBUTION.txt) | Copyright attribution from [Grafana Helm Charts `grafana-9.0.0`](https://github.com/grafana/helm-charts/blob/grafana-9.0.0/LICENSE) |
@@ -28,7 +28,7 @@ digests; `release/manifest.yaml` records each archive's SHA-256 digest.
 
 | Vendored archive | Exact upstream source | Offline license and notice |
 | --- | --- | --- |
-| `charts/agentgateway/charts/agentgateway-1.4.1.tgz` | [agentgateway `v1.4.1`](https://github.com/agentgateway/agentgateway/tree/v1.4.1) | Apache-2.0; AgentGateway attribution |
+| `charts/agentgateway/charts/agentgateway-1.5.0.tgz` | [agentgateway `v1.5.0`](https://github.com/agentgateway/agentgateway/tree/v1.5.0) | Apache-2.0; AgentGateway attribution |
 | `charts/cert-manager/approver-policy/charts/cert-manager-approver-policy-v0.25.1.tgz` | [approver-policy `v0.25.1`](https://github.com/cert-manager/approver-policy/tree/v0.25.1) | Apache-2.0 |
 | `charts/cert-manager/controller/charts/cert-manager-v1.20.2.tgz` | [cert-manager `v1.20.2`](https://github.com/cert-manager/cert-manager/tree/v1.20.2) | Apache-2.0 |
 | `charts/external-secrets/charts/external-secrets-2.9.0.tgz` | [external-secrets chart `2.9.0` at source tag `v2.10.0`](https://github.com/external-secrets/external-secrets/tree/v2.10.0/deploy/charts/external-secrets) | Apache-2.0 |
