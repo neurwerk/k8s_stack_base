@@ -96,13 +96,24 @@ def pii_content() -> str:
     )
 
 
-def valid_stream() -> bytes:
-    return (
-        b'data: {"choices":[{"delta":{"content":"hello"},"finish_reason":null}]}\n\n'
-        b'data: {"choices":[{"delta":{},"finish_reason":"stop"}]}\n\n'
-        b'data: {"choices":[],"usage":{"total_tokens":3}}\n\n'
-        b"data: [DONE]\n\n"
-    )
+def stream(*events: str) -> bytes:
+    return "".join(f"data: {event}\n\n" for event in events).encode()
+
+
+def valid_stream(*, coalesced_usage: bool = False) -> bytes:
+    events = [
+        '{"choices":[{"delta":{"content":"hello"},"finish_reason":null}]}',
+        (
+            '{"choices":[{"delta":{},"finish_reason":"stop"}],'
+            '"usage":{"total_tokens":3}}'
+            if coalesced_usage
+            else '{"choices":[{"delta":{},"finish_reason":"stop"}]}'
+        ),
+    ]
+    if not coalesced_usage:
+        events.append('{"choices":[],"usage":{"total_tokens":3}}')
+    events.append("[DONE]")
+    return stream(*events)
 
 
 class FakeResponse:
@@ -125,6 +136,69 @@ class FakeResponse:
 
 
 class AgentGatewayLiveAcceptanceTests(unittest.TestCase):
+    def test_completion_requests_usage_only_for_streaming(self) -> None:
+        config = acceptance.load_config(valid_environment())
+
+        nonstream = acceptance._completion(config, "hello")
+        streamed = acceptance._completion(config, "hello", stream=True)
+
+        self.assertNotIn("stream_options", nonstream)
+        self.assertEqual(streamed["stream_options"], {"include_usage": True})
+
+    def test_stream_accepts_separate_and_coalesced_final_usage(self) -> None:
+        for coalesced_usage in (False, True):
+            with self.subTest(coalesced_usage=coalesced_usage):
+                acceptance.validate_stream(
+                    acceptance.HttpResult(
+                        200,
+                        headers(media_type="text/event-stream"),
+                        valid_stream(coalesced_usage=coalesced_usage),
+                    )
+                )
+
+    def test_stream_rejects_invalid_usage_and_done_placement(self) -> None:
+        cases = {
+            "missing usage": stream(
+                '{"choices":[{"delta":{"content":"hello"},"finish_reason":null}]}',
+                '{"choices":[{"delta":{},"finish_reason":"stop"}]}',
+                "[DONE]",
+            ),
+            "duplicate usage": stream(
+                '{"choices":[{"delta":{"content":"hello"},"finish_reason":null}],'
+                '"usage":{"total_tokens":2}}',
+                '{"choices":[{"delta":{},"finish_reason":"stop"}],'
+                '"usage":{"total_tokens":3}}',
+                "[DONE]",
+            ),
+            "non-final usage": stream(
+                '{"choices":[{"delta":{"content":"hello"},"finish_reason":null}],'
+                '"usage":{"total_tokens":2}}',
+                '{"choices":[{"delta":{},"finish_reason":"stop"}]}',
+                "[DONE]",
+            ),
+            "usage on unfinished choice": stream(
+                '{"choices":[{"delta":{"content":"hello"},"finish_reason":null}]}',
+                '{"choices":[{"delta":{},"finish_reason":"stop"}]}',
+                '{"choices":[{"delta":{},"finish_reason":null}],'
+                '"usage":{"total_tokens":3}}',
+                "[DONE]",
+            ),
+            "duplicate DONE": valid_stream() + b"data: [DONE]\n\n",
+            "event after DONE": valid_stream()
+            + b'data: {"choices":[],"usage":{"total_tokens":4}}\n\n',
+        }
+        for name, body in cases.items():
+            with self.subTest(name=name), self.assertRaises(
+                acceptance.AcceptanceError
+            ):
+                acceptance.validate_stream(
+                    acceptance.HttpResult(
+                        200,
+                        headers(media_type="text/event-stream"),
+                        body,
+                    )
+                )
+
     def test_context_mismatch_stops_before_cluster_or_http_traffic(self) -> None:
         completed = subprocess.CompletedProcess([], 0, stdout="other-context\n", stderr="")
         with mock.patch.object(
