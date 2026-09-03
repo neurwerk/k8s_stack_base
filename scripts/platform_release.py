@@ -663,22 +663,12 @@ def migration_alpha_source_revisions(
 
 
 def parse_migration_compatibility(
-    migration: str, require_alpha_revisions: bool = True
+    migration: str,
+    require_alpha_revisions: bool = True,
 ) -> dict[str, Any]:
     support = migration_section(migration, "Support")
     recovery_section = migration_section(migration, "Recovery")
 
-    fresh_install = migration_declaration(
-        migration,
-        support,
-        "Support",
-        "- Fresh installation: ",
-        "fresh installation",
-    ).lower()
-    if fresh_install not in ("supported", "unsupported"):
-        raise ReleaseError(
-            f"release migration has unknown fresh installation value: {fresh_install}"
-        )
     upgrades_from = migration_source_versions(migration, support)
     upgrades_from_alpha_revisions = migration_alpha_source_revisions(
         migration, support, require_alpha_revisions
@@ -700,7 +690,6 @@ def parse_migration_compatibility(
     if recovery not in RECOVERY_ACTIONS:
         raise ReleaseError(f"release migration has unknown recovery classification: {recovery}")
     return {
-        "freshInstall": fresh_install,
         "upgradesFrom": upgrades_from,
         "upgradesFromAlphaRevisions": upgrades_from_alpha_revisions,
         "downgrade": downgrade,
@@ -717,7 +706,7 @@ def validate_migration_compatibility(
     if not isinstance(compatibility, dict):
         raise ReleaseError(f"{source} must be an object")
     declared = parse_migration_compatibility(migration, require_alpha_revisions)
-    for field in ("freshInstall", "downgrade", "recovery"):
+    for field in ("downgrade", "recovery"):
         if declared[field] != compatibility.get(field):
             raise ReleaseError(
                 f"release migration {field} does not match {source}.{field}"
@@ -923,13 +912,12 @@ def validate(tag: str | None = None) -> None:
     compatibility = config.get("compatibility")
     if version == BOOTSTRAP_RELEASE_VERSION and (
         not isinstance(compatibility, dict)
-        or compatibility.get("freshInstall") != "supported"
         or compatibility.get("upgradesFrom") != []
         or compatibility.get("upgradesFromAlphaRevisions", []) != []
         or compatibility.get("downgrade") != "unsupported"
     ):
         errors.append(
-            f"bootstrap release {BOOTSTRAP_RELEASE_TAG} must be fresh-install-only"
+            f"bootstrap release {BOOTSTRAP_RELEASE_TAG} must not declare upgrade sources"
         )
     if isinstance(compatibility, dict):
         alpha_revisions = compatibility.get("upgradesFromAlphaRevisions", [])
@@ -1068,13 +1056,12 @@ def inspect_release_data(
             )
         if (
             not isinstance(config_compatibility, dict)
-            or config_compatibility.get("freshInstall") != "supported"
             or config_compatibility.get("upgradesFrom") != []
             or config_compatibility.get("upgradesFromAlphaRevisions", []) != []
             or config_compatibility.get("downgrade") != "unsupported"
         ):
             raise ReleaseError(
-                f"bootstrap release {BOOTSTRAP_RELEASE_TAG} must be fresh-install-only"
+                f"bootstrap release {BOOTSTRAP_RELEASE_TAG} must not declare upgrade sources"
             )
         expected = bootstrap_provenance_from_git(included_through, release_root)
         if commits != expected["commits"]:
@@ -1250,13 +1237,9 @@ def prepare_release(args: argparse.Namespace) -> None:
                 "bootstrap requires a repository with zero tags; found: "
                 + ", ".join(tags)
             )
-        if (
-            args.fresh_install != "supported"
-            or upgrades_from
-            or upgrades_from_alpha_revisions
-        ):
+        if upgrades_from or upgrades_from_alpha_revisions:
             raise ReleaseError(
-                "bootstrap compatibility must support fresh installation and no upgrades"
+                "bootstrap compatibility must declare no upgrades"
             )
         provenance = bootstrap_provenance_from_git()
     else:
@@ -1292,7 +1275,6 @@ def prepare_release(args: argparse.Namespace) -> None:
         raise ReleaseError("summary must not be empty")
     config["provenance"] = provenance
     config["compatibility"] = {
-        "freshInstall": args.fresh_install,
         "upgradesFrom": upgrades_from,
         "upgradesFromAlphaRevisions": upgrades_from_alpha_revisions,
         "downgrade": "unsupported",
@@ -1328,7 +1310,6 @@ def prepare_release(args: argparse.Namespace) -> None:
             f"# Platform v{args.version}\n\n"
             "> TODO: Replace every TODO with reviewed release-specific evidence.\n\n"
             "## Support\n\n"
-            f"- Fresh installation: {args.fresh_install.title()}.\n"
             f"- Supported source versions: {supported}.\n"
             f"- Supported alpha source revisions: {supported_alpha}.\n"
             "- Downgrade: Unsupported.\n\n"
@@ -1493,7 +1474,6 @@ def main() -> int:
     preparation_mode.add_argument("--previous-tag")
     prepare.add_argument("--release-date", required=True)
     prepare.add_argument("--summary", required=True)
-    prepare.add_argument("--fresh-install", choices=("supported", "unsupported"), required=True)
     prepare.add_argument("--upgrades-from", default="")
     prepare.add_argument("--upgrades-from-alpha-revisions", default="")
     prepare.add_argument("--recovery", choices=RECOVERY_ACTIONS, required=True)

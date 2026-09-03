@@ -82,11 +82,8 @@
         },
         "compatibility": {
           "type": "object",
-          "required": ["freshInstall", "upgradesFrom", "downgrade", "recovery"],
+          "required": ["upgradesFrom", "downgrade", "recovery"],
           "properties": {
-            "freshInstall": {
-              "enum": ["supported", "unsupported"]
-            },
             "upgradesFrom": {
               "type": "array",
               "uniqueItems": true,
