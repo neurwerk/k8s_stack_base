@@ -2,5 +2,5 @@ apiVersion: v2
 name: pii-engine
 description: In-process PII policy engine with an offline Ceph-backed model cache.
 type: application
-version: 1.0.0
-appVersion: "0.1.0"
+version: 1.0.1
+appVersion: "0.1.1"
