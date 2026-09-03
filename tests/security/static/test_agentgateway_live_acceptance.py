@@ -355,6 +355,25 @@ class AgentGatewayLiveAcceptanceTests(unittest.TestCase):
         ):
             acceptance.run_acceptance(acceptance.load_config(valid_environment()))
 
+    def test_pii_placeholder_validation_allows_only_opaque_reasoning(self) -> None:
+        alias = "<REV_PERSON_NAME_0123456789abcdef_fedcba9876543210>"
+        payload = completion(pii_content())
+        message = payload["choices"][0]["message"]
+        for field in acceptance.OPAQUE_CHAT_REASONING_FIELDS:
+            message[field] = {"nested": [alias]}
+
+        acceptance._reject_nonopaque_placeholder_syntax(payload, "PII")
+
+        forbidden = [
+            completion(alias),
+            {"metadata": alias},
+            {"choices": [{"message": {"content": "safe", "tool_calls": [alias]}}]},
+            {alias: "safe"},
+        ]
+        for value in forbidden:
+            with self.subTest(value=value), self.assertRaises(acceptance.AcceptanceError):
+                acceptance._reject_nonopaque_placeholder_syntax(value, "PII")
+
 
 if __name__ == "__main__":
     unittest.main()

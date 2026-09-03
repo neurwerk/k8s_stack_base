@@ -51,6 +51,15 @@ HOSTNAME_RE = re.compile(
     r"(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*"
 )
 SYNTHETIC_NAME = "Jane Doe"
+OPAQUE_CHAT_REASONING_FIELDS = frozenset(
+    {
+        "reasoning_content",
+        "reasoning",
+        "reasoning_details",
+        "thinking_blocks",
+        "reasoning_signature",
+    }
+)
 
 
 class AcceptanceError(RuntimeError):
@@ -368,6 +377,33 @@ def _reject_placeholder_syntax(body: bytes, response_kind: str) -> None:
         )
 
 
+def _reject_nonopaque_placeholder_syntax(payload: object, response_kind: str) -> None:
+    """Reject aliases outside exact provider-opaque Chat reasoning fields."""
+    stack: list[tuple[tuple[str | int, ...], object]] = [((), payload)]
+    while stack:
+        path, value = stack.pop()
+        if isinstance(value, str):
+            _reject_placeholder_syntax(value.encode(), response_kind)
+            continue
+        if isinstance(value, list):
+            stack.extend(((*path, index), item) for index, item in enumerate(value))
+            continue
+        if not isinstance(value, dict):
+            continue
+        for key, item in value.items():
+            if isinstance(key, str):
+                _reject_placeholder_syntax(key.encode(), response_kind)
+            if (
+                len(path) == 3
+                and path[0] == "choices"
+                and isinstance(path[1], int)
+                and path[2] == "message"
+                and key in OPAQUE_CHAT_REASONING_FIELDS
+            ):
+                continue
+            stack.append(((*path, key), item))
+
+
 def _validate_pii_report(content: str) -> None:
     """Require one aggregate report without inspecting or logging response values."""
     if content.count("PII Engine Notice") != 1 or content.count(
@@ -504,8 +540,8 @@ def run_acceptance(config: Config) -> None:
         api_key=config.api_key,
     )
     pii_payload = validate_nonstream(pii)
+    _reject_nonopaque_placeholder_syntax(pii_payload, "PII")
     pii_content = _assistant_content(pii_payload)
-    _reject_placeholder_syntax(pii.body, "PII")
     if _presidio_code(pii) == "P00":
         raise AcceptanceError("synthetic PII request returned P00; response body redacted")
     if SYNTHETIC_NAME not in pii_content:
