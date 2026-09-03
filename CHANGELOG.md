@@ -9,6 +9,16 @@ upgrade path.
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-09-03
+
+### TODO: Curate Changes
+
+- TODO: Replace this scaffold with reviewed release notes.
+
+### Compatibility
+
+- TODO: Describe exact compatibility and recovery behavior.
+
 ### Changed
 
 - Make installation into a verified empty or replacement environment a platform
