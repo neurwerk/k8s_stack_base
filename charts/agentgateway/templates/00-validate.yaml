@@ -1,7 +1,7 @@
 {{- $engine := .Values.guardrails.llmPolicyEngine -}}
-{{- $models := $engine.models | default list -}}
-{{- if gt (len $models) 256 -}}
-{{-   fail "guardrails.llmPolicyEngine.models supports at most 256 destinations" -}}
+{{- $models := include "infra-agentgateway.effectiveModels" . | fromYamlArray -}}
+{{- if gt (len $models) 512 -}}
+{{-   fail "effective model catalog supports at most 512 destinations" -}}
 {{- end -}}
 {{- if and (gt (len $models) 0) (not $engine.enabled) -}}
 {{-   fail "guardrails.llmPolicyEngine.enabled must be true when model destinations are configured" -}}

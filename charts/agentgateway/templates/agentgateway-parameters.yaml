@@ -57,8 +57,7 @@ spec:
       - configMap:
           name: infra-agentgateway-model-cost-catalog
           key: catalog.json
-      # Manual overrides — merged after the generated catalog, takes precedence.
-      # Adds reviewed OpenRouter pricing. See files/catalog-overrides.json.
+      # Generated OpenRouter snapshot, merged after the built-in catalog.
       - configMap:
           name: infra-agentgateway-model-cost-catalog-overrides
           key: catalog-overrides.json
@@ -74,7 +73,7 @@ spec:
     {{- $fields := deepCopy (.Values.infraAgentgatewayWrapper.tracing.fields | default dict) }}
     {{- $add := get $fields "add" | default dict }}
     {{- $modelContentDisabled := list }}
-    {{- range $model := .Values.guardrails.llmPolicyEngine.models | default list }}
+    {{- range $model := include "infra-agentgateway.effectiveModels" . | fromYamlArray }}
     {{-   $contentTracingEnabled := true }}
     {{-   if hasKey $model "contentTracingEnabled" }}{{- $contentTracingEnabled = $model.contentTracingEnabled }}{{- end }}
     {{-   if not $contentTracingEnabled }}{{- $modelContentDisabled = append $modelContentDisabled $model.name }}{{- end }}

@@ -4,7 +4,7 @@ frontendLibrechat:
   agentGateway:
     baseUrl: http://infra-agentgateway-gateway.infra-agentgateway.svc.cluster.local:80/v1
     hostPort: infra-agentgateway-gateway.infra-agentgateway.svc.cluster.local:80
-    # The LibreChat schema requires at least one default entry even when fetch is enabled.
+    # Schema-required placeholder only; modelSpecs owns all visible model rows.
     models:
       - ""
     streaming: false
@@ -78,3 +78,15 @@ authKeycloak:
 mcp:
   enabled: false
   servers: []
+
+# Generated platform entries are inherited through release values. Clients may
+# override these map keys and add custom/local model shapes below.
+openrouterCatalog:
+  enabled: true
+  excludedModels: []
+  grantToAccessGroups: true
+  models: []
+
+guardrails:
+  llmPolicyEngine:
+    models: []

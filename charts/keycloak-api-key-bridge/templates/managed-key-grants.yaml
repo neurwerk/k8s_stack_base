@@ -1,5 +1,5 @@
 {{- $roles := .Values.authKeycloak.difyAgentgatewayClientRoles | default list }}
-{{- $allRoles := .Values.authKeycloak.agentgatewayClientRoles | default list }}
+{{- $allRoles := include "auth-keycloak-api-key-bridge.effectiveRoles" . | fromYamlArray }}
 {{- if not (has "llm:invoke" $roles) }}{{- fail "authKeycloak.difyAgentgatewayClientRoles must include llm:invoke" }}{{- end }}
 {{- if ne (len $roles) (len ($roles | uniq)) }}{{- fail "authKeycloak.difyAgentgatewayClientRoles must not contain duplicates" }}{{- end }}
 {{- range $roles }}
