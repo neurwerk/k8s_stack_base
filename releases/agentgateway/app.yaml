@@ -21,6 +21,8 @@ spec:
       namespace: infra-cert-manager
     - name: keycloak-api-key-bridge
       namespace: auth-keycloak-api-key-bridge
+    - name: postgres-operations
+      namespace: infra-postgres-operations
   chart:
     spec:
       chart: ./charts/agentgateway

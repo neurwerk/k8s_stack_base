@@ -45,11 +45,26 @@ metadata:
     app.kubernetes.io/instance: {{ .Release.Name }}
     app.kubernetes.io/part-of: infra-agentgateway
 spec:
+  env:
+    - name: AGENTGATEWAY_DATABASE_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: infra-agentgateway-database-secret
+          key: password
+  deployment:
+    metadata:
+      annotations:
+        secret.reloader.stakater.com/reload: infra-agentgateway-database-secret
   # AgentGateway otherwise generates a LoadBalancer Service. Keep its data plane
   # private so external traffic always enters through Traefik's HTTPS Gateway.
   service:
     spec:
       type: ClusterIP
+      ports:
+        - name: admin
+          port: 15000
+          targetPort: 15000
+          protocol: TCP
   {{- if .Values.infraAgentgatewayWrapper.costCatalog }}
   modelCatalog:
     sources:
@@ -62,14 +77,27 @@ spec:
           name: infra-agentgateway-model-cost-catalog-overrides
           key: catalog-overrides.json
   {{- end }}
-  {{- if or .Values.guardrails.llmPolicyEngine.enabled .Values.infraAgentgatewayWrapper.tracing }}
   rawConfig:
-    {{- if .Values.guardrails.llmPolicyEngine.enabled }}
     frontendPolicies:
+      accessLog:
+        database:
+          llm: metadata
+      {{- if .Values.guardrails.llmPolicyEngine.enabled }}
       http:
         maxBufferSize: {{ int .Values.guardrails.llmPolicyEngine.maxBufferSize }}
-    {{- end }}
-{{- if .Values.infraAgentgatewayWrapper.tracing }}
+      {{- end }}
+    config:
+      adminAddr: "0.0.0.0:15000"
+      standardAttributes:
+        user: >-
+          has(jwt.sub)
+            ? jwt.sub
+            : (has(extauthz.principal_id) ? extauthz.principal_id : "")
+      logging:
+        database:
+          url: "postgresql://agentgateway:${AGENTGATEWAY_DATABASE_PASSWORD}@postgres-operations.infra-postgres-operations.svc.cluster.local:5432/agentgateway?sslmode=disable"
+          maxConnections: 5
+      {{- if .Values.infraAgentgatewayWrapper.tracing }}
     {{- $fields := deepCopy (.Values.infraAgentgatewayWrapper.tracing.fields | default dict) }}
     {{- $add := get $fields "add" | default dict }}
     {{- $modelContentDisabled := list }}
@@ -91,7 +119,6 @@ spec:
     {{- $_ := set $add "langfuse.observation.input" (printf `has(mcp.tool.arguments) && has(mcp.tool.target) && !(mcp.tool.target in %s) ? flattenRecursive(mcp.tool.arguments) : null` ($mcpContentDisabled | toJson)) }}
     {{- $_ := set $add "langfuse.observation.output" (printf `has(mcp.tool.result) && has(mcp.tool.target) && !(mcp.tool.target in %s) ? flattenRecursive(mcp.tool.result) : null` ($mcpContentDisabled | toJson)) }}
     {{- $_ := set $fields "add" $add }}
-    config:
       tracing:
         otlpEndpoint: {{ .Values.infraAgentgatewayWrapper.tracing.otlpEndpoint | quote }}
         otlpProtocol: {{ .Values.infraAgentgatewayWrapper.tracing.otlpProtocol | quote }}
@@ -100,5 +127,4 @@ spec:
         fields:
           {{- toYaml $fields | nindent 10 }}
         {{- end }}
-    {{- end }}
-  {{- end }}
+      {{- end }}

@@ -61,11 +61,3 @@ spec:
       remoteRef:
         key: frontend-studio/internal
         property: opensearchPassword
-    - secretKey: LANGFUSE_PUBLIC_KEY
-      remoteRef:
-        key: frontend-studio/internal
-        property: langfusePublicKey
-    - secretKey: LANGFUSE_SECRET_KEY
-      remoteRef:
-        key: frontend-studio/internal
-        property: langfuseSecretKey

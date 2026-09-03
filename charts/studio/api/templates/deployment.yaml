@@ -72,20 +72,10 @@ spec:
                   key: OPENSEARCH_PASSWORD
             - name: K8S_STUDIO_OPENSEARCH_CA_CERT
               value: {{ .Values.frontendStudio.api.opensearchCaCert | quote }}
-            - name: K8S_STUDIO_LANGFUSE_URL
-              value: {{ .Values.frontendStudio.api.langfuseUrl | quote }}
-            - name: K8S_STUDIO_LANGFUSE_PUBLIC_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: frontend-studio-openbao-secret
-                  key: LANGFUSE_PUBLIC_KEY
-            - name: K8S_STUDIO_LANGFUSE_SECRET_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: frontend-studio-openbao-secret
-                  key: LANGFUSE_SECRET_KEY
+            - name: K8S_STUDIO_AGENTGATEWAY_ADMIN_URL
+              value: {{ .Values.frontendStudio.api.agentgatewayAdminUrl | quote }}
             - name: K8S_STUDIO_USAGE_TIMEZONE
-              value: {{ .Values.frontendStudio.api.langfuseUsageTimezone | quote }}
+              value: {{ .Values.frontendStudio.api.usageTimezone | quote }}
           command: ["k8s-stack-studio"]
           ports:
             - name: http

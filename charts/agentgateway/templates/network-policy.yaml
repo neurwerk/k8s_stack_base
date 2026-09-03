@@ -53,6 +53,19 @@ spec:
         - port: {{ .Values.infraAgentgatewayWrapper.ports.service.http }}
           protocol: TCP
     - from:
+        # The admin listener is unauthenticated in AgentGateway 1.5.0. Only the
+        # authenticated Studio API may reach it; it is never publicly routed.
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: frontend-studio
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: studio-api
+              app.kubernetes.io/instance: frontend-studio-api
+      ports:
+        - port: 15000
+          protocol: TCP
+    - from:
         - namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: monitor-kube-prometheus-stack

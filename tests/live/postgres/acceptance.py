@@ -11,7 +11,7 @@ import signal
 import subprocess
 import sys
 import tempfile
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Mapping
 
@@ -41,6 +41,7 @@ class Config:
 @dataclass(frozen=True)
 class Passwords:
     admin: str
+    agentgateway: str
     documentdb: str
     dify: str
     langfuse: str
@@ -113,7 +114,9 @@ def generate_passwords() -> Passwords:
     def password() -> str:
         return f"Aa1!{secrets.token_urlsafe(24)}"
 
-    return Passwords(password(), password(), password(), password(), password())
+    return Passwords(
+        password(), password(), password(), password(), password(), password()
+    )
 
 
 def values_json(config: Config, passwords: Passwords) -> str:
@@ -128,6 +131,7 @@ def values_json(config: Config, passwords: Passwords) -> str:
             },
             "postgresOperationsSecrets": {
                 "adminPassword": passwords.admin,
+                "agentgatewayPassword": passwords.agentgateway,
                 "documentdbPassword": passwords.documentdb,
                 "difyPassword": passwords.dify,
                 "langfusePassword": passwords.langfuse,
@@ -496,7 +500,8 @@ def run_acceptance(config: Config) -> None:
         ca, certificate, private_key = generate_tls(namespace)
         create_tls_resources(config, namespace, ca, certificate, private_key)
         print("PASS created isolated namespace and synthetic TLS identity", flush=True)
-        values = values_json(config, generate_passwords())
+        passwords = generate_passwords()
+        values = values_json(config, passwords)
 
         run_helm(
             helm_command(config, namespace),
@@ -520,6 +525,19 @@ def run_acceptance(config: Config) -> None:
         )
         verify_install(config, namespace)
         print("PASS idempotent upgrade and existing-user reconciliation", flush=True)
+
+        rotated_values = values_json(
+            config, replace(passwords, agentgateway=generate_passwords().agentgateway)
+        )
+        run_helm(
+            helm_command(config, namespace),
+            rotated_values,
+            "password reconciliation upgrade",
+            config,
+            namespace,
+        )
+        verify_install(config, namespace)
+        print("PASS password reconciliation and cross-role isolation", flush=True)
         succeeded = True
     finally:
         if created and succeeded:

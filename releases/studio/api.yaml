@@ -23,8 +23,8 @@ spec:
       namespace: monitor-pii-engine
     - name: opensearch
       namespace: monitor-opensearch
-    - name: langfuse
-      namespace: monitor-langfuse
+    - name: agentgateway
+      namespace: infra-agentgateway
     - name: keycloak-studio-oidc
       namespace: auth-keycloak
   chart:

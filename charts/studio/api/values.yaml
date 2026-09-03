@@ -13,7 +13,7 @@
 
 # --- Studio API configuration ---
 frontendStudio:
-  apiImage: "ghcr.io/neurwerk/k8s-stack-studio-api:0.1.0"
+  apiImage: "ghcr.io/neurwerk/k8s-stack-studio-api:0.1.1"
   api:
     replicas: 1
     securityContext:
@@ -50,10 +50,9 @@ frontendStudio:
     # Path to the internal CA cert (mounted from the frontend-studio-shared-opensearch-ca ConfigMap)
     opensearchCaCert: "/certs/ca.crt"
 
-    # --- Langfuse (per-user usage) ---
-    # API keys come from frontend-studio-openbao-secret.
-    langfuseUrl: "http://monitor-langfuse-web.monitor-langfuse.svc.cluster.local:3000"
-    langfuseUsageTimezone: "UTC"
+    # --- AgentGateway request-log usage analytics ---
+    agentgatewayAdminUrl: "http://infra-agentgateway-gateway.infra-agentgateway.svc.cluster.local:15000"
+    usageTimezone: "UTC"
 
     # --- Keycloak / OIDC (set via client_*/config/client.yaml) ---
     keycloakServerUrl: ""

@@ -63,6 +63,7 @@ spec:
       data:
         values.yaml: |
           infraAgentgatewayWrapperSecrets:
+            databasePassword: {{ .databasePassword | quote }}
             openaiApiKey: ""
             anthropicApiKey: ""
             openrouterApiKey: {{ .openrouterApiKey | quote }}
@@ -71,6 +72,10 @@ spec:
               brave:
                 apiKey: {{ .braveApiKey | quote }}
   data:
+    - secretKey: databasePassword
+      remoteRef:
+        key: infra-agentgateway/internal
+        property: postgresqlPassword
     - secretKey: openrouterApiKey
       remoteRef:
         key: infra-agentgateway/external
