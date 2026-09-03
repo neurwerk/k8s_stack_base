@@ -33,8 +33,8 @@ prerequisites:
   version: 2.9.4
   source: client bootstrap manifests
 - name: openbao-stack-setup
-  version: 0.2.10
-  source: https://github.com/neurwerk/k8s_stack_tooling/commit/fbf91a133e755e5f5b3a79e0e73c2506fc09021f
+  version: 0.2.11
+  source: https://github.com/neurwerk/k8s_stack_tooling/commit/5d1a33a938e22e9034581aebecf33485adc88a29
 - name: gateway-api-experimental
   version: 1.6.0
   source: https://github.com/kubernetes-sigs/gateway-api/releases/tag/v1.6.0

@@ -38,8 +38,8 @@ spec:
     version: 2.9.4
     source: client bootstrap manifests
   - name: openbao-stack-setup
-    version: 0.2.10
-    source: https://github.com/neurwerk/k8s_stack_tooling/commit/fbf91a133e755e5f5b3a79e0e73c2506fc09021f
+    version: 0.2.11
+    source: https://github.com/neurwerk/k8s_stack_tooling/commit/5d1a33a938e22e9034581aebecf33485adc88a29
   - name: gateway-api-experimental
     version: 1.6.0
     source: https://github.com/kubernetes-sigs/gateway-api/releases/tag/v1.6.0
@@ -194,7 +194,7 @@ spec:
       appVersion: '1.0'
     - path: charts/keycloak/oidc/agentgateway
       name: agentgateway
-      version: 1.0.1
+      version: 1.1.0
       appVersion: '1.0'
     - path: charts/keycloak/oidc/dify
       name: dify
@@ -202,7 +202,7 @@ spec:
       appVersion: '1.0'
     - path: charts/keycloak/oidc/dify-agentgateway
       name: dify-agentgateway
-      version: 1.0.1
+      version: 1.1.0
       appVersion: '1.0'
     - path: charts/keycloak/oidc/keycloak-api-key-bridge
       name: keycloak-api-key-bridge
@@ -224,14 +224,14 @@ spec:
       version: 1.0.1
     - path: charts/keycloak/realm-config/realm-roles
       name: keycloak-oidc-configurations-realm-roles
-      version: 1.0.1
+      version: 1.1.0
     - path: charts/keycloak/server
       name: keycloak
       version: 1.0.1
       appVersion: 26.7.2
     - path: charts/keycloak-api-key-bridge
       name: auth-keycloak-api-key-bridge
-      version: 1.0.0
+      version: 1.1.0
       appVersion: 0.1.0
     - path: charts/kube-prometheus-stack
       name: monitor-kube-prometheus-stack
@@ -309,7 +309,7 @@ spec:
       appVersion: v0.9.0
     - path: charts/librechat/shared
       name: frontend-librechat-shared
-      version: 1.0.2
+      version: 1.1.0
       appVersion: cdfe54c3498818b21b33fb609fee02f2742b37ea
     - path: charts/librechat/valkey
       name: frontend-librechat-valkey
@@ -377,14 +377,14 @@ spec:
     - path: charts/studio/api
       name: studio-api
       version: 1.1.0
-      appVersion: 0.1.0
+      appVersion: 0.1.1
     - path: charts/studio/shared
       name: studio-shared
       version: 1.0.0
     - path: charts/studio/web
       name: studio
-      version: 1.0.0
-      appVersion: 0.1.0
+      version: 1.0.1
+      appVersion: 0.1.1
     - path: charts/traefik
       name: traefik
       version: 1.0.1
@@ -780,12 +780,12 @@ spec:
       origins:
       - charts/pii-engine-model-sync/values.yaml
       - charts/pii-engine/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-studio-api:0.1.0
+    - reference: ghcr.io/neurwerk/k8s-stack-studio-api:0.1.1
       pinned: true
       eligibility: included
       origins:
       - charts/studio/api/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-studio-web:0.1.0
+    - reference: ghcr.io/neurwerk/k8s-stack-studio-web:0.1.1
       pinned: true
       eligibility: included
       origins:
