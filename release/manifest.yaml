@@ -1,19 +1,22 @@
 apiVersion: platform.neurwerk.com/v1alpha1
 kind: PlatformRelease
 metadata:
-  name: v0.1.0
+  name: v0.1.1
 spec:
-  version: 0.1.0
-  releaseDate: '2026-09-01'
-  summary: Establish the initial aggregate platform contract with immutable service and runtime pins.
+  version: 0.1.1
+  releaseDate: '2026-09-03'
+  summary: Publish validated Agentgateway 1.5.0, PII Engine, extProc, Keycloak onboarding, and LibreChat
+    fixes.
   trust:
     signerIdentity: platform-release
     algorithm: ssh-ed25519
     fingerprint: SHA256:+rDcofrsfRE3ElJJxnUVoB3gmoEzZJUrisDqLZMHimw
   compatibility:
     upgradesFrom: []
+    upgradesFromAlphaRevisions:
+    - 5a392c5cb4485fb9faef41840c63af1db6aa60fb
     downgrade: unsupported
-    recovery: replacement-restore
+    recovery: configuration-revert
   packages:
     default:
     - releases/namespaces
@@ -990,28 +993,24 @@ spec:
       pre-commit: 4.6.1
       uv: 0.11.21
   provenance:
-    bootstrap: true
-    includedThrough: 45ae3c9f7087f827b27d6723eda00823b275b9ff
+    previousTag: v0.1.0
+    includedThrough: ce776248dfb6ec4a9bdad5550d54bb1a8554de3f
     commits:
-    - 35a1fe7754f65a5fe19f17fe31ad81e48800ed01
-    - f5790d7284e223b7a592169a60c520ca2faecdc8
-    - ba75c76d4f6f1c2830ca56470fdf52acacc0d5f2
-    - 8a68752e1b57734085b7c3e1b7345478373783eb
-    - 6f5f50c9a55de50c710efd926b26f47769c1fa10
-    - 5cc6e0df7551cfdb23c4005f6ddda9be4fc77247
-    - fd28536279eacbfeddb39c77374a92f86813c994
-    - 89e3575d3b537d345bfca6a0119a36179f4209eb
-    - e6012fcbc06b8bd6bbd776af5105869427202247
-    - 6ecd5e70f8ade1a04cc53142dac8411dafcc4105
-    - a142381461435695f45eb167eb770a76a908ad57
-    - 347af0c523ff67f2b50d886962237000f9d16122
-    - 2d3430c37f7b7d2d8a5a7b1ef0717f9281de6ef2
-    - e1150705f4dba3d61235e09b4f2002b4eb2c7e3b
-    - bb7349a024ffeeb0e47ccccd1d1774358656f807
-    - b28f2e68a061dd04315db7dc1caf7d061218f251
-    - da18701bbbd657f65b4180a6e265d3b08241dbcc
-    - 6e69a3c431ced519a17adcdcc1550a84170ade6f
-    - 3fe63f7a78b33a987cfa8d35a26da5a44c170844
-    - 1fe77376799c3520491230785b0359a07e73a49b
-    - 45ae3c9f7087f827b27d6723eda00823b275b9ff
-    historyUrl: https://github.com/neurwerk/k8s_stack_base/commits/45ae3c9f7087f827b27d6723eda00823b275b9ff
+    - 5d4584deec8347a9bf6e687836ec666e819c7c23
+    - e0fccc55790560558a35d0336407ef6a1f90e0fe
+    - 7a3bd45b9b9b1bcaa66eb14d6167edd0bf0547a8
+    - f5428f819c04c1d4ad364eae0621463e59ab24f3
+    - 13e84f7d7545c1ef6e4e3aaf4808a1a2f38e98dc
+    - a2ef9df3bd8fd149b559675fd9cfca289e32171c
+    - 91546db251f1f80b0c12d7f52531e931262ecb60
+    - 993d11246db5e21c1db2dfef87072f803fb04dbd
+    - cbabf004d40071a90eccfd59f35131c9d00c28d3
+    - c24ed0f61c1b2ece38efa30ac5f268e20d888bb4
+    - 60b29d73153befc7e0dc05e40fed57010ffe5566
+    - e7b69ba06e358d574aad93f11bca65da31000e41
+    - 7086c8526be6e81d3ab2fc07338bfb2b962626bf
+    - 54f5ab52d67b3a6dfd3c07e4a7a3ceecdb6298a7
+    - 5a392c5cb4485fb9faef41840c63af1db6aa60fb
+    - 0ce2ee89d25d49e419383c101d99e5c88704308a
+    - ce776248dfb6ec4a9bdad5550d54bb1a8554de3f
+    compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.1.0...ce776248dfb6ec4a9bdad5550d54bb1a8554de3f
