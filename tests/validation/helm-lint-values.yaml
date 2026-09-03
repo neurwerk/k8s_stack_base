@@ -111,6 +111,8 @@ mcp:
   enabled: false
 infraAgentgatewayWrapper:
   hostname: agentgateway.lint.example
+infraAgentgatewayWrapperSecrets:
+  databasePassword: lint-agentgateway-database-password
 guardrails:
   llmPolicyEngine:
     enabled: true
@@ -141,6 +143,7 @@ postgresOperations:
     storageClassName: infra-rook-ceph-rbd
 postgresOperationsSecrets:
   adminPassword: lint-postgres-operations-admin
+  agentgatewayPassword: lint-postgres-operations-agentgateway
   documentdbPassword: lint-postgres-operations-documentdb
   difyPassword: lint-postgres-operations-dify
   langfusePassword: lint-postgres-operations-langfuse

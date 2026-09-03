@@ -19,6 +19,7 @@
 #     agentgateway.*                 — passed into the AgentGateway subchart
 #
 #   templates/secret.yaml            — LLM provider API keys from the OpenBao-backed Helm input Secret
+#   templates/database-secret.yaml   — request-log database password from the same input Secret
 #
 # ── To change hostnames / realm ──────────────────────────────────────────────
 #   Edit the client repository's config/client.yaml.
@@ -312,5 +313,6 @@ agentgateway:
     grafanaDashboard:
       enabled: true
 
-# Populated from the OpenBao-backed Helm input Secret.
+# Populated from the OpenBao-backed Helm input Secret. The database password is
+# delivered to the data plane by secretKeyRef and is never rendered in rawConfig.
 infraAgentgatewayWrapperSecrets: {}

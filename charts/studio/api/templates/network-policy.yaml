@@ -60,13 +60,13 @@ spec:
     - to:
         - namespaceSelector:
             matchLabels:
-              kubernetes.io/metadata.name: monitor-langfuse
+              kubernetes.io/metadata.name: infra-agentgateway
           podSelector:
             matchLabels:
-              app.kubernetes.io/name: langfuse
-              app: web
+              app.kubernetes.io/name: infra-agentgateway-gateway
+              gateway.networking.k8s.io/gateway-name: infra-agentgateway-gateway
       ports:
-        - port: 3000
+        - port: 15000
           protocol: TCP
     - to:
         - namespaceSelector:

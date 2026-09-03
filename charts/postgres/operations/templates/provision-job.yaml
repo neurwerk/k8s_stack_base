@@ -54,12 +54,19 @@ spec:
 
               psql --set=ON_ERROR_STOP=1 <<'SQL'
               \getenv documentdb_password DOCUMENTDB_PASSWORD
+              \getenv agentgateway_password AGENTGATEWAY_PASSWORD
               \getenv dify_password DIFY_PASSWORD
               \getenv langfuse_password LANGFUSE_PASSWORD
               \getenv librechat_rag_password LIBRECHAT_RAG_PASSWORD
               SET log_statement = 'none';
               SET log_min_duration_statement = -1;
               SET log_min_error_statement = 'panic';
+              SELECT format('CREATE ROLE agentgateway LOGIN PASSWORD %L', :'agentgateway_password')
+              WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'agentgateway') \gexec
+              SELECT format(
+                'ALTER ROLE agentgateway WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD %L',
+                :'agentgateway_password'
+              ) \gexec
               SELECT format('CREATE ROLE dify LOGIN PASSWORD %L', :'dify_password')
               WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'dify') \gexec
               SELECT format('ALTER ROLE dify WITH LOGIN PASSWORD %L', :'dify_password') \gexec
@@ -80,7 +87,10 @@ spec:
               WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'postgres_langfuse') \gexec
               SELECT 'CREATE DATABASE librechat_rag OWNER librechat_rag'
               WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'librechat_rag') \gexec
+              SELECT 'CREATE DATABASE agentgateway OWNER agentgateway'
+              WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'agentgateway') \gexec
 
+              ALTER DATABASE agentgateway OWNER TO agentgateway;
               ALTER DATABASE dify OWNER TO dify;
               ALTER DATABASE dify_plugin OWNER TO dify;
               ALTER DATABASE dify_vector OWNER TO dify;
@@ -88,7 +98,8 @@ spec:
               ALTER DATABASE librechat_rag OWNER TO librechat_rag;
               REVOKE CONNECT, TEMPORARY ON DATABASE postgres, template1 FROM PUBLIC;
               GRANT CONNECT ON DATABASE postgres TO documentdb, operations_admin;
-              REVOKE ALL ON DATABASE dify, dify_plugin, dify_vector, postgres_langfuse, librechat_rag FROM PUBLIC;
+              REVOKE ALL ON DATABASE agentgateway, dify, dify_plugin, dify_vector, postgres_langfuse, librechat_rag FROM PUBLIC;
+              GRANT CONNECT, TEMPORARY ON DATABASE agentgateway TO agentgateway;
               GRANT CONNECT, TEMPORARY ON DATABASE dify, dify_plugin, dify_vector TO dify;
               GRANT CONNECT, TEMPORARY ON DATABASE postgres_langfuse TO langfuse;
               GRANT CONNECT, TEMPORARY ON DATABASE librechat_rag TO librechat_rag;
@@ -179,7 +190,7 @@ spec:
 
               PGPASSWORD="$DOCUMENTDB_PASSWORD" PGUSER=librechat PGDATABASE=postgres \
                 psql --tuples-only --command='SELECT current_user' | grep -qx '[[:space:]]*librechat'
-              for database in dify dify_plugin dify_vector postgres_langfuse librechat_rag; do
+              for database in agentgateway dify dify_plugin dify_vector postgres_langfuse librechat_rag; do
                 if PGPASSWORD="$DOCUMENTDB_PASSWORD" PGUSER=librechat PGDATABASE="$database" \
                   psql --tuples-only --command='SELECT 1' >/dev/null 2>&1; then
                   echo "DocumentDB application role unexpectedly connected to PostgreSQL database $database" >&2
@@ -187,6 +198,8 @@ spec:
                 fi
               done
 
+              PGPASSWORD="$AGENTGATEWAY_PASSWORD" PGUSER=agentgateway PGDATABASE=agentgateway \
+                psql --tuples-only --command='SELECT current_user' | grep -qx '[[:space:]]*agentgateway'
               PGPASSWORD="$DIFY_PASSWORD" PGUSER=dify PGDATABASE=dify \
                 psql --tuples-only --command='SELECT current_user' | grep -qx '[[:space:]]*dify'
               PGPASSWORD="$LANGFUSE_PASSWORD" PGUSER=langfuse PGDATABASE=postgres_langfuse \
@@ -195,6 +208,22 @@ spec:
                 psql --tuples-only --command="SELECT extname FROM pg_extension WHERE extname = 'vector'" | grep -qx '[[:space:]]*vector'
               PGPASSWORD="$DIFY_PASSWORD" PGUSER=dify PGDATABASE=dify_vector \
                 psql --tuples-only --command="SELECT extname FROM pg_extension WHERE extname = 'vector'" | grep -qx '[[:space:]]*vector'
+              verify_isolation() {
+                user=$1
+                password=$2
+                shift 2
+                for database in "$@"; do
+                  if PGPASSWORD="$password" PGUSER="$user" PGDATABASE="$database" \
+                    psql --tuples-only --command='SELECT 1' >/dev/null 2>&1; then
+                    echo "$user unexpectedly connected to PostgreSQL database $database" >&2
+                    exit 1
+                  fi
+                done
+              }
+              verify_isolation agentgateway "$AGENTGATEWAY_PASSWORD" dify dify_plugin dify_vector postgres_langfuse librechat_rag
+              verify_isolation dify "$DIFY_PASSWORD" agentgateway postgres_langfuse librechat_rag
+              verify_isolation langfuse "$LANGFUSE_PASSWORD" agentgateway dify dify_plugin dify_vector librechat_rag
+              verify_isolation librechat_rag "$LIBRECHAT_RAG_PASSWORD" agentgateway dify dify_plugin dify_vector postgres_langfuse
               echo "Operations PostgreSQL provisioning verified."
           securityContext:
             allowPrivilegeEscalation: false
@@ -221,6 +250,11 @@ spec:
                 secretKeyRef:
                   name: postgres-operations-secret
                   key: documentdb-password
+            - name: AGENTGATEWAY_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-operations-secret
+                  key: agentgateway-password
             - name: DOCUMENTDB_ADMIN_USER
               value: operations_admin
             - name: DOCUMENTDB_ADMIN_PASSWORD
