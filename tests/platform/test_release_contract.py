@@ -37,164 +37,114 @@ class ReleaseContractTest(unittest.TestCase):
         manifest = platform_release.build_manifest()
         platform_release.validate_manifest_schema(manifest)
 
-    def test_migration_compatibility_parses_wrapped_source_versions(self) -> None:
-        migration = """# Platform v0.1.2
-
-## Support
-
-- Supported source versions: `v0.1.0`,
-  `v0.1.1`.
-- Supported alpha source revisions: `aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa`, `bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb`.
-- Downgrade: Unsupported.
-
-## Recovery
-
-Recovery classification: Replacement restore.
-"""
-        compatibility = platform_release.parse_migration_compatibility(migration)
-        self.assertEqual(
-            compatibility["upgradesFrom"],
-            ["v0.1.0", "v0.1.1"],
+    def test_stable_upgrade_policy_and_legacy_compatibility(self) -> None:
+        scaffold = platform_release.migration_scaffold(
+            "0.1.2", "supported", [], "forward-fix"
         )
-        self.assertEqual(
-            compatibility["upgradesFromAlphaRevisions"],
-            ["a" * 40, "b" * 40],
+        self.assertTrue(platform_release.contains_todo(scaffold))
+        supported = scaffold.replace("TODO", "Reviewed evidence")
+        self.assertIn("- Stable upgrades: Supported.", supported)
+        self.assertIn("## Breaking Changes", supported)
+        platform_release.validate_migration_compatibility(
+            supported,
+            {
+                "stableUpgrade": "supported",
+                "upgradesFromAlphaRevisions": [],
+                "downgrade": "unsupported",
+                "recovery": "forward-fix",
+            },
         )
+        with self.assertRaisesRegex(
+            platform_release.ReleaseError, "exactly one ## Breaking Changes section"
+        ):
+            platform_release.validate_migration_compatibility(
+                supported.replace("## Breaking Changes", "## Changes"),
+                {
+                    "stableUpgrade": "supported",
+                    "upgradesFromAlphaRevisions": [],
+                    "downgrade": "unsupported",
+                    "recovery": "forward-fix",
+                },
+            )
+        with self.assertRaisesRegex(
+            platform_release.ReleaseError, "Breaking Changes section must not be empty"
+        ):
+            platform_release.validate_migration_compatibility(
+                supported.replace(
+                    "## Breaking Changes\n\nReviewed evidence.\n\n## Stateful",
+                    "## Breaking Changes\n\n## Stateful",
+                ),
+                {
+                    "stableUpgrade": "supported",
+                    "upgradesFromAlphaRevisions": [],
+                    "downgrade": "unsupported",
+                    "recovery": "forward-fix",
+                },
+            )
 
-    def test_migration_compatibility_rejects_invalid_declarations(self) -> None:
-        migration = """# Platform v0.1.2
-
-## Support
-
-- Supported source versions: `v0.1.0`,
-  `v0.1.1`.
-- Supported alpha source revisions: None.
-- Downgrade: Unsupported.
-
-## Recovery
-
-Recovery classification: Replacement restore.
-"""
-        invalid_migrations = (
-            (
-                "missing source versions",
-                migration.replace(
-                    "- Supported source versions: `v0.1.0`,\n  `v0.1.1`.\n", ""
-                ),
-                "exactly one supported source versions declaration",
-            ),
-            (
-                "duplicate source versions",
-                migration.replace(
-                    "- Supported source versions: `v0.1.0`,",
-                    "- Supported source versions: None.\n"
-                    "- Supported source versions: `v0.1.0`,",
-                ),
-                "exactly one supported source versions declaration",
-            ),
-            (
-                "malformed source versions",
-                migration.replace("`v0.1.0`,", "v0.1.0,"),
-                "must be None or comma-separated strict tags",
-            ),
-            (
-                "duplicate source tags",
-                migration.replace("`v0.1.1`.", "`v0.1.0`."),
-                "source versions contain duplicate tags",
-            ),
-            (
-                "invalid source continuation",
-                migration.replace("  `v0.1.1`.", "`v0.1.1`."),
-                "source versions declaration has invalid continuation",
-            ),
-            (
-                "misplaced source versions",
-                migration.replace(
-                    "- Supported source versions: `v0.1.0`,\n  `v0.1.1`.\n", ""
-                ).replace(
-                    "Recovery classification: Replacement restore.",
-                    "- Supported source versions: None.\n"
-                    "Recovery classification: Replacement restore.",
-                ),
-                "source versions declaration must appear in ## Support",
-            ),
-            (
-                "missing downgrade",
-                migration.replace("- Downgrade: Unsupported.\n", ""),
-                "exactly one downgrade declaration",
-            ),
-            (
-                "duplicate downgrade",
-                migration.replace(
-                    "- Downgrade: Unsupported.",
-                    "- Downgrade: Unsupported.\n- Downgrade: Unsupported.",
-                ),
-                "exactly one downgrade declaration",
-            ),
-            (
-                "unknown downgrade",
-                migration.replace(
-                    "- Downgrade: Unsupported.", "- Downgrade: Conditional."
-                ),
-                "unknown downgrade value",
-            ),
-            (
-                "misplaced downgrade",
-                migration.replace(
-                    "- Downgrade: Unsupported.\n\n## Recovery",
-                    "## Recovery\n\n- Downgrade: Unsupported.",
-                ),
-                "downgrade declaration must appear in ## Support",
-            ),
-            (
-                "malformed downgrade",
-                migration.replace(
-                    "- Downgrade: Unsupported.", "- Downgrade: unsupported."
-                ),
-                "downgrade declaration has invalid format",
-            ),
-            (
-                "missing recovery",
-                migration.replace("Recovery classification: Replacement restore.\n", ""),
-                "exactly one recovery classification declaration",
-            ),
-            (
-                "duplicate recovery",
-                migration.replace(
-                    "Recovery classification: Replacement restore.",
-                    "Recovery classification: Replacement restore.\n"
-                    "Recovery classification: Replacement restore.",
-                ),
-                "exactly one recovery classification declaration",
-            ),
-            (
-                "unknown recovery",
-                migration.replace("Replacement restore", "Database restore"),
-                "unknown recovery classification",
-            ),
-            (
-                "misplaced recovery",
-                migration.replace(
-                    "Recovery classification: Replacement restore.\n", ""
-                ).replace(
-                    "- Downgrade: Unsupported.",
-                    "- Downgrade: Unsupported.\n"
-                    "Recovery classification: Replacement restore.",
-                ),
-                "recovery classification declaration must appear in ## Recovery",
-            ),
+        fresh_install_only = supported.replace(
+            "Stable upgrades: Supported", "Stable upgrades: Fresh installation only"
         )
-        for name, candidate, message in invalid_migrations:
-            with self.subTest(name=name):
-                with self.assertRaisesRegex(platform_release.ReleaseError, message):
-                    platform_release.parse_migration_compatibility(candidate)
+        fresh_policy = {
+            "stableUpgrade": "fresh-install-only",
+            "upgradesFromAlphaRevisions": [],
+            "downgrade": "unsupported",
+            "recovery": "forward-fix",
+        }
+        platform_release.validate_migration_compatibility(
+            fresh_install_only, fresh_policy
+        )
+        manifest = platform_release.load_yaml(ROOT / "release/manifest.yaml")
+        manifest["metadata"]["name"] = "v0.1.2"
+        manifest["spec"]["version"] = "0.1.2"
+        manifest["spec"]["compatibility"] = dict(fresh_policy)
+        platform_release.validate_manifest_schema(manifest)
+        manifest["spec"]["compatibility"]["upgradesFrom"] = []
+        with self.assertRaisesRegex(
+            platform_release.ReleaseError, "does not match its schema"
+        ):
+            platform_release.validate_manifest_schema(manifest)
+        manifest["spec"]["compatibility"] = {
+            "upgradesFrom": [],
+            "upgradesFromAlphaRevisions": [],
+            "downgrade": "unsupported",
+            "recovery": "forward-fix",
+        }
+        with self.assertRaisesRegex(
+            platform_release.ReleaseError, "does not match its schema"
+        ):
+            platform_release.validate_manifest_schema(manifest)
+        with self.assertRaisesRegex(
+            platform_release.ReleaseError, "stableUpgrade does not match"
+        ):
+            platform_release.validate_migration_compatibility(supported, fresh_policy)
+
+        legacy = (ROOT / "release/migrations/v0.1.0.md").read_text()
+        legacy_manifest = yaml.safe_load(
+            platform_release.git("show", "v0.1.0:release/manifest.yaml")
+        )
+        platform_release.validate_manifest_schema(legacy_manifest)
+        platform_release.validate_migration_compatibility(
+            legacy,
+            {
+                "freshInstall": "supported",
+                "upgradesFrom": [],
+                "downgrade": "unsupported",
+                "recovery": "replacement-restore",
+            },
+            require_alpha_revisions=False,
+        )
 
     def test_migration_compatibility_rejects_invalid_alpha_revisions(self) -> None:
         migration = """## Support
 
-- Supported source versions: None.
+- Stable upgrades: Supported.
 - Supported alpha source revisions: `aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa`, `bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb`.
 - Downgrade: Unsupported.
+
+## Breaking Changes
+
+None.
 
 ## Recovery
 
@@ -256,7 +206,9 @@ Recovery classification: Forward fix.
 
 Recovery classification: Forward fix.
 """
-        compatibility = platform_release.parse_migration_compatibility(migration, False)
+        compatibility = platform_release.parse_migration_compatibility(
+            migration, False, legacy=True
+        )
         self.assertEqual(compatibility["upgradesFromAlphaRevisions"], [])
         platform_release.validate_migration_compatibility(
             migration,
@@ -272,72 +224,9 @@ Recovery classification: Forward fix.
             platform_release.ReleaseError,
             "exactly one supported alpha source revisions declaration",
         ):
-            platform_release.parse_migration_compatibility(migration, True)
-
-    def test_migration_compatibility_rejects_contract_mismatch(self) -> None:
-        migration = """## Support
-
-- Supported source versions: `v0.1.0`, `v0.1.1`.
-- Supported alpha source revisions: `aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa`, `bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb`.
-- Downgrade: Unsupported.
-
-## Recovery
-
-Recovery classification: Forward fix.
-"""
-        matching = {
-            "upgradesFrom": ["v0.1.0", "v0.1.1"],
-            "upgradesFromAlphaRevisions": ["a" * 40, "b" * 40],
-            "downgrade": "unsupported",
-            "recovery": "forward-fix",
-        }
-        mismatches = (
-            (
-                "upgradesFrom set",
-                {**matching, "upgradesFrom": ["v0.0.9", "v0.1.0"]},
-                "migration upgradesFrom set does not match release config compatibility.upgradesFrom",
-            ),
-            (
-                "upgradesFrom order",
-                {**matching, "upgradesFrom": ["v0.1.1", "v0.1.0"]},
-                "migration upgradesFrom order does not match release config compatibility.upgradesFrom",
-            ),
-            (
-                "upgradesFromAlphaRevisions set",
-                {
-                    **matching,
-                    "upgradesFromAlphaRevisions": ["c" * 40, "b" * 40],
-                },
-                "migration upgradesFromAlphaRevisions set does not match release config compatibility.upgradesFromAlphaRevisions",
-            ),
-            (
-                "upgradesFromAlphaRevisions order",
-                {
-                    **matching,
-                    "upgradesFromAlphaRevisions": ["b" * 40, "a" * 40],
-                },
-                "migration upgradesFromAlphaRevisions order does not match release config compatibility.upgradesFromAlphaRevisions",
-            ),
-            (
-                "downgrade",
-                {**matching, "downgrade": "supported"},
-                "migration downgrade does not match release config compatibility.downgrade",
-            ),
-            (
-                "recovery",
-                {**matching, "recovery": "replacement-restore"},
-                "migration recovery does not match release config compatibility.recovery",
-            ),
-        )
-        for name, compatibility, message in mismatches:
-            with self.subTest(name=name):
-                with self.assertRaisesRegex(
-                    platform_release.ReleaseError,
-                    re.escape(message),
-                ):
-                    platform_release.validate_migration_compatibility(
-                        migration, compatibility, "release config compatibility"
-                    )
+            platform_release.parse_migration_compatibility(
+                migration, True, legacy=True
+            )
 
     def test_current_commit_resolves_to_one_release_tag(self) -> None:
         tag = self._release_integration_tag()
@@ -383,7 +272,7 @@ Recovery classification: Forward fix.
                         version="0.1.1",
                         previous_tag="v0.1.0",
                         release_date="2026-09-01",
-                        upgrades_from="",
+                        stable_upgrade="supported",
                         upgrades_from_alpha_revisions=value,
                     )
                     with mock.patch.object(platform_release, "VERSION_PATH", version):

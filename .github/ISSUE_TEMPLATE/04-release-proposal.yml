@@ -44,7 +44,7 @@ body:
     id: compatibility
     attributes:
       label: Compatibility and migration contract
-      description: State supported source tags and alpha commits, downgrade policy, and recovery action.
+      description: State the stable upgrade policy, supported alpha commits, downgrade policy, and recovery action.
     validations:
       required: true
   - type: textarea
