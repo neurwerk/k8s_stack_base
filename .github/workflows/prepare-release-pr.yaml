@@ -26,10 +26,14 @@ on:
         description: Concise release summary
         required: true
         type: string
-      upgrades_from:
-        description: Comma-separated exact source tags, or empty for none
-        required: false
-        type: string
+      stable_upgrade:
+        description: Stable release upgrade policy
+        required: true
+        default: supported
+        type: choice
+        options:
+          - supported
+          - fresh-install-only
       upgrades_from_alpha_revisions:
         description: Comma-separated full lowercase alpha source commits, or empty for none
         required: false
@@ -85,7 +89,7 @@ jobs:
           PREVIOUS_TAG: ${{ inputs.previous_tag }}
           RELEASE_DATE: ${{ inputs.release_date }}
           SUMMARY: ${{ inputs.summary }}
-          UPGRADES_FROM: ${{ inputs.upgrades_from }}
+          STABLE_UPGRADE: ${{ inputs.stable_upgrade }}
           UPGRADES_FROM_ALPHA_REVISIONS: ${{ inputs.upgrades_from_alpha_revisions }}
           RECOVERY: ${{ inputs.recovery }}
           PLATFORM_RELEASE_ALLOWED_SIGNER: ${{ vars.PLATFORM_RELEASE_ALLOWED_SIGNER }}
@@ -119,7 +123,7 @@ jobs:
             "${mode_args[@]}" \
             --release-date "$RELEASE_DATE" \
             --summary "$SUMMARY" \
-            --upgrades-from "$UPGRADES_FROM" \
+            --stable-upgrade "$STABLE_UPGRADE" \
             --upgrades-from-alpha-revisions "$UPGRADES_FROM_ALPHA_REVISIONS" \
             --recovery "$RECOVERY"
 
