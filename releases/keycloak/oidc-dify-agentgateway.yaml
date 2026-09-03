@@ -33,6 +33,9 @@ spec:
     - kind: ConfigMap
       name: auth-keycloak-app-defaults
       valuesKey: values.yaml
+    - kind: ConfigMap
+      name: base-shared-openrouter-catalog-config-map
+      valuesKey: values.yaml
     - kind: Secret
       name: auth-keycloak-secrets
       valuesKey: values.yaml

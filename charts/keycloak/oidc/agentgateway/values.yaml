@@ -16,7 +16,8 @@
 # AgentGateway OIDC client ID (default — unlikely to change)
 authKeycloak:
   agentgatewayClientId: agentgateway
-  # Tenant overlays extend this catalog with derived model/MCP permissions.
+  # Clients retain explicit llm, MCP, and custom/local model permissions;
+  # platform OpenRouter model permissions are derived below.
   agentgatewayClientRoles:
     - llm:invoke
   # agentgatewayRedirectUri: "" => set in client_*/config/client.yaml
@@ -25,3 +26,9 @@ authKeycloak:
 # k8sTools — init script image version
 k8sTools:
   image: ghcr.io/neurwerk/k8s-stack-tooling:0.1.1
+
+openrouterCatalog:
+  enabled: true
+  excludedModels: []
+  grantToAccessGroups: true
+  models: []

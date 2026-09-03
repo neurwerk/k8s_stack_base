@@ -2,7 +2,7 @@
 # Model-centric LLM serving (AgentgatewayModel API)
 #
 # Renders one AgentgatewayModel per entry in
-#   guardrails.llmPolicyEngine.models
+#   the inherited catalog plus guardrails.llmPolicyEngine.models
 # plus dedicated Internal local fallback targets for rerouted models.
 #
 # Each model becomes selectable on the listener's built-in LLM paths
@@ -18,7 +18,7 @@
 #   neither          → 1 Public concrete model → provider directly
 # =============================================================================
 {{- $engine := .Values.guardrails.llmPolicyEngine }}
-{{- $models := $engine.models | default list }}
+{{- $models := include "infra-agentgateway.effectiveModels" . | fromYamlArray }}
 {{- if $models }}
 {{- $llamacpp := .Values.infraAgentgatewayWrapper.llamacpp }}
 {{- if and $llamacpp.enabled (not $llamacpp.host) }}{{- fail "infraAgentgatewayWrapper.llamacpp.host is required when llamacpp is enabled" }}{{- end }}
@@ -27,7 +27,7 @@
 {{- $defaultWhen := `request.headers["x-remote-allowed"] == "true"` }}
 {{- $needsLocalFallback := false }}
 {{- $modelsByName := dict }}
-{{- $agentgatewayRoles := .Values.authKeycloak.agentgatewayClientRoles | default list }}
+{{- $agentgatewayRoles := include "infra-agentgateway.effectiveRoles" . | fromYamlArray }}
 {{- $routingTargets := list }}
 {{- if not (has "llm:invoke" $agentgatewayRoles) }}{{- fail "authKeycloak.agentgatewayClientRoles must include llm:invoke" }}{{- end }}
 {{- with .Values.monitorPiiEngine }}
@@ -41,7 +41,7 @@
 {{-   $_ := set $modelsByName .name . }}
 {{-   $permission := printf "model:%s:invoke" .name }}
 {{-   if not (has $permission $agentgatewayRoles) }}
-{{-     fail (printf "model %q requires %q in authKeycloak.agentgatewayClientRoles" .name $permission) }}
+{{-     fail (printf "model %q requires effective AgentGateway role %q" .name $permission) }}
 {{-   end }}
 {{-   if .piiReroute }}{{- $needsLocalFallback = true }}{{- end }}
 {{-   if and .piiReroute (not $engine.enabled) }}
@@ -68,7 +68,7 @@
 {{-       fail (printf "routing classPrefix %q is not safe for AgentGateway CEL" $classPrefix) }}
 {{-     end }}
 {{-     if not (hasKey $modelsByName $targetName) }}
-{{-       fail (printf "routing target %q does not match guardrails.llmPolicyEngine.models[].name" $targetName) }}
+{{-       fail (printf "routing target %q does not match the effective model catalog" $targetName) }}
 {{-     end }}
 {{-   end }}
 {{- end }}

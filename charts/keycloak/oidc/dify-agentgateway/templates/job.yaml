@@ -59,7 +59,7 @@ spec:
             - name: KC_SERVICE_ACCOUNTS_ENABLED
               value: "true"
             {{- $roles := .Values.authKeycloak.difyAgentgatewayClientRoles | default list }}
-            {{- $allRoles := .Values.authKeycloak.agentgatewayClientRoles | default list }}
+            {{- $allRoles := include "keycloak-dify-agentgateway.effectiveRoles" . | fromYamlArray }}
             {{- if not (has "llm:invoke" $roles) }}{{- fail "authKeycloak.difyAgentgatewayClientRoles must include llm:invoke" }}{{- end }}
             {{- if ne (len $roles) (len ($roles | uniq)) }}{{- fail "authKeycloak.difyAgentgatewayClientRoles must not contain duplicates" }}{{- end }}
             {{- $agentgatewayClientId := required "authKeycloak.agentgatewayClientId is required" .Values.authKeycloak.agentgatewayClientId }}

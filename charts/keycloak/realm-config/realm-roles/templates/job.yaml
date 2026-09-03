@@ -6,7 +6,8 @@
 #
 # No Kubernetes RBAC needed — this only calls the Keycloak Admin API.
 # =============================================================================
-{{- $agentgatewayRoles := .Values.authKeycloak.agentgatewayClientRoles | default list }}
+{{- $inheritedRoles := include "keycloak-realm-roles.inheritedRoles" . | fromYamlArray }}
+{{- $agentgatewayRoles := concat (.Values.authKeycloak.agentgatewayClientRoles | default list) $inheritedRoles | uniq }}
 {{- $accessGroups := deepCopy (.Values.authKeycloak.accessGroups | default dict) }}
 {{- if not (has "llm:invoke" $agentgatewayRoles) }}{{- fail "authKeycloak.agentgatewayClientRoles must include llm:invoke" }}{{- end }}
 {{- range $agentgatewayRoles }}
@@ -16,12 +17,17 @@
 {{- $group := get $accessGroups $groupName }}
 {{- if not $group }}{{- fail (printf "AgentGateway access group %q is not declared in authKeycloak.accessGroups" $groupName) }}{{- end }}
 {{- if not (kindIs "slice" $groupRoles) }}{{- fail (printf "AgentGateway access group %q roles must be a list" $groupName) }}{{- end }}
+{{- if $.Values.openrouterCatalog.grantToAccessGroups }}{{- $groupRoles = concat $groupRoles $inheritedRoles | uniq }}{{- else }}{{- $groupRoles = $groupRoles | uniq }}{{- end }}
 {{- range $groupRoles }}
 {{- if not (has . $agentgatewayRoles) }}{{- fail (printf "AgentGateway access group %q grants undeclared role %q" $groupName .) }}{{- end }}
 {{- end }}
 {{- $clientRoles := get $group "clientRoles" | default dict }}
 {{- $_ := set $clientRoles "agentgateway" $groupRoles }}
 {{- $_ := set $group "clientRoles" $clientRoles }}
+{{- end }}
+{{- $accessGroupsJson := $accessGroups | toJson }}
+{{- if gt (len $accessGroupsJson) 120000 }}
+{{- fail (printf "composed KC_ACCESS_GROUPS is %d bytes and exceeds the 120000-byte process environment safety limit; reduce access-group grants until a file-based tooling interface is available" (len $accessGroupsJson)) }}
 {{- end }}
 apiVersion: batch/v1
 kind: Job
@@ -75,7 +81,7 @@ spec:
             - name: KC_REALM_ROLE_COMPOSITES
               value: {{ .Values.authKeycloak.realmRoleComposites | toJson | quote }}
             - name: KC_ACCESS_GROUPS
-              value: {{ $accessGroups | toJson | quote }}
+              value: {{ $accessGroupsJson | quote }}
         - name: setup-composites
           image: {{ (.Values.k8sTools).image | quote }}
           command:

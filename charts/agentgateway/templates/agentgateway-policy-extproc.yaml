@@ -1,4 +1,4 @@
-{{- $models := .Values.guardrails.llmPolicyEngine.models | default list }}
+{{- $models := include "infra-agentgateway.effectiveModels" . | fromYamlArray }}
 {{- if and .Values.guardrails.llmPolicyEngine.enabled $models }}
 {{- $piiCatalog := dict }}
 {{- range $model := $models }}

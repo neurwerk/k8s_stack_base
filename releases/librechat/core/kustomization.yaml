@@ -19,6 +19,9 @@ configMapGenerator:
   - name: base-shared-mcp-config-map
     files:
       - values.yaml=../../shared/default-mcp-settings.yaml
+  - name: base-shared-openrouter-catalog-config-map
+    files:
+      - values.yaml=../../shared/openrouter-catalog.yaml
   - name: frontend-librechat-app-defaults
     files:
       - values.yaml=app-defaults.yaml

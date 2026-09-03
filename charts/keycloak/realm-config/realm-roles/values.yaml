@@ -32,8 +32,8 @@ authKeycloak:
       - librechat-admin
       - dify-admin
 
-  # These Keycloak client roles are created by the AgentGateway OIDC Job. Tenant
-  # overlays extend the catalog with model:<id>:invoke and mcp:<id>:invoke.
+  # Clients retain explicit llm, MCP, and custom/local model permissions. The
+  # platform derives inherited OpenRouter model permissions from its catalog.
   agentgatewayClientRoles:
     - llm:invoke
 
@@ -79,6 +79,12 @@ authKeycloak:
     /access/studio-users:
       realmRoles:
         - studio-user
+
+openrouterCatalog:
+  enabled: true
+  excludedModels: []
+  grantToAccessGroups: true
+  models: []
 
 k8sTools:
   image: ghcr.io/neurwerk/k8s-stack-tooling:0.1.1
