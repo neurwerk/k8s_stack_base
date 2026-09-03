@@ -11,14 +11,6 @@ upgrade path.
 
 ## [0.1.1] - 2026-09-03
 
-### TODO: Curate Changes
-
-- TODO: Replace this scaffold with reviewed release notes.
-
-### Compatibility
-
-- TODO: Describe exact compatibility and recovery behavior.
-
 ### Changed
 
 - Make installation into a verified empty or replacement environment a platform
@@ -34,6 +26,24 @@ upgrade path.
 - Update the reviewed LibreChat development snapshot to source commit
   `cdfe54c3498818b21b33fb609fee02f2742b37ea` and its exact multi-architecture
   image digest.
+- Pin PII Engine 0.1.1 and Agentgateway extProc 0.1.2 images, including support
+  for standard streamed usage request and response shapes.
+
+### Fixed
+
+- Complete signed-tag release publication from the exact tag checkout and bound
+  release evidence validation at the released tag.
+- Prevent K3s Traefik rolling updates and ServiceLB from competing for host ports
+  80 and 443.
+
+### Compatibility
+
+- Support promotion only from alpha commit
+  `5a392c5cb4485fb9faef41840c63af1db6aa60fb`; no stable source upgrade or
+  downgrade is supported.
+- Classify recovery as a configuration revert to the validated alpha commit.
+- Continue to support installation into a verified empty or replacement
+  environment as a platform invariant.
 
 ## [0.1.0] - 2026-09-01
 
