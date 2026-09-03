@@ -43,6 +43,11 @@ RECOVERY_ACTIONS = (
     "component-native-restore",
     "replacement-restore",
 )
+STABLE_UPGRADE_POLICIES = ("supported", "fresh-install-only")
+STABLE_UPGRADE_LABELS = {
+    "supported": "Supported",
+    "fresh-install-only": "Fresh installation only",
+}
 
 
 class ReleaseError(RuntimeError):
@@ -567,38 +572,19 @@ def migration_declaration(
     return match.group(1)
 
 
-def migration_source_versions(migration: str, support: str) -> list[str]:
+def legacy_migration_source_versions(migration: str, support: str) -> list[str]:
     prefix = "- Supported source versions: "
-    lines = migration.splitlines()
-    declaration_indexes = [index for index, line in enumerate(lines) if line.startswith(prefix)]
-    if len(declaration_indexes) != 1:
+    declarations = [line for line in migration.splitlines() if line.startswith(prefix)]
+    if len(declarations) != 1:
         raise ReleaseError(
             "release migration must contain exactly one supported source versions declaration"
         )
-    index = declaration_indexes[0]
-    if lines[index] not in support.splitlines():
+    declaration = declarations[0]
+    if declaration not in support.splitlines():
         raise ReleaseError(
             "release migration supported source versions declaration must appear in ## Support"
         )
-
-    fragments = [lines[index].removeprefix(prefix)]
-    if not fragments[0]:
-        raise ReleaseError(
-            "release migration supported source versions declaration has invalid format"
-        )
-    while not fragments[-1].endswith("."):
-        index += 1
-        if index >= len(lines) or re.fullmatch(r"  \S.*", lines[index]) is None:
-            raise ReleaseError(
-                "release migration supported source versions declaration has invalid continuation"
-            )
-        fragments.append(lines[index][2:])
-    if index + 1 < len(lines) and re.fullmatch(r"  \S.*", lines[index + 1]):
-        raise ReleaseError(
-            "release migration supported source versions declaration has unexpected continuation"
-        )
-
-    value = " ".join(fragments)
+    value = declaration.removeprefix(prefix)
     if value == "None.":
         return []
     if not value.endswith("."):
@@ -665,11 +651,32 @@ def migration_alpha_source_revisions(
 def parse_migration_compatibility(
     migration: str,
     require_alpha_revisions: bool = True,
+    legacy: bool = False,
 ) -> dict[str, Any]:
     support = migration_section(migration, "Support")
     recovery_section = migration_section(migration, "Recovery")
 
-    upgrades_from = migration_source_versions(migration, support)
+    if legacy:
+        stable_compatibility = {
+            "upgradesFrom": legacy_migration_source_versions(migration, support)
+        }
+    else:
+        stable_label = migration_declaration(
+            migration, support, "Support", "- Stable upgrades: ", "stable upgrades"
+        )
+        labels_to_policies = {
+            label: policy for policy, label in STABLE_UPGRADE_LABELS.items()
+        }
+        stable_upgrade = labels_to_policies.get(stable_label)
+        if stable_upgrade is None:
+            raise ReleaseError(
+                f"release migration has unknown stable upgrades value: {stable_label}"
+            )
+        if not migration_section(migration, "Breaking Changes").strip():
+            raise ReleaseError(
+                "release migration ## Breaking Changes section must not be empty"
+            )
+        stable_compatibility = {"stableUpgrade": stable_upgrade}
     upgrades_from_alpha_revisions = migration_alpha_source_revisions(
         migration, support, require_alpha_revisions
     )
@@ -690,7 +697,7 @@ def parse_migration_compatibility(
     if recovery not in RECOVERY_ACTIONS:
         raise ReleaseError(f"release migration has unknown recovery classification: {recovery}")
     return {
-        "upgradesFrom": upgrades_from,
+        **stable_compatibility,
         "upgradesFromAlphaRevisions": upgrades_from_alpha_revisions,
         "downgrade": downgrade,
         "recovery": recovery,
@@ -705,42 +712,25 @@ def validate_migration_compatibility(
 ) -> None:
     if not isinstance(compatibility, dict):
         raise ReleaseError(f"{source} must be an object")
-    declared = parse_migration_compatibility(migration, require_alpha_revisions)
-    for field in ("downgrade", "recovery"):
+    legacy = "upgradesFrom" in compatibility
+    declared = parse_migration_compatibility(
+        migration, require_alpha_revisions, legacy=legacy
+    )
+    fields = ("upgradesFrom", "downgrade", "recovery") if legacy else (
+        "stableUpgrade",
+        "downgrade",
+        "recovery",
+    )
+    for field in fields:
         if declared[field] != compatibility.get(field):
             raise ReleaseError(
                 f"release migration {field} does not match {source}.{field}"
             )
-    expected_upgrades = compatibility.get("upgradesFrom")
-    if declared["upgradesFrom"] != expected_upgrades:
-        if (
-            isinstance(expected_upgrades, list)
-            and all(isinstance(tag, str) for tag in expected_upgrades)
-            and len(declared["upgradesFrom"]) == len(expected_upgrades)
-            and set(declared["upgradesFrom"]) == set(expected_upgrades)
-        ):
-            mismatch = "order"
-        else:
-            mismatch = "set"
-        raise ReleaseError(
-            f"release migration upgradesFrom {mismatch} does not match {source}.upgradesFrom"
-        )
     expected_alpha_revisions = compatibility.get("upgradesFromAlphaRevisions", [])
     if declared["upgradesFromAlphaRevisions"] != expected_alpha_revisions:
-        if (
-            isinstance(expected_alpha_revisions, list)
-            and all(isinstance(revision, str) for revision in expected_alpha_revisions)
-            and len(declared["upgradesFromAlphaRevisions"])
-            == len(expected_alpha_revisions)
-            and set(declared["upgradesFromAlphaRevisions"])
-            == set(expected_alpha_revisions)
-        ):
-            mismatch = "order"
-        else:
-            mismatch = "set"
         raise ReleaseError(
-            "release migration upgradesFromAlphaRevisions "
-            f"{mismatch} does not match {source}.upgradesFromAlphaRevisions"
+            "release migration upgradesFromAlphaRevisions does not match "
+            f"{source}.upgradesFromAlphaRevisions"
         )
 
 
@@ -1163,17 +1153,6 @@ def render_release_notes(release_root: Path, generated_notes: Path | None = None
     return content
 
 
-def parse_upgrades_from(value: str) -> list[str]:
-    if not value.strip():
-        return []
-    tags = [item.strip() for item in value.split(",")]
-    if any(RELEASE_TAG.fullmatch(tag) is None for tag in tags):
-        raise ReleaseError("upgrades-from must be a comma-separated list of strict release tags")
-    if len(tags) != len(set(tags)):
-        raise ReleaseError("upgrades-from contains duplicate tags")
-    return tags
-
-
 def parse_upgrades_from_alpha_revisions(value: str) -> list[str]:
     if not value.strip():
         return []
@@ -1211,6 +1190,35 @@ def validate_alpha_source_revisions(
             )
 
 
+def migration_scaffold(
+    version: str,
+    stable_upgrade: str,
+    alpha_revisions: list[str],
+    recovery: str,
+) -> str:
+    supported_alpha = (
+        ", ".join(f"`{revision}`" for revision in alpha_revisions) or "None"
+    )
+    return (
+        f"# Platform v{version}\n\n"
+        "> TODO: Replace every TODO with reviewed release-specific evidence.\n\n"
+        "## Support\n\n"
+        f"- Stable upgrades: {STABLE_UPGRADE_LABELS[stable_upgrade]}.\n"
+        f"- Supported alpha source revisions: {supported_alpha}.\n"
+        "- Downgrade: Unsupported.\n\n"
+        "## Prerequisites\n\nTODO.\n\n"
+        "## Client Actions\n\nTODO.\n\n"
+        "## Breaking Changes\n\nTODO.\n\n"
+        "## Stateful And API Effects\n\nTODO.\n\n"
+        "## Pre-Deployment Checks\n\nTODO.\n\n"
+        "## Post-Deployment Checks\n\nTODO.\n\n"
+        "## Recovery\n\n"
+        f"Recovery classification: {recovery.replace('-', ' ').capitalize()}.\n\n"
+        "TODO.\n\n"
+        "## Exclusions\n\nTODO.\n"
+    )
+
+
 def prepare_release(args: argparse.Namespace) -> None:
     current_version = VERSION_PATH.read_text().strip()
     if SEMVER.fullmatch(current_version) is None:
@@ -1218,7 +1226,6 @@ def prepare_release(args: argparse.Namespace) -> None:
     bootstrap = bool(getattr(args, "bootstrap", False))
     target = semver_tuple(args.version)
     validate_release_date(args.release_date)
-    upgrades_from = parse_upgrades_from(args.upgrades_from)
     upgrades_from_alpha_revisions = parse_upgrades_from_alpha_revisions(
         getattr(args, "upgrades_from_alpha_revisions", "")
     )
@@ -1237,7 +1244,7 @@ def prepare_release(args: argparse.Namespace) -> None:
                 "bootstrap requires a repository with zero tags; found: "
                 + ", ".join(tags)
             )
-        if upgrades_from or upgrades_from_alpha_revisions:
+        if upgrades_from_alpha_revisions:
             raise ReleaseError(
                 "bootstrap compatibility must declare no upgrades"
             )
@@ -1263,8 +1270,6 @@ def prepare_release(args: argparse.Namespace) -> None:
         if target <= previous:
             raise ReleaseError("target version must be newer than the previous release tag")
         validate_alpha_source_revisions(upgrades_from_alpha_revisions)
-        for source_tag in upgrades_from:
-            git("rev-parse", "--verify", f"{source_tag}^{{commit}}")
         provenance = provenance_from_git(previous_tag)
 
     config = load_yaml(CONFIG_PATH)
@@ -1274,12 +1279,20 @@ def prepare_release(args: argparse.Namespace) -> None:
     if not config["summary"]:
         raise ReleaseError("summary must not be empty")
     config["provenance"] = provenance
-    config["compatibility"] = {
-        "upgradesFrom": upgrades_from,
-        "upgradesFromAlphaRevisions": upgrades_from_alpha_revisions,
-        "downgrade": "unsupported",
-        "recovery": args.recovery,
-    }
+    if bootstrap:
+        config["compatibility"] = {
+            "freshInstall": "supported",
+            "upgradesFrom": [],
+            "downgrade": "unsupported",
+            "recovery": args.recovery,
+        }
+    else:
+        config["compatibility"] = {
+            "stableUpgrade": args.stable_upgrade,
+            "upgradesFromAlphaRevisions": upgrades_from_alpha_revisions,
+            "downgrade": "unsupported",
+            "recovery": args.recovery,
+        }
 
     VERSION_PATH.write_text(f"{args.version}\n")
     CONFIG_PATH.write_text(yaml.safe_dump(config, sort_keys=False, width=100))
@@ -1301,28 +1314,33 @@ def prepare_release(args: argparse.Namespace) -> None:
     migration = ROOT / f"release/migrations/v{args.version}.md"
     if not migration.exists():
         migration.parent.mkdir(parents=True, exist_ok=True)
-        supported = ", ".join(f"`{tag}`" for tag in upgrades_from) or "None"
-        supported_alpha = (
-            ", ".join(f"`{revision}`" for revision in upgrades_from_alpha_revisions)
-            or "None"
-        )
-        migration.write_text(
-            f"# Platform v{args.version}\n\n"
-            "> TODO: Replace every TODO with reviewed release-specific evidence.\n\n"
-            "## Support\n\n"
-            f"- Supported source versions: {supported}.\n"
-            f"- Supported alpha source revisions: {supported_alpha}.\n"
-            "- Downgrade: Unsupported.\n\n"
-            "## Prerequisites\n\nTODO.\n\n"
-            "## Client Actions\n\nTODO.\n\n"
-            "## Stateful And API Effects\n\nTODO.\n\n"
-            "## Pre-Deployment Checks\n\nTODO.\n\n"
-            "## Post-Deployment Checks\n\nTODO.\n\n"
-            "## Recovery\n\n"
-            f"Recovery classification: {args.recovery.replace('-', ' ').capitalize()}.\n\n"
-            "TODO.\n\n"
-            "## Exclusions\n\nTODO.\n"
-        )
+        if bootstrap:
+            migration.write_text(
+                f"# Platform v{args.version}\n\n"
+                "> TODO: Replace every TODO with reviewed release-specific evidence.\n\n"
+                "## Support\n\n"
+                "- Fresh installation: Supported.\n"
+                "- Supported source versions: None.\n"
+                "- Downgrade: Unsupported.\n\n"
+                "## Prerequisites\n\nTODO.\n\n"
+                "## Client Actions\n\nTODO.\n\n"
+                "## Stateful And API Effects\n\nTODO.\n\n"
+                "## Pre-Deployment Checks\n\nTODO.\n\n"
+                "## Post-Deployment Checks\n\nTODO.\n\n"
+                "## Recovery\n\n"
+                f"Recovery classification: {args.recovery.replace('-', ' ').capitalize()}.\n\n"
+                "TODO.\n\n"
+                "## Exclusions\n\nTODO.\n"
+            )
+        else:
+            migration.write_text(
+                migration_scaffold(
+                    args.version,
+                    args.stable_upgrade,
+                    upgrades_from_alpha_revisions,
+                    args.recovery,
+                )
+            )
 
     manifest = build_manifest()
     validate_manifest_schema(manifest)
@@ -1474,7 +1492,9 @@ def main() -> int:
     preparation_mode.add_argument("--previous-tag")
     prepare.add_argument("--release-date", required=True)
     prepare.add_argument("--summary", required=True)
-    prepare.add_argument("--upgrades-from", default="")
+    prepare.add_argument(
+        "--stable-upgrade", choices=STABLE_UPGRADE_POLICIES, default="supported"
+    )
     prepare.add_argument("--upgrades-from-alpha-revisions", default="")
     prepare.add_argument("--recovery", choices=RECOVERY_ACTIONS, required=True)
     client = subparsers.add_parser("update-client-source")

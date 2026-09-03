@@ -15,6 +15,54 @@
       "uniqueItems": true,
       "items": {"$ref": "#/$defs/commit"}
     },
+    "alphaRevisions": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/commit"}
+    },
+    "recovery": {
+      "enum": [
+        "configuration-revert",
+        "forward-fix",
+        "component-native-restore",
+        "replacement-restore"
+      ]
+    },
+    "legacyCompatibility": {
+      "type": "object",
+      "required": ["upgradesFrom", "downgrade", "recovery"],
+      "properties": {
+        "freshInstall": {"const": "supported"},
+        "upgradesFrom": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^v(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+          }
+        },
+        "upgradesFromAlphaRevisions": {"$ref": "#/$defs/alphaRevisions"},
+        "downgrade": {"const": "unsupported"},
+        "recovery": {"$ref": "#/$defs/recovery"}
+      },
+      "additionalProperties": false
+    },
+    "stablePolicyCompatibility": {
+      "type": "object",
+      "required": [
+        "stableUpgrade",
+        "upgradesFromAlphaRevisions",
+        "downgrade",
+        "recovery"
+      ],
+      "properties": {
+        "stableUpgrade": {"enum": ["supported", "fresh-install-only"]},
+        "upgradesFromAlphaRevisions": {"$ref": "#/$defs/alphaRevisions"},
+        "downgrade": {"const": "unsupported"},
+        "recovery": {"$ref": "#/$defs/recovery"}
+      },
+      "additionalProperties": false
+    },
     "bootstrapProvenance": {
       "type": "object",
       "required": ["bootstrap", "includedThrough", "commits", "historyUrl"],
@@ -81,35 +129,10 @@
           ]
         },
         "compatibility": {
-          "type": "object",
-          "required": ["upgradesFrom", "downgrade", "recovery"],
-          "properties": {
-            "upgradesFrom": {
-              "type": "array",
-              "uniqueItems": true,
-              "items": {
-                "type": "string",
-                "pattern": "^v(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
-              }
-            },
-            "upgradesFromAlphaRevisions": {
-              "type": "array",
-              "uniqueItems": true,
-              "items": {"$ref": "#/$defs/commit"}
-            },
-            "downgrade": {
-              "const": "unsupported"
-            },
-            "recovery": {
-              "enum": [
-                "configuration-revert",
-                "forward-fix",
-                "component-native-restore",
-                "replacement-restore"
-              ]
-            }
-          },
-          "additionalProperties": false
+          "oneOf": [
+            {"$ref": "#/$defs/legacyCompatibility"},
+            {"$ref": "#/$defs/stablePolicyCompatibility"}
+          ]
         },
         "provenance": {
           "oneOf": [
@@ -179,6 +202,32 @@
             "properties": {
               "compatibility": {
                 "required": ["upgradesFromAlphaRevisions"]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "version": {"enum": ["0.1.0", "0.1.1"]}
+            },
+            "required": ["version"]
+          },
+          "then": {
+            "properties": {
+              "compatibility": {"$ref": "#/$defs/legacyCompatibility"}
+            }
+          },
+          "else": {
+            "if": {
+              "properties": {
+                "version": {"not": {"const": "0.0.0"}}
+              },
+              "required": ["version"]
+            },
+            "then": {
+              "properties": {
+                "compatibility": {"$ref": "#/$defs/stablePolicyCompatibility"}
               }
             }
           }

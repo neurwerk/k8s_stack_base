@@ -187,13 +187,14 @@ Preparation may write only the version, changelog, release configuration,
 generated manifest, and version-specific migration document to a draft pull
 request. Generated prose contains deliberate `TODO` markers. The one-time
 `bootstrap-v0.1.0` mode is valid only from the unpublished `0.0.0` baseline when
-the repository has zero tags. It records complete reachable history, declares no
-upgrade sources, and has no predecessor. Every platform release supports
+the repository has zero tags. It records complete reachable history, allows only
+fresh installation, and has no predecessor. Every platform release supports
 installation into a verified empty or replacement environment; this invariant is
 not a release-preparation input. Every successor must name the latest signed
 release matching the pre-prepare `VERSION` and records only the commits after
-that predecessor. Successor compatibility may
-also list exact full lowercase alpha source commits when a reviewed forward
+that predecessor. Successor compatibility defaults stable upgrades to
+`supported`; use `fresh-install-only` when no stable in-place upgrade is safe. It
+may also list exact full lowercase alpha source commits when a reviewed forward
 alpha-to-stable migration is supported. Downgrade is currently
 always recorded as unsupported; enabling it requires a coordinated schema,
 validation, preparation, and client change. Restrict environment deployment
