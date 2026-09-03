@@ -445,19 +445,27 @@ def validate_stream(result: HttpResult) -> None:
                     chunk = choice["delta"].get("content")
                     if isinstance(chunk, str):
                         content.append(chunk)
-    usage_is_tail = (
+    usage_choices = json_events[-1].get("choices") if usage_indexes else None
+    usage_is_separate = usage_choices == []
+    usage_is_coalesced = isinstance(usage_choices, list) and any(
+        isinstance(choice, dict)
+        and isinstance(choice.get("finish_reason"), str)
+        and bool(choice["finish_reason"])
+        for choice in usage_choices
+    )
+    usage_is_final = (
         len(usage_indexes) == 1
         and usage_indexes[0] == len(json_events) - 1
-        and json_events[-1].get("choices") == []
+        and (usage_is_separate or usage_is_coalesced)
     )
     if (
         not "".join(content).strip()
         or not finish_reason_seen
-        or not usage_is_tail
+        or not usage_is_final
         or done_count != 1
     ):
         raise AcceptanceError(
-            "stream requires content, finish_reason, one usage tail, and one [DONE]; "
+            "stream requires content, finish_reason, one final usage event, and one [DONE]; "
             "body redacted"
         )
 
@@ -468,6 +476,8 @@ def _completion(config: Config, prompt: str, *, stream: bool = False) -> dict:
         "messages": [{"role": "user", "content": prompt}],
         "stream": stream,
     }
+    if stream:
+        payload["stream_options"] = {"include_usage": True}
     return payload
 
 
