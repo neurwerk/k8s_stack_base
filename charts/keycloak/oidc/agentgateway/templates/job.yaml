@@ -7,7 +7,7 @@
 # AgentGateway validates JWTs using JWKS (public keys) and does NOT consume
 # the client secret — no Secret patching or Deployment restart is needed.
 # =============================================================================
-{{- $roles := .Values.authKeycloak.agentgatewayClientRoles | default list }}
+{{- $roles := include "keycloak-agentgateway.effectiveRoles" . | fromYamlArray }}
 {{- if not (has "llm:invoke" $roles) }}{{- fail "authKeycloak.agentgatewayClientRoles must include llm:invoke" }}{{- end }}
 {{- range $roles }}
 {{- if not (regexMatch "^(llm:invoke|(model|mcp):[A-Za-z0-9][A-Za-z0-9._/-]{0,127}:invoke)$" .) }}{{- fail (printf "invalid AgentGateway client role %q" .) }}{{- end }}

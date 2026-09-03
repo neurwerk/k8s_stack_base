@@ -5,5 +5,11 @@ authKeycloak:
   agentgatewayClientRoles: []
   difyAgentgatewayClientRoles: []
 
+openrouterCatalog:
+  enabled: true
+  excludedModels: []
+  grantToAccessGroups: true
+  models: []
+
 k8sTools:
   image: ghcr.io/neurwerk/k8s-stack-tooling:0.1.1
