@@ -92,8 +92,8 @@ spec:
           sha256: a22cfb7dcc56da05d31b18c0a969e1b8eee35d19a4493d88b5d4720efcc85945
     - path: charts/agentgateway-extproc
       name: agentgateway-extproc
-      version: 1.0.1
-      appVersion: 0.1.1
+      version: 1.0.2
+      appVersion: 0.1.2
     - path: charts/cert-manager/approval-policy
       name: infra-cert-manager-approval-policy
       version: 1.0.0
@@ -341,12 +341,12 @@ spec:
           sha256: a9de76017a82a38954dfb453a030c42a349c015fe1493641f457aa0e71590267
     - path: charts/pii-engine
       name: pii-engine
-      version: 1.0.0
-      appVersion: 0.1.0
+      version: 1.0.1
+      appVersion: 0.1.1
     - path: charts/pii-engine-model-sync
       name: pii-engine-model-sync
-      version: 1.0.0
-      appVersion: 0.1.0
+      version: 1.0.1
+      appVersion: 0.1.1
     - path: charts/postgres/auth
       name: infra-postgres-auth
       version: 1.0.0
@@ -762,7 +762,7 @@ spec:
       eligibility: included
       origins:
       - charts/dify/web/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.1.1
+    - reference: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.1.2
       pinned: true
       eligibility: included
       origins:
@@ -772,7 +772,7 @@ spec:
       eligibility: included
       origins:
       - charts/keycloak-api-key-bridge/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-pii-engine:0.1.0-cpu
+    - reference: ghcr.io/neurwerk/k8s-stack-pii-engine:0.1.1-cpu
       pinned: true
       eligibility: included
       origins:
