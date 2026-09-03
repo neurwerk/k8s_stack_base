@@ -26,13 +26,6 @@ on:
         description: Concise release summary
         required: true
         type: string
-      fresh_install:
-        description: Fresh installation support
-        required: true
-        type: choice
-        options:
-          - supported
-          - unsupported
       upgrades_from:
         description: Comma-separated exact source tags, or empty for none
         required: false
@@ -92,7 +85,6 @@ jobs:
           PREVIOUS_TAG: ${{ inputs.previous_tag }}
           RELEASE_DATE: ${{ inputs.release_date }}
           SUMMARY: ${{ inputs.summary }}
-          FRESH_INSTALL: ${{ inputs.fresh_install }}
           UPGRADES_FROM: ${{ inputs.upgrades_from }}
           UPGRADES_FROM_ALPHA_REVISIONS: ${{ inputs.upgrades_from_alpha_revisions }}
           RECOVERY: ${{ inputs.recovery }}
@@ -127,7 +119,6 @@ jobs:
             "${mode_args[@]}" \
             --release-date "$RELEASE_DATE" \
             --summary "$SUMMARY" \
-            --fresh-install "$FRESH_INSTALL" \
             --upgrades-from "$UPGRADES_FROM" \
             --upgrades-from-alpha-revisions "$UPGRADES_FROM_ALPHA_REVISIONS" \
             --recovery "$RECOVERY"

@@ -11,6 +11,8 @@ upgrade path.
 
 ### Changed
 
+- Make installation into a verified empty or replacement environment a platform
+  invariant instead of a release-specific compatibility option.
 - Update Agentgateway to 1.5.0, including its controller, data plane, Helm
   dependency, and out-of-band CRD prerequisite. The release requires JWT issuer
   and configured audience claims and normalizes cached-token usage accounting.

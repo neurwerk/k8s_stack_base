@@ -42,7 +42,6 @@ class ReleaseContractTest(unittest.TestCase):
 
 ## Support
 
-- Fresh installation: Supported.
 - Supported source versions: `v0.1.0`,
   `v0.1.1`.
 - Supported alpha source revisions: `aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa`, `bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb`.
@@ -67,7 +66,6 @@ Recovery classification: Replacement restore.
 
 ## Support
 
-- Fresh installation: Supported.
 - Supported source versions: `v0.1.0`,
   `v0.1.1`.
 - Supported alpha source revisions: None.
@@ -78,37 +76,6 @@ Recovery classification: Replacement restore.
 Recovery classification: Replacement restore.
 """
         invalid_migrations = (
-            (
-                "missing fresh installation",
-                migration.replace("- Fresh installation: Supported.\n", ""),
-                "exactly one fresh installation declaration",
-            ),
-            (
-                "duplicate fresh installation",
-                migration.replace(
-                    "- Fresh installation: Supported.",
-                    "- Fresh installation: Supported.\n"
-                    "- Fresh installation: Supported.",
-                ),
-                "exactly one fresh installation declaration",
-            ),
-            (
-                "unknown fresh installation",
-                migration.replace(
-                    "- Fresh installation: Supported.",
-                    "- Fresh installation: Conditional.",
-                ),
-                "unknown fresh installation value",
-            ),
-            (
-                "misplaced fresh installation",
-                migration.replace("- Fresh installation: Supported.\n", "").replace(
-                    "Recovery classification: Replacement restore.",
-                    "- Fresh installation: Supported.\n"
-                    "Recovery classification: Replacement restore.",
-                ),
-                "fresh installation declaration must appear in ## Support",
-            ),
             (
                 "missing source versions",
                 migration.replace(
@@ -225,7 +192,6 @@ Recovery classification: Replacement restore.
     def test_migration_compatibility_rejects_invalid_alpha_revisions(self) -> None:
         migration = """## Support
 
-- Fresh installation: Supported.
 - Supported source versions: None.
 - Supported alpha source revisions: `aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa`, `bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb`.
 - Downgrade: Unsupported.
@@ -295,7 +261,6 @@ Recovery classification: Forward fix.
         platform_release.validate_migration_compatibility(
             migration,
             {
-                "freshInstall": "supported",
                 "upgradesFrom": [],
                 "downgrade": "unsupported",
                 "recovery": "forward-fix",
@@ -307,12 +272,11 @@ Recovery classification: Forward fix.
             platform_release.ReleaseError,
             "exactly one supported alpha source revisions declaration",
         ):
-            platform_release.parse_migration_compatibility(migration)
+            platform_release.parse_migration_compatibility(migration, True)
 
     def test_migration_compatibility_rejects_contract_mismatch(self) -> None:
         migration = """## Support
 
-- Fresh installation: Supported.
 - Supported source versions: `v0.1.0`, `v0.1.1`.
 - Supported alpha source revisions: `aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa`, `bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb`.
 - Downgrade: Unsupported.
@@ -322,18 +286,12 @@ Recovery classification: Forward fix.
 Recovery classification: Forward fix.
 """
         matching = {
-            "freshInstall": "supported",
             "upgradesFrom": ["v0.1.0", "v0.1.1"],
             "upgradesFromAlphaRevisions": ["a" * 40, "b" * 40],
             "downgrade": "unsupported",
             "recovery": "forward-fix",
         }
         mismatches = (
-            (
-                "freshInstall",
-                {**matching, "freshInstall": "unsupported"},
-                "migration freshInstall does not match release config compatibility.freshInstall",
-            ),
             (
                 "upgradesFrom set",
                 {**matching, "upgradesFrom": ["v0.0.9", "v0.1.0"]},
