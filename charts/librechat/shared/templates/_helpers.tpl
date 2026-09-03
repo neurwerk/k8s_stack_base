@@ -15,3 +15,37 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 app.kubernetes.io/part-of: frontend-librechat
 app.kubernetes.io/component: shared
 {{- end }}
+{{- define "frontend-librechat-shared.modelSpecs" -}}
+{{- $catalogUpstreams := dict -}}
+{{- $catalogNames := dict -}}
+{{- range $entry := .Values.openrouterCatalog.models | default list -}}
+{{- if hasKey $catalogUpstreams $entry.upstreamModel }}{{- fail (printf "OpenRouter upstream model %q is duplicated" $entry.upstreamModel) }}{{- end -}}
+{{- if hasKey $catalogNames $entry.name }}{{- fail (printf "OpenRouter public model name %q is duplicated" $entry.name) }}{{- end -}}
+{{- $_ := set $catalogUpstreams $entry.upstreamModel true -}}
+{{- $_ := set $catalogNames $entry.name true -}}
+{{- end -}}
+{{- $excluded := .Values.openrouterCatalog.excludedModels | default list -}}
+{{- if ne (len $excluded) (len ($excluded | uniq)) }}{{- fail "openrouterCatalog.excludedModels must not contain duplicates" }}{{- end -}}
+{{- range $upstream := $excluded }}{{- if not (hasKey $catalogUpstreams $upstream) }}{{- fail (printf "openrouterCatalog.excludedModels contains unknown upstream model %q" $upstream) }}{{- end }}{{- end -}}
+{{- $clientModels := .Values.guardrails.llmPolicyEngine.models | default list -}}
+{{- $clientNames := dict -}}
+{{- range $model := $clientModels -}}
+{{- if hasKey $clientNames $model.name }}{{- fail (printf "client model name %q is duplicated" $model.name) }}{{- end -}}
+{{- $_ := set $clientNames $model.name true -}}
+{{- end -}}
+{{- $specs := list -}}
+{{- if .Values.openrouterCatalog.enabled -}}
+{{- range $entry := .Values.openrouterCatalog.models | default list -}}
+{{- if and (not (has $entry.upstreamModel $excluded)) (not (hasKey $clientNames $entry.name)) -}}
+{{- $specs = append $specs (dict "name" $entry.name "label" $entry.label "group" $entry.group "preset" (dict "endpoint" "AgentGateway" "model" $entry.name)) -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- range $model := $clientModels -}}
+{{- $group := printf "Remote-%s" ($model.provider | default "Custom") -}}
+{{- if $model.local }}{{- $group = "Local" }}{{- end -}}
+{{- $specs = append $specs (dict "name" $model.name "label" ($model.label | default $model.name) "group" $group "preset" (dict "endpoint" "AgentGateway" "model" $model.name)) -}}
+{{- end -}}
+{{- if gt (len $specs) 512 }}{{- fail "effective LibreChat model catalog supports at most 512 destinations" }}{{- end -}}
+{{- $specs | toYaml -}}
+{{- end -}}

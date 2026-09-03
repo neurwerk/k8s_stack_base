@@ -147,7 +147,7 @@ infraAgentgatewayWrapper:
   #        agctl catalog import --pretty --providers openai,anthropic,deepseek \
   #          --out charts/agentgateway/files/catalog.json
   #      Catalog includes cacheRead, cacheWrite, reasoning, and tiered pricing.
-  #   2. files/catalog-overrides.json — hand-maintained OpenRouter pricing.
+  #   2. files/catalog-overrides.json — generated OpenRouter pricing snapshot.
   costCatalog: true
 
   # Local LLM provider config (llama.cpp / Ollama, local network only)
@@ -239,18 +239,18 @@ guardrails:
           - type: Completions
 
     # ── User-facing models (model-centric serving) ───────────────────────
-    # One entry per model clients can select. Served on the listener's LLM
-    # paths (/v1/chat/completions) and discoverable on /v1/models. Per-client
-    # - set the list in infrastructure/networking/agentgateway/values.yaml.
+    # Client-owned custom/local entries are appended to the inherited OpenRouter
+    # catalog. A same-name client entry replaces its inherited entry during
+    # migration. Served on /v1/chat/completions and discoverable on /v1/models.
     #
     # Every entry accepts piiEnabled and contentTracingEnabled. Omission defaults
     # both to true. Only an explicit boolean false disables that behavior;
     # content tracing true retains sensitive prompt/completion data for
     # compatibility and is not a privacy-safe default. piiEnabled is independent
     # from local/provider placement, but must remain true with piiReroute:true.
-    # Caller IDs may contain slashes, underscores, and uppercase characters when
-    # their normalized public and optional -remote/-local Kubernetes names remain
-    # valid and every generated model-* app label fits its 63-character limit.
+    # Caller IDs may contain slashes, underscores, and uppercase characters.
+    # Long generated Kubernetes names use a deterministic truncated hash while
+    # preserving the caller-facing model ID.
     #
     # Entry shapes:
     #   Plain remote (no reroute) — Public concrete model → provider:
@@ -274,14 +274,24 @@ guardrails:
     #
     # Guards (fail at render time): piiReroute:true requires
     # llmPolicyEngine.enabled AND llamacpp.enabled; local:true requires
-    # llamacpp.enabled. The client must also list each derived
-    # model:<name>:invoke role in authKeycloak.agentgatewayClientRoles.
+    # llamacpp.enabled. Inherited OpenRouter roles are derived automatically;
+    # client-owned models still require model:<name>:invoke in
+    # authKeycloak.agentgatewayClientRoles.
     #
     # monitorPiiEngine.policy.routing.targets maps trusted route classes to
     # entries in this list. A target without classPrefix matches its name
     # exactly; classPrefix performs an ordered prefix match. Remote targets are
     # always additionally gated by x-remote-allowed=true.
     models: []
+
+# Platform-owned generated OpenRouter catalog. The release injects models from
+# releases/shared/openrouter-catalog.yaml; clients may disable inheritance or
+# exclude exact upstream IDs through their later values layers.
+openrouterCatalog:
+  enabled: true
+  excludedModels: []
+  grantToAccessGroups: true
+  models: []
 
 # ── Subchart values (agentgateway Helm chart) ────────────────────────────────
 # Top-level keys here become .Values.* INSIDE the subchart.

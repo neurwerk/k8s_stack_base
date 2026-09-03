@@ -1,17 +1,15 @@
 # =============================================================================
-# Model Cost Catalog — Manual Overrides ConfigMap
+# Model Cost Catalog — OpenRouter Snapshot ConfigMap
 #
-# Hand-maintained pricing entries that are not part of the generated catalog.
+# Generated pricing entries that are not part of agctl's models.dev catalog.
 #
 # Background: cost lookup is strictly (provider, model)-scoped. The generated
 # catalog includes direct DeepSeek rates but does not import OpenRouter, so this
 # layer publishes reviewed OpenRouter rates under its native provider key.
 #
-# Rates are snapshots of OpenRouter's public model API, converted from USD per
-# token to USD per million tokens; refresh them when the provider changes
-# pricing. AgentGateway accepts at most six fractional digits per rate and
-# rejects the entire merged catalog if any rate exceeds that precision. Round
-# every base and tier rate to six fractional digits or fewer.
+# The openrouter-catalog-sync CLI converts OpenRouter's public per-token rates to
+# USD per million tokens. AgentGateway accepts at most six fractional digits per
+# rate and rejects the entire merged catalog if any rate exceeds that precision.
 #
 # AgentgatewayParameters lists this ConfigMap as a SECOND modelCatalog source;
 # sources are merged in order and later entries take precedence, so these

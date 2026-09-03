@@ -23,6 +23,11 @@ data:
       presets: false
       parameters: false
       fileSearch: {{ .Values.frontendLibrechat.rag.enabled }}
+    modelSpecs:
+      # Specs provide grouped rows while enforce:false preserves Agents models.
+      enforce: false
+      list:
+        {{- include "frontend-librechat-shared.modelSpecs" . | nindent 8 }}
     endpoints:
       allowedAddresses:
         - {{ .Values.frontendLibrechat.agentGateway.hostPort | quote }}
@@ -47,7 +52,8 @@ data:
           baseURL: {{ .Values.frontendLibrechat.agentGateway.baseUrl | quote }}
           models:
             default: {{ .Values.frontendLibrechat.agentGateway.models | toJson }}
-            fetch: true
+            # modelSpecs owns menu rows; fetching would duplicate them.
+            fetch: false
           titleConvo: true
           titleModel: current_model
           titleTiming: final
