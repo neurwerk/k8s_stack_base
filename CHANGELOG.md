@@ -9,6 +9,16 @@ upgrade path.
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-09-04
+
+### TODO: Curate Changes
+
+- TODO: Replace this scaffold with reviewed release notes.
+
+### Compatibility
+
+- TODO: Describe exact compatibility and recovery behavior.
+
 ## [0.1.1] - 2026-09-03
 
 ### Changed

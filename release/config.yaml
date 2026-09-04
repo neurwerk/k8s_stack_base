@@ -1,17 +1,16 @@
-version: 0.1.1
-releaseDate: '2026-09-03'
-summary: Publish validated Agentgateway 1.5.0, PII Engine, extProc, Keycloak onboarding, and LibreChat
-  fixes.
+version: 0.1.2
+releaseDate: '2026-09-04'
+summary: Publish client-owned model catalogs, usage analytics, extProc fixes, and LibreChat model selection.
 trust:
   signerIdentity: platform-release
   algorithm: ssh-ed25519
   fingerprint: SHA256:+rDcofrsfRE3ElJJxnUVoB3gmoEzZJUrisDqLZMHimw
 compatibility:
-  upgradesFrom: []
+  stableUpgrade: fresh-install-only
   upgradesFromAlphaRevisions:
-  - 5a392c5cb4485fb9faef41840c63af1db6aa60fb
+  - dbcac5d1b3069edd5bb65dd57df95dccfba1f6d1
   downgrade: unsupported
-  recovery: configuration-revert
+  recovery: replacement-restore
 packages:
   default:
   - releases/namespaces
@@ -73,24 +72,13 @@ exceptions:
   reason: The reviewed upstream DocumentDB local image requires passwordless sudo to prepare runtime directories
     before dropping back to UID 1000.
 provenance:
-  previousTag: v0.1.0
-  includedThrough: ce776248dfb6ec4a9bdad5550d54bb1a8554de3f
+  previousTag: v0.1.1
+  includedThrough: dbcac5d1b3069edd5bb65dd57df95dccfba1f6d1
   commits:
-  - 5d4584deec8347a9bf6e687836ec666e819c7c23
-  - e0fccc55790560558a35d0336407ef6a1f90e0fe
-  - 7a3bd45b9b9b1bcaa66eb14d6167edd0bf0547a8
-  - f5428f819c04c1d4ad364eae0621463e59ab24f3
-  - 13e84f7d7545c1ef6e4e3aaf4808a1a2f38e98dc
-  - a2ef9df3bd8fd149b559675fd9cfca289e32171c
-  - 91546db251f1f80b0c12d7f52531e931262ecb60
-  - 993d11246db5e21c1db2dfef87072f803fb04dbd
-  - cbabf004d40071a90eccfd59f35131c9d00c28d3
-  - c24ed0f61c1b2ece38efa30ac5f268e20d888bb4
-  - 60b29d73153befc7e0dc05e40fed57010ffe5566
-  - e7b69ba06e358d574aad93f11bca65da31000e41
-  - 7086c8526be6e81d3ab2fc07338bfb2b962626bf
-  - 54f5ab52d67b3a6dfd3c07e4a7a3ceecdb6298a7
-  - 5a392c5cb4485fb9faef41840c63af1db6aa60fb
-  - 0ce2ee89d25d49e419383c101d99e5c88704308a
-  - ce776248dfb6ec4a9bdad5550d54bb1a8554de3f
-  compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.1.0...ce776248dfb6ec4a9bdad5550d54bb1a8554de3f
+  - cb849b29eb304c54801f7a247a3d49482877c8bf
+  - 0a9513dd4bead215bb2e122d8e2b1da2dcce170a
+  - 72f28b2b3e165fee94826388ee08af6490bc8ccd
+  - 6714dda3f11f214ae3f0dd5f3be63e0f28255769
+  - 6968640e477a06dcba8cca2639f81f0890c95865
+  - dbcac5d1b3069edd5bb65dd57df95dccfba1f6d1
+  compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.1.1...dbcac5d1b3069edd5bb65dd57df95dccfba1f6d1
