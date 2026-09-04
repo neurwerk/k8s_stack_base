@@ -9,10 +9,9 @@ upgrade path.
 
 ## [Unreleased]
 
-## [0.1.3] - 2026-09-04
+## [0.3.0] - 2026-09-04
 
-Version `0.1.2` was skipped after GitHub rejected creation of its release tag
-because of an unresolved ref-creation restriction.
+This version jump avoids conflicts with versions from the removed historical repository.
 
 ### Added
 
