@@ -1,9 +1,9 @@
 apiVersion: platform.neurwerk.com/v1alpha1
 kind: PlatformRelease
 metadata:
-  name: v0.1.3
+  name: v0.3.0
 spec:
-  version: 0.1.3
+  version: 0.3.0
   releaseDate: '2026-09-04'
   summary: Publish client-owned model catalogs, usage analytics, extProc fixes, and LibreChat model selection.
   trust:
@@ -993,7 +993,7 @@ spec:
       uv: 0.11.21
   provenance:
     previousTag: v0.1.1
-    includedThrough: dbcac5d1b3069edd5bb65dd57df95dccfba1f6d1
+    includedThrough: ff63be36fcc44f56f635eca922473608080a18b8
     commits:
     - cb849b29eb304c54801f7a247a3d49482877c8bf
     - 0a9513dd4bead215bb2e122d8e2b1da2dcce170a
@@ -1001,4 +1001,9 @@ spec:
     - 6714dda3f11f214ae3f0dd5f3be63e0f28255769
     - 6968640e477a06dcba8cca2639f81f0890c95865
     - dbcac5d1b3069edd5bb65dd57df95dccfba1f6d1
-    compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.1.1...dbcac5d1b3069edd5bb65dd57df95dccfba1f6d1
+    - 715eba03dede1d070c14c4c42b44d87ccdd5044c
+    - 0405f354f720c964169390b5ff508ad19cd87ee7
+    - b7dd4b3178503b1d45a714b2fffb119e4979dd07
+    - 484ae9eb4dfdc72774fce279f3264e46a8713754
+    - ff63be36fcc44f56f635eca922473608080a18b8
+    compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.1.1...ff63be36fcc44f56f635eca922473608080a18b8
