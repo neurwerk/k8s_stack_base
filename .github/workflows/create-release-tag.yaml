@@ -1,0 +1,96 @@
+name: Create Platform Release Tag
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Strict platform release tag
+        required: true
+        type: string
+      tag_object:
+        description: SHA of the staged signed annotated tag object
+        required: true
+        type: string
+      target_commit:
+        description: Full commit SHA the tag must resolve to
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: platform-release-tag-creation
+  cancel-in-progress: false
+
+jobs:
+  create:
+    runs-on: ubuntu-latest
+    environment: release-preparation
+    steps:
+      - name: Generate repository-scoped GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ secrets.RELEASE_AUTOMATION_APP_ID }}
+          private-key: ${{ secrets.RELEASE_AUTOMATION_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: write
+
+      - name: Checkout trusted target commit
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          ref: ${{ inputs.target_commit }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify and create protected release tag
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          PLATFORM_RELEASE_ALLOWED_SIGNER: ${{ vars.PLATFORM_RELEASE_ALLOWED_SIGNER }}
+          TAG: ${{ inputs.tag }}
+          TAG_OBJECT: ${{ inputs.tag_object }}
+          TARGET_COMMIT: ${{ inputs.target_commit }}
+        run: |
+          set -euo pipefail
+
+          [[ "$TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
+          [[ "$TAG_OBJECT" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$TARGET_COMMIT" =~ ^[0-9a-f]{40}$ ]]
+          test "$TAG" = "v$(<VERSION)"
+          test "$(git rev-parse HEAD)" = "$TARGET_COMMIT"
+          git merge-base --is-ancestor "$TARGET_COMMIT" "origin/$DEFAULT_BRANCH"
+
+          staging_tag="release-staging/$TAG"
+          cleanup() {
+            gh api --method DELETE \
+              "repos/$GITHUB_REPOSITORY/git/refs/tags/$staging_tag" \
+              >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+
+          test "$(
+            gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$staging_tag" \
+              --jq '.object.sha'
+          )" = "$TAG_OBJECT"
+
+          git \
+            -c credential.helper= \
+            -c credential.https://github.com.helper='!gh auth git-credential' \
+            fetch "https://github.com/$GITHUB_REPOSITORY.git" \
+            "refs/tags/$staging_tag:refs/tags/$TAG"
+
+          test "$(git cat-file -t "refs/tags/$TAG")" = tag
+          test "$(git rev-parse "refs/tags/$TAG")" = "$TAG_OBJECT"
+          bash scripts/verify_release_tag.sh "$TAG" "$TARGET_COMMIT"
+
+          gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
+            -f ref="refs/tags/$TAG" \
+            -f sha="$TAG_OBJECT"
+
+          test "$(
+            gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" \
+              --jq '.object.sha'
+          )" = "$TAG_OBJECT"
