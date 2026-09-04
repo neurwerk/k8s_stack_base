@@ -4,9 +4,8 @@ frontendLibrechat:
   agentGateway:
     baseUrl: http://infra-agentgateway-gateway.infra-agentgateway.svc.cluster.local:80/v1
     hostPort: infra-agentgateway-gateway.infra-agentgateway.svc.cluster.local:80
-    # Schema-required placeholder only; modelSpecs owns all visible model rows.
-    models:
-      - ""
+    # Optional hard default applied to every new chat, regardless of prior selection.
+    defaultModel: ""
     streaming: false
   adminPanel:
     hostname: ""
