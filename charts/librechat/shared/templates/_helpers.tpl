@@ -46,6 +46,6 @@ app.kubernetes.io/component: shared
 {{- if $model.local }}{{- $group = "Local" }}{{- end -}}
 {{- $specs = append $specs (dict "name" $model.name "label" ($model.label | default $model.name) "group" $group "preset" (dict "endpoint" "AgentGateway" "model" $model.name)) -}}
 {{- end -}}
-{{- if gt (len $specs) 512 }}{{- fail "effective LibreChat model catalog supports at most 512 destinations" }}{{- end -}}
+{{- if gt (len $specs) 256 }}{{- fail "effective LibreChat model catalog supports at most 256 destinations" }}{{- end -}}
 {{- $specs | toYaml -}}
 {{- end -}}

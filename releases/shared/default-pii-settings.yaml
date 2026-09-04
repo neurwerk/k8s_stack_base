@@ -64,11 +64,8 @@ monitorPiiEngine:
       masked: "Note: Sensitive data in this conversation was anonymized."
       showWhenNoPiiDetected: true
     routing:
-      # defaultTarget is the canonical safe model selected when a reroute policy
-      # has no explicit routeClass. Targets map trusted route classes to models
-      # declared under guardrails.llmPolicyEngine.models.
-      defaultTarget: local/llama3.2-3b
-      targets:
-        - name: local/llama3.2-3b
+      # Clients replace this generic class with their reviewed fallback model.
+      defaultTarget: local
+      targets: []
     debug: false
     logFormat: text

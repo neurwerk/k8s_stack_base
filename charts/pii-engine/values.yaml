@@ -99,9 +99,8 @@ monitorPiiEngine:
       masked: "Note: Sensitive data in this conversation was anonymized."
       showWhenNoPiiDetected: true
     routing:
-      defaultTarget: local/llama3.2-3b
-      targets:
-        - name: local/llama3.2-3b
+      defaultTarget: local
+      targets: []
   tls:
     serverSecretName: monitor-pii-engine-server-tls
     clientCaFile: /var/run/pii-engine/tls/ca.crt

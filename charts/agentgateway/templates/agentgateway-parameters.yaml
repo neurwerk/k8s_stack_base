@@ -1,7 +1,7 @@
 # =============================================================================
 # AgentGateway Parameters — Data Plane Configuration
 #
-# Configures tracing, cost catalog, and other data plane settings for the
+# Configures tracing, an optional client model catalog, and other data plane settings for the
 # AgentGateway gateway proxy (infra-agentgateway-gateway). This is the proper
 # way to enable OTLP tracing — environment variables like OTEL_EXPORTER_OTLP_ENDPOINT
 # only affect the control plane's own telemetry, not the LLM request traces.
@@ -26,8 +26,8 @@
 #   already carry a trace context are fully sampled.
 # Together this provides 100% trace coverage.
 #
-# ── Cost Catalog ─────────────────────────────────────────────────────────────
-# modelCatalog references a ConfigMap containing the model cost catalog JSON
+# ── Model Catalog ────────────────────────────────────────────────────────────
+# modelCatalog references client ConfigMaps containing model cost catalog JSON
 # (USD per 1M tokens per model). AgentGateway computes realized cost for every
 # LLM request and exposes it in logs, traces, metrics, and CEL (llm.cost,
 # llm.costRates). Cost data flows automatically to Langfuse via OTel traces.
@@ -65,17 +65,11 @@ spec:
           port: 15000
           targetPort: 15000
           protocol: TCP
-  {{- if .Values.infraAgentgatewayWrapper.costCatalog }}
+  {{- $modelCatalogSources := .Values.infraAgentgatewayWrapper.modelCatalog.sources | default list }}
+  {{- if $modelCatalogSources }}
   modelCatalog:
     sources:
-      # Generated catalog (agctl catalog import) — see files/catalog.json
-      - configMap:
-          name: infra-agentgateway-model-cost-catalog
-          key: catalog.json
-      # Generated OpenRouter snapshot, merged after the built-in catalog.
-      - configMap:
-          name: infra-agentgateway-model-cost-catalog-overrides
-          key: catalog-overrides.json
+      {{- toYaml $modelCatalogSources | nindent 6 }}
   {{- end }}
   rawConfig:
     frontendPolicies:

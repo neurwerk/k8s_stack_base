@@ -1,7 +1,7 @@
 {{- $engine := .Values.guardrails.llmPolicyEngine -}}
 {{- $models := include "infra-agentgateway.effectiveModels" . | fromYamlArray -}}
-{{- if gt (len $models) 512 -}}
-{{-   fail "effective model catalog supports at most 512 destinations" -}}
+{{- if gt (len $models) 256 -}}
+{{-   fail "effective model catalog supports at most 256 destinations" -}}
 {{- end -}}
 {{- if and (gt (len $models) 0) (not $engine.enabled) -}}
 {{-   fail "guardrails.llmPolicyEngine.enabled must be true when model destinations are configured" -}}
@@ -52,6 +52,34 @@
 {{-       fail (printf "models %q and %q generate the same AgentgatewayModel name %q" (get $modelResourceNames $generatedName) $modelName $generatedName) -}}
 {{-     end -}}
 {{-     $_ := set $modelResourceNames $generatedName $modelName -}}
+{{-   end -}}
+{{- end -}}
+
+{{- $piiCatalog := dict -}}
+{{- range $model := $models -}}
+{{-   $piiEnabled := true -}}
+{{-   if hasKey $model "piiEnabled" -}}{{- $piiEnabled = $model.piiEnabled -}}{{- end -}}
+{{-   $_ := set $piiCatalog $model.name $piiEnabled -}}
+{{- end -}}
+{{- if gt (len ($piiCatalog | toJson)) 16384 -}}
+{{-   fail "compact PII destination metadata JSON exceeds the 16384-byte AgentGateway limit" -}}
+{{- end -}}
+
+{{- range $index, $source := .Values.infraAgentgatewayWrapper.modelCatalog.sources | default list -}}
+{{-   if not (kindIs "map" $source) -}}
+{{-     fail (printf "infraAgentgatewayWrapper.modelCatalog.sources[%d] must be a map" $index) -}}
+{{-   end -}}
+{{-   $configMap := get $source "configMap" -}}
+{{-   if not (kindIs "map" $configMap) -}}
+{{-     fail (printf "infraAgentgatewayWrapper.modelCatalog.sources[%d].configMap is required" $index) -}}
+{{-   end -}}
+{{-   $name := required (printf "infraAgentgatewayWrapper.modelCatalog.sources[%d].configMap.name is required" $index) (get $configMap "name") -}}
+{{-   if or (gt (len $name) 253) (not (regexMatch "^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$" $name)) -}}
+{{-     fail (printf "infraAgentgatewayWrapper.modelCatalog.sources[%d].configMap.name %q must be a valid DNS subdomain" $index $name) -}}
+{{-   end -}}
+{{-   $key := required (printf "infraAgentgatewayWrapper.modelCatalog.sources[%d].configMap.key is required" $index) (get $configMap "key") -}}
+{{-   if or (gt (len $key) 253) (not (regexMatch "^[-._a-zA-Z0-9]+$" $key)) -}}
+{{-     fail (printf "infraAgentgatewayWrapper.modelCatalog.sources[%d].configMap.key %q is invalid" $index $key) -}}
 {{-   end -}}
 {{- end -}}
 

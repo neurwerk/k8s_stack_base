@@ -11,10 +11,10 @@ authKeycloak:
   initialAdminLastName: Administrator
   agentgatewayClientRoles:
     - llm:invoke
-    - model:remote/openrouter/deepseek-v4-flash:invoke
+    - model:remote/example/model:invoke
   difyAgentgatewayClientRoles:
     - llm:invoke
-    - model:remote/openrouter/deepseek-v4-flash:invoke
+    - model:remote/example/model:invoke
   smtp:
     enabled: true
     host: smtp.example.test
@@ -117,9 +117,9 @@ guardrails:
   llmPolicyEngine:
     enabled: true
     models:
-      - name: remote/openrouter/deepseek-v4-flash
+      - name: remote/example/model
         provider: OpenAI
-        model: deepseek-v4-flash
+        model: example-model
         baseURL: https://provider.lint.example
         piiEnabled: true
         contentTracingEnabled: true

@@ -81,7 +81,7 @@ spec:
     charts:
     - path: charts/agentgateway
       name: infra-agentgateway
-      version: 1.2.0
+      version: 1.2.1
       appVersion: 1.5.0
       dependencyLock:
         digest: sha256:e5b8cfb3b1e062b8e9268a42405a466d71d22bdb18ae83ff7496788af21abedd
@@ -132,7 +132,7 @@ spec:
       version: 1.0.0
     - path: charts/dify/api
       name: frontend-dify-api
-      version: 1.0.0
+      version: 1.0.1
       appVersion: 1.15.0
     - path: charts/dify/beat
       name: frontend-dify-beat
@@ -309,7 +309,7 @@ spec:
       appVersion: v0.9.0
     - path: charts/librechat/shared
       name: frontend-librechat-shared
-      version: 1.1.0
+      version: 1.1.1
       appVersion: cdfe54c3498818b21b33fb609fee02f2742b37ea
     - path: charts/librechat/valkey
       name: frontend-librechat-valkey
@@ -343,7 +343,7 @@ spec:
           sha256: a9de76017a82a38954dfb453a030c42a349c015fe1493641f457aa0e71590267
     - path: charts/pii-engine
       name: pii-engine
-      version: 1.0.1
+      version: 1.0.2
       appVersion: 0.1.1
     - path: charts/pii-engine-model-sync
       name: pii-engine-model-sync

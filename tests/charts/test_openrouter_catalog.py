@@ -1,4 +1,4 @@
-"""Rendered contracts for the inherited OpenRouter catalog."""
+"""Rendered contracts for client-owned OpenRouter catalogs."""
 
 from __future__ import annotations
 
@@ -14,31 +14,6 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 LINT_VALUES = ROOT / "tests/validation/helm-lint-values.yaml"
-CATALOG_VALUES = ROOT / "releases/shared/openrouter-catalog.yaml"
-PRICING = ROOT / "charts/agentgateway/files/catalog-overrides.json"
-POLICY = ROOT / "releases/shared/openrouter-catalog-policy.json"
-EXPECTED_OVERRIDES = {
-    "anthropic/claude-opus-5": "remote/openrouter/claude-opus-5",
-    "anthropic/claude-sonnet-5": "remote/openrouter/claude-sonnet-5",
-    "deepseek/deepseek-v4-flash": "remote/openrouter/deepseek-v4-flash",
-    "deepseek/deepseek-v4-flash-0731": "remote/openrouter/deepseek-v4-flash-0731",
-    "deepseek/deepseek-v4-pro": "remote/openrouter/deepseek-v4-pro-0423",
-    "deepseek/deepseek-v4-pro-0813": "remote/openrouter/deepseek-v4-pro-0813",
-    "google/gemini-2.5-flash-lite": "remote/openrouter/gemini-2.5-flash-lite",
-    "google/gemini-3-flash-preview": "remote/openrouter/gemini-3-flash-preview",
-    "google/gemini-3.7-flash": "remote/openrouter/gemini-3.7-flash",
-    "minimax/minimax-m3": "remote/openrouter/minimax-m3",
-    "moonshotai/kimi-k3": "remote/openrouter/kimi-k3",
-    "nvidia/nemotron-3-ultra-550b-a55b:free": "remote/openrouter/nemotron-3-ultra-free",
-    "nvidia/nemotron-3.5-lightning:free": "remote/openrouter/nemotron-3.5-lightning-free",
-    "openai/gpt-5.6-luna": "remote/openrouter/gpt-5.6-luna",
-    "openai/gpt-5.6-sol": "remote/openrouter/gpt-5.6-sol",
-    "poolside/laguna-s-2.1:free": "remote/openrouter/laguna-s-2.1-free",
-    "stealth/ox-alpha": "remote/openrouter/ox-alpha",
-    "tencent/hy3": "remote/openrouter/hy3",
-    "xiaomi/mimo-v2.5": "remote/openrouter/mimo-v2.5",
-    "z-ai/glm-5.2": "remote/openrouter/glm-5.2",
-}
 
 
 def catalog(name: str = "remote/openrouter/acme/model", upstream: str = "acme/model") -> dict:
@@ -61,7 +36,6 @@ def render(
     chart: str,
     values: dict,
     *,
-    value_files: tuple[Path, ...] = (),
     check: bool = True,
 ) -> subprocess.CompletedProcess[str]:
     with tempfile.NamedTemporaryFile(mode="w", suffix=".json") as value_file:
@@ -79,8 +53,6 @@ def render(
             "--values",
             value_file.name,
         ]
-        for path in value_files:
-            command.extend(("--values", str(path)))
         result = subprocess.run(
             command,
             capture_output=True,
@@ -118,16 +90,6 @@ def resource_name(document: str) -> str:
     return match.group(1)
 
 
-def generated_catalog() -> list[tuple[str, str, str]]:
-    return re.findall(
-        r"(?m)^  - name: (.+)\n"
-        r"    upstreamModel: .+\n"
-        r"    label: .*\n"
-        r"    group: (.+)$",
-        CATALOG_VALUES.read_text(),
-    )
-
-
 def values_from(path: str) -> list[tuple[str, str]]:
     text = (ROOT / "releases" / path).read_text()
     return re.findall(
@@ -138,7 +100,18 @@ def values_from(path: str) -> list[tuple[str, str]]:
 def agent_values(openrouter: dict, client_models: list[dict] | None = None) -> dict:
     return {
         "openrouterCatalog": openrouter,
-        "guardrails": {"llmPolicyEngine": {"models": client_models or []}},
+        "guardrails": {
+            "llmPolicyEngine": {
+                "enabled": True,
+                "models": client_models or [],
+                "localTarget": {
+                    "name": "local-fallback",
+                    "model": "local-model",
+                    "provider": "Custom",
+                    "custom": {"formats": [{"type": "Completions"}]},
+                },
+            }
+        },
         "infraAgentgatewayWrapper": {
             "llamacpp": {"enabled": True, "host": "ollama.test", "port": 11434}
         },
@@ -148,6 +121,23 @@ def agent_values(openrouter: dict, client_models: list[dict] | None = None) -> d
 
 
 class AgentGatewayCatalogTests(unittest.TestCase):
+    def test_empty_base_catalog_is_safe_with_policy_engine_disabled(self) -> None:
+        values = agent_values(
+            {
+                "enabled": False,
+                "excludedModels": [],
+                "grantToAccessGroups": False,
+                "models": [],
+            }
+        )
+        values["guardrails"]["llmPolicyEngine"]["enabled"] = False
+        values["infraAgentgatewayWrapper"]["llamacpp"]["enabled"] = False
+        result = render("agentgateway", values)
+        self.assertEqual(resources(result, "AgentgatewayModel"), [])
+        self.assertNotIn("infra-agentgateway-policy-extproc", result.stdout)
+        parameters = resources(result, "AgentgatewayParameters")[0]
+        self.assertNotIn("modelCatalog:", parameters)
+
     def test_inheritance_disabled_exclusion_and_legacy_replacement(self) -> None:
         inherited = render("agentgateway", agent_values(catalog()))
         inherited_models = resources(inherited, "AgentgatewayModel")
@@ -198,11 +188,75 @@ class AgentGatewayCatalogTests(unittest.TestCase):
                 "label": f"Model {index}",
                 "group": "Remote-OpenRouter-Acme",
             }
-            for index in range(513)
+            for index in range(257)
         ]
         result = render("agentgateway", agent_values(too_many), check=False)
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("at most 512 destinations", result.stderr)
+        self.assertIn("at most 256 destinations", result.stderr)
+
+    def test_compact_pii_metadata_size_limit_fails_during_rendering(self) -> None:
+        oversized = catalog()
+        oversized["models"] = [
+            {
+                "name": f"remote/openrouter/{index:03d}/" + "x" * 96,
+                "upstreamModel": f"acme/model-{index}",
+                "label": f"Model {index}",
+                "group": "Remote-OpenRouter-Acme",
+            }
+            for index in range(256)
+        ]
+        result = render("agentgateway", agent_values(oversized), check=False)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("compact PII destination metadata JSON exceeds", result.stderr)
+
+    def test_model_catalog_sources_are_optional_rendered_and_validated(self) -> None:
+        values = agent_values({"enabled": False, "models": []})
+        without_catalog = render("agentgateway", values)
+        parameters = resources(without_catalog, "AgentgatewayParameters")[0]
+        self.assertNotIn("modelCatalog:", parameters)
+
+        values["infraAgentgatewayWrapper"]["modelCatalog"] = {
+            "sources": [
+                {"configMap": {"name": "client-model-pricing", "key": "catalog.json"}}
+            ]
+        }
+        with_catalog = render("agentgateway", values)
+        parameters = resources(with_catalog, "AgentgatewayParameters")[0]
+        self.assertIn("modelCatalog:", parameters)
+        self.assertIn("name: client-model-pricing", parameters)
+        self.assertIn("key: catalog.json", parameters)
+
+        for field, value in (("name", "Invalid_Name"), ("key", "invalid/key")):
+            values["infraAgentgatewayWrapper"]["modelCatalog"]["sources"][0][
+                "configMap"
+            ][field] = value
+            failed = render("agentgateway", values, check=False)
+            self.assertNotEqual(failed.returncode, 0)
+            self.assertIn(f"configMap.{field}", failed.stderr)
+            values["infraAgentgatewayWrapper"]["modelCatalog"]["sources"][0][
+                "configMap"
+            ][field] = "client-model-pricing" if field == "name" else "catalog.json"
+
+    def test_local_fallback_is_required_only_for_pii_reroute(self) -> None:
+        plain = agent_values(
+            {"enabled": False, "models": []},
+            [{"name": "remote/plain", "provider": "OpenAI", "model": "plain"}],
+        )
+        plain["guardrails"]["llmPolicyEngine"]["localTarget"] = {
+            "name": "",
+            "model": "",
+            "provider": "",
+            "custom": {},
+        }
+        plain["authKeycloak"]["agentgatewayClientRoles"].append(
+            "model:remote/plain:invoke"
+        )
+        render("agentgateway", plain)
+
+        plain["guardrails"]["llmPolicyEngine"]["models"][0]["piiReroute"] = True
+        failed = render("agentgateway", plain, check=False)
+        self.assertNotEqual(failed.returncode, 0)
+        self.assertIn("localTarget.name is required", failed.stderr)
 
     def test_long_names_are_hashed_without_renaming_existing_names(self) -> None:
         long_name = "remote/openrouter/publisher/" + "very-long-model-name-" * 4
@@ -216,6 +270,35 @@ class AgentGatewayCatalogTests(unittest.TestCase):
 
 
 class AuthorizationCatalogTests(unittest.TestCase):
+    def test_dify_default_model_requires_client_context_size(self) -> None:
+        permission = "model:remote/openrouter/acme/model:invoke"
+        values = {
+            "authKeycloak": {
+                "difyAgentgatewayClientRoles": ["llm:invoke", permission],
+            },
+            "frontendDify": {
+                "defaultModel": {"name": "remote/openrouter/acme/model"},
+            },
+        }
+
+        for context_size in (None, ""):
+            if context_size is not None:
+                values["frontendDify"]["defaultModel"]["contextSize"] = context_size
+            failed = render("dify/api", values, check=False)
+            self.assertNotEqual(failed.returncode, 0)
+            self.assertIn(
+                "frontendDify.defaultModel.contextSize is required",
+                failed.stderr,
+            )
+
+        values["frontendDify"]["defaultModel"]["contextSize"] = "32768"
+        rendered = render("dify/api", values)
+        providers = json.loads(env_value(rendered, "MODEL_PROVIDER_CREDENTIALS"))
+        self.assertEqual(
+            providers["openai_api_compatible"]["credentials"]["context_size"],
+            "32768",
+        )
+
     def test_oidc_roles_are_derived_and_legacy_roles_are_deduplicated(self) -> None:
         values = {
             "openrouterCatalog": catalog(),
@@ -259,7 +342,18 @@ class AuthorizationCatalogTests(unittest.TestCase):
                 "agentgatewayClientRoles": ["llm:invoke"],
                 "difyAgentgatewayClientRoles": ["llm:invoke", permission],
             },
+            "frontendDify": {
+                "defaultModel": {
+                    "name": "remote/openrouter/acme/model",
+                    "contextSize": "65536",
+                }
+            },
         }
+        dify = render("dify/api", values)
+        providers = json.loads(env_value(dify, "MODEL_PROVIDER_CREDENTIALS"))
+        self.assertEqual(
+            providers["openai_api_compatible"]["model"], "remote/openrouter/acme/model"
+        )
         render("keycloak/oidc/dify-agentgateway", values)
         bridge = render("keycloak-api-key-bridge", values)
         match = re.search(r"(?m)^  primary\.json: >-\n    (?P<value>\{.*\})$", bridge.stdout)
@@ -367,21 +461,44 @@ class LibreChatCatalogTests(unittest.TestCase):
         excluded = render("librechat/shared", values)
         self.assertNotIn("          name: remote/openrouter/acme/model\n", excluded.stdout)
 
+    def test_model_catalog_cap_matches_extproc(self) -> None:
+        inherited = catalog()
+        inherited["models"] = [
+            {
+                "name": f"remote/openrouter/acme/model-{index}",
+                "upstreamModel": f"acme/model-{index}",
+                "label": f"Model {index}",
+                "group": "Remote-OpenRouter-Acme",
+            }
+            for index in range(257)
+        ]
+        failed = render(
+            "librechat/shared", {"openrouterCatalog": inherited}, check=False
+        )
+        self.assertNotEqual(failed.returncode, 0)
+        self.assertIn("at most 256 destinations", failed.stderr)
 
-class GeneratedCatalogTests(unittest.TestCase):
-    def test_catalog_pricing_policy_and_release_injection_are_consistent(self) -> None:
-        catalog_text = CATALOG_VALUES.read_text()
-        generated_names = re.findall(r"(?m)^  - name: (.+)$", catalog_text)
-        upstream_models = set(re.findall(r"(?m)^    upstreamModel: (.+)$", catalog_text))
-        pricing = json.loads(PRICING.read_text())["providers"]["openrouter"]["models"]
-        policy = json.loads(POLICY.read_text())
-        self.assertLessEqual(len(generated_names), 512)
-        self.assertEqual(len(generated_names), len(upstream_models))
-        self.assertEqual(upstream_models, set(pricing))
-        self.assertEqual(policy["publicNameOverrides"], EXPECTED_OVERRIDES)
-        self.assertEqual(policy["excludedModels"], [])
-        self.assertLess(CATALOG_VALUES.stat().st_size, 1024 * 1024)
-        self.assertLess(PRICING.stat().st_size, 1024 * 1024)
+
+class CatalogOwnershipTests(unittest.TestCase):
+    def test_base_catalog_is_empty_and_pricing_artifacts_are_absent(self) -> None:
+        for path in (
+            "releases/shared/openrouter-catalog.yaml",
+            "releases/shared/openrouter-catalog-policy.json",
+            "charts/agentgateway/files/catalog.json",
+            "charts/agentgateway/files/catalog-overrides.json",
+            "charts/agentgateway/templates/model-cost-catalog-configmap.yaml",
+            "charts/agentgateway/templates/model-cost-catalog-overrides-configmap.yaml",
+        ):
+            self.assertFalse((ROOT / path).exists(), path)
+
+        dify_values = (ROOT / "charts/dify/api/values.yaml").read_text()
+        self.assertIn('defaultModel:\n    name: ""', dify_values)
+        self.assertNotIn("remote/openrouter/", dify_values)
+        for path in (
+            "charts/pii-engine/values.yaml",
+            "releases/shared/default-pii-settings.yaml",
+        ):
+            self.assertNotIn("local/llama3.2-3b", (ROOT / path).read_text())
 
     def test_release_values_from_precedence_is_exact(self) -> None:
         expected = {
@@ -391,7 +508,7 @@ class GeneratedCatalogTests(unittest.TestCase):
                 ("ConfigMap", "base-shared-oidc-clients-config-map"),
                 ("ConfigMap", "base-shared-mcp-config-map"),
                 ("ConfigMap", "base-shared-pii-config-map"),
-                ("ConfigMap", "base-shared-openrouter-catalog-config-map"),
+                ("ConfigMap", "client-openrouter-catalog-values"),
                 ("Secret", "infra-agentgateway-secrets"),
                 ("ConfigMap", "client-values"),
                 ("ConfigMap", "agentgateway-product-values"),
@@ -401,7 +518,7 @@ class GeneratedCatalogTests(unittest.TestCase):
                 ("ConfigMap", "base-shared-resources-config-map"),
                 ("ConfigMap", "base-shared-oidc-clients-config-map"),
                 ("ConfigMap", "auth-keycloak-app-defaults"),
-                ("ConfigMap", "base-shared-openrouter-catalog-config-map"),
+                ("ConfigMap", "client-openrouter-catalog-values"),
                 ("Secret", "auth-keycloak-secrets"),
                 ("ConfigMap", "client-values"),
                 ("ConfigMap", "keycloak-product-values"),
@@ -409,7 +526,7 @@ class GeneratedCatalogTests(unittest.TestCase):
             "keycloak/oidc-dify-agentgateway.yaml": [
                 ("ConfigMap", "base-shared-oidc-clients-config-map"),
                 ("ConfigMap", "auth-keycloak-app-defaults"),
-                ("ConfigMap", "base-shared-openrouter-catalog-config-map"),
+                ("ConfigMap", "client-openrouter-catalog-values"),
                 ("Secret", "auth-keycloak-secrets"),
                 ("ConfigMap", "client-values"),
                 ("ConfigMap", "keycloak-product-values"),
@@ -417,7 +534,7 @@ class GeneratedCatalogTests(unittest.TestCase):
             "keycloak/realm-roles.yaml": [
                 ("ConfigMap", "base-shared-oidc-clients-config-map"),
                 ("ConfigMap", "auth-keycloak-app-defaults"),
-                ("ConfigMap", "base-shared-openrouter-catalog-config-map"),
+                ("ConfigMap", "client-openrouter-catalog-values"),
                 ("Secret", "auth-keycloak-secrets"),
                 ("ConfigMap", "client-values"),
                 ("ConfigMap", "keycloak-product-values"),
@@ -427,7 +544,7 @@ class GeneratedCatalogTests(unittest.TestCase):
                 ("ConfigMap", "base-shared-resources-config-map"),
                 ("ConfigMap", "base-shared-oidc-clients-config-map"),
                 ("ConfigMap", "auth-keycloak-api-key-bridge-app-defaults"),
-                ("ConfigMap", "base-shared-openrouter-catalog-config-map"),
+                ("ConfigMap", "client-openrouter-catalog-values"),
                 ("ConfigMap", "client-values"),
                 ("ConfigMap", "keycloak-api-key-bridge-product-values"),
             ],
@@ -436,7 +553,7 @@ class GeneratedCatalogTests(unittest.TestCase):
                 ("ConfigMap", "base-shared-resources-config-map"),
                 ("ConfigMap", "base-shared-mcp-config-map"),
                 ("ConfigMap", "frontend-librechat-app-defaults"),
-                ("ConfigMap", "base-shared-openrouter-catalog-config-map"),
+                ("ConfigMap", "client-openrouter-catalog-values"),
                 ("Secret", "frontend-librechat-runtime-secret"),
                 ("ConfigMap", "client-values"),
                 ("ConfigMap", "librechat-agentgateway-model-values"),
@@ -445,13 +562,31 @@ class GeneratedCatalogTests(unittest.TestCase):
         }
         for path, sequence in expected.items():
             self.assertEqual(values_from(path), sequence, path)
+            text = (ROOT / "releases" / path).read_text()
+            self.assertRegex(
+                text,
+                r"name: client-openrouter-catalog-values\n"
+                r"      valuesKey: values.yaml\n"
+                r"      optional: true",
+                path,
+            )
 
 
-class RealGeneratedCatalogIntegrationTests(unittest.TestCase):
+class SyntheticClientCatalogIntegrationTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
-        cls.entries = generated_catalog()
-        cls.public_names = {name for name, _group in cls.entries}
+        cls.client_catalog = catalog()
+        cls.client_catalog["models"].append(
+            {
+                "name": "remote/openrouter/example/second",
+                "upstreamModel": "example/second",
+                "label": "Second Model",
+                "group": "Remote-OpenRouter-Example",
+            }
+        )
+        cls.public_names = {
+            entry["name"] for entry in cls.client_catalog["models"]
+        }
         cls.roles = {f"model:{name}:invoke" for name in cls.public_names}
         cls.configured_groups = (
             "/access/librechat-users",
@@ -461,13 +596,14 @@ class RealGeneratedCatalogIntegrationTests(unittest.TestCase):
 
         cls.agentgateway = render(
             "agentgateway",
-            agent_values({"enabled": True, "excludedModels": [], "grantToAccessGroups": True, "models": []}),
-            value_files=(CATALOG_VALUES,),
+            agent_values(cls.client_catalog),
         )
         cls.oidc = render(
             "keycloak/oidc/agentgateway",
-            {"authKeycloak": {"agentgatewayClientRoles": ["llm:invoke"]}},
-            value_files=(CATALOG_VALUES,),
+            {
+                "openrouterCatalog": cls.client_catalog,
+                "authKeycloak": {"agentgatewayClientRoles": ["llm:invoke"]},
+            },
         )
         cls.realm = render(
             "keycloak/realm-config/realm-roles",
@@ -477,12 +613,13 @@ class RealGeneratedCatalogIntegrationTests(unittest.TestCase):
                     "agentgatewayAccessGroups": {
                         group: ["llm:invoke"] for group in cls.configured_groups
                     },
-                }
+                },
+                "openrouterCatalog": cls.client_catalog,
             },
-            value_files=(CATALOG_VALUES,),
         )
-        sample_permission = f"model:{cls.entries[0][0]}:invoke"
+        sample_permission = f"model:{next(iter(cls.public_names))}:invoke"
         subset_values = {
+            "openrouterCatalog": cls.client_catalog,
             "authKeycloak": {
                 "agentgatewayClientRoles": ["llm:invoke"],
                 "difyAgentgatewayClientRoles": ["llm:invoke", sample_permission],
@@ -491,20 +628,20 @@ class RealGeneratedCatalogIntegrationTests(unittest.TestCase):
         cls.dify = render(
             "keycloak/oidc/dify-agentgateway",
             subset_values,
-            value_files=(CATALOG_VALUES,),
         )
         cls.bridge = render(
             "keycloak-api-key-bridge",
             subset_values,
-            value_files=(CATALOG_VALUES,),
         )
         cls.librechat = render(
             "librechat/shared",
-            {"guardrails": {"llmPolicyEngine": {"models": []}}},
-            value_files=(CATALOG_VALUES,),
+            {
+                "openrouterCatalog": cls.client_catalog,
+                "guardrails": {"llmPolicyEngine": {"models": []}},
+            },
         )
 
-    def test_real_catalog_has_end_to_end_model_role_and_group_parity(self) -> None:
+    def test_client_catalog_has_end_to_end_model_role_and_group_parity(self) -> None:
         public_matches = {
             match
             for document in resources(self.agentgateway, "AgentgatewayModel")
@@ -544,7 +681,7 @@ class RealGeneratedCatalogIntegrationTests(unittest.TestCase):
                 self.roles | {"llm:invoke"},
             )
         service_roles = json.loads(env_value(self.dify, "KC_SERVICE_ACCOUNT_ROLES"))
-        sample_role = f"model:{self.entries[0][0]}:invoke"
+        sample_role = f"model:{next(iter(self.public_names))}:invoke"
         self.assertIn(sample_role, {item["roleName"] for item in service_roles})
         primary_match = re.search(
             r"(?m)^  primary\.json: >-\n    (?P<value>\{.*\})$",
@@ -556,7 +693,7 @@ class RealGeneratedCatalogIntegrationTests(unittest.TestCase):
             json.loads(primary_match.group("value"))["permissions"],
         )
 
-    def test_real_catalog_librechat_specs_preserve_generated_groups(self) -> None:
+    def test_client_catalog_librechat_specs_preserve_groups(self) -> None:
         config = self.librechat.stdout
         specs_block = config.split("    modelSpecs:\n", 1)[1].split("    endpoints:\n", 1)[0]
         specs = re.findall(
@@ -565,7 +702,9 @@ class RealGeneratedCatalogIntegrationTests(unittest.TestCase):
             r"          name: ([^\s]+)$",
             specs_block,
         )
-        expected = {name: group for name, group in self.entries}
+        expected = {
+            entry["name"]: entry["group"] for entry in self.client_catalog["models"]
+        }
         self.assertEqual({name: group for group, name in specs}, expected)
 
 

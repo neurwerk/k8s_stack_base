@@ -39,25 +39,11 @@ frontendDify:
     # PostgreSQL advisory lock. The HelmRelease timeout must cover this wait
     # plus daemon, plugin installation, and provider validation.
     DIFY_BOOTSTRAP_LOCK_TIMEOUT_SECONDS: "1800"
-    # Model provider auto-provisioning for the setup-model-provider initContainer.
-    # $(VAR) references are expanded by Kubernetes from the pod env
-    # (LLM_PROXY_API_KEY from frontend-dify-openbao-secret and
-    # LLM_PROXY_ENDPOINT from frontend-dify-secret).
-    # Override per client via the values layering chain.
-    modelProviderCredentials: |
-      {
-        "openai_api_compatible": {
-          "provider": "openai_api_compatible",
-          "model_type": "llm",
-          "model": "remote/openrouter/deepseek-v4-flash",
-          "credentials": {
-            "api_key": "$(LLM_PROXY_API_KEY)",
-            "endpoint_url": "$(LLM_PROXY_ENDPOINT)",
-            "context_size": "65536"
-          },
-          "as_default": true
-        }
-      }
+  # The client selects the default model. The chart owns fixed provider adapter
+  # and Secret-reference wiring used by the setup-model-provider initContainer.
+  defaultModel:
+    name: ""
+    contextSize: ""
   api:
     ports:
       container: { http: 5001 }
