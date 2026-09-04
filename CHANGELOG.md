@@ -11,13 +11,31 @@ upgrade path.
 
 ## [0.1.2] - 2026-09-04
 
-### TODO: Curate Changes
+### Added
 
-- TODO: Replace this scaffold with reviewed release notes.
+- Persist metadata-only AgentGateway request usage in the operations PostgreSQL
+  service and expose authorized usage queries through Studio's private API path.
+
+### Changed
+
+- Move concrete OpenRouter model selection and complete model pricing to
+  client-owned ConfigMaps while retaining platform rendering, authorization,
+  Dify wiring, limits, and fail-closed validation.
+- Generate one LibreChat model-selection contract for grouped model rows,
+  endpoint validation, direct-model grouping, and an optional client-owned hard
+  default.
+- Pin AgentGateway extProc 0.1.3 so PII-disabled full-duplex responses preserve
+  provider response bytes.
+- Replace future stable-source allowlists with an explicit supported or
+  fresh-install-only release policy.
 
 ### Compatibility
 
-- TODO: Describe exact compatibility and recovery behavior.
+- Support fresh installation into a verified empty or replacement environment
+  and promotion from exact alpha commit
+  `dbcac5d1b3069edd5bb65dd57df95dccfba1f6d1`.
+- Do not support stable upgrades or downgrades; recovery requires a replacement
+  restore.
 
 ## [0.1.1] - 2026-09-03
 
