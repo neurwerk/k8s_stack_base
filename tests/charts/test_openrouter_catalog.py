@@ -429,6 +429,9 @@ class LibreChatCatalogTests(unittest.TestCase):
     def test_model_specs_are_grouped_without_raw_fetched_rows(self) -> None:
         inherited = catalog()
         values = {
+            "frontendLibrechat": {
+                "agentGateway": {"defaultModel": "local/llama"}
+            },
             "openrouterCatalog": inherited,
             "guardrails": {
                 "llmPolicyEngine": {
@@ -438,21 +441,26 @@ class LibreChatCatalogTests(unittest.TestCase):
                             "name": "remote/deepseek/chat",
                             "provider": "DeepSeek",
                             "model": "chat",
+                            "group": "Remote-DeepSeek-Direct",
                         },
                     ]
                 }
             },
         }
         result = render("librechat/shared", values)
+        self.assertIn("      modelSelect: false\n", result.stdout)
         self.assertIn("    modelSpecs:\n", result.stdout)
         self.assertIn("      enforce: false\n", result.stdout)
         self.assertIn("        - group: Remote-OpenRouter-Acme\n", result.stdout)
         self.assertIn("          name: remote/openrouter/acme/model\n", result.stdout)
-        self.assertIn("        - group: Local\n", result.stdout)
+        self.assertIn("        - default: true\n          group: Local\n", result.stdout)
         self.assertIn("          name: local/llama\n", result.stdout)
-        self.assertIn("        - group: Remote-DeepSeek\n", result.stdout)
+        self.assertIn("        - group: Remote-DeepSeek-Direct\n", result.stdout)
         self.assertIn("          name: remote/deepseek/chat\n", result.stdout)
-        self.assertIn('            default: [""]\n', result.stdout)
+        self.assertIn(
+            '            default: ["remote/openrouter/acme/model","local/llama","remote/deepseek/chat"]\n',
+            result.stdout,
+        )
         self.assertIn("            fetch: false\n", result.stdout)
         names = re.findall(r"(?m)^          name: ([^\s]+)$", result.stdout)
         self.assertEqual(len(names), len(set(names)))
@@ -460,6 +468,24 @@ class LibreChatCatalogTests(unittest.TestCase):
         inherited["excludedModels"] = ["acme/model"]
         excluded = render("librechat/shared", values)
         self.assertNotIn("          name: remote/openrouter/acme/model\n", excluded.stdout)
+
+    def test_librechat_rejects_unknown_hard_default(self) -> None:
+        failed = render(
+            "librechat/shared",
+            {
+                "frontendLibrechat": {
+                    "agentGateway": {"defaultModel": "local/missing"}
+                },
+                "openrouterCatalog": catalog(),
+            },
+            check=False,
+        )
+
+        self.assertNotEqual(failed.returncode, 0)
+        self.assertIn(
+            'frontendLibrechat.agentGateway.defaultModel "local/missing" is not in the effective model catalog',
+            failed.stderr,
+        )
 
     def test_model_catalog_cap_matches_extproc(self) -> None:
         inherited = catalog()

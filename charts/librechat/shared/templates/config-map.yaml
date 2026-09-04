@@ -1,3 +1,4 @@
+{{- $modelCatalog := include "frontend-librechat-shared.modelCatalog" . | fromYaml -}}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -22,12 +23,14 @@ data:
     interface:
       presets: false
       parameters: false
+      # Grouped model specs own selection; hide the duplicate raw endpoint row.
+      modelSelect: false
       fileSearch: {{ .Values.frontendLibrechat.rag.enabled }}
     modelSpecs:
       # Specs provide grouped rows while enforce:false preserves Agents models.
       enforce: false
       list:
-        {{- include "frontend-librechat-shared.modelSpecs" . | nindent 8 }}
+        {{- $modelCatalog.specs | toYaml | nindent 8 }}
     endpoints:
       allowedAddresses:
         - {{ .Values.frontendLibrechat.agentGateway.hostPort | quote }}
@@ -51,8 +54,8 @@ data:
           apiKey: unused
           baseURL: {{ .Values.frontendLibrechat.agentGateway.baseUrl | quote }}
           models:
-            default: {{ .Values.frontendLibrechat.agentGateway.models | toJson }}
-            # modelSpecs owns menu rows; fetching would duplicate them.
+            # Keep request validation aligned with the grouped model specs.
+            default: {{ $modelCatalog.names | toJson }}
             fetch: false
           titleConvo: true
           titleModel: current_model

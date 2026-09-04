@@ -15,7 +15,7 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 app.kubernetes.io/part-of: frontend-librechat
 app.kubernetes.io/component: shared
 {{- end }}
-{{- define "frontend-librechat-shared.modelSpecs" -}}
+{{- define "frontend-librechat-shared.modelCatalog" -}}
 {{- $catalogUpstreams := dict -}}
 {{- $catalogNames := dict -}}
 {{- range $entry := .Values.openrouterCatalog.models | default list -}}
@@ -34,18 +34,30 @@ app.kubernetes.io/component: shared
 {{- $_ := set $clientNames $model.name true -}}
 {{- end -}}
 {{- $specs := list -}}
+{{- $names := list -}}
+{{- $effectiveNames := dict -}}
+{{- $defaultModel := .Values.frontendLibrechat.agentGateway.defaultModel | default "" -}}
 {{- if .Values.openrouterCatalog.enabled -}}
 {{- range $entry := .Values.openrouterCatalog.models | default list -}}
 {{- if and (not (has $entry.upstreamModel $excluded)) (not (hasKey $clientNames $entry.name)) -}}
-{{- $specs = append $specs (dict "name" $entry.name "label" $entry.label "group" $entry.group "preset" (dict "endpoint" "AgentGateway" "model" $entry.name)) -}}
+{{- $spec := dict "name" $entry.name "label" $entry.label "group" $entry.group "preset" (dict "endpoint" "AgentGateway" "model" $entry.name) -}}
+{{- if eq $entry.name $defaultModel }}{{- $_ := set $spec "default" true }}{{- end -}}
+{{- $specs = append $specs $spec -}}
+{{- $names = append $names $entry.name -}}
+{{- $_ := set $effectiveNames $entry.name true -}}
 {{- end -}}
 {{- end -}}
 {{- end -}}
 {{- range $model := $clientModels -}}
-{{- $group := printf "Remote-%s" ($model.provider | default "Custom") -}}
+{{- $group := $model.group | default (printf "Remote-%s" ($model.provider | default "Custom")) -}}
 {{- if $model.local }}{{- $group = "Local" }}{{- end -}}
-{{- $specs = append $specs (dict "name" $model.name "label" ($model.label | default $model.name) "group" $group "preset" (dict "endpoint" "AgentGateway" "model" $model.name)) -}}
+{{- $spec := dict "name" $model.name "label" ($model.label | default $model.name) "group" $group "preset" (dict "endpoint" "AgentGateway" "model" $model.name) -}}
+{{- if eq $model.name $defaultModel }}{{- $_ := set $spec "default" true }}{{- end -}}
+{{- $specs = append $specs $spec -}}
+{{- $names = append $names $model.name -}}
+{{- $_ := set $effectiveNames $model.name true -}}
 {{- end -}}
 {{- if gt (len $specs) 256 }}{{- fail "effective LibreChat model catalog supports at most 256 destinations" }}{{- end -}}
-{{- $specs | toYaml -}}
+{{- if and $defaultModel (not (hasKey $effectiveNames $defaultModel)) }}{{- fail (printf "frontendLibrechat.agentGateway.defaultModel %q is not in the effective model catalog" $defaultModel) }}{{- end -}}
+{{- dict "names" $names "specs" $specs | toYaml -}}
 {{- end -}}

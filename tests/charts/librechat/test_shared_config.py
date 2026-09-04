@@ -111,6 +111,14 @@ class SharedConfigTests(unittest.TestCase):
         ):
             self.assertNotRegex(config, rf"(?m)^      {key}:")
 
+    def test_grouped_specs_own_selection_without_a_raw_endpoint_row(self) -> None:
+        config = render_librechat_config()
+
+        self.assertIn("  modelSelect: false\n", config)
+        self.assertIn(
+            '        default: ["remote/example/model"]\n        fetch: false\n', config
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
