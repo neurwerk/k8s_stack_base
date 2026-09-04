@@ -11,8 +11,8 @@ upgrade path.
 
 ## [0.1.3] - 2026-09-04
 
-Version `0.1.2` was skipped because GitHub permanently reserved its deleted
-immutable-release tag name.
+Version `0.1.2` was skipped after GitHub rejected creation of its release tag
+because of an unresolved ref-creation restriction.
 
 ### Added
 
