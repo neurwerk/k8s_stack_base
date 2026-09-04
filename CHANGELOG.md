@@ -9,7 +9,10 @@ upgrade path.
 
 ## [Unreleased]
 
-## [0.1.2] - 2026-09-04
+## [0.1.3] - 2026-09-04
+
+Version `0.1.2` was skipped because GitHub permanently reserved its deleted
+immutable-release tag name.
 
 ### Added
 
