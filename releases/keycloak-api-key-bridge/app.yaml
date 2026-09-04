@@ -47,8 +47,9 @@ spec:
       name: auth-keycloak-api-key-bridge-app-defaults
       valuesKey: values.yaml
     - kind: ConfigMap
-      name: base-shared-openrouter-catalog-config-map
+      name: client-openrouter-catalog-values
       valuesKey: values.yaml
+      optional: true
     - kind: ConfigMap
       name: client-values
       valuesKey: values.yaml

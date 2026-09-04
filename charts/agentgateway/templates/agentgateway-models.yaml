@@ -2,7 +2,7 @@
 # Model-centric LLM serving (AgentgatewayModel API)
 #
 # Renders one AgentgatewayModel per entry in
-#   the inherited catalog plus guardrails.llmPolicyEngine.models
+#   the client catalog plus guardrails.llmPolicyEngine.models
 # plus dedicated Internal local fallback targets for rerouted models.
 #
 # Each model becomes selectable on the listener's built-in LLM paths
@@ -58,6 +58,10 @@
 {{-   end }}
 {{- end }}
 {{- if $needsLocalFallback }}
+{{-   $_ := required "guardrails.llmPolicyEngine.localTarget.name is required when piiReroute is used" $local.name }}
+{{-   $_ := required "guardrails.llmPolicyEngine.localTarget.model is required when piiReroute is used" $local.model }}
+{{-   $_ := required "guardrails.llmPolicyEngine.localTarget.provider is required when piiReroute is used" $local.provider }}
+{{-   if and (eq $local.provider "Custom") (not $local.custom) }}{{- fail "guardrails.llmPolicyEngine.localTarget.custom is required for provider Custom when piiReroute is used" }}{{- end }}
 {{-   range $routingTargets }}
 {{-     $targetName := required "monitorPiiEngine.policy.routing.targets[].name is required" .name }}
 {{-     if not (regexMatch "^[A-Za-z0-9_.:/-]+$" $targetName) }}

@@ -21,6 +21,3 @@ configMapGenerator:
   - name: base-shared-mcp-config-map
     files:
       - values.yaml=../shared/default-mcp-settings.yaml
-  - name: base-shared-openrouter-catalog-config-map
-    files:
-      - values.yaml=../shared/openrouter-catalog.yaml

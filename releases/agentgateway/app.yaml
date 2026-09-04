@@ -48,8 +48,9 @@ spec:
       name: base-shared-pii-config-map
       valuesKey: values.yaml
     - kind: ConfigMap
-      name: base-shared-openrouter-catalog-config-map
+      name: client-openrouter-catalog-values
       valuesKey: values.yaml
+      optional: true
     - kind: Secret
       name: infra-agentgateway-secrets
       valuesKey: values.yaml

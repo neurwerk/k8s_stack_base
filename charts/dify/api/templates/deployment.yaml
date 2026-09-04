@@ -1,10 +1,15 @@
 {{- $difyRoles := .Values.authKeycloak.difyAgentgatewayClientRoles | default list }}
 {{- if not (has "llm:invoke" $difyRoles) }}{{- fail "authKeycloak.difyAgentgatewayClientRoles must include llm:invoke" }}{{- end }}
-{{- $modelProviders := mustFromJson .Values.frontendDify.config.modelProviderCredentials }}
-{{- range $providerName, $provider := $modelProviders }}
-{{- $model := required (printf "frontendDify.config.modelProviderCredentials entry %q must define model" $providerName) (get $provider "model") }}
+{{- $defaultModel := .Values.frontendDify.defaultModel | default dict }}
+{{- $model := get $defaultModel "name" | default "" }}
+{{- $modelProviders := dict }}
+{{- if $model }}
 {{- $permission := printf "model:%s:invoke" $model }}
 {{- if not (has $permission $difyRoles) }}{{- fail (printf "Dify model %q requires %q in authKeycloak.difyAgentgatewayClientRoles" $model $permission) }}{{- end }}
+{{- $contextSize := required "frontendDify.defaultModel.contextSize is required when a default model is selected" (get $defaultModel "contextSize") }}
+{{- $credentials := dict "api_key" "$(LLM_PROXY_API_KEY)" "endpoint_url" "$(LLM_PROXY_ENDPOINT)" "context_size" $contextSize }}
+{{- $provider := dict "provider" "openai_api_compatible" "model_type" "llm" "model" $model "credentials" $credentials "as_default" true }}
+{{- $_ := set $modelProviders "openai_api_compatible" $provider }}
 {{- end }}
 apiVersion: apps/v1
 kind: Deployment
@@ -82,9 +87,10 @@ spec:
                   key: AGENTGATEWAY_API_KEY
             # LLM_PROXY_ENDPOINT comes from frontend-dify-secret (envFrom below) —
             # single source of truth in the shared chart.
-            # MODEL_PROVIDER_CREDENTIALS comes from values (per-client override).
+            # The model comes from client values; adapter credentials remain
+            # fixed Secret references owned by this chart.
             - name: MODEL_PROVIDER_CREDENTIALS
-              value: {{ .Values.frontendDify.config.modelProviderCredentials | toJson }}
+              value: {{ $modelProviders | toJson | quote }}
             - name: MODEL_SETTINGS
               value: '{"openai_api_compatible": {"enabled": true}}'
           envFrom:

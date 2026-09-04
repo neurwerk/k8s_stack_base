@@ -79,8 +79,8 @@ mcp:
   enabled: false
   servers: []
 
-# Generated platform entries are inherited through release values. Clients may
-# override these map keys and add custom/local model shapes below.
+# Selected client entries are injected through release values. Clients may also
+# add custom/local model shapes below.
 openrouterCatalog:
   enabled: true
   excludedModels: []
