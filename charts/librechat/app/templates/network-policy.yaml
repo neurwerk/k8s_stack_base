@@ -98,6 +98,16 @@ spec:
         - port: {{ .Values.frontendLibrechat.codeInterpreter.port }}
           protocol: TCP
     {{- end }}
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: traefik
+      ports:
+        - port: 443
+          protocol: TCP
     # The client-configured OIDC issuer and browser-reachable object endpoint are
     # FQDNs, which standard NetworkPolicy cannot select more narrowly than
     # public HTTPS.

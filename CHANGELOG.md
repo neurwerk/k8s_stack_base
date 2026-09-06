@@ -9,6 +9,12 @@ upgrade path.
 
 ## [Unreleased]
 
+### Fixed
+
+- Permit Dify, LibreChat, and the Keycloak initial-administrator email Job to
+  resolve public application names through the exact Traefik Pod on TCP `443`;
+  remove the email Job's former public HTTPS egress allowance.
+
 ## [0.3.0] - 2026-09-04
 
 This version jump avoids conflicts with versions from the removed historical repository.

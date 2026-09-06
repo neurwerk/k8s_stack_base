@@ -131,7 +131,7 @@ spec:
       version: 1.0.0
     - path: charts/dify/api
       name: frontend-dify-api
-      version: 1.0.1
+      version: 1.0.2
       appVersion: 1.15.0
     - path: charts/dify/beat
       name: frontend-dify-beat
@@ -220,7 +220,7 @@ spec:
       version: 1.0.1
     - path: charts/keycloak/realm-config/initial-admin
       name: keycloak-oidc-configurations-initial-admin
-      version: 1.0.1
+      version: 1.0.2
     - path: charts/keycloak/realm-config/realm-roles
       name: keycloak-oidc-configurations-realm-roles
       version: 1.1.0
@@ -264,7 +264,7 @@ spec:
       appVersion: 1.0.0
     - path: charts/librechat/app
       name: frontend-librechat
-      version: 1.0.1
+      version: 1.0.2
       appVersion: cdfe54c3498818b21b33fb609fee02f2742b37ea
     - path: charts/librechat/code-interpreter/api
       name: librechat-code-interpreter-api

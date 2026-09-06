@@ -53,6 +53,16 @@ class KeycloakInitialAdminTests(unittest.TestCase):
         self.assertIn("app.kubernetes.io/component: configuration", manifest)
         self.assertIn("job: auth-keycloak-initial-admin-action-email-job", manifest)
         self.assertIn("- port: 443", manifest)
+        self.assertIn(
+            """        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: traefik""",
+            manifest,
+        )
+        self.assertNotIn("ipBlock:", manifest)
         self.assertIn("name: RemediateOnFailure", release)
         self.assertIn("retries: -1", release)
 
