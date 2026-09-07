@@ -130,7 +130,7 @@ spec:
       version: 1.0.0
     - path: charts/dify/api
       name: frontend-dify-api
-      version: 1.0.2
+      version: 1.0.3
       appVersion: 1.15.0
     - path: charts/dify/beat
       name: frontend-dify-beat
@@ -263,7 +263,7 @@ spec:
       appVersion: 1.0.0
     - path: charts/librechat/app
       name: frontend-librechat
-      version: 1.0.2
+      version: 1.0.3
       appVersion: cdfe54c3498818b21b33fb609fee02f2742b37ea
     - path: charts/librechat/code-interpreter/api
       name: librechat-code-interpreter-api

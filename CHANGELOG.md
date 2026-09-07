@@ -9,6 +9,11 @@ upgrade path.
 
 ## [Unreleased]
 
+### Fixed
+
+- Preserve DNS and private dependency egress for Dify API and LibreChat in
+  `public-dns` mode; only Traefik egress depends on the routing mode.
+
 ## [0.3.1] - 2026-09-07
 
 ### Compatibility

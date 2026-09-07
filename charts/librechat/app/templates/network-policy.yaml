@@ -35,7 +35,6 @@ spec:
         - port: {{ .Values.frontendLibrechat.app.service.port }}
           protocol: TCP
   egress:
-    {{- if eq $canonicalEndpointRoutingMode "internal-traefik" }}
     - to:
         - namespaceSelector:
             matchLabels:
@@ -103,6 +102,7 @@ spec:
         - port: {{ .Values.frontendLibrechat.codeInterpreter.port }}
           protocol: TCP
     {{- end }}
+    {{- if eq $canonicalEndpointRoutingMode "internal-traefik" }}
     - to:
         - namespaceSelector:
             matchLabels:
