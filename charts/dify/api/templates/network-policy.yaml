@@ -19,7 +19,6 @@ spec:
   policyTypes:
     - Egress
   egress:
-    {{- if eq $canonicalEndpointRoutingMode "internal-traefik" }}
     - to:
         - namespaceSelector:
             matchLabels:
@@ -78,6 +77,7 @@ spec:
       ports:
         - port: 80
           protocol: TCP
+    {{- if eq $canonicalEndpointRoutingMode "internal-traefik" }}
     - to:
         - namespaceSelector:
             matchLabels:
