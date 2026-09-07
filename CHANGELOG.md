@@ -11,13 +11,19 @@ upgrade path.
 
 ## [0.3.1] - 2026-09-07
 
-### TODO: Curate Changes
-
-- TODO: Replace this scaffold with reviewed release notes.
+Draft proposal only. Do not merge, tag, publish, or adopt until the evidence
+blockers in `release/migrations/v0.3.1.md` and release proposal #71 are resolved.
 
 ### Compatibility
 
-- TODO: Describe exact compatibility and recovery behavior.
+- Requested draft policy permits upgrades from every lower exact stable tag,
+  with predecessor `v0.3.0`, and promotion from exact alpha commit
+  `aa3241882c2d8443af5a0823cf6f12caae90219d`. These inputs are not tested
+  transition evidence. Downgrades are unsupported; proposed recovery is forward-fix.
+- TODO: Supply reviewed cumulative in-place migration and independent
+  backup/restore integrity evidence for `v0.1.0`, `v0.1.1`, and `v0.3.0`, exact
+  alpha-to-candidate acceptance, and a tested compatible forward-fix procedure.
+  Historical fresh-install-only instructions do not establish these paths.
 
 ### Fixed
 
@@ -25,6 +31,19 @@ upgrade path.
   initial-administrator email Job through selected Traefik Pods on TCP `443` by
   default, while preserving explicit `public-dns` behavior for clients whose
   canonical endpoints resolve publicly.
+- Include routing PR #70 through `1ee6085519f8f6898cb1f2bd6dd6cf9bc18da0e1`.
+  Dify API, LibreChat app, and Keycloak initial-admin charts advance from `1.0.1`
+  to `1.0.2`; application versions, image pins, and prerequisites are unchanged.
+
+### Breaking Changes
+
+- Set `canonicalEndpointRouting.mode: public-dns` explicitly for affected
+  workloads whose canonical endpoints resolve publicly. The default is
+  `internal-traefik`; unknown values fail rendering. In default mode the Keycloak
+  action-email Job no longer permits general public HTTPS egress.
+- For internal routing, stage client values, adopt the reviewed platform release,
+  and verify policies before separately enabling exact CoreDNS rewrites. Do not
+  assume the client and platform sources reconcile atomically.
 
 ## [0.3.0] - 2026-09-04
 
