@@ -9,6 +9,13 @@ upgrade path.
 
 ## [Unreleased]
 
+### Fixed
+
+- Route canonical public endpoint traffic from Dify, LibreChat, and the Keycloak
+  initial-administrator email Job through selected Traefik Pods on TCP `443` by
+  default, while preserving explicit `public-dns` behavior for clients whose
+  canonical endpoints resolve publicly.
+
 ## [0.3.0] - 2026-09-04
 
 This version jump avoids conflicts with versions from the removed historical repository.

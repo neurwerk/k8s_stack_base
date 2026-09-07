@@ -53,6 +53,16 @@ class KeycloakInitialAdminTests(unittest.TestCase):
         self.assertIn("app.kubernetes.io/component: configuration", manifest)
         self.assertIn("job: auth-keycloak-initial-admin-action-email-job", manifest)
         self.assertIn("- port: 443", manifest)
+        self.assertIn(
+            """        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: traefik""",
+            manifest,
+        )
+        self.assertNotIn("ipBlock:", manifest)
         self.assertIn("name: RemediateOnFailure", release)
         self.assertIn("retries: -1", release)
 
@@ -61,6 +71,21 @@ class KeycloakInitialAdminTests(unittest.TestCase):
 
         self.assertNotIn("auth-keycloak-initial-admin-action-email-job", manifest)
         self.assertNotIn("auth-keycloak-initial-admin-action-email-egress", manifest)
+
+    def test_public_dns_mode_retains_public_https_egress(self) -> None:
+        manifest = render("--set", "canonicalEndpointRouting.mode=public-dns")
+
+        self.assertIn("name: auth-keycloak-initial-admin-action-email-egress", manifest)
+        self.assertIn("ipBlock:", manifest)
+        self.assertIn("cidr: 0.0.0.0/0", manifest)
+        self.assertNotIn("app.kubernetes.io/name: traefik", manifest)
+
+    def test_unknown_routing_mode_fails_rendering(self) -> None:
+        with self.assertRaisesRegex(
+            RuntimeError,
+            "canonicalEndpointRouting.mode must be internal-traefik or public-dns",
+        ):
+            render("--set", "canonicalEndpointRouting.mode=unknown")
 
 
 if __name__ == "__main__":

@@ -6,6 +6,11 @@
 authKeycloak:
   difyAgentgatewayClientRoles: []
 
+# Internal Traefik routing is the fail-closed default because canonical endpoint traffic should not require broad public egress.
+# Clients whose canonical endpoints resolve through public DNS must explicitly select public-dns.
+canonicalEndpointRouting:
+  mode: internal-traefik
+
 frontendDify:
   apiImage: ghcr.io/neurwerk/addon-dify-ce-builder-api:1.15.0-kc-v2
   pullPolicy: IfNotPresent
