@@ -9,6 +9,16 @@ upgrade path.
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-09-07
+
+### TODO: Curate Changes
+
+- TODO: Replace this scaffold with reviewed release notes.
+
+### Compatibility
+
+- TODO: Describe exact compatibility and recovery behavior.
+
 ### Fixed
 
 - Route canonical public endpoint traffic from Dify, LibreChat, and the Keycloak
