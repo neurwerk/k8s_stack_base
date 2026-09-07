@@ -1,3 +1,7 @@
+{{- $canonicalEndpointRoutingMode := .Values.canonicalEndpointRouting.mode -}}
+{{- if not (has $canonicalEndpointRoutingMode (list "internal-traefik" "public-dns")) -}}
+{{- fail "canonicalEndpointRouting.mode must be internal-traefik or public-dns" -}}
+{{- end }}
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -15,6 +19,7 @@ spec:
   policyTypes:
     - Egress
   egress:
+    {{- if eq $canonicalEndpointRoutingMode "internal-traefik" }}
     - to:
         - namespaceSelector:
             matchLabels:
@@ -83,6 +88,7 @@ spec:
       ports:
         - port: 443
           protocol: TCP
+    {{- end }}
     - to:
         - ipBlock:
             cidr: 0.0.0.0/0

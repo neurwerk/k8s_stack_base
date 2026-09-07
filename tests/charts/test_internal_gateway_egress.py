@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[2]
 VALUES = ROOT / "tests/validation/helm-lint-values.yaml"
 
 
-def render(chart: str, release: str, namespace: str) -> str:
+def render(chart: str, release: str, namespace: str, *extra_args: str) -> str:
     result = subprocess.run(
         [
             "helm",
@@ -23,6 +23,7 @@ def render(chart: str, release: str, namespace: str) -> str:
             namespace,
             "--values",
             str(VALUES),
+            *extra_args,
         ],
         capture_output=True,
         text=True,
@@ -57,7 +58,7 @@ TRAEFIK_HTTPS_EGRESS = """        - namespaceSelector:
 
 
 class InternalGatewayEgressTests(unittest.TestCase):
-    def test_dify_api_allows_traefik_and_retains_public_https(self) -> None:
+    def test_dify_api_defaults_to_traefik_and_retains_public_https(self) -> None:
         manifest = render("charts/dify/api", "frontend-dify-api", "frontend-dify")
         policy = resource(manifest, "NetworkPolicy", "frontend-dify-api-egress")
 
@@ -65,7 +66,7 @@ class InternalGatewayEgressTests(unittest.TestCase):
         self.assertIn("cidr: 0.0.0.0/0", policy)
         self.assertIn("- 10.0.0.0/8", policy)
 
-    def test_librechat_allows_traefik_and_retains_public_https(self) -> None:
+    def test_librechat_defaults_to_traefik_and_retains_public_https(self) -> None:
         manifest = render(
             "charts/librechat/app", "frontend-librechat", "frontend-librechat"
         )
@@ -76,6 +77,54 @@ class InternalGatewayEgressTests(unittest.TestCase):
         self.assertIn(TRAEFIK_HTTPS_EGRESS, policy)
         self.assertIn("cidr: 0.0.0.0/0", policy)
         self.assertIn("- 10.0.0.0/8", policy)
+
+    def test_public_dns_mode_omits_traefik_and_retains_public_https(self) -> None:
+        cases = (
+            (
+                "charts/dify/api",
+                "frontend-dify-api",
+                "frontend-dify",
+                "frontend-dify-api-egress",
+            ),
+            (
+                "charts/librechat/app",
+                "frontend-librechat",
+                "frontend-librechat",
+                "frontend-librechat-network-policy",
+            ),
+        )
+        for chart, release, namespace, policy_name in cases:
+            with self.subTest(chart=chart):
+                manifest = render(
+                    chart,
+                    release,
+                    namespace,
+                    "--set",
+                    "canonicalEndpointRouting.mode=public-dns",
+                )
+                policy = resource(manifest, "NetworkPolicy", policy_name)
+
+                self.assertNotIn(TRAEFIK_HTTPS_EGRESS, policy)
+                self.assertIn("cidr: 0.0.0.0/0", policy)
+                self.assertIn("- 10.0.0.0/8", policy)
+
+    def test_unknown_routing_mode_fails_rendering(self) -> None:
+        for chart, release, namespace in (
+            ("charts/dify/api", "frontend-dify-api", "frontend-dify"),
+            ("charts/librechat/app", "frontend-librechat", "frontend-librechat"),
+        ):
+            with self.subTest(chart=chart):
+                with self.assertRaisesRegex(
+                    RuntimeError,
+                    "canonicalEndpointRouting.mode must be internal-traefik or public-dns",
+                ):
+                    render(
+                        chart,
+                        release,
+                        namespace,
+                        "--set",
+                        "canonicalEndpointRouting.mode=unknown",
+                    )
 
 
 if __name__ == "__main__":

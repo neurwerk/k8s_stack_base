@@ -11,9 +11,10 @@ upgrade path.
 
 ### Fixed
 
-- Permit Dify, LibreChat, and the Keycloak initial-administrator email Job to
-  resolve public application names through the exact Traefik Pod on TCP `443`;
-  remove the email Job's former public HTTPS egress allowance.
+- Route canonical public endpoint traffic from Dify, LibreChat, and the Keycloak
+  initial-administrator email Job through selected Traefik Pods on TCP `443` by
+  default, while preserving explicit `public-dns` behavior for clients whose
+  canonical endpoints resolve publicly.
 
 ## [0.3.0] - 2026-09-04
 

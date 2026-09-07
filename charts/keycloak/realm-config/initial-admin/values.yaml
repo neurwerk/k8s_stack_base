@@ -33,6 +33,11 @@ authKeycloak:
   initialAdminGroups: '["/access/platform-admins"]'
   initialAdminRequiredActions: '["VERIFY_EMAIL", "UPDATE_PASSWORD", "CONFIGURE_TOTP"]'
 
+# Internal Traefik routing is the fail-closed default because canonical endpoint traffic should not require broad public egress.
+# Clients whose canonical endpoints resolve through public DNS must explicitly select public-dns.
+canonicalEndpointRouting:
+  mode: internal-traefik
+
 k8sTools:
   image: ghcr.io/neurwerk/k8s-stack-tooling:0.1.1
 
