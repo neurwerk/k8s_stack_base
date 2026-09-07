@@ -9,12 +9,41 @@ upgrade path.
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-09-07
+
+### Compatibility
+
+- Support fresh installation only into an independently verified empty or
+  replacement environment. Disposable existing data does not establish that
+  prerequisite and does not authorize deletion.
+- Stable upgrades, alpha promotion, and downgrades are unsupported. Recovery
+  requires replacement restore; no in-place migration or live recovery evidence
+  is claimed. The signed predecessor is `v0.3.0`.
+
 ### Fixed
 
 - Route canonical public endpoint traffic from Dify, LibreChat, and the Keycloak
   initial-administrator email Job through selected Traefik Pods on TCP `443` by
   default, while preserving explicit `public-dns` behavior for clients whose
   canonical endpoints resolve publicly.
+- Include routing PR #70 and Studio pin PR #74 through
+  `d839c17743dea6ce88c0e83da9a204d4edcecf8a`. Dify API, LibreChat app, and Keycloak
+  initial-admin charts advance from `1.0.1` to `1.0.2`.
+- Pin Studio API and Web images and application versions to `0.7.1`, fixing
+  valid nullable `stream_options` responses being rejected with HTTP 502
+  (Studio #14). API chart `1.1.0` advances to `1.1.1`; Web chart `1.0.1` advances
+  to `1.0.2`. The historical Studio `0.1.1` to `0.7.0` change was numbering only,
+  not a feature rollout. Other image pins and release prerequisites are unchanged.
+
+### Breaking Changes
+
+- Set `canonicalEndpointRouting.mode: public-dns` explicitly for affected
+  workloads whose canonical endpoints resolve publicly. The default is
+  `internal-traefik`; unknown values fail rendering. In default mode the Keycloak
+  action-email Job no longer permits general public HTTPS egress.
+- For internal routing, stage client values, adopt the reviewed platform release,
+  and verify policies before separately enabling exact CoreDNS rewrites. Do not
+  assume the client and platform sources reconcile atomically.
 
 ## [0.3.0] - 2026-09-04
 

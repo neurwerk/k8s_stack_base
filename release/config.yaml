@@ -1,14 +1,13 @@
-version: 0.3.0
-releaseDate: '2026-09-04'
-summary: Publish client-owned model catalogs, usage analytics, extProc fixes, and LibreChat model selection.
+version: 0.3.1
+releaseDate: '2026-09-07'
+summary: Fix canonical endpoint egress and include Studio 0.7.1 with fresh-install-only compatibility.
 trust:
   signerIdentity: platform-release
   algorithm: ssh-ed25519
   fingerprint: SHA256:+rDcofrsfRE3ElJJxnUVoB3gmoEzZJUrisDqLZMHimw
 compatibility:
   stableUpgrade: fresh-install-only
-  upgradesFromAlphaRevisions:
-  - dbcac5d1b3069edd5bb65dd57df95dccfba1f6d1
+  upgradesFromAlphaRevisions: []
   downgrade: unsupported
   recovery: replacement-restore
 packages:
@@ -72,18 +71,11 @@ exceptions:
   reason: The reviewed upstream DocumentDB local image requires passwordless sudo to prepare runtime directories
     before dropping back to UID 1000.
 provenance:
-  previousTag: v0.1.1
-  includedThrough: ff63be36fcc44f56f635eca922473608080a18b8
+  previousTag: v0.3.0
+  includedThrough: d839c17743dea6ce88c0e83da9a204d4edcecf8a
   commits:
-  - cb849b29eb304c54801f7a247a3d49482877c8bf
-  - 0a9513dd4bead215bb2e122d8e2b1da2dcce170a
-  - 72f28b2b3e165fee94826388ee08af6490bc8ccd
-  - 6714dda3f11f214ae3f0dd5f3be63e0f28255769
-  - 6968640e477a06dcba8cca2639f81f0890c95865
-  - dbcac5d1b3069edd5bb65dd57df95dccfba1f6d1
-  - 715eba03dede1d070c14c4c42b44d87ccdd5044c
-  - 0405f354f720c964169390b5ff508ad19cd87ee7
-  - b7dd4b3178503b1d45a714b2fffb119e4979dd07
-  - 484ae9eb4dfdc72774fce279f3264e46a8713754
-  - ff63be36fcc44f56f635eca922473608080a18b8
-  compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.1.1...ff63be36fcc44f56f635eca922473608080a18b8
+  - bcdd31502432d8f7e19597e7fc2df105875b658a
+  - 1e58a6ae8fc2e4cbef4e8f78ff1dc2f787ee7485
+  - 1ee6085519f8f6898cb1f2bd6dd6cf9bc18da0e1
+  - d839c17743dea6ce88c0e83da9a204d4edcecf8a
+  compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.0...d839c17743dea6ce88c0e83da9a204d4edcecf8a
