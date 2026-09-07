@@ -1,17 +1,15 @@
 version: 0.3.1
 releaseDate: '2026-09-07'
-summary: Fix canonical endpoint egress for Dify, LibreChat, and Keycloak; draft upgrade policy pending
-  cumulative migration evidence.
+summary: Fix canonical endpoint egress for Dify, LibreChat, and Keycloak with fresh-install-only compatibility.
 trust:
   signerIdentity: platform-release
   algorithm: ssh-ed25519
   fingerprint: SHA256:+rDcofrsfRE3ElJJxnUVoB3gmoEzZJUrisDqLZMHimw
 compatibility:
-  stableUpgrade: supported
-  upgradesFromAlphaRevisions:
-  - aa3241882c2d8443af5a0823cf6f12caae90219d
+  stableUpgrade: fresh-install-only
+  upgradesFromAlphaRevisions: []
   downgrade: unsupported
-  recovery: forward-fix
+  recovery: replacement-restore
 packages:
   default:
   - releases/namespaces
