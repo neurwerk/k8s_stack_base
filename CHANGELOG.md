@@ -26,9 +26,14 @@ upgrade path.
   initial-administrator email Job through selected Traefik Pods on TCP `443` by
   default, while preserving explicit `public-dns` behavior for clients whose
   canonical endpoints resolve publicly.
-- Include routing PR #70 through `1ee6085519f8f6898cb1f2bd6dd6cf9bc18da0e1`.
-  Dify API, LibreChat app, and Keycloak initial-admin charts advance from `1.0.1`
-  to `1.0.2`; application versions, image pins, and prerequisites are unchanged.
+- Include routing PR #70 and Studio pin PR #74 through
+  `d839c17743dea6ce88c0e83da9a204d4edcecf8a`. Dify API, LibreChat app, and Keycloak
+  initial-admin charts advance from `1.0.1` to `1.0.2`.
+- Pin Studio API and Web images and application versions to `0.7.1`, fixing
+  valid nullable `stream_options` responses being rejected with HTTP 502
+  (Studio #14). API chart `1.1.0` advances to `1.1.1`; Web chart `1.0.1` advances
+  to `1.0.2`. The historical Studio `0.1.1` to `0.7.0` change was numbering only,
+  not a feature rollout. Other image pins and release prerequisites are unchanged.
 
 ### Breaking Changes
 

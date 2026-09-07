@@ -5,7 +5,7 @@ metadata:
 spec:
   version: 0.3.1
   releaseDate: '2026-09-07'
-  summary: Fix canonical endpoint egress for Dify, LibreChat, and Keycloak with fresh-install-only compatibility.
+  summary: Fix canonical endpoint egress and include Studio 0.7.1 with fresh-install-only compatibility.
   trust:
     signerIdentity: platform-release
     algorithm: ssh-ed25519
@@ -992,9 +992,10 @@ spec:
       uv: 0.11.21
   provenance:
     previousTag: v0.3.0
-    includedThrough: 1ee6085519f8f6898cb1f2bd6dd6cf9bc18da0e1
+    includedThrough: d839c17743dea6ce88c0e83da9a204d4edcecf8a
     commits:
     - bcdd31502432d8f7e19597e7fc2df105875b658a
     - 1e58a6ae8fc2e4cbef4e8f78ff1dc2f787ee7485
     - 1ee6085519f8f6898cb1f2bd6dd6cf9bc18da0e1
-    compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.0...1ee6085519f8f6898cb1f2bd6dd6cf9bc18da0e1
+    - d839c17743dea6ce88c0e83da9a204d4edcecf8a
+    compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.0...d839c17743dea6ce88c0e83da9a204d4edcecf8a
