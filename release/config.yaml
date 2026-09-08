@@ -72,11 +72,12 @@ exceptions:
     before dropping back to UID 1000.
 provenance:
   previousTag: v0.3.1
-  includedThrough: bb5feb120528a8f9335f5a58cb105cade268ef39
+  includedThrough: eb207cc34343fe798c6ec07a73baa8a317daa18d
   commits:
   - 0287384c48279efd7eb0d6eca4cfa15ebab39d24
   - f81579cb38f9d3b6d9586178701deefae5836544
   - 5081581e0001abf5eadf7909a6d40e2302c6ba51
   - a6d8b695673b50983a899d25b0e5f27f8e0aad6b
   - bb5feb120528a8f9335f5a58cb105cade268ef39
-  compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.1...bb5feb120528a8f9335f5a58cb105cade268ef39
+  - eb207cc34343fe798c6ec07a73baa8a317daa18d
+  compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.1...eb207cc34343fe798c6ec07a73baa8a317daa18d
