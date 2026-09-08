@@ -68,6 +68,7 @@ class SharedConfigTests(unittest.TestCase):
                 mcpSettings:
                   allowedAddresses:
                     - "infra-agentgateway-gateway.infra-agentgateway.svc.cluster.local:80"
+                    - "lint.example:443"
                 mcpServers:
                   search:
                     type: streamable-http
@@ -83,6 +84,73 @@ class SharedConfigTests(unittest.TestCase):
                 """
             ),
             config,
+        )
+
+    def test_mcp_allowlist_is_scoped_to_internal_oauth(self) -> None:
+        addresses = (
+            "--set-string", "authKeycloak.hostname=identity.example.invalid",
+            "--set-string", "frontendLibrechat.agentGateway.hostPort=gateway.example.invalid:8080",
+        )
+        default = render_librechat_config(*ENABLE_MCP, *addresses)
+        internal_entry = '    - "identity.example.invalid:443"\n'
+        for mode in ("internal-traefik", "public-dns"):
+            for enabled in (True, False):
+                with self.subTest(mode=mode, mcp=enabled):
+                    config = render_librechat_config(
+                        *ENABLE_MCP, *addresses,
+                        "--set", f"canonicalEndpointRouting.mode={mode}",
+                        "--set", f"mcp.enabled={str(enabled).lower()}",
+                    )
+                    if not enabled:
+                        self.assertNotIn("\nmcpSettings:", config)
+                        self.assertNotIn("\nmcpServers:", config)
+                        self.assertNotIn(internal_entry, config)
+                        continue
+                    allowlist = config.split("mcpSettings:\n", 1)[1].split("mcpServers:", 1)[0]
+                    expected = '  allowedAddresses:\n    - "gateway.example.invalid:8080"\n'
+                    if mode == "internal-traefik":
+                        expected += internal_entry
+                        self.assertEqual(config, default)
+                    else:
+                        self.assertEqual(config, default.replace(internal_entry, ""))
+                    self.assertEqual(allowlist, expected)
+
+    def test_shared_rejects_invalid_routing_modes_even_without_mcp(self) -> None:
+        for mode in ("unknown", ""):
+            for enabled in ("true", "false"):
+                with self.subTest(mode=mode, mcp=enabled):
+                    result = render_chart(
+                        "shared",
+                        extra_args=(
+                            "--set-string", f"canonicalEndpointRouting.mode={mode}",
+                            "--set", f"mcp.enabled={enabled}",
+                        ),
+                        check=False,
+                    )
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertIn(
+                        "canonicalEndpointRouting.mode must be internal-traefik or public-dns",
+                        result.stderr,
+                    )
+
+    def test_shared_config_updates_trigger_app_restart(self) -> None:
+        deployment = resource(
+            render_chart("app").stdout, "Deployment", "frontend-librechat"
+        )
+        metadata = deployment.split("\nspec:", 1)[0]
+        self.assertIn(
+            "    configmap.reloader.stakater.com/reload: frontend-librechat-config-map\n",
+            metadata,
+        )
+        self.assertIn(
+            "        - name: config\n          configMap:\n"
+            "            name: frontend-librechat-config-map\n",
+            deployment,
+        )
+        self.assertIn(
+            "              mountPath: /app/librechat.yaml\n"
+            "              subPath: librechat.yaml\n",
+            deployment,
         )
 
     def test_all_optional_features_render_their_capabilities(self) -> None:

@@ -73,6 +73,11 @@ authKeycloak:
   librechatClientId: librechat
   realm: example
 
+# Match the app chart routing default; allow the canonical Keycloak HTTPS address
+# for MCP OAuth only when it resolves internally through Traefik.
+canonicalEndpointRouting:
+  mode: internal-traefik
+
 # Shared MCP catalog supplied by platform defaults and client configuration.
 mcp:
   enabled: false

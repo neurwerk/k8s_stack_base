@@ -1,3 +1,7 @@
+{{- $canonicalEndpointRoutingMode := .Values.canonicalEndpointRouting.mode -}}
+{{- if not (has $canonicalEndpointRoutingMode (list "internal-traefik" "public-dns")) -}}
+{{- fail "canonicalEndpointRouting.mode must be internal-traefik or public-dns" -}}
+{{- end -}}
 {{- $modelCatalog := include "frontend-librechat-shared.modelCatalog" . | fromYaml -}}
 apiVersion: v1
 kind: ConfigMap
@@ -77,6 +81,9 @@ data:
     mcpSettings:
       allowedAddresses:
         - {{ .Values.frontendLibrechat.agentGateway.hostPort | quote }}
+        {{- if eq $canonicalEndpointRoutingMode "internal-traefik" }}
+        - {{ printf "%s:443" .Values.authKeycloak.hostname | quote }}
+        {{- end }}
     mcpServers:
       {{- range .Values.mcp.servers }}
       {{ .name }}:
