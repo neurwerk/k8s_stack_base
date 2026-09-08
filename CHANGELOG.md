@@ -11,6 +11,12 @@ upgrade path.
 
 ### Fixed
 
+- Allow the configured Keycloak hostname on HTTPS port `443` for LibreChat MCP
+  OAuth only when MCP is enabled and canonical endpoint routing uses
+  `internal-traefik`. Preserve the AgentGateway address and `public-dns`
+  configuration. The shared chart defaults to `internal-traefik`, rejects unknown
+  routing modes, and advances from `1.1.2` to `1.1.3`. Its ConfigMap changes use
+  the existing Reloader-triggered LibreChat restart.
 - Preserve DNS and private dependency egress for Dify API and LibreChat in
   `public-dns` mode; only Traefik egress depends on the routing mode.
 
