@@ -9,6 +9,16 @@ upgrade path.
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-09-08
+
+### TODO: Curate Changes
+
+- TODO: Replace this scaffold with reviewed release notes.
+
+### Compatibility
+
+- TODO: Describe exact compatibility and recovery behavior.
+
 ### Fixed
 
 - Fix LibreChat MCP OAuth initiation when the configured Keycloak hostname
