@@ -185,7 +185,12 @@ pull requests trigger normal pull-request checks.
 
 Preparation may write only the version, changelog, release configuration,
 generated manifest, and version-specific migration document to a draft pull
-request. Generated prose contains deliberate `TODO` markers. The one-time
+request. Successors move the authored `Unreleased` body into the dated version
+entry, preserving optional subsections and fenced content and leaving Unreleased
+empty. If that body is empty, the required nonempty, single-line summary becomes
+one bullet. Existing versioned content is preserved. Selected TODO markers block
+preparation or release validation; no successor TODO placeholders are generated.
+The one-time
 `bootstrap-v0.1.0` mode is valid only from the unpublished `0.0.0` baseline when
 the repository has zero tags. It records complete reachable history, allows only
 fresh installation, and has no predecessor. Every platform release supports
@@ -201,6 +206,21 @@ validation, preparation, and client change. Restrict environment deployment
 branches to the default branch without requiring a deployment reviewer. Manual
 dispatch authorizes draft preparation only; it does not authorize tagging,
 publication, adoption, or deployment.
+
+Public release notes default to `## vX.Y.Z`, a blank line, and only the selected
+changelog body. Add optional `###` sections for special instructions, breaking
+changes, or required actions when relevant; empty sections and absence claims
+are not required or synthesized. Publication renders the exact signed snapshot
+with trusted default-branch tooling, without appending migrations or GitHub PR
+history. The `notes --generated-notes PATH` CLI option remains explicit opt-in.
+
+`migration_scaffold(version, stable_upgrade, alpha_revisions, recovery)` generates
+deterministic compact machine-readable Support and Recovery declarations plus
+the required nonempty Breaking Changes reference to `CHANGELOG.md`. This retains
+the client-consumed schema and parser, not proof of tested upgrades or recovery.
+Review the actual transition evidence and add needed instructions to the
+changelog. Historical signed release files and legacy compatibility parsing are
+unchanged; the one-time bootstrap still requires its reviewed migration evidence.
 
 ## Client Adoption Proposals
 

@@ -23,7 +23,7 @@ on:
         required: true
         type: string
       summary:
-        description: Concise release summary
+        description: Single-line release summary; one bullet fallback when Unreleased is empty
         required: true
         type: string
       stable_upgrade:
@@ -138,9 +138,11 @@ jobs:
           body: |
             Prepares reviewed release evidence for platform v${{ inputs.version }}.
 
-            The generated changelog and migration scaffolds intentionally contain
-            TODO markers. `make release-check` rejects the proposal until all release
-            prose and evidence are complete.
+            Review the changelog and compatibility declarations. Successor notes
+            reuse Unreleased content, or the summary as one bullet when empty.
+            Add special instructions to the changelog when needed. Mechanical
+            migration declarations do not prove a tested transition or recovery.
+            `make release-check` rejects remaining TODO markers.
 
             This pull request does not authorize tagging, publication, client
             adoption, deployment, or cluster mutation.
