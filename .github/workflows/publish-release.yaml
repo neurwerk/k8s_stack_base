@@ -118,28 +118,12 @@ jobs:
             exit 1
           fi
 
-      - name: Generate GitHub notes from the explicit release boundary
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PROVENANCE_MODE: ${{ steps.contract.outputs.provenance-mode }}
-          RELEASE_TAG: ${{ steps.release.outputs.tag }}
-          PREVIOUS_TAG: ${{ steps.contract.outputs.previous-tag }}
-        run: |
-          note_args=(-f tag_name="$RELEASE_TAG")
-          if [[ "$PROVENANCE_MODE" == "predecessor" ]]; then
-            note_args+=(-f previous_tag_name="$PREVIOUS_TAG")
-          fi
-          gh api --method POST "repos/$GITHUB_REPOSITORY/releases/generate-notes" \
-            "${note_args[@]}" \
-            --jq .body > "$RUNNER_TEMP/generated-notes.md"
-
-      - name: Build curated and generated release notes with trusted tooling
+      - name: Build compact release notes with trusted tooling
         working-directory: release-tooling
         run: >-
           uv run --frozen python scripts/platform_release.py notes
           --release-root ../release-data
           --output "$RUNNER_TEMP/release-notes.md"
-          --generated-notes "$RUNNER_TEMP/generated-notes.md"
 
       - name: Publish GitHub Release
         working-directory: release-data

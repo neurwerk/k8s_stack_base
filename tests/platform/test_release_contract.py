@@ -25,6 +25,145 @@ SPEC.loader.exec_module(platform_release)
 
 
 class ReleaseContractTest(unittest.TestCase):
+    def test_compact_notes_preserve_only_selected_authored_body(self) -> None:
+        body = (
+            "- Fix LibreChat MCP authentication with internal routing.\n"
+            "- Preserve required network access in public-DNS mode."
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "VERSION").write_text("0.3.2\n")
+            changelog = root / "CHANGELOG.md"
+            for instructions in (
+                "",
+                "\n\n### Special Instructions\n\nReview the routing settings.\n\n"
+                "```markdown\n## [0.0.1]\nExample heading, not a release.\n```",
+            ):
+                with self.subTest(instructions=instructions):
+                    changelog.write_text(
+                        "# Changelog\n\n## [Unreleased]\n\n- TODO: future work\n\n"
+                        f"## [0.3.2] - 2026-09-08\n\n{body}{instructions}\n\n"
+                        "## [0.3.1] - 2026-09-01\n\n- Historical notes.\n"
+                    )
+                    expected = f"## v0.3.2\n\n{body}{instructions}\n"
+                    self.assertEqual(platform_release.render_release_notes(root), expected)
+                    generated = root / "generated.md"
+                    generated.write_text("Explicit PR history\n")
+                    self.assertEqual(
+                        platform_release.render_release_notes(root, generated),
+                        expected + "\n## Pull Requests And Contributors\n\nExplicit PR history\n",
+                    )
+            for invalid_body in ("", "- TODO: selected work"):
+                changelog.write_text(f"## [0.3.2] - 2026-09-08\n\n{invalid_body}\n")
+                with self.assertRaises(platform_release.ReleaseError):
+                    platform_release.render_release_notes(root)
+            (root / "VERSION").write_text("0.3.2\n## injected")
+            with self.assertRaises(platform_release.ReleaseError):
+                platform_release.render_release_notes(root)
+
+    def test_successor_preparation_reuses_notes_and_keeps_provenance(self) -> None:
+        authored = "- An authored fix.\n\n### Instructions\n\nKeep this procedure."
+        historical = "## [0.3.1] - 2026-09-01\n\n- Historical notes.\n"
+        for body, summary in (
+            (authored, "Summary"), ("", "Explicit summary"),
+            (authored + "\n\n```markdown\n## [0.3.2]\nExample only.\n```", "Summary"),
+            (authored + "\n\n~~~markdown\n## [0.3.2]\nExample only.\n~~~", "Summary"),
+            ("", ""), ("", "Summary\n## [9.9.9]"), ("- TODO: finish", "Summary"),
+        ):
+            with self.subTest(body=body, summary=summary), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                (root / "release").mkdir()
+                version = root / "VERSION"
+                version.write_text("0.3.1\n")
+                config = root / "release/config.yaml"
+                config.write_text("{}\n")
+                changelog = root / "CHANGELOG.md"
+                original = f"# Changelog\n\n## [Unreleased]\n\n{body}\n\n{historical}"
+                changelog.write_text(original)
+                provenance = {"previousTag": "v0.3.1", "includedThrough": "a" * 40,
+                              "commits": ["a" * 40], "compareUrl": "unchanged"}
+                args = SimpleNamespace(
+                    version="0.3.2", previous_tag="v0.3.1", release_date="2026-09-08",
+                    summary=summary, stable_upgrade="supported", recovery="forward-fix",
+                    upgrades_from_alpha_revisions="",
+                )
+                with (
+                    mock.patch.multiple(platform_release, ROOT=root, VERSION_PATH=version,
+                                        CONFIG_PATH=config, CHANGELOG_PATH=changelog,
+                                        MANIFEST_PATH=root / "release/manifest.yaml"),
+                    mock.patch.object(platform_release, "latest_release_tag", return_value="v0.3.1"),
+                    mock.patch.object(platform_release, "verify_release_tag_signature") as verify,
+                    mock.patch.object(platform_release, "provenance_from_git", return_value=provenance),
+                    mock.patch.object(platform_release, "build_manifest", return_value={}),
+                    mock.patch.object(platform_release, "validate_manifest_schema"),
+                ):
+                    if not summary or "\n" in summary or "TODO" in body:
+                        with self.assertRaises(platform_release.ReleaseError):
+                            platform_release.prepare_release(args)
+                        self.assertEqual(version.read_text(), "0.3.1\n")
+                        self.assertEqual(changelog.read_text(), original)
+                        continue
+                    platform_release.prepare_release(args)
+                    verify.assert_called_once_with("v0.3.1", "v0.3.1")
+                    expected_body = body or f"- {summary}"
+                    self.assertEqual(changelog.read_text(),
+                                     "# Changelog\n\n## [Unreleased]\n\n"
+                                     f"## [0.3.2] - 2026-09-08\n\n{expected_body}\n\n{historical}")
+                    prepared = yaml.safe_load(config.read_text())
+                    self.assertEqual(prepared["provenance"], provenance)
+                    migration = (root / "release/migrations/v0.3.2.md").read_text()
+                    self.assertEqual(migration, platform_release.migration_scaffold(
+                        "0.3.2", "supported", [], "forward-fix"))
+                    self.assertFalse(platform_release.contains_todo(migration))
+                    platform_release.validate_migration_compatibility(migration, prepared["compatibility"])
+
+                    # Retry from the same predecessor with existing authored evidence.
+                    existing = changelog.read_text()
+                    for suffix, error in (
+                        ("", None),
+                        ("\n## [0.3.2] - 2026-09-08\n\n- Duplicate.\n",
+                         "duplicate changelog sections for 0.3.2"),
+                        ("\n## [0.3.2] - 2026-09-08\n",
+                         "duplicate changelog sections for 0.3.2"),
+                    ):
+                        with self.subTest(existing_suffix=suffix):
+                            version.write_text("0.3.1\n")
+                            candidate = existing + suffix
+                            changelog.write_text(candidate)
+                            if error:
+                                with self.assertRaisesRegex(platform_release.ReleaseError, error):
+                                    platform_release.prepare_release(args)
+                                self.assertEqual(version.read_text(), "0.3.1\n")
+                            else:
+                                platform_release.prepare_release(args)
+                            self.assertEqual(changelog.read_text(), candidate)
+                    for malformed in ("", "- TODO: complete existing notes"):
+                        version.write_text("0.3.1\n")
+                        candidate = (
+                            "# Changelog\n\n## [Unreleased]\n\n- Keep unreleased.\n\n"
+                            f"## [0.3.2] - 2026-09-08\n\n{malformed}\n\n{historical}"
+                        )
+                        changelog.write_text(candidate)
+                        with self.assertRaisesRegex(
+                            platform_release.ReleaseError,
+                            "existing release changelog section is empty or contains TODO markers",
+                        ):
+                            platform_release.prepare_release(args)
+                        self.assertEqual(version.read_text(), "0.3.1\n")
+                        self.assertEqual(changelog.read_text(), candidate)
+
+    def test_publication_uses_one_trusted_compact_renderer(self) -> None:
+        workflow = yaml.safe_load((ROOT / ".github/workflows/publish-release.yaml").read_text())
+        steps = workflow["jobs"]["publish"]["steps"]
+        renderers = [step for step in steps if "platform_release.py notes" in step.get("run", "")]
+        self.assertEqual(len(renderers), 1)
+        self.assertEqual(renderers[0]["working-directory"], "release-tooling")
+        self.assertIn("--release-root ../release-data", renderers[0]["run"])
+        commands = "\n".join(step.get("run", "") for step in steps)
+        self.assertNotIn("generate-notes", commands)
+        self.assertNotIn("--generated-notes", commands)
+        self.assertIn('--notes-file "$RUNNER_TEMP/release-notes.md"', commands)
+
     def _release_integration_tag(self) -> str:
         tag = os.environ.get("PLATFORM_RELEASE_TEST_TAG", "")
         if not tag:
@@ -41,8 +180,15 @@ class ReleaseContractTest(unittest.TestCase):
         scaffold = platform_release.migration_scaffold(
             "0.1.2", "supported", [], "forward-fix"
         )
-        self.assertTrue(platform_release.contains_todo(scaffold))
-        supported = scaffold.replace("TODO", "Reviewed evidence")
+        self.assertEqual(scaffold,
+                         "# Platform v0.1.2\n\n## Support\n\n"
+                         "- Stable upgrades: Supported.\n"
+                         "- Supported alpha source revisions: None.\n"
+                         "- Downgrade: Unsupported.\n\n## Breaking Changes\n\n"
+                         "See the release notes in CHANGELOG.md for breaking changes and required actions.\n\n"
+                         "## Recovery\n\nRecovery classification: Forward fix.\n")
+        self.assertFalse(platform_release.contains_todo(scaffold))
+        supported = scaffold
         self.assertIn("- Stable upgrades: Supported.", supported)
         self.assertIn("## Breaking Changes", supported)
         platform_release.validate_migration_compatibility(
@@ -71,8 +217,8 @@ class ReleaseContractTest(unittest.TestCase):
         ):
             platform_release.validate_migration_compatibility(
                 supported.replace(
-                    "## Breaking Changes\n\nReviewed evidence.\n\n## Stateful",
-                    "## Breaking Changes\n\n## Stateful",
+                    "See the release notes in CHANGELOG.md for breaking changes and required actions.",
+                    "",
                 ),
                 {
                     "stableUpgrade": "supported",
