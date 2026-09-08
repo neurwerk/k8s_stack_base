@@ -11,13 +11,13 @@ upgrade path.
 
 ## [0.3.2] - 2026-09-08
 
-### TODO: Curate Changes
+n/a
 
-- TODO: Replace this scaffold with reviewed release notes.
+n/a
 
 ### Compatibility
 
-- TODO: Describe exact compatibility and recovery behavior.
+n/a
 
 ### Fixed
 
