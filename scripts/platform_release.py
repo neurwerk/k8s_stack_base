@@ -54,6 +54,10 @@ class ReleaseError(RuntimeError):
     """Raised when release evidence is incomplete or inconsistent."""
 
 
+class MissingChangelogSection(ReleaseError):
+    """Raised only when no unfenced section exists for the requested version."""
+
+
 def load_yaml(path: Path) -> dict[str, Any]:
     data = yaml.safe_load(path.read_text())
     if not isinstance(data, dict):
@@ -523,14 +527,32 @@ def validate_manifest_schema(manifest: dict[str, Any]) -> None:
 
 
 def changelog_section(changelog: str, version: str) -> str:
-    match = re.search(
-        rf"^## \[{re.escape(version)}\].*?(?=^## \[|\Z)",
-        changelog,
-        flags=re.MULTILINE | re.DOTALL,
-    )
-    if match is None:
-        raise ReleaseError(f"no changelog section for {version}")
-    return match.group(0).strip()
+    if version != "Unreleased":
+        semver_tuple(version)
+    sections: list[str] = []
+    selected: list[str] | None = None
+    fence = ""
+    for line in changelog.splitlines(keepends=True):
+        marker = re.match(r"^ {0,3}(`{3,}|~{3,})", line)
+        if marker:
+            run = marker.group(1)
+            if not fence:
+                fence = run
+            elif run[0] == fence[0] and len(run) >= len(fence) and not line.strip()[len(run):]:
+                fence = ""
+        if not fence and re.match(r"^## \[", line):
+            if selected is not None:
+                sections.append("".join(selected).strip())
+            selected = [] if re.match(rf"^## \[{re.escape(version)}\](?:\s|$)", line) else None
+        if selected is not None:
+            selected.append(line)
+    if selected is not None:
+        sections.append("".join(selected).strip())
+    if not sections:
+        raise MissingChangelogSection(f"no changelog section for {version}")
+    if len(sections) != 1:
+        raise ReleaseError(f"duplicate changelog sections for {version}")
+    return sections[0]
 
 
 def contains_todo(value: str) -> bool:
@@ -752,9 +774,10 @@ def validate_release_prose(config: dict[str, Any], version: str, errors: list[st
     if f"## [{version}] - {config.get('releaseDate')}" not in changelog:
         errors.append("CHANGELOG.md has no dated entry for this release")
     else:
-        section = changelog_section(changelog, version)
-        if contains_todo(section):
-            errors.append("release changelog section contains TODO markers")
+        try:
+            render_release_notes(ROOT)
+        except ReleaseError as exc:
+            errors.append(str(exc))
     if migration.is_file():
         migration_text = migration.read_text()
         if contains_todo(migration_text):
@@ -1115,7 +1138,6 @@ def inspect_release_data(
             + ", ".join(unexpected)
         )
 
-    changelog = (release_root / "CHANGELOG.md").read_text()
     migration = release_root / f"release/migrations/v{version}.md"
     if not migration.is_file() or contains_todo(migration.read_text()):
         raise ReleaseError("release migration evidence is missing or incomplete")
@@ -1131,20 +1153,21 @@ def inspect_release_data(
         "release manifest compatibility",
         requires_alpha_revision_evidence(version),
     )
-    if contains_todo(changelog_section(changelog, version)):
-        raise ReleaseError("release changelog contains TODO markers")
+    render_release_notes(release_root)
     return provenance
 
 
 def render_release_notes(release_root: Path, generated_notes: Path | None = None) -> str:
     version = (release_root / "VERSION").read_text().strip()
-    migration = release_root / f"release/migrations/v{version}.md"
+    semver_tuple(version)
     changelog = (release_root / "CHANGELOG.md").read_text()
-    content = (
-        f"# Neurwerk Platform v{version}\n\n"
-        f"{changelog_section(changelog, version)}\n\n"
-        f"{migration.read_text().strip()}\n"
-    )
+    section = changelog_section(changelog, version)
+    body = section.partition("\n")[2].strip()
+    if not body:
+        raise ReleaseError("release changelog section must not be empty")
+    if contains_todo(section):
+        raise ReleaseError("release changelog section contains TODO markers")
+    content = f"## v{version}\n\n{body}\n"
     if generated_notes:
         generated = generated_notes.read_text().strip()
         if not generated:
@@ -1196,26 +1219,23 @@ def migration_scaffold(
     alpha_revisions: list[str],
     recovery: str,
 ) -> str:
+    semver_tuple(version)
+    if stable_upgrade not in STABLE_UPGRADE_POLICIES or recovery not in RECOVERY_ACTIONS:
+        raise ReleaseError("invalid migration compatibility choice")
+    parse_upgrades_from_alpha_revisions(",".join(alpha_revisions))
     supported_alpha = (
         ", ".join(f"`{revision}`" for revision in alpha_revisions) or "None"
     )
     return (
         f"# Platform v{version}\n\n"
-        "> TODO: Replace every TODO with reviewed release-specific evidence.\n\n"
         "## Support\n\n"
         f"- Stable upgrades: {STABLE_UPGRADE_LABELS[stable_upgrade]}.\n"
         f"- Supported alpha source revisions: {supported_alpha}.\n"
         "- Downgrade: Unsupported.\n\n"
-        "## Prerequisites\n\nTODO.\n\n"
-        "## Client Actions\n\nTODO.\n\n"
-        "## Breaking Changes\n\nTODO.\n\n"
-        "## Stateful And API Effects\n\nTODO.\n\n"
-        "## Pre-Deployment Checks\n\nTODO.\n\n"
-        "## Post-Deployment Checks\n\nTODO.\n\n"
+        "## Breaking Changes\n\n"
+        "See the release notes in CHANGELOG.md for breaking changes and required actions.\n\n"
         "## Recovery\n\n"
-        f"Recovery classification: {recovery.replace('-', ' ').capitalize()}.\n\n"
-        "TODO.\n\n"
-        "## Exclusions\n\nTODO.\n"
+        f"Recovery classification: {recovery.replace('-', ' ').capitalize()}.\n"
     )
 
 
@@ -1278,6 +1298,8 @@ def prepare_release(args: argparse.Namespace) -> None:
     config["summary"] = args.summary.strip()
     if not config["summary"]:
         raise ReleaseError("summary must not be empty")
+    if len(config["summary"].splitlines()) != 1 or contains_todo(config["summary"]):
+        raise ReleaseError("summary must be a single line without TODO markers")
     config["provenance"] = provenance
     if bootstrap:
         config["compatibility"] = {
@@ -1294,22 +1316,27 @@ def prepare_release(args: argparse.Namespace) -> None:
             "recovery": args.recovery,
         }
 
+    changelog = CHANGELOG_PATH.read_text()
+    try:
+        section = changelog_section(changelog, args.version)
+    except MissingChangelogSection:
+        unreleased = changelog_section(changelog, "Unreleased")
+        body = unreleased.partition("\n")[2].strip() or f"- {config['summary']}"
+        if contains_todo(body):
+            raise ReleaseError("release changelog section contains TODO markers")
+        entry = (
+            f"## [Unreleased]\n\n## [{args.version}] - {args.release_date}\n\n{body}"
+        )
+        before, _, after = changelog.partition(unreleased)
+        after = after.lstrip("\n")
+        changelog = before + entry + (f"\n\n{after}" if after else "\n")
+    else:
+        if not section.partition("\n")[2].strip() or contains_todo(section):
+            raise ReleaseError("existing release changelog section is empty or contains TODO markers")
+
     VERSION_PATH.write_text(f"{args.version}\n")
     CONFIG_PATH.write_text(yaml.safe_dump(config, sort_keys=False, width=100))
-
-    changelog = CHANGELOG_PATH.read_text()
-    if re.search(rf"^## \[{re.escape(args.version)}\]", changelog, flags=re.MULTILINE) is None:
-        marker = "## [Unreleased]\n"
-        if marker not in changelog:
-            raise ReleaseError("CHANGELOG.md has no Unreleased section")
-        entry = (
-            f"\n## [{args.version}] - {args.release_date}\n\n"
-            "### TODO: Curate Changes\n\n"
-            "- TODO: Replace this scaffold with reviewed release notes.\n\n"
-            "### Compatibility\n\n"
-            "- TODO: Describe exact compatibility and recovery behavior.\n"
-        )
-        CHANGELOG_PATH.write_text(changelog.replace(marker, f"{marker}{entry}", 1))
+    CHANGELOG_PATH.write_text(changelog)
 
     migration = ROOT / f"release/migrations/v{args.version}.md"
     if not migration.exists():
