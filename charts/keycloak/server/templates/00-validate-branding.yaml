@@ -1,0 +1,32 @@
+{{- $auth := .Values.authKeycloak -}}
+{{- if not (kindIs "bool" $auth.branding.enabled) -}}
+  {{- fail "authKeycloak.branding.enabled must be a boolean" -}}
+{{- end -}}
+{{- range $theme := list $auth.loginTheme $auth.emailTheme -}}
+  {{- if not (kindIs "string" $theme) -}}
+    {{- fail "authKeycloak.loginTheme and emailTheme must be strings" -}}
+  {{- end -}}
+  {{- if and (eq $theme "client-brand") (not $auth.branding.enabled) -}}
+    {{- fail "client-brand selection requires authKeycloak.branding.enabled" -}}
+  {{- end -}}
+{{- end -}}
+{{- if $auth.branding.enabled -}}
+  {{- $name := required "authKeycloak.branding.logoConfigMapName is required when branding is enabled" $auth.branding.logoConfigMapName -}}
+  {{- if not (kindIs "string" $name) -}}
+    {{- fail "authKeycloak.branding.logoConfigMapName must be a valid DNS-1123 subdomain" -}}
+  {{- end -}}
+  {{- if or (gt (len $name) 253) (not (regexMatch "^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$" $name)) -}}
+    {{- fail "authKeycloak.branding.logoConfigMapName must be a valid DNS-1123 subdomain" -}}
+  {{- end -}}
+  {{- range $label := splitList "." $name -}}
+    {{- if gt (len $label) 63 -}}
+      {{- fail "authKeycloak.branding.logoConfigMapName must be a valid DNS-1123 subdomain" -}}
+    {{- end -}}
+  {{- end -}}
+  {{- if not (kindIs "string" $auth.realmDisplayName) -}}
+    {{- fail "authKeycloak.realmDisplayName must be a string" -}}
+  {{- end -}}
+  {{- if or (contains "\r" $auth.realmDisplayName) (contains "\n" $auth.realmDisplayName) (contains "${" $auth.realmDisplayName) -}}
+    {{- fail "authKeycloak.realmDisplayName must not contain CR, LF, or property interpolation" -}}
+  {{- end -}}
+{{- end -}}

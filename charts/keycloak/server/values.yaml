@@ -1,5 +1,5 @@
-# IMAGE SOURCE: upstream
-# Keycloak is an upstream image; k8sTools is a documented neurwerk tooling exception.
+# IMAGE SOURCE: neurwerk
+# The theme image extends upstream Keycloak without selecting a realm theme.
 # Pinned here (chart defaults).
 # =============================================================================
 # charts/keycloak/server/values.yaml — default values
@@ -11,12 +11,21 @@
 # =============================================================================
 
 authKeycloak:
-  keycloakImage: quay.io/keycloak/keycloak:26.7.2
+  keycloakImage: ghcr.io/neurwerk/k8s-stack-keycloak-theme:0.1.0@sha256:bc036ed63f6b1821e74a9744aa58ca177ebffb76df6d0ccd5bdf11a9a0f6441d
   # hostname: "" => set in client_*/config/client.yaml
   adminUser: admin
   realm: ""  # required from client_*/config/client.yaml
   # REQUIRED: set per client through keycloak-product-values
   realmDisplayName: ""
+  # Empty theme selections are omitted, not cleared on an existing realm.
+  loginTheme: ""
+  emailTheme: ""
+  branding:
+    # Mount the fixed client-brand child of neurwerk; selection is separate.
+    # Company name comes from realmDisplayName. No client layout overrides.
+    enabled: false
+    # Required when enabled: namespace-local ConfigMap with company-logo.png.
+    logoConfigMapName: ""
   smtp:
     enabled: false
     host: ""
@@ -72,7 +81,7 @@ publicCertificates:
 
 # k8sTools — init script image version
 k8sTools:
-  image: ghcr.io/neurwerk/k8s-stack-tooling:0.1.1
+  image: ghcr.io/neurwerk/k8s-stack-tooling:0.6.1@sha256:60829618924ae8121817a2039faecff2dbf881debef852f84bec7c1ceb03a805
 
 # Populated from the OpenBao-backed Helm input Secret.
 authKeycloakSecrets: {}

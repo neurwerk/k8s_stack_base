@@ -1,8 +1,8 @@
 # =============================================================================
 # Keycloak StatefulSet
 #
-# Uses the official quay.io/keycloak/keycloak image (Red Hat / quay.io —
-# public, always free, no Docker Hub rate limits).
+# Uses the platform theme image extending upstream Keycloak. Installing the
+# image does not select a realm theme or change the upstream consoles.
 #
 # Configured for production behind a Traefik reverse proxy:
 #   - HTTP enabled (TLS terminated at Traefik)
@@ -10,14 +10,21 @@
 #   - KC_HOSTNAME fixed to the full external HTTPS URL
 #   - KC_HEALTH_ENABLED for readiness/liveness probes
 # =============================================================================
+{{- $reload := list }}
+{{- if .Values.authKeycloak.activeDirectory.enabled }}
+{{- $reload = append $reload .Values.authKeycloak.activeDirectory.caConfigMapName }}
+{{- end }}
+{{- if .Values.authKeycloak.branding.enabled }}
+{{- $reload = append $reload .Values.authKeycloak.branding.logoConfigMapName }}
+{{- end }}
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: auth-keycloak-keycloak-stateful-set
   namespace: auth-keycloak
-  {{- if .Values.authKeycloak.activeDirectory.enabled }}
+  {{- if $reload }}
   annotations:
-    configmap.reloader.stakater.com/reload: {{ .Values.authKeycloak.activeDirectory.caConfigMapName | quote }}
+    configmap.reloader.stakater.com/reload: {{ join "," $reload | quote }}
   {{- end }}
   labels:
     app: auth-keycloak-keycloak-app
@@ -34,6 +41,10 @@ spec:
       app.kubernetes.io/instance: {{ .Release.Name }}
   template:
     metadata:
+      {{- if .Values.authKeycloak.branding.enabled }}
+      annotations:
+        checksum/branding: {{ include (print $.Template.BasePath "/branding-config-map.yaml") . | sha256sum }}
+      {{- end }}
       labels:
         app: auth-keycloak-keycloak-app
         app.kubernetes.io/name: keycloak
@@ -102,6 +113,11 @@ spec:
                   name: auth-keycloak-secret
                   key: adminPassword
           volumeMounts:
+            {{- if .Values.authKeycloak.branding.enabled }}
+            - name: client-brand
+              mountPath: /opt/keycloak/themes/client-brand
+              readOnly: true
+            {{- end }}
             - name: postgres-ca
               mountPath: {{ .Values.authKeycloak.database.caMountPath | quote }}
               readOnly: true
@@ -139,6 +155,24 @@ spec:
               cpu: {{ .Values.authKeycloak.keycloak.resources.limits.cpu }}
               memory: {{ .Values.authKeycloak.keycloak.resources.limits.memory }}
       volumes:
+        {{- if .Values.authKeycloak.branding.enabled }}
+        - name: client-brand
+          projected:
+            defaultMode: 0444
+            sources:
+              - configMap:
+                  name: auth-keycloak-branding-properties
+                  items:
+                    - key: login-theme.properties
+                      path: login/theme.properties
+                    - key: email-theme.properties
+                      path: email/theme.properties
+              - configMap:
+                  name: {{ .Values.authKeycloak.branding.logoConfigMapName | quote }}
+                  items:
+                    - key: company-logo.png
+                      path: login/resources/img/company-logo.png
+        {{- end }}
         - name: postgres-ca
           configMap:
             name: {{ .Values.authKeycloak.database.caConfigMapName | quote }}

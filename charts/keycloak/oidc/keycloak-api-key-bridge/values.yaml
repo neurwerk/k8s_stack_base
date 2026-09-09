@@ -17,4 +17,4 @@ authKeycloak:
 
 # k8sTools — init script image version
 k8sTools:
-  image: ghcr.io/neurwerk/k8s-stack-tooling:0.1.1
+  image: ghcr.io/neurwerk/k8s-stack-tooling:0.6.1@sha256:60829618924ae8121817a2039faecff2dbf881debef852f84bec7c1ceb03a805
