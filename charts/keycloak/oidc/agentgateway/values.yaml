@@ -30,5 +30,5 @@ k8sTools:
 openrouterCatalog:
   enabled: true
   excludedModels: []
-  grantToAccessGroups: true
+  grantToAccessGroups: false
   models: []

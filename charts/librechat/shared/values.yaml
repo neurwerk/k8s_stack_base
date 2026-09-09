@@ -88,7 +88,7 @@ mcp:
 openrouterCatalog:
   enabled: true
   excludedModels: []
-  grantToAccessGroups: true
+  grantToAccessGroups: false
   models: []
 
 guardrails:

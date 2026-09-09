@@ -1,0 +1,42 @@
+realmRoles: keycloak-admin,api-key-admin,opensearch-admin,langfuse-admin,pii-admin,platform-admin,studio-user,librechat-user,librechat-admin,dify-user,dify-admin
+realmRoleComposites:
+  librechat-admin:
+    - librechat-user
+  dify-admin:
+    - dify-user
+  platform-admin:
+    - keycloak-admin
+    - api-key-admin
+    - opensearch-admin
+    - langfuse-admin
+    - pii-admin
+    - studio-user
+    - librechat-admin
+    - dify-admin
+accessGroups:
+  /access/neurwerk-api-key-admins:
+    realmRoles: [api-key-admin]
+  /access/neurwerk-dify-admins:
+    realmRoles: [dify-admin]
+  /access/neurwerk-dify-users:
+    realmRoles: [dify-user]
+  /access/neurwerk-keycloak-admins:
+    realmRoles: [keycloak-admin]
+  /access/neurwerk-langfuse-admins:
+    realmRoles: [langfuse-admin]
+  /access/neurwerk-librechat-admins:
+    realmRoles: [librechat-admin]
+  /access/neurwerk-librechat-users:
+    realmRoles: [librechat-user]
+  /access/neurwerk-opensearch-admins:
+    realmRoles: [opensearch-admin]
+  /access/neurwerk-pii-admins:
+    realmRoles: [pii-admin]
+  /access/neurwerk-platform-admins:
+    realmRoles: [platform-admin]
+  /access/neurwerk-studio-users:
+    realmRoles: [studio-user]
+  /access/neurwerk-llm-all-users:
+    realmRoles: []
+  /access/neurwerk-mcp-all-users:
+    realmRoles: []
