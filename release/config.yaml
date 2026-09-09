@@ -52,12 +52,12 @@ prerequisites:
   version: x86-64-v3
   source: https://github.com/documentdb/documentdb/blob/v0.116-0/pg_documentdb_gw/.cargo/config.toml
 exceptions:
-- artifact: ghcr.io/danny-avila/librechat-dev@sha256:f309d33a0f0b22fe5d3a804c5d197f40d58e69f74d49b68f250cbc502da7e6b2
+- artifact: ghcr.io/danny-avila/librechat-dev@sha256:d05623decc48482bd83560248eb6efbdb5e60ea844298ab2fbaa70b462feb611
   owner: platform
   expires: 2026-09-30
-  reason: Required streaming and reasoning behavior currently exists only in the reviewed upstream source
-    commit. The platform pins its exact multi-architecture image digest; moving development tags remain
-    prohibited.
+  reason: Reviewed upstream source eaed216994b2604e050966cd6eaf3c2bdd359233 provides required streaming,
+    reasoning and role provisioning APIs. Docker Dev Images Build run 34323899158 published this exact
+    multi-architecture digest. Moving development tags remain prohibited.
 - artifact: charts/postgres/operations:documentdb-database-rbac
   owner: platform
   expires: 2026-11-27

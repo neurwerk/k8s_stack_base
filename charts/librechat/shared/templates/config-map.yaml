@@ -25,6 +25,8 @@ data:
       document: s3
     {{- end }}
     interface:
+      # The app permission hook owns AGENTS and MARKETPLACE per role. Global
+      # interface.agents/marketplace overrides would overwrite both roles.
       presets: false
       parameters: false
       # Grouped model specs own selection; hide the duplicate raw endpoint row.

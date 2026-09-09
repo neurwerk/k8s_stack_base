@@ -99,6 +99,14 @@ spec:
             matchLabels:
               app.kubernetes.io/name: frontend-librechat
               app.kubernetes.io/instance: frontend-librechat
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: frontend-librechat
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: frontend-librechat
+              app.kubernetes.io/instance: frontend-librechat-permissions
+              app.kubernetes.io/component: permissions
         - podSelector:
             matchLabels:
               app.kubernetes.io/name: postgres-operations-provisioning
