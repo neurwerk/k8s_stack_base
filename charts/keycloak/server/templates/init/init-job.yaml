@@ -58,6 +58,14 @@ spec:
               value: {{ required "authKeycloak.realm is required" .Values.authKeycloak.realm | quote }}
             - name: KC_REALM_DISPLAY_NAME
               value: {{ required "authKeycloak.realmDisplayName is required" .Values.authKeycloak.realmDisplayName | quote }}
+            {{- with .Values.authKeycloak.loginTheme }}
+            - name: KC_REALM_LOGIN_THEME
+              value: {{ . | quote }}
+            {{- end }}
+            {{- with .Values.authKeycloak.emailTheme }}
+            - name: KC_REALM_EMAIL_THEME
+              value: {{ . | quote }}
+            {{- end }}
             - name: KC_SSO_SESSION_MAX_LIFESPAN
               value: {{ .Values.authKeycloak.ssoSessionMaxLifespan | default "2592000" | quote }}
             - name: KC_SSO_SESSION_IDLE_TIMEOUT

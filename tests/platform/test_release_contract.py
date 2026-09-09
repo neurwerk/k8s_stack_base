@@ -25,6 +25,81 @@ SPEC.loader.exec_module(platform_release)
 
 
 class ReleaseContractTest(unittest.TestCase):
+    def test_keycloak_branding_render_contract(self) -> None:
+        def render(auth):
+            return subprocess.run(
+                ["helm", "template", "keycloak", str(ROOT / "charts/keycloak/server"),
+                 "--values", str(ROOT / "tests/validation/helm-lint-values.yaml"),
+                 "--values", "-"],
+                input=yaml.safe_dump({"authKeycloak": auth}),
+                capture_output=True, text=True, check=False,
+            )
+
+        result = render({})
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn("KC_REALM_LOGIN_THEME", result.stdout)
+        self.assertNotIn("KC_REALM_EMAIL_THEME", result.stdout)
+        self.assertNotIn("name: client-brand", result.stdout)
+        self.assertNotIn("name: auth-keycloak-branding-properties", result.stdout)
+        self.assertNotIn("checksum/branding", result.stdout)
+
+        auth = {
+            "branding": {"enabled": True, "logoConfigMapName": "keycloak-branding-logo"},
+            "realmDisplayName": " Example Company \\ =:#!\t\f\u00e9",
+            "loginTheme": "client-brand", "emailTheme": "client-brand",
+        }
+        result = render(auth)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        docs = {doc["kind"]: doc for doc in yaml.safe_load_all(result.stdout) if doc}
+        properties = docs["ConfigMap"]["data"]
+        expected = "parent=neurwerk\ncompanyName=\\ Example\\ Company\\ \\\\\\ \\=\\:\\#\\!\\t\\f\u00e9\n"
+        self.assertEqual(properties, {
+            "login-theme.properties": expected, "email-theme.properties": expected,
+        })
+        sts = docs["StatefulSet"]
+        self.assertEqual(sts["metadata"]["annotations"]["configmap.reloader.stakater.com/reload"],
+                         "keycloak-branding-logo")
+        pod = sts["spec"]["template"]
+        checksum = pod["metadata"]["annotations"]["checksum/branding"]
+        volume = next(v for v in pod["spec"]["volumes"] if v["name"] == "client-brand")
+        self.assertEqual(volume["projected"]["defaultMode"], 0o444)
+        self.assertEqual(volume["projected"]["sources"], [
+            {"configMap": {"name": "auth-keycloak-branding-properties", "items": [
+                {"key": "login-theme.properties", "path": "login/theme.properties"},
+                {"key": "email-theme.properties", "path": "email/theme.properties"}]}},
+            {"configMap": {"name": "keycloak-branding-logo", "items": [
+                {"key": "company-logo.png", "path": "login/resources/img/company-logo.png"}]}},
+        ])
+        self.assertIn({"name": "client-brand", "mountPath": "/opt/keycloak/themes/client-brand",
+                       "readOnly": True}, pod["spec"]["containers"][0]["volumeMounts"])
+        env = docs["Job"]["spec"]["template"]["spec"]["containers"][0]["env"]
+        for name in ("KC_REALM_LOGIN_THEME", "KC_REALM_EMAIL_THEME"):
+            self.assertIn({"name": name, "value": "client-brand"}, env)
+        auth["realmDisplayName"] = "Example Company"
+        self.assertNotIn(checksum, render(auth).stdout)
+        auth["activeDirectory"] = {
+            "enabled": True, "connectionUrl": "ldaps://ad.example:636",
+            "usersDn": "OU=Users,DC=example", "groupsDn": "OU=Groups,DC=example",
+            "groupNames": ["neurwerk-platform-admins"], "egressCidrs": ["192.0.2.1/32"],
+        }
+        result = render(auth)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('"auth-keycloak-active-directory-ca,keycloak-branding-logo"', result.stdout)
+        for key in ("loginTheme", "emailTheme"):
+            result = render({key: "client-brand"})
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("client-brand selection requires", result.stderr)
+        for name in ("line\nbreak", "line\rbreak", "${env.NAME}", "\\${name}"):
+            with self.subTest(company=name):
+                result = render({**auth, "realmDisplayName": name})
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("must not contain CR, LF, or property interpolation", result.stderr)
+        for name in ("", "../logo", "Logo", "logo,other", "x" * 64):
+            with self.subTest(configmap=name):
+                result = render({**auth, "branding": {"enabled": True, "logoConfigMapName": name}})
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("authKeycloak.branding.logoConfigMapName", result.stderr)
+
     def test_compact_notes_preserve_only_selected_authored_body(self) -> None:
         body = (
             "- Fix LibreChat MCP authentication with internal routing.\n"

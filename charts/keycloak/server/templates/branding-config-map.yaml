@@ -1,0 +1,20 @@
+{{- if .Values.authKeycloak.branding.enabled }}
+{{- /* Escape Java properties values, including leading whitespace and literal backslashes. */}}
+{{- $company := required "authKeycloak.realmDisplayName is required" .Values.authKeycloak.realmDisplayName | replace "\\" "\\\\" | replace " " "\\ " | replace "\t" "\\t" | replace "\f" "\\f" | replace "=" "\\=" | replace ":" "\\:" | replace "#" "\\#" | replace "!" "\\!" }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: auth-keycloak-branding-properties
+  namespace: auth-keycloak
+  labels:
+    app.kubernetes.io/name: keycloak
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: auth-keycloak
+data:
+  login-theme.properties: |
+    parent=neurwerk
+    companyName={{ $company }}
+  email-theme.properties: |
+    parent=neurwerk
+    companyName={{ $company }}
+{{- end }}

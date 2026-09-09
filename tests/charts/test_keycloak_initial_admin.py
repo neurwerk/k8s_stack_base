@@ -46,7 +46,11 @@ class KeycloakInitialAdminTests(unittest.TestCase):
         self.assertIn('"helm.sh/hook": post-install\n', manifest)
         self.assertIn('"helm.sh/hook-weight": "0"', manifest)
         self.assertIn("- send-user-actions-email", manifest)
-        self.assertIn("image: \"ghcr.io/neurwerk/k8s-stack-tooling:0.1.1\"", manifest)
+        self.assertIn(
+            'image: "ghcr.io/neurwerk/k8s-stack-tooling:0.6.1@sha256:'
+            '60829618924ae8121817a2039faecff2dbf881debef852f84bec7c1ceb03a805"',
+            manifest,
+        )
         self.assertIn("value: \"https://lint.example\"", manifest)
         self.assertIn("name: KC_ACTION_EMAIL_LIFESPAN\n              value: \"1800\"", manifest)
         self.assertIn("name: auth-keycloak-initial-admin-action-email-egress", manifest)
