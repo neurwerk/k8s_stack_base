@@ -9,6 +9,10 @@ upgrade path.
 
 ## [Unreleased]
 
+## [0.3.3] - 2026-09-09
+
+- Standardize platform-owned access groups and separate application, model, and MCP permissions.
+
 ## [0.3.2] - 2026-09-08
 
 - Fix LibreChat MCP authentication with internal routing.
