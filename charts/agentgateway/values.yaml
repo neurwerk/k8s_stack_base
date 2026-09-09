@@ -197,6 +197,10 @@ mcp:
   # Static server IDs may be canonical dotted DNS subdomains. Workload-backed IDs
   # must be one DNS label because the exact ID is embedded without an alias in
   # Kubernetes Service and container names.
+  # Static host entries may set tls: true to originate TLS using system public
+  # trust roots and the exact host for SNI and certificate SAN verification.
+  # Omitted/false keeps HTTP. TLS is not supported on workload entries; no
+  # verification bypass or custom CA option is exposed. Set port explicitly.
   servers: []
 
 # ── Guardrails ────────────────────────────────────────────────────────────────

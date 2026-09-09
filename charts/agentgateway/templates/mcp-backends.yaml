@@ -11,6 +11,8 @@
 {{- if and .workload .host }}{{- fail (printf "mcp server %q cannot set both workload and host" .name) }}{{- end }}
 {{- if and (not .workload) (not .host) }}{{- fail (printf "mcp server %q requires workload or host" .name) }}{{- end }}
 {{- if and .workload .upstreamAuth }}{{- fail (printf "mcp server %q workload cannot set upstreamAuth" .name) }}{{- end }}
+{{- if and (hasKey . "tls") (not (kindIs "bool" .tls)) }}{{- fail (printf "mcp server %q tls must be a boolean" .name) }}{{- end }}
+{{- if and .workload .tls }}{{- fail (printf "mcp server %q tls requires a static host, not workload" .name) }}{{- end }}
 {{- if and .host (not (has .host $approvedHosts)) }}{{- fail (printf "mcp server %q host %q is not in mcp.approvedHosts" .name .host) }}{{- end }}
 ---
 apiVersion: agentgateway.dev/v1alpha1
@@ -39,8 +41,15 @@ spec:
           port: {{ .port | default 8080 }}
           path: {{ .path | default "/mcp" | quote }}
           protocol: {{ .protocol | default "StreamableHTTP" }}
-          {{- if .upstreamAuth }}
+          {{- if or .tls .upstreamAuth }}
           policies:
+            {{- if .tls }}
+            tls:
+              sni: {{ .host | quote }}
+              verifySubjectAltNames:
+                - {{ .host | quote }}
+            {{- end }}
+            {{- if .upstreamAuth }}
             auth:
               credentials:
                 - location:
@@ -49,6 +58,7 @@ spec:
                   secretRef:
                     name: {{ $secretName }}
                     key: {{ .upstreamAuth.key | default "apiKey" | quote }}
+            {{- end }}
           {{- end }}
 {{- end }}
 {{- end }}
