@@ -30,7 +30,7 @@ authKeycloak:
 
   # Access groups to assign (JSON array of group paths). The user's role claims
   # are derived from group mappings; never grant a human direct realm roles.
-  initialAdminGroups: '["/access/platform-admins"]'
+  initialAdminGroups: '["/access/neurwerk-platform-admins"]'
   initialAdminRequiredActions: '["VERIFY_EMAIL", "UPDATE_PASSWORD", "CONFIGURE_TOTP"]'
 
 # Internal Traefik routing is the fail-closed default because canonical endpoint traffic should not require broad public egress.

@@ -20,7 +20,7 @@ def catalog(name: str = "remote/openrouter/acme/model", upstream: str = "acme/mo
     return {
         "enabled": True,
         "excludedModels": [],
-        "grantToAccessGroups": True,
+        "grantToAccessGroups": False,
         "models": [
             {
                 "name": name,
@@ -313,26 +313,28 @@ class AuthorizationCatalogTests(unittest.TestCase):
         roles = json.loads(env_value(result, "KC_CLIENT_ROLES"))
         self.assertEqual(roles.count("model:remote/openrouter/acme/model:invoke"), 1)
 
-    def test_access_group_grants_can_be_disabled(self) -> None:
+    def test_access_group_grants_are_explicit_and_catalog_roles_remain_available(self) -> None:
+        group = "/access/neurwerk-llm-all-users"
+        permission = "model:remote/openrouter/acme/model:invoke"
         values = {
             "openrouterCatalog": catalog(),
             "authKeycloak": {
                 "agentgatewayClientRoles": ["llm:invoke"],
-                "accessGroups": {"/access/llm": {"realmRoles": []}},
-                "agentgatewayAccessGroups": {"/access/llm": ["llm:invoke"]},
+                "agentgatewayAccessGroups": {group: ["llm:invoke"]},
             },
         }
-        granted = json.loads(env_value(render("keycloak/realm-config/realm-roles", values), "KC_ACCESS_GROUPS"))
-        self.assertIn(
-            "model:remote/openrouter/acme/model:invoke",
-            granted["/access/llm"]["clientRoles"]["agentgateway"],
-        )
-
-        values["openrouterCatalog"]["grantToAccessGroups"] = False
         explicit = json.loads(env_value(render("keycloak/realm-config/realm-roles", values), "KC_ACCESS_GROUPS"))
         self.assertEqual(
-            explicit["/access/llm"]["clientRoles"]["agentgateway"], ["llm:invoke"]
+            explicit[group]["clientRoles"]["agentgateway"], ["llm:invoke"]
         )
+        values["authKeycloak"]["agentgatewayAccessGroups"][group].append(permission)
+        granted = json.loads(env_value(render("keycloak/realm-config/realm-roles", values), "KC_ACCESS_GROUPS"))
+        self.assertEqual(granted[group]["clientRoles"]["agentgateway"], ["llm:invoke", permission])
+
+        values["openrouterCatalog"]["excludedModels"] = ["acme/model"]
+        failed = render("keycloak/realm-config/realm-roles", values, check=False)
+        self.assertNotEqual(failed.returncode, 0)
+        self.assertIn("grants undeclared role", failed.stderr)
 
     def test_dify_and_bridge_validate_against_effective_roles(self) -> None:
         permission = "model:remote/openrouter/acme/model:invoke"
@@ -375,36 +377,32 @@ class AuthorizationCatalogTests(unittest.TestCase):
 
     def test_access_group_environment_boundary(self) -> None:
         def boundary_values(over_limit: bool) -> tuple[dict, int]:
-            realm_roles: list[str] = []
-            access_groups = {
-                "/access/llm": {
-                    "realmRoles": realm_roles,
-                    "clientRoles": {"agentgateway": ["llm:invoke"]},
-                }
-            }
+            roles = ["llm:invoke"]
+            group = "/access/neurwerk-llm-all-users"
+            access_groups = json.loads(env_value(
+                render("keycloak/realm-config/realm-roles", {}), "KC_ACCESS_GROUPS"
+            ))
+            access_groups[group]["clientRoles"] = {"agentgateway": roles}
             target = 120000 if over_limit else 115000
             while True:
-                candidate = f"boundary-role-{len(realm_roles):04d}-" + "x" * 80
-                realm_roles.append(candidate)
+                candidate = f"model:boundary-{len(roles):04d}-" + "x" * 80 + ":invoke"
+                roles.append(candidate)
                 size = len(json.dumps(access_groups, separators=(",", ":")))
                 if size > target:
                     if not over_limit:
-                        realm_roles.pop()
+                        roles.pop()
                         size = len(json.dumps(access_groups, separators=(",", ":")))
                     break
             values = {
                 "openrouterCatalog": {
                     "enabled": False,
                     "excludedModels": [],
-                    "grantToAccessGroups": True,
+                    "grantToAccessGroups": False,
                     "models": [],
                 },
                 "authKeycloak": {
-                    "agentgatewayClientRoles": ["llm:invoke"],
-                    "accessGroups": {
-                        "/access/llm": {"realmRoles": realm_roles},
-                    },
-                    "agentgatewayAccessGroups": {"/access/llm": ["llm:invoke"]},
+                    "agentgatewayClientRoles": roles,
+                    "agentgatewayAccessGroups": {group: roles},
                 },
             }
             return values, size
@@ -615,9 +613,7 @@ class SyntheticClientCatalogIntegrationTests(unittest.TestCase):
         }
         cls.roles = {f"model:{name}:invoke" for name in cls.public_names}
         cls.configured_groups = (
-            "/access/librechat-users",
-            "/access/studio-users",
-            "/access/dify-users",
+            "/access/neurwerk-llm-all-users",
         )
 
         cls.agentgateway = render(
@@ -637,7 +633,8 @@ class SyntheticClientCatalogIntegrationTests(unittest.TestCase):
                 "authKeycloak": {
                     "agentgatewayClientRoles": ["llm:invoke"],
                     "agentgatewayAccessGroups": {
-                        group: ["llm:invoke"] for group in cls.configured_groups
+                        group: ["llm:invoke", *sorted(cls.roles)]
+                        for group in cls.configured_groups
                     },
                 },
                 "openrouterCatalog": cls.client_catalog,

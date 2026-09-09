@@ -24,7 +24,7 @@ authKeycloak:
 openrouterCatalog:
   enabled: true
   excludedModels: []
-  grantToAccessGroups: true
+  grantToAccessGroups: false
   models: []
 
 # ── Chart own values ────────────────────────────────────────────────────────

@@ -8,18 +8,28 @@
 # =============================================================================
 {{- $inheritedRoles := include "keycloak-realm-roles.inheritedRoles" . | fromYamlArray }}
 {{- $agentgatewayRoles := concat (.Values.authKeycloak.agentgatewayClientRoles | default list) $inheritedRoles | uniq }}
-{{- $accessGroups := deepCopy (.Values.authKeycloak.accessGroups | default dict) }}
+{{- $standard := .Files.Get "files/standard-access.yaml" | fromYaml }}
+{{- range $key := list "accessGroups" "realmRoles" "realmRoleComposites" }}
+{{- if hasKey $.Values.authKeycloak $key }}{{- fail (printf "authKeycloak.%s is platform-owned and must be omitted" $key) }}{{- end }}
+{{- end }}
+{{- if .Values.openrouterCatalog.grantToAccessGroups }}{{- fail "openrouterCatalog.grantToAccessGroups must be false; configure explicit resource-group grants" }}{{- end }}
+{{- $accessGroups := $standard.accessGroups }}
+{{/* Explicit empty mappings revoke stale grants; omitted mappings do not. */}}
+{{- range $accessGroups }}
+{{- $_ := set . "clientRoles" (dict "agentgateway" list) }}
+{{- end }}
 {{- if not (has "llm:invoke" $agentgatewayRoles) }}{{- fail "authKeycloak.agentgatewayClientRoles must include llm:invoke" }}{{- end }}
 {{- range $agentgatewayRoles }}
 {{- if not (regexMatch "^(llm:invoke|(model|mcp):[A-Za-z0-9][A-Za-z0-9._/-]{0,127}:invoke)$" .) }}{{- fail (printf "invalid AgentGateway client role %q" .) }}{{- end }}
 {{- end }}
 {{- range $groupName, $groupRoles := .Values.authKeycloak.agentgatewayAccessGroups | default dict }}
 {{- $group := get $accessGroups $groupName }}
-{{- if not $group }}{{- fail (printf "AgentGateway access group %q is not declared in authKeycloak.accessGroups" $groupName) }}{{- end }}
+{{- if not (has $groupName (list "/access/neurwerk-llm-all-users" "/access/neurwerk-mcp-all-users")) }}{{- fail (printf "AgentGateway grants are only allowed for the two standard resource groups, not %q" $groupName) }}{{- end }}
 {{- if not (kindIs "slice" $groupRoles) }}{{- fail (printf "AgentGateway access group %q roles must be a list" $groupName) }}{{- end }}
-{{- if $.Values.openrouterCatalog.grantToAccessGroups }}{{- $groupRoles = concat $groupRoles $inheritedRoles | uniq }}{{- else }}{{- $groupRoles = $groupRoles | uniq }}{{- end }}
+{{- $groupRoles = $groupRoles | uniq }}
 {{- range $groupRoles }}
 {{- if not (has . $agentgatewayRoles) }}{{- fail (printf "AgentGateway access group %q grants undeclared role %q" $groupName .) }}{{- end }}
+{{- if or (and (eq $groupName "/access/neurwerk-llm-all-users") (hasPrefix "mcp:" .)) (and (eq $groupName "/access/neurwerk-mcp-all-users") (hasPrefix "model:" .)) }}{{- fail (printf "AgentGateway access group %q cannot grant cross-resource role %q" $groupName .) }}{{- end }}
 {{- end }}
 {{- $clientRoles := get $group "clientRoles" | default dict }}
 {{- $_ := set $clientRoles "agentgateway" $groupRoles }}
@@ -77,9 +87,9 @@ spec:
             - name: KC_REALM
               value: {{ required "authKeycloak.realm is required" .Values.authKeycloak.realm | quote }}
             - name: KC_REALM_ROLES
-              value: {{ .Values.authKeycloak.realmRoles | quote }}
+              value: {{ $standard.realmRoles | quote }}
             - name: KC_REALM_ROLE_COMPOSITES
-              value: {{ .Values.authKeycloak.realmRoleComposites | toJson | quote }}
+              value: {{ $standard.realmRoleComposites | toJson | quote }}
             - name: KC_ACCESS_GROUPS
               value: {{ $accessGroupsJson | quote }}
         - name: setup-composites

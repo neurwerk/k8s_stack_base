@@ -280,7 +280,7 @@ guardrails:
 openrouterCatalog:
   enabled: false
   excludedModels: []
-  grantToAccessGroups: true
+  grantToAccessGroups: false
   models: []
 
 # ── Subchart values (agentgateway Helm chart) ────────────────────────────────
