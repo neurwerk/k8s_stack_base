@@ -1,11 +1,20 @@
 frontendLibrechat:
   hostname: librechat.example.invalid
   app:
-    image: ghcr.io/danny-avila/librechat-dev@sha256:f309d33a0f0b22fe5d3a804c5d197f40d58e69f74d49b68f250cbc502da7e6b2
+    image: ghcr.io/danny-avila/librechat-dev@sha256:d05623decc48482bd83560248eb6efbdb5e60ea844298ab2fbaa70b462feb611
     imagePullPolicy: IfNotPresent
     # Keep upstream Redis stream delta coalescing disabled by default.
     streamDeltaCoalesceMs: 0
     replicas: 1
+    permissions:
+      # Finite release gate; policy itself is platform-owned, not a client override.
+      resources:
+        requests:
+          cpu: 50m
+          memory: 256Mi
+        limits:
+          cpu: "1"
+          memory: 1Gi
     service:
       port: 3080
     imagePersistence:

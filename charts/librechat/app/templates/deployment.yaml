@@ -241,7 +241,7 @@ spec:
             - name: OPENID_USE_END_SESSION_ENDPOINT
               value: "true"
             - name: ENDPOINTS
-              value: custom
+              value: custom,agents
             {{- if .Values.frontendLibrechat.rag.enabled }}
             - name: RAG_API_URL
               value: {{ .Values.frontendLibrechat.rag.url | quote }}

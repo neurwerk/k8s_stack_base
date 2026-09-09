@@ -1,0 +1,145 @@
+{{- $name := "frontend-librechat-permissions" -}}
+{{- $labels := dict "app.kubernetes.io/name" "frontend-librechat" "app.kubernetes.io/instance" (printf "%s-permissions" .Release.Name) "app.kubernetes.io/part-of" "frontend-librechat" "app.kubernetes.io/component" "permissions" -}}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- toYaml $labels | nindent 4 }}
+  annotations:
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-weight: "-20"
+    helm.sh/hook-delete-policy: before-hook-creation
+automountServiceAccountToken: false
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- toYaml $labels | nindent 4 }}
+  annotations:
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-weight: "-20"
+    helm.sh/hook-delete-policy: before-hook-creation
+spec:
+  podSelector:
+    matchLabels:
+      {{- toYaml $labels | nindent 6 }}
+  policyTypes: [Ingress, Egress]
+  ingress: []
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.frontendLibrechat.documentdb.namespace }}
+          podSelector:
+            matchLabels:
+              {{- toYaml .Values.frontendLibrechat.documentdb.podSelector | nindent 14 }}
+      ports:
+        - port: {{ .Values.frontendLibrechat.documentdb.port }}
+          protocol: TCP
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: frontend-librechat-valkey
+      ports:
+        - port: {{ .Values.frontendLibrechat.valkey.port }}
+          protocol: TCP
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- toYaml $labels | nindent 4 }}
+  annotations:
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-weight: "-10"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  activeDeadlineSeconds: 300
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        {{- toYaml $labels | nindent 8 }}
+    spec:
+      serviceAccountName: {{ $name }}
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      restartPolicy: Never
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: permissions
+          image: {{ .Values.frontendLibrechat.app.image | quote }}
+          imagePullPolicy: {{ .Values.frontendLibrechat.app.imagePullPolicy }}
+          workingDir: /app
+          command: [node, -e]
+          args:
+            - |
+              {{- .Files.Get "files/provision-permissions.cjs" | nindent 14 }}
+              void main();
+          env:
+            - name: NODE_ENV
+              value: production
+            - name: MONGO_URI
+              valueFrom:
+                secretKeyRef:
+                  name: frontend-librechat-secret
+                  key: MONGO_URI
+            - name: USE_REDIS
+              value: "true"
+            - name: REDIS_URI
+              valueFrom:
+                secretKeyRef:
+                  name: frontend-librechat-secret
+                  key: REDIS_URI
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          resources:
+            {{- toYaml .Values.frontendLibrechat.app.permissions.resources | nindent 12 }}
+          volumeMounts:
+            - name: documentdb-ca
+              mountPath: {{ .Values.frontendLibrechat.documentdb.caBundle.mountPath }}
+              subPath: {{ .Values.frontendLibrechat.documentdb.caBundle.key }}
+              readOnly: true
+            - name: logs
+              mountPath: /app/logs
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: documentdb-ca
+          configMap:
+            name: {{ .Values.frontendLibrechat.documentdb.caBundle.name }}
+            items:
+              - key: {{ .Values.frontendLibrechat.documentdb.caBundle.key }}
+                path: {{ .Values.frontendLibrechat.documentdb.caBundle.key }}
+        - name: logs
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
