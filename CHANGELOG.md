@@ -9,6 +9,20 @@ upgrade path.
 
 ## [Unreleased]
 
+## [0.3.4] - 2026-09-09
+
+- Support verified TLS for static MCP servers (`tls: true`, explicit upstream port).
+- Update Studio to `0.8.0`: daily model usage, Tokens/USD charts, and self-profile landing.
+- Enable LibreChat agents and provision role permissions using the reviewed upstream image.
+
+### Upgrade Notes
+
+- Reconcile operations PostgreSQL before LibreChat's permission hook. Upgrades
+  reapply USER/ADMIN agent and marketplace use; only ADMIN may create/share agents.
+  Keep `interface.agents` and `interface.marketplace` overrides omitted.
+- Verify the hook, application readiness, and existing data. The LibreChat image
+  exception still expires `2026-09-30`. See [migration](release/migrations/v0.3.4.md).
+
 ## [0.3.3] - 2026-09-09
 
 - Standardize platform-owned access groups and separate application, model, and MCP permissions.

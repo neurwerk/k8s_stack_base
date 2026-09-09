@@ -1,11 +1,11 @@
 apiVersion: platform.neurwerk.com/v1alpha1
 kind: PlatformRelease
 metadata:
-  name: v0.3.3
+  name: v0.3.4
 spec:
-  version: 0.3.3
+  version: 0.3.4
   releaseDate: '2026-09-09'
-  summary: Standardize platform-owned access groups and separate application, model, and MCP permissions.
+  summary: MCP upstream TLS, Studio 0.8.0, and LibreChat agent permissions.
   trust:
     signerIdentity: platform-release
     algorithm: ssh-ed25519
@@ -992,9 +992,10 @@ spec:
       uv: 0.11.21
       node: 24.20.0
   provenance:
-    previousTag: v0.3.2
-    includedThrough: 67d430bc088f32b0e3bcea5759dd9958eeaf1eb7
+    previousTag: v0.3.3
+    includedThrough: 37a669968d4624768800ccaf7a24ae012f38795c
     commits:
-    - 4fd3243e46f4863e48a9b5f0ae0816f1cc13a497
-    - 67d430bc088f32b0e3bcea5759dd9958eeaf1eb7
-    compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.2...67d430bc088f32b0e3bcea5759dd9958eeaf1eb7
+    - f43c27ab08d051ae0d07c3dccda850285b7b4a34
+    - 42e064994bea450100ab8d7dad0d7fdbefca9708
+    - 37a669968d4624768800ccaf7a24ae012f38795c
+    compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.3...37a669968d4624768800ccaf7a24ae012f38795c
