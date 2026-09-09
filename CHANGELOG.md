@@ -9,6 +9,10 @@ upgrade path.
 
 ## [Unreleased]
 
+## [0.3.4] - 2026-09-09
+
+- MCP upstream TLS, Studio 0.8.0, and LibreChat agent permissions.
+
 ## [0.3.3] - 2026-09-09
 
 - Standardize platform-owned access groups and separate application, model, and MCP permissions.
