@@ -1,11 +1,11 @@
 apiVersion: platform.neurwerk.com/v1alpha1
 kind: PlatformRelease
 metadata:
-  name: v0.3.2
+  name: v0.3.3
 spec:
-  version: 0.3.2
-  releaseDate: '2026-09-08'
-  summary: Fixes tiny DNS bug for certain clients
+  version: 0.3.3
+  releaseDate: '2026-09-09'
+  summary: Standardize platform-owned access groups and separate application, model, and MCP permissions.
   trust:
     signerIdentity: platform-release
     algorithm: ssh-ed25519
@@ -79,7 +79,7 @@ spec:
     charts:
     - path: charts/agentgateway
       name: infra-agentgateway
-      version: 1.2.1
+      version: 1.2.2
       appVersion: 1.5.0
       dependencyLock:
         digest: sha256:e5b8cfb3b1e062b8e9268a42405a466d71d22bdb18ae83ff7496788af21abedd
@@ -192,7 +192,7 @@ spec:
       appVersion: '1.0'
     - path: charts/keycloak/oidc/agentgateway
       name: agentgateway
-      version: 1.1.0
+      version: 1.1.1
       appVersion: '1.0'
     - path: charts/keycloak/oidc/dify
       name: dify
@@ -200,7 +200,7 @@ spec:
       appVersion: '1.0'
     - path: charts/keycloak/oidc/dify-agentgateway
       name: dify-agentgateway
-      version: 1.1.0
+      version: 1.1.1
       appVersion: '1.0'
     - path: charts/keycloak/oidc/keycloak-api-key-bridge
       name: keycloak-api-key-bridge
@@ -219,17 +219,17 @@ spec:
       version: 1.0.1
     - path: charts/keycloak/realm-config/initial-admin
       name: keycloak-oidc-configurations-initial-admin
-      version: 1.0.2
+      version: 1.1.0
     - path: charts/keycloak/realm-config/realm-roles
       name: keycloak-oidc-configurations-realm-roles
-      version: 1.1.0
+      version: 2.0.0
     - path: charts/keycloak/server
       name: keycloak
       version: 1.0.1
       appVersion: 26.7.2
     - path: charts/keycloak-api-key-bridge
       name: auth-keycloak-api-key-bridge
-      version: 1.1.0
+      version: 1.1.1
       appVersion: 0.1.0
     - path: charts/kube-prometheus-stack
       name: monitor-kube-prometheus-stack
@@ -307,7 +307,7 @@ spec:
       appVersion: v0.9.0
     - path: charts/librechat/shared
       name: frontend-librechat-shared
-      version: 1.1.3
+      version: 1.1.4
       appVersion: cdfe54c3498818b21b33fb609fee02f2742b37ea
     - path: charts/librechat/valkey
       name: frontend-librechat-valkey
@@ -991,13 +991,9 @@ spec:
       pre-commit: 4.6.1
       uv: 0.11.21
   provenance:
-    previousTag: v0.3.1
-    includedThrough: eb207cc34343fe798c6ec07a73baa8a317daa18d
+    previousTag: v0.3.2
+    includedThrough: 67d430bc088f32b0e3bcea5759dd9958eeaf1eb7
     commits:
-    - 0287384c48279efd7eb0d6eca4cfa15ebab39d24
-    - f81579cb38f9d3b6d9586178701deefae5836544
-    - 5081581e0001abf5eadf7909a6d40e2302c6ba51
-    - a6d8b695673b50983a899d25b0e5f27f8e0aad6b
-    - bb5feb120528a8f9335f5a58cb105cade268ef39
-    - eb207cc34343fe798c6ec07a73baa8a317daa18d
-    compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.1...eb207cc34343fe798c6ec07a73baa8a317daa18d
+    - 4fd3243e46f4863e48a9b5f0ae0816f1cc13a497
+    - 67d430bc088f32b0e3bcea5759dd9958eeaf1eb7
+    compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.2...67d430bc088f32b0e3bcea5759dd9958eeaf1eb7

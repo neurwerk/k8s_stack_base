@@ -9,6 +9,30 @@ upgrade path.
 
 ## [Unreleased]
 
+## [0.3.3] - 2026-09-09
+
+- Standardize platform-owned access groups and separate application, model, and MCP permissions.
+- Define 13 canonical `neurwerk-` groups in
+  `charts/keycloak/realm-config/realm-roles/files/standard-access.yaml`; application
+  realm roles and composites are unchanged. Seven chart versions advance; runtime
+  images, prerequisites, package exclusions, and exceptions remain unchanged.
+
+### Breaking Changes
+
+- Remove `authKeycloak.accessGroups`, `authKeycloak.realmRoles`, and
+  `authKeycloak.realmRoleComposites` overrides, including empty keys. Use canonical
+  initial-admin and directory memberships, and require
+  `openrouterCatalog.grantToAccessGroups: false` in effective client values.
+- Grant model and MCP permissions explicitly through
+  `authKeycloak.agentgatewayAccessGroups`, only to `/access/neurwerk-llm-all-users`
+  and `/access/neurwerk-mcp-all-users` respectively. No application/admin group
+  grants, cross-resource grants, or automatic grants for future catalog additions.
+- Follow [the migration instructions](release/migrations/v0.3.3.md) for separate
+  client/source changes and one-time manual cleanup of superseded unprefixed
+  groups in unused development realms. Fresh installs use canonical defaults
+  without cleanup. Stable upgrades are supported; alpha promotion and downgrades
+  are unsupported. Recovery is forward-fix; no live transition is claimed.
+
 ## [0.3.2] - 2026-09-08
 
 - Fix LibreChat MCP authentication with internal routing.
