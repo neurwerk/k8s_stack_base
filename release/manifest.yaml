@@ -225,7 +225,7 @@ spec:
       version: 2.0.1
     - path: charts/keycloak/server
       name: keycloak
-      version: 1.0.3
+      version: 1.0.4
       appVersion: 26.7.2
     - path: charts/keycloak-api-key-bridge
       name: auth-keycloak-api-key-bridge
@@ -772,7 +772,7 @@ spec:
       eligibility: included
       origins:
       - charts/keycloak-api-key-bridge/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-keycloak-theme:0.1.1@sha256:4b94ab5b56f7784c487c1716d6229f82de3a67246640221792709192e885de5d
+    - reference: ghcr.io/neurwerk/k8s-stack-keycloak-theme:0.1.2@sha256:ebadb5dd16baf2b516747cd9308bca0ea2fd215917e90d4dd2805b02acc311b9
       pinned: true
       eligibility: included
       origins:
