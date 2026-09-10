@@ -11,7 +11,7 @@
 # =============================================================================
 
 authKeycloak:
-  keycloakImage: ghcr.io/neurwerk/k8s-stack-keycloak-theme:0.1.0@sha256:bc036ed63f6b1821e74a9744aa58ca177ebffb76df6d0ccd5bdf11a9a0f6441d
+  keycloakImage: ghcr.io/neurwerk/k8s-stack-keycloak-theme:0.1.1@sha256:4b94ab5b56f7784c487c1716d6229f82de3a67246640221792709192e885de5d
   # hostname: "" => set in client_*/config/client.yaml
   adminUser: admin
   realm: ""  # required from client_*/config/client.yaml
@@ -24,8 +24,10 @@ authKeycloak:
     # Mount the fixed client-brand child of neurwerk; selection is separate.
     # Company name comes from realmDisplayName. No client layout overrides.
     enabled: false
-    # Required when enabled: namespace-local ConfigMap with company-logo.png.
+    # Required when enabled: namespace-local ConfigMap with company-logo.<logoFormat>.
     logoConfigMapName: ""
+    # Supported logo formats: png or svg; filenames and shared layout are fixed.
+    logoFormat: png
   smtp:
     enabled: false
     host: ""

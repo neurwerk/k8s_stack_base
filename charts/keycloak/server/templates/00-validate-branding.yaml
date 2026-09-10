@@ -11,6 +11,9 @@
   {{- end -}}
 {{- end -}}
 {{- if $auth.branding.enabled -}}
+  {{- if not (has $auth.branding.logoFormat (list "png" "svg")) -}}
+    {{- fail "authKeycloak.branding.logoFormat must be png or svg" -}}
+  {{- end -}}
   {{- $name := required "authKeycloak.branding.logoConfigMapName is required when branding is enabled" $auth.branding.logoConfigMapName -}}
   {{- if not (kindIs "string" $name) -}}
     {{- fail "authKeycloak.branding.logoConfigMapName must be a valid DNS-1123 subdomain" -}}

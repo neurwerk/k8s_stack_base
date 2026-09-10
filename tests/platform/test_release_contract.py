@@ -54,7 +54,8 @@ class ReleaseContractTest(unittest.TestCase):
         properties = docs["ConfigMap"]["data"]
         expected = "parent=neurwerk\ncompanyName=\\ Example\\ Company\\ \\\\\\ \\=\\:\\#\\!\\t\\f\u00e9\n"
         self.assertEqual(properties, {
-            "login-theme.properties": expected, "email-theme.properties": expected,
+            "login-theme.properties": expected + "companyLogoFormat=png\n",
+            "email-theme.properties": expected,
         })
         sts = docs["StatefulSet"]
         self.assertEqual(sts["metadata"]["annotations"]["configmap.reloader.stakater.com/reload"],
@@ -75,6 +76,25 @@ class ReleaseContractTest(unittest.TestCase):
         env = docs["Job"]["spec"]["template"]["spec"]["containers"][0]["env"]
         for name in ("KC_REALM_LOGIN_THEME", "KC_REALM_EMAIL_THEME"):
             self.assertIn({"name": name, "value": "client-brand"}, env)
+        result = render({**auth, "branding": {**auth["branding"], "logoFormat": "svg"}})
+        self.assertEqual(result.returncode, 0, result.stderr)
+        docs = {doc["kind"]: doc for doc in yaml.safe_load_all(result.stdout) if doc}
+        self.assertEqual(docs["ConfigMap"]["data"], {
+            "login-theme.properties": expected + "companyLogoFormat=svg\n",
+            "email-theme.properties": expected,
+        })
+        svg_pod = docs["StatefulSet"]["spec"]["template"]
+        self.assertNotEqual(svg_pod["metadata"]["annotations"]["checksum/branding"], checksum)
+        svg_volume = next(v for v in svg_pod["spec"]["volumes"] if v["name"] == "client-brand")
+        self.assertEqual(svg_volume["projected"]["sources"][1], {
+            "configMap": {"name": "keycloak-branding-logo", "items": [
+                {"key": "company-logo.svg", "path": "login/resources/img/company-logo.svg"}]},
+        })
+        for fmt in ("", "SVG", "jpg", "../svg", "svg\ncompanyName=other", True, 1, None):
+            with self.subTest(logo_format=fmt):
+                result = render({**auth, "branding": {**auth["branding"], "logoFormat": fmt}})
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("authKeycloak.branding.logoFormat must be png or svg", result.stderr)
         auth["realmDisplayName"] = "Example Company"
         self.assertNotIn(checksum, render(auth).stdout)
         auth["activeDirectory"] = {
