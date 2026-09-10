@@ -12,6 +12,7 @@ upgrade path.
 ## [0.3.5] - 2026-09-10
 
 - Support company name and PNG/SVG logos in Keycloak.
+- Breaking changes: N/a.
 
 ## [0.3.4] - 2026-09-09
 
