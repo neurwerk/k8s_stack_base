@@ -170,8 +170,8 @@ spec:
               - configMap:
                   name: {{ .Values.authKeycloak.branding.logoConfigMapName | quote }}
                   items:
-                    - key: company-logo.png
-                      path: login/resources/img/company-logo.png
+                    - key: company-logo.{{ .Values.authKeycloak.branding.logoFormat }}
+                      path: login/resources/img/company-logo.{{ .Values.authKeycloak.branding.logoFormat }}
         {{- end }}
         - name: postgres-ca
           configMap:
