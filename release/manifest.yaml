@@ -1,11 +1,11 @@
 apiVersion: platform.neurwerk.com/v1alpha1
 kind: PlatformRelease
 metadata:
-  name: v0.3.4
+  name: v0.3.5
 spec:
-  version: 0.3.4
-  releaseDate: '2026-09-09'
-  summary: MCP upstream TLS, Studio 0.8.0, and LibreChat agent permissions.
+  version: 0.3.5
+  releaseDate: '2026-09-10'
+  summary: Support company name and PNG/SVG logos in Keycloak.
   trust:
     signerIdentity: platform-release
     algorithm: ssh-ed25519
@@ -992,10 +992,9 @@ spec:
       uv: 0.11.21
       node: 24.20.0
   provenance:
-    previousTag: v0.3.3
-    includedThrough: 37a669968d4624768800ccaf7a24ae012f38795c
+    previousTag: v0.3.4
+    includedThrough: 94c69da53679f3dd94846d31bea511007d379339
     commits:
-    - f43c27ab08d051ae0d07c3dccda850285b7b4a34
-    - 42e064994bea450100ab8d7dad0d7fdbefca9708
-    - 37a669968d4624768800ccaf7a24ae012f38795c
-    compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.3...37a669968d4624768800ccaf7a24ae012f38795c
+    - 0cb8931e0bf64fb15513cbd4aff7313864bdcc9e
+    - 94c69da53679f3dd94846d31bea511007d379339
+    compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.4...94c69da53679f3dd94846d31bea511007d379339
