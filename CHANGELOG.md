@@ -9,6 +9,10 @@ upgrade path.
 
 ## [Unreleased]
 
+## [0.3.5] - 2026-09-10
+
+- Support company name and PNG/SVG logos in Keycloak.
+
 ## [0.3.4] - 2026-09-09
 
 - Support verified TLS for static MCP servers (`tls: true`, explicit upstream port).
