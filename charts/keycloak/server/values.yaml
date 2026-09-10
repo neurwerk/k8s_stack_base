@@ -11,7 +11,7 @@
 # =============================================================================
 
 authKeycloak:
-  keycloakImage: ghcr.io/neurwerk/k8s-stack-keycloak-theme:0.1.1@sha256:4b94ab5b56f7784c487c1716d6229f82de3a67246640221792709192e885de5d
+  keycloakImage: ghcr.io/neurwerk/k8s-stack-keycloak-theme:0.1.2@sha256:ebadb5dd16baf2b516747cd9308bca0ea2fd215917e90d4dd2805b02acc311b9
   # hostname: "" => set in client_*/config/client.yaml
   adminUser: admin
   realm: ""  # required from client_*/config/client.yaml
