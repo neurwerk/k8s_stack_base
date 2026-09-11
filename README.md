@@ -112,6 +112,13 @@ make release-check
 not validation-only commands. Live acceptance targets are explicitly opted in
 and are not part of `make check`.
 
+The optional `make streaming-acceptance` regression uses an explicitly supplied,
+checksum-verified AgentGateway binary and synthetic local servers. See
+[streaming test setup](tests/live/agentgateway/README.md) for installation and
+execution. The binary is not required by `make check`.
+The separate [workaround note](https://github.com/neurwerk/documentation/blob/main/dev/operations/agentgateway-streaming-workaround.md)
+explains the auth-header change, upstream issues, and adoption gates.
+
 ## Verify A Release
 
 Release tags are annotated SSH-signed tags. The approved signer contract is:

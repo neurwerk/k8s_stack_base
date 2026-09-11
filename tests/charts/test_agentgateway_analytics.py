@@ -100,6 +100,25 @@ class AgentGatewayAnalyticsTests(unittest.TestCase):
         self.assertIn("maxConnections: 5", parameters)
         self.assertNotIn("lint-agentgateway-database-password", parameters)
 
+        auth_policy = resource(
+            manifest, "AgentgatewayPolicy", "infra-agentgateway-auth-ag-policy"
+        )
+        for field in ("contract_version", "principal_id", "permissions"):
+            self.assertIn(
+                f'json(response.headers["x-agentgateway-auth-context"]).{field}',
+                auth_policy,
+            )
+        self.assertNotIn("json(response.body)", auth_policy)
+        self.assertNotIn("allowedResponseHeaders:", auth_policy)
+        self.assertIn("type(extauthz.permissions) == list", auth_policy)
+        self.assertIn("size(extauthz.principal_id) > 0", auth_policy)
+        stripping = resource(
+            manifest,
+            "AgentgatewayPolicy",
+            "infra-agentgateway-remove-untrusted-identity-headers",
+        )
+        self.assertEqual(stripping.count("- x-agentgateway-auth-context"), 2)
+
         non_secrets = "\n---\n".join(
             document
             for document in documents(manifest)

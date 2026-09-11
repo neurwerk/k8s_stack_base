@@ -26,8 +26,8 @@
 #     headers are never trusted for authorization.
 # =============================================================================
 ---
-# Strip reserved identity headers before any routing or authorization policy.
-# Only extAuth response metadata may carry API-key identity into CEL.
+# Strip reserved identity headers before forwarding to a backend.
+# Authorization trusts only verified JWT claims or extAuth response metadata.
 apiVersion: agentgateway.dev/v1alpha1
 kind: AgentgatewayPolicy
 metadata:
@@ -52,6 +52,10 @@ spec:
           - x-auth-app
           - x-auth-permissions
           - x-agentgateway-permissions
+          - x-agentgateway-auth-context
+      response:
+        remove:
+          - x-agentgateway-auth-context
 ---
 # Caller credentials are needed through extAuth above, but must never reach an
 # LLM or MCP upstream. Transformations run after authentication and before the
@@ -138,17 +142,13 @@ spec:
               allowedRequestHeaders:
                 - x-api-key
                 - Authorization
-              # The bridge's versioned JSON decision becomes trusted dynamic
-              # metadata only. It is never copied into an upstream request.
+              # Auth-response headers avoid AgentGateway 1.5.0's application-body
+              # buffering dependency. Never add a response.body fallback here.
+              # This metadata stays internal; do not set allowedResponseHeaders.
               responseMetadata:
-                contract_version: 'json(response.body).contract_version'
-                credential_id: 'json(response.body).credential.id'
-                credential_kind: 'json(response.body).credential.kind'
-                credential_name: 'json(response.body).credential.name'
-                expires_at: 'json(response.body).credential.expires_at'
-                principal_kind: 'json(response.body).principal.kind'
-                principal_id: 'json(response.body).principal.id'
-                permissions: 'json(response.body).permissions'
+                contract_version: 'json(response.headers["x-agentgateway-auth-context"]).contract_version'
+                principal_id: 'json(response.headers["x-agentgateway-auth-context"]).principal_id'
+                permissions: 'json(response.headers["x-agentgateway-auth-context"]).permissions'
     # Do not cache authorization decisions in AgentGateway. The bridge already
     # bounds entitlement caching and must observe revocation after its TTL.
     # ── CEL Authorization ──────────────────────────────────────────────────
@@ -156,4 +156,4 @@ spec:
         action: Allow
         policy:
           matchExpressions:
-          - '(has(jwt.sub) && has(jwt.azp) && jwt.azp in ["librechat", "agentgateway"] && has(jwt.resource_access.agentgateway.roles) && "llm:invoke" in jwt.resource_access.agentgateway.roles) || (has(extauthz.contract_version) && extauthz.contract_version == 1 && has(extauthz.principal_id) && has(extauthz.permissions) && "llm:invoke" in extauthz.permissions)'
+           - '(has(jwt.sub) && has(jwt.azp) && jwt.azp in ["librechat", "agentgateway"] && has(jwt.resource_access.agentgateway.roles) && "llm:invoke" in jwt.resource_access.agentgateway.roles) || (has(extauthz.contract_version) && type(extauthz.contract_version) == int && extauthz.contract_version == 1 && has(extauthz.principal_id) && type(extauthz.principal_id) == string && size(extauthz.principal_id) > 0 && has(extauthz.permissions) && type(extauthz.permissions) == list && extauthz.permissions.all(p, type(p) == string) && "llm:invoke" in extauthz.permissions)'
