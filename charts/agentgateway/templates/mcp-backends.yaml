@@ -28,7 +28,7 @@ spec:
   mcp:
     failureMode: FailClosed
     prefixMode: Always
-    sessionRouting: Stateful
+    sessionRouting: Stateless
     targets:
       - name: {{ .name | quote }}
         static:

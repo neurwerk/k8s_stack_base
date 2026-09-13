@@ -28,13 +28,36 @@ One test compares native HTTP auth (`extAuthz.protocol.http.metadata`) using
 fixture, not a chart render or a replacement for chart authorization type tests.
 It sends an actual 65,536-byte auth response header over HTTP/1.1, checks the
 extracted identity and permissions, and verifies the internal header is neither
-forwarded upstream (including a caller spoof) nor exposed downstream.
+forwarded upstream (including a caller spoof) nor exposed downstream. The HTTP
+application upstream emits a sentinel value for the same header so the downstream
+absence assertion verifies response-header removal.
 
 The upstream flushes one SSE event, then waits for explicit release. Body-based
 extraction must withhold all downstream bytes until EOF; header-only extraction
 must deliver headers and the first event before release. Both also run with a
 **simulated auth skip, NOT a verified JWT**, to exercise static body dependencies
 even when the auth conditional is false.
+
+The same test also runs a native MCP backend with `statefulMode: stateless`
+(the standalone equivalent of the chart's global `sessionRouting: Stateless`),
+`prefixMode: always`, and `failureMode: failClosed`. With header-based auth it
+checks MCP `2025-11-25` initialization without an issued session ID, initialized
+notification acceptance, sessionless tool listing and a prefixed tool call,
+GET/DELETE without a session returning 405 without reaching the MCP upstream,
+and a POST progress notification delivered before the held tool result and EOF.
+Neither side's transport receives a gateway-issued MCP session ID. The original
+four body/header and auth/skip cases remain unchanged in scope.
+
+**Fixture limit:** there is no extProc in this standalone test, real or mocked.
+It deliberately demonstrates that native 1.5.0 stateless initialization also
+accepts a caller-supplied `Mcp-Session-Id`; native stateless mode alone is not
+header rejection. The platform requires extProc to reject every incoming MCP
+session header with HTTP 404 and a fixed safe error. That processor implementation
+must be validated independently; this fixture does not certify the integration,
+PII session isolation, late-stream-error handling, or actual client compatibility.
+Model conversation/session IDs are outside this MCP transport change.
+
+Passing this fixture does not establish image compatibility or deployment readiness.
 
 All requests and fixture servers use loopback, management listeners are disabled,
 and subprocesses/servers are disposable with bounded waits. AgentGateway 1.5.0
