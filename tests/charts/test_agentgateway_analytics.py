@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 import subprocess
 import unittest
@@ -99,6 +100,48 @@ class AgentGatewayAnalyticsTests(unittest.TestCase):
         self.assertIn("${AGENTGATEWAY_DATABASE_PASSWORD}", parameters)
         self.assertIn("maxConnections: 5", parameters)
         self.assertNotIn("lint-agentgateway-database-password", parameters)
+
+        auth_policy = resource(
+            manifest, "AgentgatewayPolicy", "infra-agentgateway-auth-ag-policy"
+        )
+        for field in ("contract_version", "principal_id", "permissions"):
+            self.assertIn(
+                f'json(response.headers["x-agentgateway-auth-context"]).{field}',
+                auth_policy,
+            )
+        self.assertNotIn("json(response.body)", auth_policy)
+        self.assertNotIn("allowedResponseHeaders:", auth_policy)
+        self.assertIn("type(extauthz.permissions) == list", auth_policy)
+        self.assertIn("size(extauthz.principal_id) > 0", auth_policy)
+        stripping = resource(
+            manifest,
+            "AgentgatewayPolicy",
+            "infra-agentgateway-remove-untrusted-identity-headers",
+        )
+        self.assertEqual(stripping.count("- x-agentgateway-auth-context"), 2)
+
+        for pii_enabled in (False, True):
+            mcp_manifest = render(
+                "charts/agentgateway", "infra-agentgateway", "infra-agentgateway",
+                "--set", "mcp.enabled=true",
+                "--set-json", 'mcp.approvedHosts=["mcp.lint.example"]',
+                "--set-json", 'authKeycloak.agentgatewayClientRoles=["llm:invoke","model:remote/example/model:invoke","mcp:example:invoke"]',
+                "--set-json", "mcp.servers=" + json.dumps([{
+                    "name": "example", "host": "mcp.lint.example", "port": 443,
+                    "tls": True, "piiEnabled": pii_enabled, "contentTracingEnabled": False,
+                }]),
+            )
+            backend = resource(mcp_manifest, "AgentgatewayBackend", "mcp-example-be")
+            self.assertIn("sessionRouting: Stateless", backend)
+            self.assertIn("failureMode: FailClosed", backend)
+            self.assertIn("prefixMode: Always", backend)
+            self.assertNotIn("sessionRouting: Stateful", mcp_manifest)
+            route_policy = resource(mcp_manifest, "AgentgatewayPolicy", "mcp-example-policy")
+            self.assertIn("mcp:example:invoke", route_policy)
+            self.assertIn("failureMode: FailClosed", route_policy)
+            self.assertIn("responseBodyMode: FullDuplexStreamed", route_policy)
+            self.assertIn(f'pii_enabled: "{str(pii_enabled).lower()}"', route_policy)
+            self.assertNotIn("mcp-session-id", route_policy.lower())
 
         non_secrets = "\n---\n".join(
             document

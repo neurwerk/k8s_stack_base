@@ -29,7 +29,7 @@ YELLOW := \033[33m
 CYAN   := \033[36m
 RESET  := \033[0m
 
-.PHONY: help tools helm-lint helm-lint-only helm-validate kustomize-validate kube-linter chart-check security-check platform-check release-manifest release-check release-notes check live-acceptance live-postgres-acceptance pre-commit-install helm-deps deps-verify
+.PHONY: help tools helm-lint helm-lint-only helm-validate kustomize-validate kube-linter chart-check security-check platform-check release-manifest release-check release-notes check streaming-acceptance live-acceptance live-postgres-acceptance pre-commit-install helm-deps deps-verify
 
 help: ## Show this help
 	@printf "$(CYAN)Available targets:$(RESET)\n"
@@ -184,6 +184,9 @@ release-notes: ## Write release notes; pass OUTPUT=<path>
 	@$(UV) run --frozen python scripts/platform_release.py notes --output "$(OUTPUT)"
 
 check: tools helm-lint helm-validate kustomize-validate kube-linter chart-check security-check platform-check ## Run full local validation suite
+
+streaming-acceptance: ## Run opt-in local streaming regression; see tests/live/agentgateway/README.md
+	@$(PYTHON3) tests/live/agentgateway/test_streaming.py
 
 live-acceptance: ## Run explicitly opted-in live AgentGateway acceptance (not part of check)
 	@if [ -z "$(PYTHON3)" ]; then \

@@ -79,7 +79,7 @@ spec:
     charts:
     - path: charts/agentgateway
       name: infra-agentgateway
-      version: 1.2.3
+      version: 1.2.4
       appVersion: 1.5.0
       dependencyLock:
         digest: sha256:e5b8cfb3b1e062b8e9268a42405a466d71d22bdb18ae83ff7496788af21abedd
@@ -92,8 +92,8 @@ spec:
           sha256: a22cfb7dcc56da05d31b18c0a969e1b8eee35d19a4493d88b5d4720efcc85945
     - path: charts/agentgateway-extproc
       name: agentgateway-extproc
-      version: 1.0.3
-      appVersion: 0.1.3
+      version: 1.0.4
+      appVersion: 0.7.0
     - path: charts/cert-manager/approval-policy
       name: infra-cert-manager-approval-policy
       version: 1.0.0
@@ -229,8 +229,8 @@ spec:
       appVersion: 26.7.2
     - path: charts/keycloak-api-key-bridge
       name: auth-keycloak-api-key-bridge
-      version: 1.1.1
-      appVersion: 0.1.0
+      version: 1.1.2
+      appVersion: 0.6.0
     - path: charts/kube-prometheus-stack
       name: monitor-kube-prometheus-stack
       version: 1.0.0
@@ -762,12 +762,12 @@ spec:
       eligibility: included
       origins:
       - charts/dify/web/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.1.3
+    - reference: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.7.0@sha256:77ab30c2037b2ff299570e6283676cc656611b42d1bc6410528e8f4bcca55e13
       pinned: true
       eligibility: included
       origins:
       - charts/agentgateway-extproc/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-keycloak-api-key-bridge:0.1.0
+    - reference: ghcr.io/neurwerk/k8s-stack-keycloak-api-key-bridge:0.6.0@sha256:af5bd22c39f458773aff2db66aa95ef6a89804e24c7f50bbedb48ac1796168ae
       pinned: true
       eligibility: included
       origins:
