@@ -38,7 +38,12 @@ class KeycloakStandardAccessTests(unittest.TestCase):
                 "langfuse-admin", "pii-admin", "studio-user", "librechat-admin", "dify-admin",
             ],
         })
-        self.assertIn('value: "view-users,query-users,view-clients,view-realm"', rendered.stdout)
+        self.assertEqual(env_value(rendered, "KC_PARENT_ROLE"), "keycloak-admin")
+        self.assertEqual(env_value(rendered, "KC_CLIENT_ID"), "realm-management")
+        self.assertEqual(
+            env_value(rendered, "KC_CLIENT_ROLES"),
+            "view-users,query-users,view-clients,view-realm,view-events",
+        )
         admin = render("keycloak/realm-config/initial-admin", {})
         memberships = json.loads(env_value(admin, "KC_INITIAL_USER_GROUPS"))
         self.assertEqual(memberships, ["/access/neurwerk-platform-admins"])

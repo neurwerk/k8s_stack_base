@@ -222,7 +222,7 @@ spec:
       version: 1.1.1
     - path: charts/keycloak/realm-config/realm-roles
       name: keycloak-oidc-configurations-realm-roles
-      version: 2.0.1
+      version: 2.0.2
     - path: charts/keycloak/server
       name: keycloak
       version: 1.0.4
@@ -374,15 +374,15 @@ spec:
       appVersion: v1.20.3
     - path: charts/studio/api
       name: studio-api
-      version: 1.1.2
-      appVersion: 0.8.0
+      version: 1.1.3
+      appVersion: 0.9.0
     - path: charts/studio/shared
       name: studio-shared
       version: 1.0.0
     - path: charts/studio/web
       name: studio
-      version: 1.0.3
-      appVersion: 0.8.0
+      version: 1.0.4
+      appVersion: 0.9.0
     - path: charts/traefik
       name: traefik
       version: 1.0.1
@@ -783,12 +783,12 @@ spec:
       origins:
       - charts/pii-engine-model-sync/values.yaml
       - charts/pii-engine/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-studio-api:0.8.0@sha256:a8efe0695b63f7725871b0b1a14327ae528b514ed32c80f3a72ef9db6c84ce61
+    - reference: ghcr.io/neurwerk/k8s-stack-studio-api:0.9.0@sha256:3af856dc89f9af0eaa79beefb9231f89724b5f1b682ab34ae877c47a8a75445a
       pinned: true
       eligibility: included
       origins:
       - charts/studio/api/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-studio-web:0.8.0@sha256:644b589d36eea3777d9a323917906451b1a8c258aa97af5c75ceb22af2ad8927
+    - reference: ghcr.io/neurwerk/k8s-stack-studio-web:0.9.0@sha256:da1a4504ecd7a577224bcc8cee7a16a92b045453cc8241b7b8bede7ec21f7612
       pinned: true
       eligibility: included
       origins:
