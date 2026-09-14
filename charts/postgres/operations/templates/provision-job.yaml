@@ -1,3 +1,6 @@
+{{- if .Values.forgejo.enabled -}}
+{{- $_ := required "postgresOperationsSecrets.forgejoPassword is required when forgejo.enabled" .Values.postgresOperationsSecrets.forgejoPassword -}}
+{{- end -}}
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -273,8 +276,8 @@ spec:
             - name: FORGEJO_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: postgres-operations-secret
-                  key: forgejo-password
+                  name: forgejo-postgres-values
+                  key: password
             {{- end }}
             - name: PGHOST
               value: postgres-operations.{{ .Release.Namespace }}.svc.{{ .Values.postgresOperations.clusterDomain }}

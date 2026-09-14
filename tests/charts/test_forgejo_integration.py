@@ -8,7 +8,8 @@ from test_openrouter_catalog import ROOT, env_value, render, resources
 
 class ForgejoIntegrationTests(unittest.TestCase):
     def test_database_opt_in_and_retention(self):
-        disabled = render("postgres/operations", {"forgejo": {"enabled": False}}).stdout
+        disabled_result = render("postgres/operations", {"forgejo": {"enabled": False}})
+        disabled = disabled_result.stdout
         self.assertNotIn("FORGEJO_PASSWORD", disabled)
         self.assertNotIn("forgejo-password:", disabled)
         missing = render("postgres/operations", {
@@ -17,10 +18,18 @@ class ForgejoIntegrationTests(unittest.TestCase):
         }, check=False)
         self.assertNotEqual(missing.returncode, 0)
         self.assertIn("postgresOperationsSecrets.forgejoPassword is required", missing.stderr)
-        enabled = render("postgres/operations", {
+        enabled_result = render("postgres/operations", {
             "forgejo": {"enabled": True},
             "postgresOperationsSecrets": {"forgejoPassword": "fixture-only"},
-        }).stdout
+        })
+        enabled = enabled_result.stdout
+        for kind in ("StatefulSet", "Secret"):
+            disabled_resources = resources(disabled_result, kind)
+            self.assertEqual(len(disabled_resources), 1)
+            self.assertEqual(disabled_resources, resources(enabled_result, kind))
+        self.assertRegex(resources(enabled_result, "Job")[0],
+                         r"- name: FORGEJO_PASSWORD\n\s+valueFrom:\n\s+secretKeyRef:"
+                         r"\n\s+name: forgejo-postgres-values\n\s+key: password\n")
         for contract in (
             "CREATE DATABASE forgejo OWNER forgejo",
             "REVOKE ALL ON DATABASE forgejo FROM PUBLIC",
@@ -68,7 +77,14 @@ class ForgejoIntegrationTests(unittest.TestCase):
             self.assertNotIn("name: forgejo-runtime", result.stdout)
             self.assertNotIn("name: forgejo\n", result.stdout)
         for stage in ("namespaces/forgejo", "forgejo/secret-sync", "forgejo/app"):
-            subprocess.run([
+            result = subprocess.run([
                 "kustomize", "build", "--load-restrictor", "LoadRestrictionsNone",
                 str(ROOT / "releases" / stage),
             ], capture_output=True, text=True, check=True)
+            if stage == "forgejo/secret-sync":
+                postgres = [document for document in resources(result, "ExternalSecret")
+                            if "  name: forgejo-postgres-values\n" in document]
+                self.assertEqual(len(postgres), 1)
+                self.assertIn("        password: '{{ .dbPassword }}'\n", postgres[0])
+                self.assertIn("            forgejoPassword: {{ .dbPassword | quote }}\n",
+                              postgres[0])
