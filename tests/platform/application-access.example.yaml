@@ -1,0 +1,26 @@
+# Synthetic offline plan, not runtime values or a device enrollment record.
+access:
+  boundary: internet
+  default: internal
+certificates:
+  profile: public-production
+canonicalEndpointRouting:
+  mode: internal-traefik
+endpoints:
+  keycloak:
+    level: restricted
+    devices: [device-a, device-b]
+  librechat:
+    level: restricted
+    devices: [device-a]
+    features:
+      files: true
+  librechat-files:
+    level: restricted
+    devices: [device-a]
+  librechat-admin:
+    level: restricted
+    devices: [device-a]
+  dify:
+    features:
+      consoleSSO: false
