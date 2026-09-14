@@ -149,6 +149,8 @@ spec:
                 contract_version: 'json(response.headers["x-agentgateway-auth-context"]).contract_version'
                 principal_id: 'json(response.headers["x-agentgateway-auth-context"]).principal_id'
                 permissions: 'json(response.headers["x-agentgateway-auth-context"]).permissions'
+                # Bridge 0.6.0 omits groups; present values are validated below.
+                groups: '"groups" in json(response.headers["x-agentgateway-auth-context"]) ? json(response.headers["x-agentgateway-auth-context"]).groups : []'
     # Do not cache authorization decisions in AgentGateway. The bridge already
     # bounds entitlement caching and must observe revocation after its TTL.
     # ── CEL Authorization ──────────────────────────────────────────────────
@@ -156,4 +158,4 @@ spec:
         action: Allow
         policy:
           matchExpressions:
-           - '(has(jwt.sub) && has(jwt.azp) && jwt.azp in ["librechat", "agentgateway"] && has(jwt.resource_access.agentgateway.roles) && "llm:invoke" in jwt.resource_access.agentgateway.roles) || (has(extauthz.contract_version) && type(extauthz.contract_version) == int && extauthz.contract_version == 1 && has(extauthz.principal_id) && type(extauthz.principal_id) == string && size(extauthz.principal_id) > 0 && has(extauthz.permissions) && type(extauthz.permissions) == list && extauthz.permissions.all(p, type(p) == string) && "llm:invoke" in extauthz.permissions)'
+           - '(has(jwt.sub) && has(jwt.azp) && jwt.azp in ["librechat", "agentgateway"] && has(jwt.resource_access.agentgateway.roles) && "llm:invoke" in jwt.resource_access.agentgateway.roles) || (has(extauthz.contract_version) && type(extauthz.contract_version) == int && extauthz.contract_version == 1 && has(extauthz.principal_id) && type(extauthz.principal_id) == string && size(extauthz.principal_id) > 0 && has(extauthz.permissions) && type(extauthz.permissions) == list && extauthz.permissions.all(p, type(p) == string) && has(extauthz.groups) && type(extauthz.groups) == list && extauthz.groups.all(g, type(g) == string && g.startsWith("/") && size(g) > 1) && "llm:invoke" in extauthz.permissions)'

@@ -109,6 +109,16 @@ class AgentGatewayAnalyticsTests(unittest.TestCase):
                 f'json(response.headers["x-agentgateway-auth-context"]).{field}',
                 auth_policy,
             )
+        self.assertIn(
+            'groups: \'"groups" in json(response.headers["x-agentgateway-auth-context"])'
+            ' ? json(response.headers["x-agentgateway-auth-context"]).groups : []\'',
+            auth_policy,
+        )
+        self.assertIn(
+            'has(extauthz.groups) && type(extauthz.groups) == list && '
+            'extauthz.groups.all(g, type(g) == string && g.startsWith("/") && size(g) > 1)',
+            auth_policy,
+        )
         self.assertNotIn("json(response.body)", auth_policy)
         self.assertNotIn("allowedResponseHeaders:", auth_policy)
         self.assertIn("type(extauthz.permissions) == list", auth_policy)
