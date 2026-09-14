@@ -1,11 +1,11 @@
 apiVersion: platform.neurwerk.com/v1alpha1
 kind: PlatformRelease
 metadata:
-  name: v0.3.5
+  name: v0.3.6
 spec:
-  version: 0.3.5
-  releaseDate: '2026-09-10'
-  summary: Support company name and PNG/SVG logos in Keycloak.
+  version: 0.3.6
+  releaseDate: '2026-09-14'
+  summary: Fix gateway streaming and MCP errors; update Studio and Keycloak theme.
   trust:
     signerIdentity: platform-release
     algorithm: ssh-ed25519
@@ -992,9 +992,10 @@ spec:
       uv: 0.11.21
       node: 24.20.0
   provenance:
-    previousTag: v0.3.4
-    includedThrough: 94c69da53679f3dd94846d31bea511007d379339
+    previousTag: v0.3.5
+    includedThrough: b272ed0f8a5c7f0e4adb3e63e547877d4154a9bb
     commits:
-    - 0cb8931e0bf64fb15513cbd4aff7313864bdcc9e
-    - 94c69da53679f3dd94846d31bea511007d379339
-    compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.4...94c69da53679f3dd94846d31bea511007d379339
+    - 617a32a8787b67441bf49526a2d9b88263444422
+    - beb2b790542127ca3f63a92bde5443833d9ffb3d
+    - b272ed0f8a5c7f0e4adb3e63e547877d4154a9bb
+    compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.5...b272ed0f8a5c7f0e4adb3e63e547877d4154a9bb

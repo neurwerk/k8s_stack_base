@@ -9,6 +9,10 @@ upgrade path.
 
 ## [Unreleased]
 
+## [0.3.6] - 2026-09-14
+
+- Fix gateway streaming and MCP errors; update Studio and Keycloak theme.
+
 ## [0.3.5] - 2026-09-10
 
 - Support company name and PNG/SVG logos in Keycloak.
