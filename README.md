@@ -119,6 +119,99 @@ execution. The binary is not required by `make check`.
 The separate [workaround note](https://github.com/neurwerk/documentation/blob/main/dev/operations/agentgateway-streaming-workaround.md)
 explains the auth-header change, upstream issues, and adoption gates.
 
+## Application Access Plans
+
+`scripts/check_application_access.py` is an **offline, planning-only** validator.
+It reads one explicit normalized YAML plan, not a client repository, Helm values,
+Flux output, or Kubernetes resource. A human must derive its endpoint selection,
+effective logical endpoints, feature flags, and device grants from reviewed
+effective values. A client effective-values adapter is separate follow-up work.
+Success says **"Access plan valid; planning only. Runtime enforcement/DNS not
+verified."** It does not prove actual client selection, topology, authentication,
+certificate issuance/trust, DNS, or reachability, and does not enforce access.
+It never fetches, discovers resources, reads referenced Secrets, or rewrites input.
+Do not supply secrets or credentials, including in device IDs.
+
+Run from this repository with pinned tools and cached Python dependencies:
+
+```bash
+mise exec -- uv run --offline --frozen python scripts/check_application_access.py tests/platform/application-access.example.yaml
+```
+
+The [synthetic example](tests/platform/application-access.example.yaml) is not
+runtime configuration. The exact input contract is:
+
+| Field | Required value |
+| --- | --- |
+| `access.boundary` | `internet` or `client-network` |
+| `access.default` | `internal`, `public`, or `restricted`; only supplies omitted endpoint levels |
+| `certificates.profile` | `public-production` only; `private-ca` and staging profiles are unsupported in this slice |
+| `canonicalEndpointRouting.mode` | `internal-traefik` or `public-dns`, independent of access and certificate choices |
+| `endpoints` | Mapping of explicitly selected known endpoint IDs to endpoint mappings; `{}` selects nothing |
+| `endpoints.<id>.level` | Optional `internal`, `public`, or `restricted`; inherits `access.default` |
+| `endpoints.<id>.devices` | Required only for effective `restricted` level; list of unique, nonempty, unpadded device ID strings |
+| `endpoints.librechat.features.files` | Explicit boolean required whenever `librechat` is present |
+| `endpoints.dify.features.consoleSSO` | Explicit boolean required whenever `dify` is present |
+
+All four top-level mappings and their listed global fields are required. All
+unknown keys, incorrect types, nulls, duplicate YAML keys, YAML aliases/merge keys,
+and explicit YAML tags are rejected. Endpoint mappings allow only `level`,
+`devices` when restricted, and the exact required `features` mapping for LibreChat
+or Dify. Other endpoints do not accept `features`. There is no `enabled` field:
+omission means not selected, and defaults never enable an endpoint. An inherited
+`restricted` level still requires that endpoint's own explicit device list.
+
+The small platform-owned browser/native-client catalog is defined in the script:
+
+| Known endpoint | Required human-client dependency |
+| --- | --- |
+| `keycloak` | None |
+| `librechat` | `keycloak`; also `librechat-files` when `features.files: true` |
+| `librechat-admin` | `librechat` and `keycloak` |
+| `librechat-files` | None; the logical effective browser file endpoint, not necessarily the default RGW backend |
+| `studio` | `keycloak` |
+| `dify` | `keycloak` only when `features.consoleSSO: true` |
+| `langfuse` | None |
+| `agentgateway` | None |
+| `forgejo` | `keycloak` |
+
+Same-origin UI, API, callback, Git-over-HTTPS, and LFS paths belong to one endpoint,
+not independent access selections. Forgejo SSH and backend service/model calls
+are outside this catalog. There is no inferred Langfuse-to-Keycloak dependency.
+Private services such as databases, RAG, and Code Interpreter never become
+automatic endpoints. The file endpoint entry represents the effective browser
+destination even if file storage is overridden; this tool cannot verify that
+mapping or whether two logical endpoint entries actually share an origin.
+
+Every active dependency must be explicitly present, even for a deny-all source.
+Dependency checks are directional and apply at every edge of the catalog:
+
+| Source level | Allowed target level/grants |
+| --- | --- |
+| `public` | `public` only |
+| `internal` | `internal` or `public`, never `restricted` |
+| `restricted`, internet boundary | `public`, or `restricted` with every source device ID admitted by target; `internal` is not assumed reachable by off-network devices |
+| `restricted`, client-network boundary | `internal`, or `restricted` with every source device ID admitted by target |
+
+Under `client-network`, every `public` endpoint and a `public` default are invalid,
+even if all endpoints override that default. The boundary is an abstract approved
+network, not a CIDR or LAN discovery promise. Network facts and enforcement are
+deferred. `restricted` grants compare exact, case-sensitive device IDs, not group
+names, list lengths, or assumed group membership. Supply actual expanded grant
+sets, not group labels; device registration and identity authenticity are not
+verified here. An empty list means deny-all, never allow-all, and prints a
+per-endpoint `WARNING: ... DENY-ALL; no admitted devices` even on a valid plan.
+
+The CLI exits `0` for a valid plan (possibly with deny-all warnings), `1` for input
+or dependency errors, and `2` for command-line usage errors. Warnings/errors go to
+stderr; success goes to stdout. Diagnostics name known schema paths or dependency
+edges and mismatches without printing supplied values or YAML parser excerpts.
+The Python API `load_plan(Path)` safely loads the file; `validate_plan(plan)`
+returns `(errors, warnings)` without mutating input and raises `PlanError` for
+malformed structure. Tests run automatically through `make platform-check` and
+`make check`. No charts, release contracts, runtime defaults, or client values
+consume this plan format.
+
 ## Verify A Release
 
 Release tags are annotated SSH-signed tags. The approved signer contract is:
