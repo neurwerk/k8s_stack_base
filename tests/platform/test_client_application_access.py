@@ -186,7 +186,9 @@ class AdapterTest(unittest.TestCase):
         release["spec"]["valuesFrom"] = [{"kind": "Secret", "name": "opaque"}]
         self.write(path, release)
         producer = resource("ExternalSecret", "producer", {"target": {"name": "opaque", "creationPolicy": "Owner",
-            "template": {"engineVersion": "v2", "data": {"values.yaml": 'privateConfig:\n  password: {{ .password | quote }}\n  literal: false\n'}}}}, "apps")
+            "template": {"engineVersion": "v2", "data": {
+                "values.yaml": 'privateConfig:\n  password: {{ .password | quote }}\n  literal: false\n',
+                "authKeycloak": "{{ .password }}"}}}}, "apps")
         # Merely present producers, and upstream references, are never resolved.
         self.write(self.platform / "releases/apps/producer.yaml", producer)
         with self.assertRaisesRegex(adapter.PlanError, "unresolved authKeycloak.hostname"):
@@ -197,6 +199,7 @@ class AdapterTest(unittest.TestCase):
             self.assertEqual(set(self.derive()["endpoints"]), {"keycloak"})
         comp = composition.Composition(self.client, self.platform, "prod-eu-1")
         shape = comp.secret_shape("apps", "opaque", "values.yaml")
+        self.assertEqual(set(shape), {"privateConfig"})
         self.assertIs(shape["privateConfig"]["password"], composition.UNKNOWN)
         self.assertIs(shape["privateConfig"]["literal"], composition.UNKNOWN)
         producer["spec"]["target"]["template"]["data"]["values.yaml"] = 'authKeycloak:\n  hostname: {{ .hostname | quote }}\n'
@@ -254,7 +257,8 @@ class AdapterTest(unittest.TestCase):
 
     def test_unsupported_or_ambiguous_producer_stays_wholly_unknown(self):
         comp = composition.Composition(self.client, self.platform, "prod-eu-1")
-        template = {"engineVersion": "v2", "data": {"values.yaml": 'privateConfig:\n  password: {{ .password | quote }}\n'}}
+        template = {"engineVersion": "v2", "data": {
+            "values.yaml": 'privateConfig:\n  password: {{ .password | quote }}\n', "password": "{{ .password }}"}}
         producer = resource("ExternalSecret", "producer", {"target": {
             "name": "opaque", "creationPolicy": "Owner", "template": template}}, "apps")
         cases = []
@@ -268,6 +272,12 @@ class AdapterTest(unittest.TestCase):
                              ("data", {"{{ .key }}": "a: b"})):
             obj = copy.deepcopy(producer)
             obj["spec"]["target"]["template"][field] = value
+            cases.append([obj])
+        for key, value in (
+                ("{{ .key }}", "{{ .password }}"), ("..reserved", "{{ .password }}"),
+                ("raw", "prefix{{ .password }}")):
+            obj = copy.deepcopy(producer)
+            obj["spec"]["target"]["template"]["data"][key] = value
             cases.append([obj])
         for raw in ('privateConfig: {{ .password }}', 'privateConfig: {{ .password | toYaml }}',
                     'privateConfig: "prefix {{ .password | quote }}"', '{{ .key | quote }}: value',

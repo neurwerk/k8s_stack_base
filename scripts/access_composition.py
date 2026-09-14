@@ -279,8 +279,17 @@ class Composition:
                 if type(fields) is not dict or any(type(k) is not str or type(v) is not str or "{{" in k + v or "}}" in k + v for k, v in fields.items()):
                     return UNKNOWN
             data = template["data"]
-            if type(data) is not dict or set(data) != {key} or type(data[key]) is not str:
+            if type(data) is not dict or key not in data or type(data[key]) is not str:
                 return UNKNOWN
+            for output, value in data.items():
+                if (type(output) is not str or len(output) > 253
+                        or not re.fullmatch(r"[-._a-zA-Z0-9]+", output)
+                        or output == "." or output.startswith("..")):
+                    return UNKNOWN
+                # Raw workload outputs are not Helm writes; only the referenced YAML is.
+                if output != key and (type(value) is not str or not re.fullmatch(
+                        r"\{\{[ ]*\.[a-zA-Z_][a-zA-Z0-9_]*[ ]*\}\}", value)):
+                    return UNKNOWN
             raw, marker = data[key], "__access_opaque_leaf__"
             if marker in raw:
                 return UNKNOWN

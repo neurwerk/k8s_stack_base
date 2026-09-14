@@ -1,7 +1,10 @@
 """Optional package boundaries and shared-service Forgejo contracts."""
 
+import json
 import subprocess
+import tempfile
 import unittest
+from pathlib import Path
 
 from test_openrouter_catalog import ROOT, env_value, render, resources
 
@@ -66,6 +69,39 @@ class ForgejoIntegrationTests(unittest.TestCase):
         self.assertIn('"implicitFlowEnabled": False', oidc.stdout)
         self.assertFalse(resources(oidc, "Secret"))
         self.assertFalse(render("keycloak/oidc/forgejo", {"forgejo": {"enabled": False}}).stdout.strip())
+
+    def test_oidc_producer_roundtrip_and_consumers(self):
+        # Use Helm's real Go/Sprig tpl, quote and YAML decoder, never a Python surrogate.
+        with tempfile.TemporaryDirectory(dir=ROOT) as directory:
+            chart = Path(directory)
+            (chart / "templates").mkdir()
+            (chart / "Chart.yaml").write_text("apiVersion: v2\nname: quote-test\nversion: 0.1.0\n")
+            for name, source in (("producer", "secret-sync"), ("consumer", "app")):
+                (chart / f"{name}.yaml").write_text(
+                    (ROOT / f"releases/forgejo/{source}/oidc.yaml").read_text())
+            (chart / "templates/result.yaml").write_text('''
+{{- $producer := .Files.Get "producer.yaml" | fromYaml -}}
+{{- $consumer := .Files.Get "consumer.yaml" | fromYaml -}}
+{{- $context := dict "oidcClientSecret" .Values.syntheticCredential "Template" .Template -}}
+{{- $outputs := $producer.spec.target.template.data -}}
+{{- $raw := tpl $outputs.oidcClientSecret $context -}}
+{{- $decoded := tpl (index $outputs "values.yaml") $context | fromYaml -}}
+{{- dict "apiVersion" "v1" "kind" "ConfigMap" "metadata" (dict "name" "quote-test")
+    "data" (dict "raw" $raw "decoded" ($decoded | toJson)
+    "consumer" (first $consumer.spec.valuesFrom | toJson)) | toJson -}}
+''')
+            values = {"forgejo": {"enabled": True, "hostname": "forgejo.example.com"}}
+            baseline = render("keycloak/oidc/forgejo", values).stdout
+            for credential in ("fixture-only", 'fixture,forgejo.enabled=false"\\\n{{ .other }}\u96ea'):
+                with self.subTest(credential=credential):
+                    output = render(str(chart), {"syntheticCredential": credential}).stdout
+                    data = json.loads(output[output.index("{"):])["data"]
+                    decoded = json.loads(data["decoded"])
+                    self.assertEqual(decoded, {"forgejoOidcClientSecret": credential})
+                    self.assertEqual(data["raw"].encode("utf-8"), credential.encode("utf-8"))
+                    self.assertEqual(render("keycloak/oidc/forgejo", {**values, **decoded}).stdout, baseline)
+                    self.assertEqual(json.loads(data["consumer"]), {
+                        "kind": "Secret", "name": "forgejo-oidc-values", "valuesKey": "values.yaml"})
 
     def test_optional_inventory_does_not_leak_into_default_stages(self):
         for stage in ("namespaces", "infrastructure", "applications"):
