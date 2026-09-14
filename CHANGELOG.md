@@ -9,6 +9,31 @@ upgrade path.
 
 ## [Unreleased]
 
+## [0.3.6] - 2026-09-14
+
+- Fix delayed model/MCP streams and incorrect MCP cleanup/error responses.
+  Use API-key bridge `0.6.0` and agentgateway_extproc `0.7.0`.
+- Update Studio to `0.9.0` with user search and recent sign-in summaries.
+- Fix Keycloak's Remember me label contrast with theme `0.1.2`.
+
+### Upgrade Notes
+
+- Gateway MCP is now stateless. Existing clients must initialize again without
+  `Mcp-Session-Id`; persistent sessions and standalone event subscriptions are
+  unsupported. PII checks remain per call, but a previous blocked MCP call does
+  not automatically block later calls. Model conversation handling is unchanged.
+- `keycloak-admin` gains `realm-management/view-events`, which grants broader
+  event access than Studio's summaries. After role provisioning completes,
+  administrators must obtain fresh tokens, for example by signing in again.
+- No database migration or PII Engine upgrade is required. Preserve existing data.
+
+### Known Limitations
+
+- An interrupted answer can still look complete (#108). This remains accepted
+  for interactive chat; reassess before unattended actions.
+- The existing LibreChat image exception still expires `2026-09-30`.
+  This release does not upgrade LibreChat or enable Brave by default.
+
 ## [0.3.5] - 2026-09-10
 
 - Support company name and PNG/SVG logos in Keycloak.
