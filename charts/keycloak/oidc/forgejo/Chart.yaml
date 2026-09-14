@@ -2,5 +2,5 @@ apiVersion: v2
 name: keycloak-forgejo-oidc
 description: Optional first-party Forgejo human OIDC registration
 type: application
-version: 0.1.0
+version: 0.1.1
 appVersion: "1.0"

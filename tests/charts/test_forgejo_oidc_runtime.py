@@ -25,6 +25,7 @@ class ForgejoOIDCRuntimeTests(unittest.TestCase):
         self.realm_mappings = [copy.deepcopy(self.other)]
         self.client_mappings = {"other": {"id": "other-client-id", "mappings": [self.other]}}
         self.mappers = []
+        self.mapper_config_readback = {}
         self.scopes = [{"id": name + "-id", "name": name, "protocol": "openid-connect"}
                        for name in ("profile", "email", "roles", "offline_access")]
         self.attached = {"default-client-scopes": copy.deepcopy(self.scopes[:3]),
@@ -133,6 +134,12 @@ class ForgejoOIDCRuntimeTests(unittest.TestCase):
                                 for item in self.mappers]
                 return 204, None
             result = copy.deepcopy(self.mappers)
+            for mapper in result:
+                config = mapper["config"]
+                if config.get("usermodel.realmRoleMapping.rolePrefix") == "":
+                    del config["usermodel.realmRoleMapping.rolePrefix"]
+                config.setdefault("introspection.token.claim", "true")
+                config.update(self.mapper_config_readback)
             if result and self.fault == "mapper-readback":
                 result[0]["config"]["userinfo.token.claim"] = "false"
             return 200, result
@@ -163,6 +170,8 @@ class ForgejoOIDCRuntimeTests(unittest.TestCase):
         self.assertEqual(mapper["config"]["claim.name"], "forgejo_roles")
         for key in ("multivalued", "id.token.claim", "access.token.claim", "userinfo.token.claim"):
             self.assertEqual(mapper["config"][key], "true")
+        self.assertEqual(mapper["config"]["introspection.token.claim"], "false")
+        self.assertEqual(mapper["config"]["usermodel.realmRoleMapping.rolePrefix"], "")
         before = copy.deepcopy((self.client, self.realm_mappings, self.mappers))
         self.calls.clear()
         self.reconcile()
@@ -170,6 +179,33 @@ class ForgejoOIDCRuntimeTests(unittest.TestCase):
         self.assertFalse(any(method in ("POST", "DELETE") for method, _, _ in self.calls))
         self.assertTrue(all(path.startswith("/clients/forgejo-id")
                             for method, path, _ in self.calls if method != "GET"))
+
+    def test_normalized_mapper_readback_clears_existing_prefix_and_introspection(self):
+        self.reconcile()
+        self.mappers[0]["config"]["usermodel.realmRoleMapping.rolePrefix"] = "stale-"
+        self.mappers[0]["config"]["introspection.token.claim"] = "true"
+        self.reconcile()
+        _, readback = self.request("http://keycloak/admin/realms/test/clients/forgejo-id/protocol-mappers/models",
+                                   headers={"Authorization": "Bearer fixture-token"})
+        self.assertNotIn("usermodel.realmRoleMapping.rolePrefix", readback[0]["config"])
+        self.assertEqual(readback[0]["config"]["introspection.token.claim"], "false")
+        self.assertEqual(self.mappers[0]["config"]["usermodel.realmRoleMapping.rolePrefix"], "")
+
+    def test_normalized_mapper_readback_rejects_config_drift(self):
+        self.reconcile()
+        for key in (*self.mappers[0]["config"], "unexpected.config"):
+            with self.subTest(key=key):
+                self.mapper_config_readback = {key: "unexpected"}
+                with self.assertRaisesRegex(RuntimeError, "Role mapper readback mismatch"):
+                    self.reconcile()
+        for value in (None, "true"):
+            with self.subTest(introspection=value):
+                self.mapper_config_readback = {"introspection.token.claim": value}
+                with self.assertRaisesRegex(RuntimeError, "Role mapper readback mismatch"):
+                    self.reconcile()
+        self.mapper_config_readback = {"usermodel.realmRoleMapping.rolePrefix": None}
+        with self.assertRaisesRegex(RuntimeError, "Role mapper readback mismatch"):
+            self.reconcile()
 
     def test_fresh_client_detaches_offline_access_without_modifying_shared_scopes(self):
         self.clients = []
