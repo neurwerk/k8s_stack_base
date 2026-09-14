@@ -60,6 +60,7 @@ class KeycloakStandardAccessTests(unittest.TestCase):
         self.assertEqual(env_value(enabled, "KC_REALM_ROLES"),
                          env_value(disabled, "KC_REALM_ROLES") + ",forgejo-user,forgejo-admin")
         composites = json.loads(env_value(disabled, "KC_REALM_ROLE_COMPOSITES"))
+        composites["platform-admin"].append("forgejo-admin")
         self.assertEqual(json.loads(env_value(enabled, "KC_REALM_ROLE_COMPOSITES")),
                          {**composites, "forgejo-admin": ["forgejo-user"]})
         groups = json.loads(env_value(disabled, "KC_ACCESS_GROUPS"))
@@ -77,15 +78,65 @@ class KeycloakStandardAccessTests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("realmRoles is platform-owned", result.stderr)
 
+    def test_platform_admin_exclusions_only_filter_direct_grants(self) -> None:
+        for enabled in (False, True):
+            baseline = render(CHART, {"forgejo": {"enabled": enabled}})
+            composites = json.loads(env_value(baseline, "KC_REALM_ROLE_COMPOSITES"))
+            defaults = composites["platform-admin"]
+            for exclusions in (
+                ["forgejo-admin"], ["dify-admin", "studio-user", "librechat-admin"],
+                defaults, [],
+            ):
+                with self.subTest(enabled=enabled, exclusions=exclusions):
+                    rendered = render(CHART, {
+                        "forgejo": {"enabled": enabled},
+                        "authKeycloak": {"platformAdminRoleExclusions": exclusions},
+                    })
+                    self.assertEqual(
+                        json.loads(env_value(rendered, "KC_REALM_ROLE_COMPOSITES")),
+                        {**composites, "platform-admin": [
+                            role for role in defaults if role not in exclusions
+                        ]},
+                    )
+                    for name in ("KC_REALM_ROLES", "KC_ACCESS_GROUPS", "KC_PARENT_ROLE",
+                                 "KC_CLIENT_ID", "KC_CLIENT_ROLES"):
+                        self.assertEqual(env_value(rendered, name), env_value(baseline, name))
+
+    def test_invalid_platform_admin_exclusions_fail_closed(self) -> None:
+        for value, message in [
+            *[(value, "must be a list") for value in (
+                "", "dify-admin", {}, {"dify-admin": True}, False, True, 1, None,
+            )],
+            *[(value, "entries must be strings") for value in (
+                [None], [False], [1], [{}], [[]],
+            )],
+            (["dify-admin", "dify-admin"], "duplicate role"),
+            *[([role], "unknown direct application grant") for role in (
+                "", "unknown-admin", "platform-admin", "forgejo-user", "dify-user",
+                "librechat-user", "/access/neurwerk-platform-admins", "neurwerk-dify-admins",
+                "llm:invoke", "model:example:invoke", "mcp:example:invoke",
+            )],
+        ]:
+            for enabled in (False, True):
+                with self.subTest(value=value, enabled=enabled):
+                    result = render(CHART, {
+                        "forgejo": {"enabled": enabled},
+                        "authKeycloak": {"platformAdminRoleExclusions": value},
+                    }, check=False)
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertIn("authKeycloak.platformAdminRoleExclusions", result.stderr)
+                    self.assertIn(message, result.stderr)
+
     def test_client_resource_grants_do_not_change_application_groups(self) -> None:
         selected = catalog()
         del selected["grantToAccessGroups"]  # Exercise the fail-closed chart default.
         model = "model:remote/openrouter/acme/model:invoke"
         mcp = "mcp:example:invoke"
         values = {
-            "forgejo": {"enabled": False},
+            "forgejo": {"enabled": True},
             "openrouterCatalog": selected,
             "authKeycloak": {
+                "platformAdminRoleExclusions": ["forgejo-admin", "dify-admin"],
                 "agentgatewayClientRoles": ["llm:invoke", mcp],
                 "agentgatewayAccessGroups": {
                     LLM: ["llm:invoke", model, model],
@@ -100,7 +151,7 @@ class KeycloakStandardAccessTests(unittest.TestCase):
         self.assertEqual(groups.pop(MCP), {
             "realmRoles": [], "clientRoles": {"agentgateway": ["llm:invoke", mcp]},
         })
-        self.assertEqual(len(groups), 11)
+        self.assertEqual(len(groups), 13)
         self.assertTrue(all(
             group["clientRoles"] == {"agentgateway": []} for group in groups.values()
         ))
