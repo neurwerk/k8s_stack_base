@@ -9,6 +9,13 @@
 {{- $inheritedRoles := include "keycloak-realm-roles.inheritedRoles" . | fromYamlArray }}
 {{- $agentgatewayRoles := concat (.Values.authKeycloak.agentgatewayClientRoles | default list) $inheritedRoles | uniq }}
 {{- $standard := .Files.Get "files/standard-access.yaml" | fromYaml }}
+{{/* Omission stops reconciliation; the add-only tooling does not delete roles or groups. */}}
+{{- if .Values.forgejo.enabled }}
+{{- $forgejo := .Files.Get "files/forgejo-access.yaml" | fromYaml }}
+{{- $_ := set $standard "realmRoles" (printf "%s,%s" $standard.realmRoles $forgejo.realmRoles) }}
+{{- $_ := merge $standard.realmRoleComposites $forgejo.realmRoleComposites }}
+{{- $_ := merge $standard.accessGroups $forgejo.accessGroups }}
+{{- end }}
 {{- range $key := list "accessGroups" "realmRoles" "realmRoleComposites" }}
 {{- if hasKey $.Values.authKeycloak $key }}{{- fail (printf "authKeycloak.%s is platform-owned and must be omitted" $key) }}{{- end }}
 {{- end }}

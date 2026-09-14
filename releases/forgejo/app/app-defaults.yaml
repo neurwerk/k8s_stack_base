@@ -1,0 +1,4 @@
+# Selection is explicit in client facts; package inclusion alone does not enable it.
+forgejo:
+  enabled: false
+  hostname: ""

@@ -9,6 +9,10 @@ rules:
     resources: [certificaterequestpolicies]
     verbs: [use]
     resourceNames:
+      {{- if .Values.forgejo.enabled }}
+      - cert-manager-forgejo-staging
+      - cert-manager-forgejo-production
+      {{- end }}
       - cert-manager-internal-ca-bootstrap
       - cert-manager-internal-openbao-server
       - cert-manager-internal-opensearch-http

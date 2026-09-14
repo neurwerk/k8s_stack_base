@@ -1,0 +1,9 @@
+realmRoles: forgejo-user,forgejo-admin
+realmRoleComposites:
+  forgejo-admin:
+    - forgejo-user
+accessGroups:
+  /access/neurwerk-forgejo-admins:
+    realmRoles: [forgejo-admin]
+  /access/neurwerk-forgejo-users:
+    realmRoles: [forgejo-user]

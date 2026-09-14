@@ -343,6 +343,13 @@ spec:
   (dict "name" "staging" "issuer" "letsencrypt-staging-cluster-issuer")
   (dict "name" "production" "issuer" "letsencrypt-production-cluster-issuer")
 -}}
+{{- if .Values.forgejo.enabled }}
+{{- $hostname := required "forgejo.hostname is required when forgejo.enabled" .Values.forgejo.hostname }}
+{{- if not (regexMatch `^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$` $hostname) }}
+{{- fail "forgejo.hostname must be an exact DNS hostname" }}
+{{- end }}
+{{- $publicPolicies = append $publicPolicies (dict "name" "cert-manager-forgejo" "namespace" "forgejo" "hostname" $hostname) }}
+{{- end }}
 {{- range $policy := $publicPolicies }}
 {{- if eq (include "cert-manager-approval-policy.validHostname" $policy.hostname) "true" }}
 {{- range $issuer := $publicIssuers }}

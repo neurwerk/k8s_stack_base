@@ -1,0 +1,31 @@
+{{- if .Values.forgejo.enabled -}}
+{{- $hostnamePattern := `^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$` -}}
+{{- if or (gt (len .Values.forgejo.hostname) 253) (not (regexMatch $hostnamePattern .Values.forgejo.hostname)) -}}
+{{- fail "forgejo.hostname must be a canonical DNS hostname" -}}
+{{- end -}}
+{{- if or (gt (len .Values.authKeycloak.hostname) 253) (not (regexMatch $hostnamePattern .Values.authKeycloak.hostname)) -}}
+{{- fail "authKeycloak.hostname is required for mandatory HTTPS OIDC" -}}
+{{- end -}}
+{{- if not (regexMatch `^[A-Za-z0-9_-]+$` .Values.authKeycloak.realm) -}}
+{{- fail "authKeycloak.realm must be a nonempty realm name" -}}
+{{- end -}}
+{{- if not (has .Values.canonicalEndpointRouting.mode (list "internal-traefik" "public-dns")) -}}
+{{- fail "canonicalEndpointRouting.mode must be internal-traefik or public-dns" -}}
+{{- end -}}
+{{- if empty .Values.forgejo.networkPolicy.postgresPodSelector -}}
+{{- fail "forgejo.networkPolicy.postgresPodSelector cannot be empty" -}}
+{{- end -}}
+{{- range .Values.forgejo.networkPolicy.clients -}}
+{{- if or (empty .namespace) (empty .podSelector) -}}
+{{- fail "Forgejo clients require explicit namespace and podSelector" -}}
+{{- end -}}
+{{- end -}}
+{{- if and (eq .Values.canonicalEndpointRouting.mode "public-dns") (empty .Values.forgejo.networkPolicy.keycloakPublicCidrs) -}}
+{{- fail "public-dns requires exact Keycloak public destination CIDRs" -}}
+{{- end -}}
+{{- range .Values.forgejo.networkPolicy.keycloakPublicCidrs -}}
+{{- if not (or (regexMatch `^([0-9]{1,3}\.){3}[0-9]{1,3}/32$` .) (regexMatch `^[0-9a-fA-F:]+/128$` .)) -}}
+{{- fail "Keycloak destination CIDRs must be exact /32 or /128 addresses" -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}

@@ -1,0 +1,6 @@
+apiVersion: v2
+name: forgejo
+description: Private-first Forgejo with mandatory Keycloak and operations PostgreSQL
+type: application
+version: 0.1.0
+appVersion: "15.0.8"

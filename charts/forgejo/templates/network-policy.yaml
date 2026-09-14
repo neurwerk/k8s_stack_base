@@ -1,0 +1,83 @@
+{{- if .Values.forgejo.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: forgejo
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "forgejo.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "forgejo.selectorLabels" . | nindent 6 }}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    {{- if .Values.externalGateway.enabled }}
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: traefik
+      ports:
+        - port: 3000
+          protocol: TCP
+    {{- end }}
+    {{- range .Values.forgejo.networkPolicy.clients }}
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .namespace }}
+          podSelector:
+            matchLabels:
+              {{- toYaml .podSelector | nindent 14 }}
+      ports:
+        - port: 3000
+          protocol: TCP
+        - port: 2222
+          protocol: TCP
+    {{- end }}
+    {{- if and (not .Values.externalGateway.enabled) (empty .Values.forgejo.networkPolicy.clients) }} []
+    {{- end }}
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: infra-postgres-operations
+          podSelector:
+            matchLabels:
+              {{- toYaml .Values.forgejo.networkPolicy.postgresPodSelector | nindent 14 }}
+      ports:
+        - port: {{ .Values.forgejo.networkPolicy.postgresPodPort }}
+          protocol: TCP
+    - to:
+        {{- if eq .Values.canonicalEndpointRouting.mode "internal-traefik" }}
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: traefik
+        {{- else }}
+        {{- range .Values.forgejo.networkPolicy.keycloakPublicCidrs }}
+        - ipBlock:
+            cidr: {{ . | quote }}
+        {{- end }}
+        {{- end }}
+      ports:
+        - port: 443
+          protocol: TCP
+{{- end }}

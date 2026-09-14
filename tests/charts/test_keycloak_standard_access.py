@@ -15,7 +15,7 @@ MCP = "/access/neurwerk-mcp-all-users"
 
 class KeycloakStandardAccessTests(unittest.TestCase):
     def test_canonical_groups_roles_composites_and_fresh_admin(self) -> None:
-        rendered = render(CHART, {})
+        rendered = render(CHART, {"forgejo": {"enabled": False}})
         groups = json.loads(env_value(rendered, "KC_ACCESS_GROUPS"))
         role_names = (
             "keycloak-admin,api-key-admin,opensearch-admin,langfuse-admin,pii-admin,"
@@ -49,12 +49,41 @@ class KeycloakStandardAccessTests(unittest.TestCase):
         self.assertEqual(memberships, ["/access/neurwerk-platform-admins"])
         self.assertTrue(all(group in groups for group in memberships))
 
+    def test_forgejo_selection_only_adds_owned_admission_definitions(self) -> None:
+        disabled = render(CHART, {"forgejo": {"enabled": False}})
+        # Null removes the synthetic fixture override, exercising the chart default.
+        default = render(CHART, {"forgejo": {"enabled": None}})
+        enabled = render(CHART, {"forgejo": {"enabled": True}})
+        for name in ("KC_REALM_ROLES", "KC_REALM_ROLE_COMPOSITES", "KC_ACCESS_GROUPS"):
+            self.assertEqual(env_value(default, name), env_value(disabled, name))
+            self.assertNotIn("forgejo", env_value(disabled, name))
+        self.assertEqual(env_value(enabled, "KC_REALM_ROLES"),
+                         env_value(disabled, "KC_REALM_ROLES") + ",forgejo-user,forgejo-admin")
+        composites = json.loads(env_value(disabled, "KC_REALM_ROLE_COMPOSITES"))
+        self.assertEqual(json.loads(env_value(enabled, "KC_REALM_ROLE_COMPOSITES")),
+                         {**composites, "forgejo-admin": ["forgejo-user"]})
+        groups = json.loads(env_value(disabled, "KC_ACCESS_GROUPS"))
+        self.assertEqual(len(groups), 13)
+        groups.update({f"/access/neurwerk-{role}s": {
+            "realmRoles": [role], "clientRoles": {"agentgateway": []},
+        } for role in ("forgejo-user", "forgejo-admin")})
+        self.assertEqual(len(groups), 15)
+        self.assertEqual(json.loads(env_value(enabled, "KC_ACCESS_GROUPS")), groups)
+        for selected in (False, True):
+            result = render(CHART, {
+                "forgejo": {"enabled": selected},
+                "authKeycloak": {"realmRoles": "forgejo-admin"},
+            }, check=False)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("realmRoles is platform-owned", result.stderr)
+
     def test_client_resource_grants_do_not_change_application_groups(self) -> None:
         selected = catalog()
         del selected["grantToAccessGroups"]  # Exercise the fail-closed chart default.
         model = "model:remote/openrouter/acme/model:invoke"
         mcp = "mcp:example:invoke"
         values = {
+            "forgejo": {"enabled": False},
             "openrouterCatalog": selected,
             "authKeycloak": {
                 "agentgatewayClientRoles": ["llm:invoke", mcp],

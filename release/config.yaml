@@ -16,6 +16,24 @@ packages:
   - releases/infrastructure
   - releases/applications
   optional:
+  - path: releases/namespaces/forgejo
+    status: excluded
+    reason: Staged Forgejo package; live acceptance and client activation are not complete.
+    chartPrefixes: []
+  - path: releases/forgejo/secret-sync
+    status: excluded
+    reason: Requires the selection-gated Forgejo OpenBao catalog and credential copies before activation.
+    chartPrefixes: []
+  - path: releases/forgejo/app
+    status: excluded
+    reason: Staged optional package; live acceptance and separately authorized client activation are pending.
+    chartPrefixes:
+    - charts/forgejo
+    - charts/keycloak/oidc/forgejo
+    prerequisites:
+    - name: openbao-stack-setup
+      version: 0.2.12
+      source: https://github.com/neurwerk/k8s_stack_tooling/commit/7a00c0d7a725a500ca251d699ce3f00dff57e660
   - path: releases/librechat/rag
     status: excluded
     reason: Deployment readiness and effective client rendering are not complete.
