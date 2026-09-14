@@ -274,13 +274,18 @@ Supported input contract:
 - A single selected namespace-local ExternalSecret producer can establish a
   Secret's finite declared write scope. Its exact target must use explicit
   `creationPolicy: Owner`, `engineVersion: v2`, and `mergePolicy: Replace`
-  (including the default). Its template data must contain only the referenced
-  values key, with static nested mapping keys. Only whole-scalar
+  (including the default). Its template data must contain the referenced
+  values key, with static nested mapping keys. Optional sibling Secret output
+  keys must be static valid Kubernetes data keys (1-253 ASCII letters, digits,
+  `-`, `_`, or `.`, excluding `.` and names beginning with `..`), with only raw
+  full-field `{{ .identifier }}` expressions.
+  These siblings support direct workload consumers and do not contribute Helm
+  writes; only the referenced YAML is inspected. Only whole-scalar
   `{{ .identifier | quote }}` placeholders are replaced by parser markers;
   all resulting leaf values, including literal values, remain **unknown**.
   No upstream data or remote references are resolved. Missing, ambiguous or
   unsupported producers leave the entire reference unknown. Merge policies,
-  templateFrom, mixed output keys, sequences, aliases, dynamic keys and other
+  templateFrom, other sibling output forms, sequences, aliases, dynamic keys and other
   Go syntax/interpolation are unsupported. This is a declared producer contract,
   **not proof of actual synchronization, contents, ownership or tamper resistance**.
 - All Secret `targetPath` references are rejected, including apparently disjoint
@@ -337,6 +342,18 @@ Supported input contract:
   only production is supported. Canonical routing observations must agree and
   remain independent of access. No observed mode means unsupported, not a guessed
   default. This is not a general Helm/chart semantic validator or readiness check.
+
+Forgejo OIDC consumes quoted `values.yaml` from `forgejo-oidc-values`, without
+`targetPath`. The same producer retains the raw `oidcClientSecret` output because
+the registration Job reads that key directly; the Helm value is only a rotation
+trigger and never appears in workload manifests. Both outputs use the same
+existing source field, Secret identity, ownership, retention, and Flux watch label.
+The authorized early-alpha change updates producer and consumer together and
+accepts a temporary missing-key reconciliation failure until ESO synchronizes.
+Verify current-generation producer/consumer readiness and application health
+afterward, without printing Secret values. Stable clients stay on their selected
+release until a later reviewed release bump; no credential generation or OpenBao
+schema change is needed.
 
 Remote paths, root/symlink escapes, resource/Flux cycles, suspension, patches,
 components, substitutions/postBuild, decryption, plugins, post-renderers, alternate

@@ -14,10 +14,15 @@ spec:
     deletionPolicy: Retain
     template:
       engineVersion: v2
-      mergePolicy: Merge
+      type: Opaque
+      mergePolicy: Replace
       metadata:
         labels:
           reconcile.fluxcd.io.watch: Enabled
+      data:
+        oidcClientSecret: '{{ .oidcClientSecret }}'
+        values.yaml: |
+          forgejoOidcClientSecret: {{ .oidcClientSecret | quote }}
   data:
     - secretKey: oidcClientSecret
       remoteRef:

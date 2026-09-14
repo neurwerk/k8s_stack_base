@@ -33,8 +33,7 @@ spec:
     # never renders this value; the Job reads the original Secret directly.
     - kind: Secret
       name: forgejo-oidc-values
-      valuesKey: oidcClientSecret
-      targetPath: forgejoOidcClientSecret
+      valuesKey: values.yaml
     - kind: ConfigMap
       name: client-values
       valuesKey: values.yaml
