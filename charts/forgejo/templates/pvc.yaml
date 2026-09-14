@@ -1,0 +1,17 @@
+{{- if .Values.forgejo.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: forgejo-data
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "forgejo.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/resource-policy: keep
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: {{ .Values.forgejo.persistence.storageClass | quote }}
+  resources:
+    requests:
+      storage: {{ .Values.forgejo.persistence.size }}
+{{- end }}

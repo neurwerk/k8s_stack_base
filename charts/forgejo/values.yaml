@@ -1,0 +1,40 @@
+# Platform integration supplies namespace, credentials, database and OIDC client.
+forgejo:
+  enabled: false
+  # The single canonical browser, TLS and clone hostname. Required when enabled.
+  hostname: ""
+  # Emergency only: temporarily permits native password login, not registration.
+  recoveryLoginEnabled: false
+  oidc:
+    # Optional namespace-local public CA ConfigMap, key ca.crt. Empty uses system roots.
+    # Staging/private Keycloak certificates require an independently verified CA bundle.
+    caConfigMap: ""
+  persistence:
+    storageClass: infra-rook-ceph-rbd
+    size: 20Gi
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: "2"
+      memory: 2Gi
+  networkPolicy:
+    # Operations PostgreSQL's container port differs from its Service port 5432.
+    postgresPodPort: 9712
+    postgresPodSelector:
+      app.kubernetes.io/name: postgres-operations
+    # Explicit namespace + Pod peers for internal HTTPS/SSH service consumers.
+    clients: []
+    # public-dns requires exact reviewed Keycloak destination /32 or /128 CIDRs.
+    keycloakPublicCidrs: []
+authKeycloak:
+  hostname: ""
+  realm: ""
+canonicalEndpointRouting:
+  mode: internal-traefik
+externalGateway:
+  enabled: false
+  port: 443
+publicCertificates:
+  useProduction: false

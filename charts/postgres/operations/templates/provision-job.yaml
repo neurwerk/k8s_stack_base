@@ -61,6 +61,17 @@ spec:
               SET log_statement = 'none';
               SET log_min_duration_statement = -1;
               SET log_min_error_statement = 'panic';
+              {{- if .Values.forgejo.enabled }}
+              \getenv forgejo_password FORGEJO_PASSWORD
+              SELECT format('CREATE ROLE forgejo LOGIN PASSWORD %L', :'forgejo_password')
+              WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'forgejo') \gexec
+              SELECT format('ALTER ROLE forgejo WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD %L', :'forgejo_password') \gexec
+              SELECT 'CREATE DATABASE forgejo OWNER forgejo'
+              WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'forgejo') \gexec
+              ALTER DATABASE forgejo OWNER TO forgejo;
+              REVOKE ALL ON DATABASE forgejo FROM PUBLIC;
+              GRANT CONNECT, TEMPORARY ON DATABASE forgejo TO forgejo;
+              {{- end }}
               SELECT format('CREATE ROLE agentgateway LOGIN PASSWORD %L', :'agentgateway_password')
               WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'agentgateway') \gexec
               SELECT format(
@@ -224,6 +235,32 @@ spec:
               verify_isolation dify "$DIFY_PASSWORD" agentgateway postgres_langfuse librechat_rag
               verify_isolation langfuse "$LANGFUSE_PASSWORD" agentgateway dify dify_plugin dify_vector librechat_rag
               verify_isolation librechat_rag "$LIBRECHAT_RAG_PASSWORD" agentgateway dify dify_plugin dify_vector postgres_langfuse
+              {{- if .Values.forgejo.enabled }}
+              PGPASSWORD="$FORGEJO_PASSWORD" PGUSER=forgejo PGDATABASE=forgejo \
+                psql --set=ON_ERROR_STOP=1 --command='BEGIN; CREATE TABLE public.__forgejo_provisioning_verification (id integer); INSERT INTO public.__forgejo_provisioning_verification VALUES (1); ROLLBACK;' >/dev/null
+              verify_isolation forgejo "$FORGEJO_PASSWORD" postgres template1 agentgateway dify dify_plugin dify_vector postgres_langfuse librechat_rag
+              verify_isolation agentgateway "$AGENTGATEWAY_PASSWORD" forgejo
+              verify_isolation dify "$DIFY_PASSWORD" forgejo
+              verify_isolation langfuse "$LANGFUSE_PASSWORD" forgejo
+              verify_isolation librechat_rag "$LIBRECHAT_RAG_PASSWORD" forgejo
+              verify_isolation librechat "$DOCUMENTDB_PASSWORD" forgejo
+              psql --set=ON_ERROR_STOP=1 <<'SQL'
+              DO $verify$
+              BEGIN
+                IF EXISTS (
+                  SELECT FROM pg_auth_members membership
+                  JOIN pg_roles child ON child.oid = membership.member
+                  WHERE child.rolname = 'forgejo'
+                ) THEN
+                  RAISE EXCEPTION 'Forgejo must not inherit other database roles';
+                END IF;
+                IF has_database_privilege('operations_admin', 'forgejo', 'CONNECT') THEN
+                  RAISE EXCEPTION 'DocumentDB administrator unexpectedly has Forgejo access';
+                END IF;
+              END
+              $verify$;
+              SQL
+              {{- end }}
               echo "Operations PostgreSQL provisioning verified."
           securityContext:
             allowPrivilegeEscalation: false
@@ -232,6 +269,13 @@ spec:
                 - ALL
             readOnlyRootFilesystem: true
           env:
+            {{- if .Values.forgejo.enabled }}
+            - name: FORGEJO_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-operations-secret
+                  key: forgejo-password
+            {{- end }}
             - name: PGHOST
               value: postgres-operations.{{ .Release.Namespace }}.svc.{{ .Values.postgresOperations.clusterDomain }}
             - name: PGPORT

@@ -1,0 +1,19 @@
+# IMAGE SOURCE: tooling
+# Flux-only rotation trigger; never rendered into a second Secret or workload.
+forgejoOidcClientSecret: ""
+k8sTools:
+  image: ghcr.io/neurwerk/k8s-stack-tooling:0.6.1@sha256:60829618924ae8121817a2039faecff2dbf881debef852f84bec7c1ceb03a805
+forgejo:
+  enabled: false
+  hostname: ""
+authKeycloak:
+  adminUser: admin
+  realm: ""
+# Resource budget for the finite client-registration Job.
+resources:
+  requests:
+    cpu: 25m
+    memory: 64Mi
+  limits:
+    cpu: 250m
+    memory: 128Mi

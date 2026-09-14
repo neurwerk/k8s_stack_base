@@ -1,0 +1,148 @@
+{{- if .Values.forgejo.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: forgejo
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "forgejo.labels" . | nindent 4 }}
+  annotations:
+    secret.reloader.stakater.com/reload: forgejo-runtime,forgejo-tls
+    configmap.reloader.stakater.com/reload: {{ printf "forgejo-config,forgejo-scripts%s" (ternary (printf ",%s" .Values.forgejo.oidc.caConfigMap) "" (not (empty .Values.forgejo.oidc.caConfigMap))) | quote }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "forgejo.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "forgejo.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/part-of: forgejo
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/config-map.yaml") . | sha256sum }}
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      terminationGracePeriodSeconds: 60
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      # Private local Git/SSH callbacks retain the certificate's DNS identity.
+      {{- if not .Values.externalGateway.enabled }}
+      hostAliases:
+        - ip: "127.0.0.1"
+          hostnames: [{{ .Values.forgejo.hostname | quote }}]
+      {{- end }}
+      initContainers:
+        - name: bootstrap
+          image: {{ include "forgejo.image" . }}
+          command: ["/usr/bin/timeout", "-k", "10", "290", "/bin/bash", "/scripts/bootstrap.sh"]
+          envFrom:
+            - configMapRef:
+                name: forgejo-config
+          securityContext:
+            {{- include "forgejo.securityContext" . | nindent 12 }}
+          resources:
+            {{- toYaml .Values.forgejo.resources | nindent 12 }}
+          volumeMounts:
+            {{- include "forgejo.mounts" . | nindent 12 }}
+            - name: bootstrap-credentials
+              mountPath: /run/bootstrap
+              readOnly: true
+            {{- if .Values.forgejo.oidc.caConfigMap }}
+            - name: oidc-ca
+              mountPath: /run/oidc-ca
+              readOnly: true
+            {{- end }}
+      containers:
+        - name: forgejo
+          image: {{ include "forgejo.image" . }}
+          command: ["/usr/bin/dumb-init", "--", "/app/gitea/gitea"]
+          args: ["--work-path", "/data", "--config", "/run/forgejo/app.ini", "web"]
+          envFrom:
+            - configMapRef:
+                name: forgejo-config
+          securityContext:
+            {{- include "forgejo.securityContext" . | nindent 12 }}
+          ports:
+            - name: web
+              containerPort: 3000
+            - name: ssh
+              containerPort: 2222
+          startupProbe:
+            tcpSocket:
+              port: web
+            periodSeconds: 5
+            failureThreshold: 60
+          livenessProbe:
+            tcpSocket:
+              port: web
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /api/healthz
+              port: web
+              scheme: {{ ternary "HTTP" "HTTPS" .Values.externalGateway.enabled }}
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.forgejo.resources | nindent 12 }}
+          volumeMounts:
+            {{- include "forgejo.mounts" . | nindent 12 }}
+      volumes:
+        {{- if .Values.forgejo.oidc.caConfigMap }}
+        - name: oidc-ca
+          configMap:
+            name: {{ .Values.forgejo.oidc.caConfigMap | quote }}
+            optional: false
+            items:
+              - key: ca.crt
+                path: ca.crt
+        {{- end }}
+        - name: data
+          persistentVolumeClaim:
+            claimName: forgejo-data
+        - name: config
+          emptyDir:
+            medium: Memory
+        - name: tmp
+          emptyDir: {}
+        - name: scripts
+          configMap:
+            name: forgejo-scripts
+        - name: runtime
+          secret:
+            secretName: forgejo-runtime
+            defaultMode: 0440
+            items:
+              - key: dbPassword
+                path: dbPassword
+              - key: secretKey
+                path: secretKey
+              - key: internalToken
+                path: internalToken
+              - key: oauth2JwtSecret
+                path: oauth2JwtSecret
+              - key: lfsJwtSecret
+                path: lfsJwtSecret
+        - name: bootstrap-credentials
+          secret:
+            secretName: forgejo-runtime
+            defaultMode: 0440
+            items:
+              - key: oidcClientSecret
+                path: oidcClientSecret
+              - key: adminPassword
+                path: adminPassword
+        - name: tls
+          secret:
+            secretName: forgejo-tls
+            defaultMode: 0440
+{{- end }}

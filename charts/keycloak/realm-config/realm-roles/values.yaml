@@ -11,8 +11,8 @@ authKeycloak:
   # to the Admin REST API. Set by the chart; override per-client if needed.
   adminUser: admin
 
-  # Standard roles, composites, and all 13 /access/neurwerk-* groups are owned
-  # by files/standard-access.yaml, not client-overridable values.
+  # The 13 standard groups and optional Forgejo roles/groups are owned by
+  # files/standard-access.yaml and files/forgejo-access.yaml, not client values.
 
   # Clients retain explicit llm, MCP, and custom/local model permissions. The
   # platform derives inherited OpenRouter model permissions from its catalog.
@@ -30,6 +30,10 @@ openrouterCatalog:
   # Global catalog auto-grants are unsupported; clients grant selected roles explicitly.
   grantToAccessGroups: false
   models: []
+
+# Disabling omits the optional definitions, never deletes existing identities.
+forgejo:
+  enabled: false
 
 k8sTools:
   image: ghcr.io/neurwerk/k8s-stack-tooling:0.6.1@sha256:60829618924ae8121817a2039faecff2dbf881debef852f84bec7c1ceb03a805

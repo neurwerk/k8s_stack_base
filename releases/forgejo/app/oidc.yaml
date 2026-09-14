@@ -1,0 +1,43 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: keycloak-forgejo-oidc
+  namespace: auth-keycloak
+spec:
+  releaseName: auth-keycloak-forgejo-oidc
+  interval: 5m
+  timeout: 15m
+  install:
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 1m
+  upgrade:
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 1m
+  dependsOn:
+    - name: keycloak
+      namespace: auth-keycloak
+    - name: keycloak-realm-roles
+      namespace: auth-keycloak
+  chart:
+    spec:
+      chart: ./charts/keycloak/oidc/forgejo
+      sourceRef:
+        kind: GitRepository
+        name: k8s-stack
+        namespace: flux-system
+      interval: 1m
+  valuesFrom:
+    # A value change triggers the finite hook on credential rotation. The chart
+    # never renders this value; the Job reads the original Secret directly.
+    - kind: Secret
+      name: forgejo-oidc-values
+      valuesKey: oidcClientSecret
+      targetPath: forgejoOidcClientSecret
+    - kind: ConfigMap
+      name: client-values
+      valuesKey: values.yaml
+    - kind: ConfigMap
+      name: keycloak-product-values
+      valuesKey: values.yaml

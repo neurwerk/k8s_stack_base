@@ -13,6 +13,15 @@ spec:
     - Ingress
   ingress:
     - from:
+        {{- if .Values.forgejo.enabled }}
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: forgejo
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: forgejo
+              app.kubernetes.io/instance: forgejo
+        {{- end }}
         - namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: infra-agentgateway

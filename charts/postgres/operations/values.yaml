@@ -25,4 +25,10 @@ postgresOperations:
   provisioning:
     activeDeadlineSeconds: 300
 
+# forgejoPassword is supplied by the optional forgejo-postgres-values Secret and
+# is required only when forgejo.enabled is true.
 postgresOperationsSecrets: {}
+
+# Disabling stops reconciliation, not access to or retention of existing data.
+forgejo:
+  enabled: false

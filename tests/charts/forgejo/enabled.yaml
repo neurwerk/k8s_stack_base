@@ -1,0 +1,7 @@
+# Synthetic render inputs, never a client configuration.
+forgejo:
+  enabled: true
+  hostname: forgejo.example.com
+authKeycloak:
+  hostname: forgejo.example.com
+  realm: test

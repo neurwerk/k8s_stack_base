@@ -1,5 +1,8 @@
 # Synthetic, non-secret values used by the chart validation targets.
 # HelmRelease ConfigMaps and Secrets provide these values in deployments.
+forgejo:
+  enabled: true
+  hostname: forgejo.example.com
 authKeycloak:
   hostname: lint.example
   adminUser: lint-admin
@@ -142,6 +145,7 @@ postgresOperations:
   persistence:
     storageClassName: infra-rook-ceph-rbd
 postgresOperationsSecrets:
+  forgejoPassword: lint-forgejo-not-a-real-password
   adminPassword: lint-postgres-operations-admin
   agentgatewayPassword: lint-postgres-operations-agentgateway
   documentdbPassword: lint-postgres-operations-documentdb

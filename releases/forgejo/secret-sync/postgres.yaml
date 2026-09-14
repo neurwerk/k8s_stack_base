@@ -1,0 +1,29 @@
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: forgejo-postgres-values
+  namespace: infra-postgres-operations
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: infra-postgres-operations-openbao-secret-store
+    kind: SecretStore
+  target:
+    name: forgejo-postgres-values
+    creationPolicy: Owner
+    deletionPolicy: Retain
+    template:
+      engineVersion: v2
+      type: Opaque
+      metadata:
+        labels:
+          reconcile.fluxcd.io.watch: Enabled
+      data:
+        values.yaml: |
+          postgresOperationsSecrets:
+            forgejoPassword: {{ .dbPassword | quote }}
+  data:
+    - secretKey: dbPassword
+      remoteRef:
+        key: infra-postgres-operations/internal
+        property: forgejoPassword

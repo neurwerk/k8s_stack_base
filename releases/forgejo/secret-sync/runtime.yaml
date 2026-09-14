@@ -1,0 +1,73 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: forgejo-external-secrets
+  namespace: forgejo
+automountServiceAccountToken: false
+---
+apiVersion: external-secrets.io/v1
+kind: SecretStore
+metadata:
+  name: forgejo-openbao-secret-store
+  namespace: forgejo
+spec:
+  provider:
+    vault:
+      server: https://infra-openbao.infra-openbao.svc:8200
+      path: secret
+      version: v2
+      caProvider:
+        type: ConfigMap
+        name: infra-openbao-ca-bundle
+        key: ca.crt
+      auth:
+        kubernetes:
+          mountPath: kubernetes
+          role: forgejo
+          serviceAccountRef:
+            name: forgejo-external-secrets
+            audiences: [openbao]
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: forgejo-runtime
+  namespace: forgejo
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: forgejo-openbao-secret-store
+    kind: SecretStore
+  target:
+    name: forgejo-runtime
+    creationPolicy: Owner
+    deletionPolicy: Retain
+  data:
+    - secretKey: dbPassword
+      remoteRef:
+        key: forgejo/internal
+        property: dbPassword
+    - secretKey: oidcClientSecret
+      remoteRef:
+        key: forgejo/internal
+        property: oidcClientSecret
+    - secretKey: secretKey
+      remoteRef:
+        key: forgejo/internal
+        property: secretKey
+    - secretKey: internalToken
+      remoteRef:
+        key: forgejo/internal
+        property: internalToken
+    - secretKey: oauth2JwtSecret
+      remoteRef:
+        key: forgejo/internal
+        property: oauth2JwtSecret
+    - secretKey: lfsJwtSecret
+      remoteRef:
+        key: forgejo/internal
+        property: lfsJwtSecret
+    - secretKey: adminPassword
+      remoteRef:
+        key: forgejo/internal
+        property: adminPassword

@@ -1,0 +1,22 @@
+{{- if .Values.forgejo.enabled }}
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: forgejo-tls
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "forgejo.labels" . | nindent 4 }}
+spec:
+  secretName: forgejo-tls
+  duration: 2160h
+  usages: [digital signature, key encipherment]
+  privateKey:
+    algorithm: RSA
+    size: 2048
+    rotationPolicy: Always
+  dnsNames: [{{ .Values.forgejo.hostname | quote }}]
+  issuerRef:
+    group: cert-manager.io
+    kind: ClusterIssuer
+    name: {{ ternary "letsencrypt-production-cluster-issuer" "letsencrypt-staging-cluster-issuer" .Values.publicCertificates.useProduction }}
+{{- end }}

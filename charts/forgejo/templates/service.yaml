@@ -1,0 +1,22 @@
+{{- if .Values.forgejo.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: forgejo
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "forgejo.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "forgejo.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: {{ ternary "http" "https" .Values.externalGateway.enabled }}
+      port: {{ ternary 80 443 .Values.externalGateway.enabled }}
+      targetPort: web
+      protocol: TCP
+    - name: ssh
+      port: 2222
+      targetPort: ssh
+      protocol: TCP
+{{- end }}

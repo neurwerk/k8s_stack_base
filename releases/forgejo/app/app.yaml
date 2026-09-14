@@ -1,12 +1,12 @@
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
-  name: postgres-operations
-  namespace: infra-postgres-operations
+  name: forgejo
+  namespace: forgejo
 spec:
-  releaseName: postgres-operations
+  releaseName: forgejo
   interval: 5m
-  timeout: 20m
+  timeout: 15m
   install:
     strategy:
       name: RetryOnFailure
@@ -16,31 +16,27 @@ spec:
       name: RetryOnFailure
       retryInterval: 1m
   dependsOn:
-    - name: rook-ceph
-      namespace: infra-rook-ceph
-    - name: cert-manager-internal-issuer
+    - name: postgres-operations
+      namespace: infra-postgres-operations
+    - name: keycloak-forgejo-oidc
+      namespace: auth-keycloak
+    - name: cert-manager-issuers
       namespace: infra-cert-manager
-    - name: trust-manager
-      namespace: infra-trust-manager
   chart:
     spec:
-      chart: ./charts/postgres/operations
+      chart: ./charts/forgejo
       sourceRef:
         kind: GitRepository
         name: k8s-stack
         namespace: flux-system
       interval: 1m
   valuesFrom:
-    - kind: Secret
-      name: forgejo-postgres-values
-      valuesKey: values.yaml
-      optional: true
-    - kind: Secret
-      name: postgres-operations-values
+    - kind: ConfigMap
+      name: forgejo-app-defaults
       valuesKey: values.yaml
     - kind: ConfigMap
       name: client-values
       valuesKey: values.yaml
     - kind: ConfigMap
-      name: postgres-product-values
+      name: forgejo-product-values
       valuesKey: values.yaml

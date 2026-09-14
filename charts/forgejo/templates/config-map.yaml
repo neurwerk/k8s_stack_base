@@ -1,0 +1,95 @@
+{{- if .Values.forgejo.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: forgejo-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "forgejo.labels" . | nindent 4 }}
+data:
+  GITEA_WORK_DIR: /data
+  GITEA_CUSTOM: /data/custom
+  GITEA_APP_INI: /run/forgejo/app.ini
+  HOME: /data/git
+  TMPDIR: /tmp
+  SSL_CERT_FILE: /run/forgejo/ca-bundle.pem
+  OIDC_CA_FILE: {{ ternary "/run/oidc-ca/ca.crt" "" (not (empty .Values.forgejo.oidc.caConfigMap)) | quote }}
+  FORGEJO____RUN_USER: git
+  FORGEJO____RUN_MODE: prod
+  FORGEJO__SERVER__DOMAIN: {{ .Values.forgejo.hostname | quote }}
+  FORGEJO__SERVER__ROOT_URL: {{ printf "https://%s/" .Values.forgejo.hostname | quote }}
+  FORGEJO__SERVER__PROTOCOL: {{ ternary "http" "https" .Values.externalGateway.enabled | quote }}
+  FORGEJO__SERVER__LOCAL_ROOT_URL: {{ ternary "http://127.0.0.1:3000/" (printf "https://%s:3000/" .Values.forgejo.hostname) .Values.externalGateway.enabled | quote }}
+  FORGEJO__SERVER__HTTP_ADDR: "0.0.0.0"
+  FORGEJO__SERVER__HTTP_PORT: "3000"
+  FORGEJO__SERVER__CERT_FILE: /run/tls/tls.crt
+  FORGEJO__SERVER__KEY_FILE: /run/tls/tls.key
+  FORGEJO__SERVER__ENABLE_ACME: "false"
+  FORGEJO__SERVER__APP_DATA_PATH: /data
+  FORGEJO__SERVER__START_SSH_SERVER: "true"
+  FORGEJO__SERVER__SSH_PORT: "2222"
+  FORGEJO__SERVER__SSH_LISTEN_PORT: "2222"
+  FORGEJO__SERVER__SSH_DOMAIN: {{ .Values.forgejo.hostname | quote }}
+  FORGEJO__SERVER__SSH_SERVER_HOST_KEYS: /data/ssh/forgejo.ed25519
+  FORGEJO__SERVER__LFS_START_SERVER: "true"
+  FORGEJO__SERVER__LFS_JWT_SECRET_URI: file:/run/secrets/forgejo/lfsJwtSecret
+  FORGEJO__DATABASE__DB_TYPE: postgres
+  FORGEJO__DATABASE__HOST: postgres-operations.infra-postgres-operations.svc.cluster.local:5432
+  FORGEJO__DATABASE__NAME: forgejo
+  FORGEJO__DATABASE__USER: forgejo
+  FORGEJO__DATABASE__PASSWD_URI: file:/run/secrets/forgejo/dbPassword
+  FORGEJO__DATABASE__SSL_MODE: disable
+  FORGEJO__DATABASE__AUTO_MIGRATION: "false"
+  FORGEJO__DATABASE__DB_RETRIES: "3"
+  FORGEJO__DATABASE__DB_RETRY_BACKOFF: 3s
+  FORGEJO__DATABASE__MAX_OPEN_CONNS: "10"
+  FORGEJO__SECURITY__INSTALL_LOCK: "true"
+  FORGEJO__SECURITY__REVERSE_PROXY_TRUSTED_PROXIES: "127.0.0.0/8,::1/128"
+  FORGEJO__SECURITY__SECRET_KEY_URI: file:/run/secrets/forgejo/secretKey
+  FORGEJO__SECURITY__INTERNAL_TOKEN_URI: file:/run/secrets/forgejo/internalToken
+  FORGEJO__SECURITY__DISABLE_GIT_HOOKS: "true"
+  FORGEJO__SECURITY__DISABLE_QUERY_AUTH_TOKEN: "true"
+  FORGEJO__SERVICE__DISABLE_REGISTRATION: "false"
+  FORGEJO__SERVICE__ALLOW_ONLY_EXTERNAL_REGISTRATION: "true"
+  FORGEJO__SERVICE__REQUIRE_SIGNIN_VIEW: "true"
+  FORGEJO__SERVICE__ENABLE_INTERNAL_SIGNIN: {{ .Values.forgejo.recoveryLoginEnabled | quote }}
+  FORGEJO__SERVICE__ENABLE_BASIC_AUTHENTICATION: {{ .Values.forgejo.recoveryLoginEnabled | quote }}
+  FORGEJO__SERVICE__ENABLE_REVERSE_PROXY_AUTHENTICATION: "false"
+  FORGEJO__SERVICE__ENABLE_REVERSE_PROXY_AUTHENTICATION_API: "false"
+  FORGEJO__SERVICE__ENABLE_REVERSE_PROXY_AUTO_REGISTRATION: "false"
+  FORGEJO__SERVICE__REQUIRE_EXTERNAL_REGISTRATION_PASSWORD: "false"
+  FORGEJO__SERVICE__DEFAULT_USER_VISIBILITY: private
+  FORGEJO__SERVICE__DEFAULT_ORG_VISIBILITY: private
+  FORGEJO__OPENID__ENABLE_OPENID_SIGNIN: "false"
+  FORGEJO__OPENID__ENABLE_OPENID_SIGNUP: "false"
+  FORGEJO__OAUTH2_CLIENT__ENABLE_AUTO_REGISTRATION: "true"
+  FORGEJO__OAUTH2_CLIENT__ACCOUNT_LINKING: disabled
+  FORGEJO__OAUTH2_CLIENT__USERNAME: nickname
+  FORGEJO__OAUTH2__JWT_SIGNING_ALGORITHM: HS256
+  FORGEJO__OAUTH2__JWT_SECRET_URI: file:/run/secrets/forgejo/oauth2JwtSecret
+  FORGEJO__REPOSITORY__ROOT: /data/repositories
+  FORGEJO__REPOSITORY__DEFAULT_PRIVATE: private
+  FORGEJO__REPOSITORY__DISABLE_MIGRATIONS: "true"
+  FORGEJO__ACTIONS__ENABLED: "false"
+  FORGEJO__MIRROR__ENABLED: "false"
+  FORGEJO__FEDERATION__ENABLED: "false"
+  FORGEJO__BADGES__ENABLED: "false"
+  FORGEJO__PICTURE__DISABLE_GRAVATAR: "true"
+  FORGEJO__PICTURE__ENABLE_FEDERATED_AVATAR: "false"
+  FORGEJO__LOG__MODE: console
+  FORGEJO__LOG__LEVEL: Warn
+  FORGEJO__LOG__LOGGER_ACCESS_MODE: ""
+  OIDC_DISCOVERY_URL: {{ printf "https://%s/realms/%s/.well-known/openid-configuration" .Values.authKeycloak.hostname .Values.authKeycloak.realm | quote }}
+  RECOVERY_EMAIL: {{ printf "forgejo-recovery@%s" .Values.forgejo.hostname | quote }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: forgejo-scripts
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "forgejo.labels" . | nindent 4 }}
+data:
+  bootstrap.sh: |
+    {{- .Files.Get "files/bootstrap.sh" | nindent 4 }}
+{{- end }}
