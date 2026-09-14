@@ -54,6 +54,11 @@ Provision database **`forgejo`** owned by dedicated role **`forgejo`** at
 `postgres-operations.infra-postgres-operations.svc.cluster.local:5432`.
 This deliberately uses the existing operations-only plaintext PostgreSQL/SCRAM
 exception. Reconcile database grants and exact consumer ingress before Forgejo.
+`releases/forgejo/secret-sync/postgres.yaml` delivers the provisioning password
+through the separate `forgejo-postgres-values` Secret. Enabling Forgejo leaves
+the shared PostgreSQL StatefulSet and its watched Secret unchanged, avoiding an
+intentional shared PostgreSQL restart during onboarding. This is not a guarantee
+of outage-free onboarding; shared-instance backup and recovery gates still apply.
 The application and initializer share Pod labels
 `app.kubernetes.io/name: forgejo`, `app.kubernetes.io/instance: <release name>`,
 and `app.kubernetes.io/part-of: forgejo`.
