@@ -9,13 +9,31 @@
 {{- $inheritedRoles := include "keycloak-realm-roles.inheritedRoles" . | fromYamlArray }}
 {{- $agentgatewayRoles := concat (.Values.authKeycloak.agentgatewayClientRoles | default list) $inheritedRoles | uniq }}
 {{- $standard := .Files.Get "files/standard-access.yaml" | fromYaml }}
+{{- $forgejo := .Files.Get "files/forgejo-access.yaml" | fromYaml }}
+{{- $platformAdminRoles := index $standard.realmRoleComposites "platform-admin" }}
+{{- $knownPlatformAdminRoles := concat $platformAdminRoles $forgejo.platformAdminRoles }}
+{{- $exclusions := .Values.authKeycloak.platformAdminRoleExclusions }}
+{{- if not (kindIs "slice" $exclusions) }}{{- fail "authKeycloak.platformAdminRoleExclusions must be a list" }}{{- end }}
+{{- $seen := dict }}
+{{- range $exclusions }}
+{{- if not (kindIs "string" .) }}{{- fail "authKeycloak.platformAdminRoleExclusions entries must be strings" }}{{- end }}
+{{- if not (has . $knownPlatformAdminRoles) }}{{- fail (printf "authKeycloak.platformAdminRoleExclusions contains unknown direct application grant %q" .) }}{{- end }}
+{{- if hasKey $seen . }}{{- fail (printf "authKeycloak.platformAdminRoleExclusions contains duplicate role %q" .) }}{{- end }}
+{{- $_ := set $seen . true }}
+{{- end }}
 {{/* Omission stops reconciliation; the add-only tooling does not delete roles or groups. */}}
 {{- if .Values.forgejo.enabled }}
-{{- $forgejo := .Files.Get "files/forgejo-access.yaml" | fromYaml }}
 {{- $_ := set $standard "realmRoles" (printf "%s,%s" $standard.realmRoles $forgejo.realmRoles) }}
 {{- $_ := merge $standard.realmRoleComposites $forgejo.realmRoleComposites }}
 {{- $_ := merge $standard.accessGroups $forgejo.accessGroups }}
+{{- $platformAdminRoles = concat $platformAdminRoles $forgejo.platformAdminRoles }}
 {{- end }}
+{{- $filteredRoles := list }}
+{{- range $platformAdminRoles }}
+{{- if not (has . $exclusions) }}{{- $filteredRoles = append $filteredRoles . }}{{- end }}
+{{- end }}
+{{/* Explicit empty composites reconcile removals rather than leaving stale grants. */}}
+{{- $_ := set $standard.realmRoleComposites "platform-admin" $filteredRoles }}
 {{- range $key := list "accessGroups" "realmRoles" "realmRoleComposites" }}
 {{- if hasKey $.Values.authKeycloak $key }}{{- fail (printf "authKeycloak.%s is platform-owned and must be omitted" $key) }}{{- end }}
 {{- end }}

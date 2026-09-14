@@ -1,4 +1,5 @@
 realmRoles: forgejo-user,forgejo-admin
+platformAdminRoles: [forgejo-admin]
 realmRoleComposites:
   forgejo-admin:
     - forgejo-user

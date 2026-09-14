@@ -13,6 +13,12 @@ authKeycloak:
 
   # The 13 standard groups and optional Forgejo roles/groups are owned by
   # files/standard-access.yaml and files/forgejo-access.yaml, not client values.
+  # Remove only these direct application grants from platform-admin (role names):
+  # keycloak-admin, api-key-admin, opensearch-admin, langfuse-admin, pii-admin,
+  # studio-user, librechat-admin, dify-admin, forgejo-admin.
+  # Forgejo is granted only when enabled; its exclusion is valid while disabled.
+  # [] restores all defaults. Groups, memberships, and model/MCP grants are unchanged.
+  platformAdminRoleExclusions: []
 
   # Clients retain explicit llm, MCP, and custom/local model permissions. The
   # platform derives inherited OpenRouter model permissions from its catalog.
