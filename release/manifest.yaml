@@ -227,7 +227,7 @@ spec:
       appVersion: '1.0'
     - path: charts/keycloak/oidc/forgejo
       name: keycloak-forgejo-oidc
-      version: 0.1.0
+      version: 0.1.1
       appVersion: '1.0'
     - path: charts/keycloak/oidc/keycloak-api-key-bridge
       name: keycloak-api-key-bridge

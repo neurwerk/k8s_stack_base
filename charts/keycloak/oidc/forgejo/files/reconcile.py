@@ -107,6 +107,7 @@ def reconcile():
             "claim.name": "forgejo_roles", "jsonType.label": "String",
             "multivalued": "true", "access.token.claim": "true",
             "id.token.claim": "true", "userinfo.token.claim": "true",
+            "introspection.token.claim": "false",
             "usermodel.realmRoleMapping.rolePrefix": "",
         },
     }
@@ -128,6 +129,9 @@ def reconcile():
         raise RuntimeError("Client secret readback mismatch")
     mappers = api("/protocol-mappers/models")
     matches = [item for item in mappers if item.get("name") == mapper["name"]]
+    if len(matches) == 1:
+        # Keycloak omits the empty prefix on readback; still send it to clear drift.
+        matches[0].get("config", {}).setdefault("usermodel.realmRoleMapping.rolePrefix", "")
     if len(matches) != 1 or any(matches[0].get(key) != value for key, value in mapper.items()):
         raise RuntimeError("Role mapper readback mismatch")
     if any(item.get("config", {}).get("claim.name") == "forgejo_roles"
