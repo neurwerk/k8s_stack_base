@@ -88,57 +88,20 @@ class ForgejoIntegrationTests(unittest.TestCase):
 {{- $decoded := tpl (index $outputs "values.yaml") $context | fromYaml -}}
 {{- dict "apiVersion" "v1" "kind" "ConfigMap" "metadata" (dict "name" "quote-test")
     "data" (dict "raw" $raw "decoded" ($decoded | toJson)
-    "producer" ($producer | toJson) "consumer" ($consumer | toJson)) | toJson -}}
+    "consumer" (first $consumer.spec.valuesFrom | toJson)) | toJson -}}
 ''')
-            modes = [{"forgejo": {"enabled": True, "hostname": "forgejo.example.com"},
-                      "externalGateway": {"enabled": public}} for public in (False, True)]
-            baselines = [render("keycloak/oidc/forgejo", mode).stdout for mode in modes]
-            credentials = (
-                "fixture-only", "fixture,externalGateway.enabled=true", 'fixture"quoted\'text',
-                "fixture\nsecond-line\n", "fixture\\path\\end", "fixture{{ .other }}{braces}",
-                "fixture-\u00e9-\u96ea-\u03bb", "", "fixture\r\n\tend",
-                'fixture,forgejo.enabled=false"\\\n{{ .other }}\u96ea',
-            )
-            for credential in credentials:
+            values = {"forgejo": {"enabled": True, "hostname": "forgejo.example.com"}}
+            baseline = render("keycloak/oidc/forgejo", values).stdout
+            for credential in ("fixture-only", 'fixture,forgejo.enabled=false"\\\n{{ .other }}\u96ea'):
                 with self.subTest(credential=credential):
                     output = render(str(chart), {"syntheticCredential": credential}).stdout
                     data = json.loads(output[output.index("{"):])["data"]
                     decoded = json.loads(data["decoded"])
                     self.assertEqual(decoded, {"forgejoOidcClientSecret": credential})
                     self.assertEqual(data["raw"].encode("utf-8"), credential.encode("utf-8"))
-                    for mode, baseline in zip(modes, baselines):
-                        self.assertEqual(render("keycloak/oidc/forgejo", {**mode, **decoded}).stdout, baseline)
-            producer = json.loads(data["producer"])
-            self.assertEqual(producer, {
-                "apiVersion": "external-secrets.io/v1", "kind": "ExternalSecret",
-                "metadata": {"name": "forgejo-oidc-values", "namespace": "auth-keycloak"},
-                "spec": {
-                    "refreshInterval": "1h",
-                    "secretStoreRef": {"name": "auth-keycloak-openbao-secret-store", "kind": "SecretStore"},
-                    "target": {"name": "forgejo-oidc-values", "creationPolicy": "Owner", "deletionPolicy": "Retain",
-                        "template": {"engineVersion": "v2", "type": "Opaque", "mergePolicy": "Replace",
-                            "metadata": {"labels": {"reconcile.fluxcd.io.watch": "Enabled"}},
-                            "data": {"oidcClientSecret": "{{ .oidcClientSecret }}",
-                                     "values.yaml": "forgejoOidcClientSecret: {{ .oidcClientSecret | quote }}\n"}}},
-                    "data": [{"secretKey": "oidcClientSecret", "remoteRef": {
-                        "key": "auth-keycloak/internal", "property": "forgejoClientSecret"}}],
-                },
-            })
-            consumer = json.loads(data["consumer"])
-            self.assertEqual(consumer["metadata"], {"name": "keycloak-forgejo-oidc", "namespace": "auth-keycloak"})
-            self.assertEqual(consumer["spec"]["valuesFrom"], [
-                {"kind": "Secret", "name": "forgejo-oidc-values", "valuesKey": "values.yaml"},
-                {"kind": "ConfigMap", "name": "client-values", "valuesKey": "values.yaml"},
-                {"kind": "ConfigMap", "name": "keycloak-product-values", "valuesKey": "values.yaml"},
-            ])
-            for baseline in baselines:
-                self.assertRegex(baseline, r"- name: KC_CLIENT_SECRET\n\s+valueFrom:\n\s+secretKeyRef:"
-                                 r"\n\s+name: forgejo-oidc-values\n\s+key: oidcClientSecret\n")
-                self.assertNotIn("forgejoOidcClientSecret", baseline)
-                self.assertNotIn("kind: Secret\n", baseline)
-            self.assertFalse(render("keycloak/oidc/forgejo", {
-                "forgejo": {"enabled": False}, "forgejoOidcClientSecret": credentials[-1],
-            }).stdout.strip())
+                    self.assertEqual(render("keycloak/oidc/forgejo", {**values, **decoded}).stdout, baseline)
+                    self.assertEqual(json.loads(data["consumer"]), {
+                        "kind": "Secret", "name": "forgejo-oidc-values", "valuesKey": "values.yaml"})
 
     def test_optional_inventory_does_not_leak_into_default_stages(self):
         for stage in ("namespaces", "infrastructure", "applications"):

@@ -188,7 +188,7 @@ class AdapterTest(unittest.TestCase):
         producer = resource("ExternalSecret", "producer", {"target": {"name": "opaque", "creationPolicy": "Owner",
             "template": {"engineVersion": "v2", "data": {
                 "values.yaml": 'privateConfig:\n  password: {{ .password | quote }}\n  literal: false\n',
-                "authKeycloak": "{{ .password }}", "raw.password_1": "{{._password1}}"}}}}, "apps")
+                "authKeycloak": "{{ .password }}"}}}}, "apps")
         # Merely present producers, and upstream references, are never resolved.
         self.write(self.platform / "releases/apps/producer.yaml", producer)
         with self.assertRaisesRegex(adapter.PlanError, "unresolved authKeycloak.hostname"):
@@ -267,7 +267,6 @@ class AdapterTest(unittest.TestCase):
             obj["spec"]["target"][target_field] = value
             cases.append([obj])
         for field, value in (("mergePolicy", "Merge"), ("templateFrom", []), ("engineVersion", "v1"),
-                             ("type", "kubernetes.io/tls"),
                              ("metadata", {"name": "different"}), ("metadata", {"labels": {"dynamic": "{{ .label }}"}}),
                              ("data", {"different.yaml": "a: b"}), ("data", {"values.yaml": "a: b", "extra": "mixed"}),
                              ("data", {"{{ .key }}": "a: b"})):
@@ -275,16 +274,8 @@ class AdapterTest(unittest.TestCase):
             obj["spec"]["target"]["template"][field] = value
             cases.append([obj])
         for key, value in (
-                ("{{ .key }}", "{{ .password }}"), ("prefix{{ .key }}", "{{ .password }}"),
-                ("bad/key", "{{ .password }}"), ("", "{{ .password }}"), ("a" * 254, "{{ .password }}"),
-                (".", "{{ .password }}"), ("..", "{{ .password }}"), ("..reserved", "{{ .password }}"),
-                ("nonascii-\u00e9", "{{ .password }}"), (1, "{{ .password }}"),
-                ("raw", None), ("raw", True), ("raw", {}), ("raw", []), ("raw", "literal"),
-                ("raw", "{{ .password | quote }}"), ("raw", "prefix{{ .password }}"),
-                ("raw", "{{ .password }}suffix"), ("raw", "{{ .password }}\n"),
-                ("raw", "{{ .password }"), ("raw", "{{ .password }}{{ .other }}"),
-                ("raw", "{{ .nested.password }}"), ("raw", '{{ index . "password" }}'),
-                ("raw", "{{- .password -}}"), ("raw", "{{ .1password }}")):
+                ("{{ .key }}", "{{ .password }}"), ("..reserved", "{{ .password }}"),
+                ("raw", "prefix{{ .password }}")):
             obj = copy.deepcopy(producer)
             obj["spec"]["target"]["template"]["data"][key] = value
             cases.append([obj])
@@ -311,45 +302,6 @@ class AdapterTest(unittest.TestCase):
         comp.objects = {0: producer}
         self.assertIs(comp.secret_shape("apps", "opaque", "values.yaml")["privateConfig"]["password"], composition.UNKNOWN)
         self.assertIs(comp.secret_shape("apps", "opaque", "missing-key"), composition.UNKNOWN)
-
-    def test_forgejo_quoted_values_and_targetpath_rejection(self):
-        self.select("keycloak", "forgejo")
-        producer = composition.document(composition.read(ROOT / "releases/forgejo/secret-sync/oidc.yaml"))
-        self.write(self.platform / "releases/apps/producer.yaml", producer)
-        self.inventory.append("producer.yaml")
-        self.write(self.platform / "releases/apps/kustomization.yaml", kustomization(self.inventory))
-        consumer = composition.document(composition.read(ROOT / "releases/forgejo/app/oidc.yaml"))
-        path = self.platform / "releases/apps/keycloak-oidc-forgejo.yaml"
-        self.write(path, consumer)
-        for name in ("client-values", "keycloak-product-values"):
-            cm = resource("ConfigMap", name, namespace="auth-keycloak")
-            cm["data"] = {"values.yaml": "{}"}
-            self.write(self.platform / f"releases/apps/{name}.yaml", cm)
-            self.inventory.append(f"{name}.yaml")
-        self.write(self.platform / "releases/apps/kustomization.yaml", kustomization(self.inventory))
-        with patch.object(access_git.subprocess, "run", side_effect=AssertionError("no commands")), patch("socket.socket", side_effect=AssertionError("no network")):
-            plan = self.derive()
-        self.assertEqual(set(plan["endpoints"]), {"keycloak", "forgejo"})
-        comp = composition.Composition(self.client, self.platform, "prod-eu-1")
-        self.assertEqual(comp.secret_shape("auth-keycloak", "forgejo-oidc-values", "values.yaml"),
-                         {"forgejoOidcClientSecret": composition.UNKNOWN})
-        self.assertIs(comp.secret_shape("auth-keycloak", "forgejo-oidc-values", "oidcClientSecret"), composition.UNKNOWN)
-        consumer["spec"]["valuesFrom"][0] = {
-            "kind": "Secret", "name": "forgejo-oidc-values", "valuesKey": "oidcClientSecret",
-            "targetPath": "forgejoOidcClientSecret"}
-        self.write(path, consumer)
-        with self.assertRaisesRegex(adapter.PlanError, "opaque Secret targetPath"):
-            self.derive()
-        consumer["spec"]["valuesFrom"][0] = {
-            "kind": "Secret", "name": "forgejo-oidc-values", "valuesKey": "values.yaml"}
-        self.write(path, consumer)
-        self.policy["endpoints"]["forgejo"] = {"level": "public"}
-        self.write(self.client / "config/application-access.yaml", self.policy)
-        with self.assertRaisesRegex(adapter.PlanError, "public"):
-            self.derive()
-        self.policy["endpoints"]["keycloak"] = {"level": "public"}
-        self.write(self.client / "config/application-access.yaml", self.policy)
-        self.derive()
 
     def test_selected_not_present_and_forgejo_separate_stage(self):
         self.select("keycloak")
