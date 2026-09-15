@@ -83,6 +83,7 @@ jobs:
         run: uv python install 3.12
 
       - name: Prepare release evidence
+        id: evidence
         env:
           VERSION: ${{ inputs.version }}
           PREPARATION_MODE: ${{ inputs.preparation_mode }}
@@ -127,6 +128,10 @@ jobs:
             --upgrades-from-alpha-revisions "$UPGRADES_FROM_ALPHA_REVISIONS" \
             --recovery "$RECOVERY"
 
+          if [[ -f "release/migrations/v${VERSION}.md" ]]; then
+            printf 'migration_path=%s\n' "release/migrations/v${VERSION}.md" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Open or update the draft release pull request
         id: release-pr
         uses: peter-evans/create-pull-request@271a8d0340265f705b14b6d32b9829c1cb33d45e # v7.0.8
@@ -136,16 +141,8 @@ jobs:
           commit-message: "chore: prepare platform v${{ inputs.version }}"
           title: "chore: prepare platform v${{ inputs.version }}"
           body: |
-            Prepares reviewed release evidence for platform v${{ inputs.version }}.
-
-            Review the changelog and compatibility declarations. Successor notes
-            reuse Unreleased content when present. Release prose is optional.
-            Add special instructions to the changelog when needed. Mechanical
-            migration declarations do not prove a tested transition or recovery.
-            `make release-check` rejects remaining TODO markers.
-
-            This pull request does not authorize tagging, publication, client
-            adoption, deployment, or cluster mutation.
+            Prepare platform v${{ inputs.version }} from ${{ inputs.previous_tag }} using the reviewed release notes.
+            Publication and client adoption remain separate steps.
           draft: always-true
           delete-branch: false
           add-paths: |
@@ -153,7 +150,7 @@ jobs:
             CHANGELOG.md
             release/config.yaml
             release/manifest.yaml
-            release/migrations/v${{ inputs.version }}.md
+            ${{ steps.evidence.outputs.migration_path }}
 
       - name: Apply platform release classification when configured
         if: steps.release-pr.outputs.pull-request-number != ''
