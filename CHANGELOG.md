@@ -9,6 +9,8 @@ upgrade path.
 
 ## [Unreleased]
 
+## [0.3.8] - 2026-09-15
+
 - Make Forgejo, the one-device WireGuard pilot, and maintenance pages available
   as optional stable features. They stay disabled until selected by a client.
 - Reuse operator-confirmed testing; no disposable-server or restore rehearsal
