@@ -401,12 +401,12 @@ spec:
           sha256: a9de76017a82a38954dfb453a030c42a349c015fe1493641f457aa0e71590267
     - path: charts/pii-engine
       name: pii-engine
-      version: 1.0.2
-      appVersion: 0.1.1
+      version: 1.0.3
+      appVersion: 0.8.0
     - path: charts/pii-engine-model-sync
       name: pii-engine-model-sync
-      version: 1.0.1
-      appVersion: 0.1.1
+      version: 1.0.2
+      appVersion: 0.8.0
     - path: charts/postgres/auth
       name: infra-postgres-auth
       version: 1.0.0
@@ -867,7 +867,7 @@ spec:
       eligibility: included
       origins:
       - charts/keycloak/server/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-pii-engine:0.1.1-cpu
+    - reference: ghcr.io/neurwerk/k8s-stack-pii-engine:0.8.0-cpu
       pinned: true
       eligibility: included
       origins:
