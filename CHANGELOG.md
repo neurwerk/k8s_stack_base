@@ -11,116 +11,32 @@ upgrade path.
 
 ## [0.3.7] - 2026-09-15
 
-- Unify supported application administration under `platform-admin`, with the
-  subtract-only `authKeycloak.platformAdminRoleExclusions: []` setting (#120).
-  Application administration still grants no model/MCP, Kubernetes, root, or
-  OpenBao authority. Forgejo inheritance applies only when explicitly enabled.
-- Add offline application-access planning and a bounded adapter that derives
-  endpoint selection and dependencies from local client/platform values (#124,
-  #127). Validation does not enforce runtime network policy or verify DNS.
-- Carry trusted API-key principal groups into AgentGateway context and pin
-  API-key bridge `0.7.0` (#130, #132). Groups are internal metadata, not additional
-  permissions; the immutable key grant remains intersected with current roles.
-- Grant DocumentDB's `documentdb_bg_worker_role` `CONNECT` on `postgres` and
-  verify denial on managed application databases in provisioning (#135).
-  Operations PostgreSQL chart `1.2.2` does not broaden public database access.
-- Update Studio to `0.9.1` so failed startup initialization stops the API instead
-  of serving requests without its shared HTTP clients (#139).
-- Adopt verified PII Engine `0.8.1-cpu` in all three Engine/model-sync CPU defaults
-  (#156), including strict streamed Chat `stream_options.include_usage` support.
-  Engine chart `1.0.3` and model-sync chart `1.0.2` use appVersion `0.8.1`;
-  model bundle pins and CPU device settings are unchanged. The scoped CPU-only
-  adoption exception permits proceeding without CUDA or the combined PII GitHub
-  Release, not without image verification. CPU source is
-  `a0883dee93333f05af5ba19034c34dcc87dbe230`, with verified `linux/amd64` digest
-  `sha256:a829987654971c87d802f6ba3059d19caf69bc3e969a95bebee62986355cd76a`
-  from [CPU publication job 104388944955](https://github.com/neurwerk/k8s_stack_pii_engine/actions/runs/34971499708/job/104388944955).
-- Adopt published extProc `0.7.1` in chart `1.0.5`, appVersion `0.7.1`, from
-  source `e50450d50849d9254fb9d87d6090d9cd92f3947e` and verified image digest
-  `sha256:59bb5a51192dbbb01ba5cb30c4d4b182c5fde2c3ae8c3193b3eda1cb6de3fbe6`
-  ([release](https://github.com/neurwerk/k8s_stack_agentgateway_extproc/releases/tag/v0.7.1)).
-  Together these pins include the coordinated 20,000-character tool-description
-  fixes from [extProc #23](https://github.com/neurwerk/k8s_stack_agentgateway_extproc/pull/23)
-  and [PII #11](https://github.com/neurwerk/k8s_stack_pii_engine/pull/11).
-  This supersedes #152's earlier `0.8.0-cpu` adoption; source inclusion and
-  verified publication do not establish deployment or end-to-end acceptance.
-
-### Staged Optional Packages
-
-- Add private-first Forgejo hosting with native OIDC, a dedicated operations
-  database, retained application storage, and separate namespace/secret/app
-  stages (#113). Fix onboarding so its password does not restart the shared
-  database (#115), normalize Keycloak mapper defaults without weakening claim
-  checks (#117), and deliver OIDC credentials as quoted Helm values (#133).
-- Add exact private HTTPS-only Forgejo peers (#137) and bump the Forgejo chart
-  to `0.1.1` so Flux does not reuse the older chart artifact (#150). HTTPS peers
-  do not grant SSH; existing web-and-SSH peers remain additive and separate.
-- Add a static, one-device Forgejo HTTPS WireGuard gateway (#141), optional
-  OpenBao/ESO server-key delivery (#143), and offline classification of its UDP
-  transport without inventing a browser endpoint or device grant (#147).
-  Defaults remain disabled, zero replicas and no peers; manual stop/update/start
-  and explicit network, identity and packet-path acceptance remain required.
-- Add optional on-demand maintenance setup (#148), using maintenance chart
-  `0.1.1` and verified Tooling `0.6.2`. Existing initialization images are
-  unchanged. The disabled-by-default setup provides static resources and inert
-  templates; the operator owns temporary runtime resources. It neither activates
-  maintenance nor establishes application quiescence or database backup safety.
-- Forgejo, WireGuard (including key delivery), and maintenance packages remain
-  excluded from stable eligibility and outside default stages. Source inventory
-  and alpha acceptance do not promote them. LibreChat RAG and Code Interpreter
-  also remain excluded; this release does not authorize their selection.
+- Accept tool descriptions up to 20,000 characters with PII Engine `0.8.1-cpu`
+  and extProc `0.7.1`. PII also supports usage reporting in streamed chat.
+- Fix Studio startup: `0.9.1` stops the API if initialization fails.
+- Fix DocumentDB background workers that could not connect to their database.
+- Let `platform-admin` manage supported applications, with per-client exclusions.
+  Model/MCP access remains separate.
+- Add trusted group information to gateway requests with API-key bridge `0.7.0`.
+  This does not grant additional permissions.
+- Add offline checks for application access settings and dependencies. These
+  checks do not enforce network restrictions.
+- Add staged Forgejo hosting, a one-device WireGuard pilot, and maintenance pages
+  using Tooling `0.6.2`. These packages remain excluded from stable use, as do
+  LibreChat RAG and Code Interpreter.
 
 ### Upgrade Notes
 
-- Stable upgrades are supported, including `v0.3.6` to `v0.3.7`, subject to
-  reviewed client values, backup/restore evidence and the migration gates.
-  Skipped-version upgrades must apply every crossed release's instructions.
-  No alpha promotion revisions are declared: the existing alpha environment
-  remains permanently alpha, not a candidate for promotion to this stable tag.
-- Review the effective application administrator grants before adopting. If
-  narrower inheritance is required, coordinate the approved exclusion list with
-  the platform transition; older charts do not enforce the new exclusion key.
-  Lists replace rather than merge. Preserve separate explicit model/MCP grants
-  and memberships. After realm-role provisioning, verify fresh tokens and
-  inherited access before any separately authorized membership cleanup.
-  Initial-user provisioning is add-only; exclusions do not revoke direct groups,
-  native sessions, tokens, SSH keys or deploy keys.
-- Verify operations PostgreSQL provisioning completes, worker connectivity is
-  repaired and managed application databases remain isolated. Verify Studio
-  startup, bridge authorization and PII Engine/model-sync readiness, including
-  streamed usage and 20,000-character tool descriptions through the coordinated
-  extProc/PII path. Preserve databases, keys,
-  model objects and bundle pins; a passing readiness probe is not data-integrity
-  or end-to-end acceptance evidence.
-- Baseline prerequisites are unchanged, including schema-4 `openbao-stack-setup`
-  `0.2.11` at `5d1a33a938e22e9034581aebecf33485adc88a29`. An already-provisioned
-  `v0.3.6` client using only eligible packages needs no blanket OpenBao catalog
-  reconciliation for this release. Fresh installations and missing baseline
-  prerequisites still require the documented authorized setup.
-- Only a separately approved optional Forgejo selection requires its recorded
-  `openbao-stack-setup` `0.2.12` at
-  `7a00c0d7a725a500ca251d699ce3f00dff57e660`; WireGuard/key delivery requires
-  `0.2.13` at `0c0d5b35fc9e68b70e0cb48f3741e1888f7a287b`. These are
-  selection-gated schema-4 catalogs, not global prerequisite replacements or
-  permission to bypass this release's exclusions. Stage namespaces and values,
-  then secret delivery and authorized catalog setup before application startup.
-  Maintenance needs its reviewed Traefik/provider and empty-backend acceptance,
-  not a new OpenBao catalog ceremony.
+Follow [the upgrade checklist](release/migrations/v0.3.7.md). An already-configured
+`v0.3.6` installation using supported packages needs no new OpenBao reconciliation.
+Model bundles are unchanged; this release updates the CPU image, not CUDA.
 
 ### Known Limitations
 
-- AgentGateway may report a partial streamed response as complete after a late
-  extProc failure (#108). The rejected chunk was not forwarded and no PII leak
-  was demonstrated. This remains accepted only for interactive chat; reassess
-  before unattended actions. PII `0.8.1` / extProc `0.7.1` do not resolve it.
-- The existing exact LibreChat development-image exception still expires
-  `2026-09-30`; neither its digest nor expiry is extended. Replace it with a
-  reviewed immutable upstream release before expiry.
-- Provenance records all 18 actual main commits after `v0.3.6` through #156 at
-  `425f21abaa7100217d26379979904ee8a92e08b5`. The superseded #152 branch is no
-  longer a release dependency; all three PII CPU defaults use #156's verified
-  digest. Local checks do not establish alpha
-  acceptance of the complete candidate, a tested stable transition, or recovery.
+- An interrupted streamed answer can still look complete (#108). This is accepted
+  for interactive chat, not unattended actions.
+- The temporary LibreChat image exception expires on `2026-09-30`; replace the
+  image with an approved release before then.
 
 ## [0.3.6] - 2026-09-14
 
