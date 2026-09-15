@@ -159,7 +159,12 @@ class ReleaseContractTest(unittest.TestCase):
                         platform_release.render_release_notes(root, generated),
                         expected + "\n## Pull Requests And Contributors\n\nExplicit PR history\n",
                     )
-            for invalid_body in ("", "- TODO: selected work"):
+            for optional in ("", "## [Unreleased]\n", "## [0.3.2]\n"):
+                changelog.write_text(optional)
+                self.assertEqual(platform_release.render_release_notes(root), "## v0.3.2\n")
+            changelog.unlink()
+            self.assertEqual(platform_release.render_release_notes(root), "## v0.3.2\n")
+            for invalid_body in ("- TODO: selected work",):
                 changelog.write_text(f"## [0.3.2] - 2026-09-08\n\n{invalid_body}\n")
                 with self.assertRaises(platform_release.ReleaseError):
                     platform_release.render_release_notes(root)
@@ -203,7 +208,7 @@ class ReleaseContractTest(unittest.TestCase):
                     mock.patch.object(platform_release, "build_manifest", return_value={}),
                     mock.patch.object(platform_release, "validate_manifest_schema"),
                 ):
-                    if not summary or "\n" in summary or "TODO" in body:
+                    if "\n" in summary or "TODO" in body:
                         with self.assertRaises(platform_release.ReleaseError):
                             platform_release.prepare_release(args)
                         self.assertEqual(version.read_text(), "0.3.1\n")
@@ -211,13 +216,14 @@ class ReleaseContractTest(unittest.TestCase):
                         continue
                     platform_release.prepare_release(args)
                     verify.assert_called_once_with("v0.3.1", "v0.3.1")
-                    expected_body = body or f"- {summary}"
+                    expected_body = body
                     self.assertEqual(changelog.read_text(),
                                      "# Changelog\n\n## [Unreleased]\n\n"
                                      f"## [0.3.2] - 2026-09-08\n\n{expected_body}\n\n{historical}")
                     prepared = yaml.safe_load(config.read_text())
                     self.assertEqual(prepared["provenance"], provenance)
-                    migration = (root / "release/migrations/v0.3.2.md").read_text()
+                    self.assertFalse((root / "release/migrations/v0.3.2.md").exists())
+                    migration = ""
                     self.assertEqual(migration, platform_release.migration_scaffold(
                         "0.3.2", "supported", [], "forward-fix"))
                     self.assertFalse(platform_release.contains_todo(migration))
@@ -243,7 +249,7 @@ class ReleaseContractTest(unittest.TestCase):
                             else:
                                 platform_release.prepare_release(args)
                             self.assertEqual(changelog.read_text(), candidate)
-                    for malformed in ("", "- TODO: complete existing notes"):
+                    for malformed in ("- TODO: complete existing notes",):
                         version.write_text("0.3.1\n")
                         candidate = (
                             "# Changelog\n\n## [Unreleased]\n\n- Keep unreleased.\n\n"
@@ -252,7 +258,7 @@ class ReleaseContractTest(unittest.TestCase):
                         changelog.write_text(candidate)
                         with self.assertRaisesRegex(
                             platform_release.ReleaseError,
-                            "existing release changelog section is empty or contains TODO markers",
+                            "existing release changelog section contains TODO markers",
                         ):
                             platform_release.prepare_release(args)
                         self.assertEqual(version.read_text(), "0.3.1\n")
@@ -286,17 +292,9 @@ class ReleaseContractTest(unittest.TestCase):
         scaffold = platform_release.migration_scaffold(
             "0.1.2", "supported", [], "forward-fix"
         )
-        self.assertEqual(scaffold,
-                         "# Platform v0.1.2\n\n## Support\n\n"
-                         "- Stable upgrades: Supported.\n"
-                         "- Supported alpha source revisions: None.\n"
-                         "- Downgrade: Unsupported.\n\n## Breaking Changes\n\n"
-                         "See the release notes in CHANGELOG.md for breaking changes and required actions.\n\n"
-                         "## Recovery\n\nRecovery classification: Forward fix.\n")
+        self.assertEqual(scaffold, "")
         self.assertFalse(platform_release.contains_todo(scaffold))
-        supported = scaffold
-        self.assertIn("- Stable upgrades: Supported.", supported)
-        self.assertIn("## Breaking Changes", supported)
+        supported = "- Stable upgrades: Supported.\n"
         platform_release.validate_migration_compatibility(
             supported,
             {
@@ -306,26 +304,9 @@ class ReleaseContractTest(unittest.TestCase):
                 "recovery": "forward-fix",
             },
         )
-        with self.assertRaisesRegex(
-            platform_release.ReleaseError, "exactly one ## Breaking Changes section"
-        ):
+        for optional_notes in ("", "Plain notes.\n", "## Support\n", "## Recovery\n", "## Breaking Changes\n"):
             platform_release.validate_migration_compatibility(
-                supported.replace("## Breaking Changes", "## Changes"),
-                {
-                    "stableUpgrade": "supported",
-                    "upgradesFromAlphaRevisions": [],
-                    "downgrade": "unsupported",
-                    "recovery": "forward-fix",
-                },
-            )
-        with self.assertRaisesRegex(
-            platform_release.ReleaseError, "Breaking Changes section must not be empty"
-        ):
-            platform_release.validate_migration_compatibility(
-                supported.replace(
-                    "See the release notes in CHANGELOG.md for breaking changes and required actions.",
-                    "",
-                ),
+                optional_notes,
                 {
                     "stableUpgrade": "supported",
                     "upgradesFromAlphaRevisions": [],
@@ -461,7 +442,7 @@ Recovery classification: Forward fix.
         compatibility = platform_release.parse_migration_compatibility(
             migration, False, legacy=True
         )
-        self.assertEqual(compatibility["upgradesFromAlphaRevisions"], [])
+        self.assertNotIn("upgradesFromAlphaRevisions", compatibility)
         platform_release.validate_migration_compatibility(
             migration,
             {
@@ -472,13 +453,9 @@ Recovery classification: Forward fix.
             require_alpha_revisions=False,
         )
 
-        with self.assertRaisesRegex(
-            platform_release.ReleaseError,
-            "exactly one supported alpha source revisions declaration",
-        ):
-            platform_release.parse_migration_compatibility(
-                migration, True, legacy=True
-            )
+        self.assertEqual(platform_release.parse_migration_compatibility(
+            migration, True, legacy=True
+        ), compatibility)
 
     def test_current_commit_resolves_to_one_release_tag(self) -> None:
         tag = self._release_integration_tag()

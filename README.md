@@ -581,13 +581,12 @@ are not required or synthesized. Publication renders the exact signed snapshot
 with trusted default-branch tooling, without appending migrations or GitHub PR
 history. The `notes --generated-notes PATH` CLI option remains explicit opt-in.
 
-`migration_scaffold(version, stable_upgrade, alpha_revisions, recovery)` generates
-deterministic compact machine-readable Support and Recovery declarations plus
-the required nonempty Breaking Changes reference to `CHANGELOG.md`. This retains
-the client-consumed schema and parser, not proof of tested upgrades or recovery.
-Review the actual transition evidence and add needed instructions to the
-changelog. Historical signed release files and legacy compatibility parsing are
-unchanged; the one-time bootstrap still requires its reviewed migration evidence.
+All release prose is optional. Changelog entries may be empty or absent, and
+migration files need no headings and may be omitted. The CLI does not recreate
+deleted sections. Versions, compatibility, recovery policy, signatures and image
+pins are checked in the release manifest; any explicit policy declarations in
+notes must agree with it. Add instructions only when useful. Historical signed
+releases remain unchanged.
 
 ## Client Adoption Proposals
 
