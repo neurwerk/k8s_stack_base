@@ -27,7 +27,7 @@ upgrade path.
 - Update Studio to `0.9.1` so failed startup initialization stops the API instead
   of serving requests without its shared HTTP clients (#139).
 - Adopt verified PII Engine `0.8.1-cpu` in all three Engine/model-sync CPU defaults
-  (#152), including strict streamed Chat `stream_options.include_usage` support.
+  (#156), including strict streamed Chat `stream_options.include_usage` support.
   Engine chart `1.0.3` and model-sync chart `1.0.2` use appVersion `0.8.1`;
   model bundle pins and CPU device settings are unchanged. The scoped CPU-only
   adoption exception permits proceeding without CUDA or the combined PII GitHub
@@ -116,12 +116,10 @@ upgrade path.
 - The existing exact LibreChat development-image exception still expires
   `2026-09-30`; neither its digest nor expiry is extended. Replace it with a
   reviewed immutable upstream release before expiry.
-- This is draft preparation dependent on unmerged #152. Provenance currently
-  records all 17 commits after `v0.3.6` through main `22e834c`, plus both #152
-  adoption commits through `67d60207066ec866f23bcd65f8ab36be4025fdf0`.
-  #152 was closed unmerged after replacement #156 merged separately. Refresh
-  against actual main history before final review; this stack retains the
-  requested dependency endpoint. Local checks do not establish alpha
+- Provenance records all 18 actual main commits after `v0.3.6` through #156 at
+  `425f21abaa7100217d26379979904ee8a92e08b5`. The superseded #152 branch is no
+  longer a release dependency; all three PII CPU defaults use #156's verified
+  digest. Local checks do not establish alpha
   acceptance of the complete candidate, a tested stable transition, or recovery.
 
 ## [0.3.6] - 2026-09-14
