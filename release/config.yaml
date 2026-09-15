@@ -16,6 +16,15 @@ packages:
   - releases/infrastructure
   - releases/applications
   optional:
+  - path: releases/namespaces/wireguard
+    status: excluded
+    reason: Optional static gateway; node prerequisites and activation acceptance are pending.
+    chartPrefixes: []
+  - path: releases/wireguard
+    status: excluded
+    reason: Server-key delivery, reviewed network facts and live acceptance are pending.
+    chartPrefixes:
+    - charts/wireguard
   - path: releases/namespaces/forgejo
     status: excluded
     reason: Staged Forgejo package; live acceptance and client activation are not complete.

@@ -1,0 +1,56 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "definitions": {
+    "ipv4": {"type": "string", "pattern": "^((25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\\.){3}(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])$"},
+    "cidr": {"type": "string", "pattern": "^((25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\\.){3}(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])/(3[0-2]|[12][0-9]|[0-9])$"}
+  },
+  "properties": {
+    "wireguard": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "replicas", "image", "serverKeySecret", "virtualIP", "forgejoServiceIP", "outerSourceCIDRs", "peers", "mtu", "service", "resources"],
+      "properties": {
+        "enabled": {"type": "boolean"},
+        "replicas": {"type": "integer", "minimum": 0, "maximum": 1},
+        "image": {"type": "string", "const": "ghcr.io/linuxserver/wireguard:1.0.20260223-r0-ls122@sha256:dca67384e3e9a5bcc288461fa983e6fcb0e248e5a2d8e5b3e5d3f753bfac3e35"},
+        "serverKeySecret": {"type": "string"},
+        "virtualIP": {"type": "string"},
+        "forgejoServiceIP": {"type": "string"},
+        "outerSourceCIDRs": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/definitions/cidr"}},
+        "peers": {
+          "type": "array", "maxItems": 1,
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["owner", "publicKey", "address"],
+            "properties": {
+              "owner": {"type": "string", "minLength": 1, "maxLength": 128},
+              "publicKey": {"type": "string", "pattern": "^[A-Za-z0-9+/]{43}=$"},
+              "address": {"$ref": "#/definitions/ipv4"}
+            }
+          }
+        },
+        "mtu": {"type": "integer", "minimum": 1280, "maximum": 1420},
+        "service": {
+          "type": "object", "additionalProperties": false, "required": ["type", "nodePort"],
+          "properties": {
+            "type": {"enum": ["ClusterIP", "NodePort"]},
+            "nodePort": {"type": "integer", "minimum": 0, "maximum": 32767}
+          }
+        },
+        "resources": {"type": "object"}
+      },
+      "allOf": [{
+        "if": {"properties": {"enabled": {"const": true}}},
+        "then": {
+          "properties": {
+            "virtualIP": {"$ref": "#/definitions/ipv4"},
+            "forgejoServiceIP": {"$ref": "#/definitions/ipv4"},
+            "outerSourceCIDRs": {"minItems": 1},
+            "serverKeySecret": {"pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$", "maxLength": 63}
+          }
+        }
+      }]
+    }
+  }
+}

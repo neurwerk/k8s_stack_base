@@ -1,0 +1,24 @@
+wireguard:
+  # Optional package, never selected by the default stages.
+  enabled: false
+  # Stop and wait for Pod deletion before updating permissions or destinations.
+  replicas: 0
+  image: ghcr.io/linuxserver/wireguard:1.0.20260223-r0-ls122@sha256:dca67384e3e9a5bcc288461fa983e6fcb0e248e5a2d8e5b3e5d3f753bfac3e35
+  # Existing namespace-local Secret; privateKey is a WireGuard private key.
+  serverKeySecret: ""
+  # Reviewed non-overlapping IPv4 addresses, not DNS names or CIDRs.
+  virtualIP: ""
+  forgejoServiceIP: ""
+  # Pod-visible encrypted-packet source CIDRs, after any upstream SNAT.
+  outerSourceCIDRs: []
+  # At most one manually approved Mac in this pilot; [] admits no device.
+  # Each entry has owner, publicKey, and address (a single IPv4 address).
+  peers: []
+  mtu: 1280
+  service:
+    # ClusterIP is private; NodePort requires separate outer-firewall approval.
+    type: ClusterIP
+    nodePort: 0
+  resources:
+    requests: {cpu: 25m, memory: 32Mi}
+    limits: {cpu: 200m, memory: 64Mi}

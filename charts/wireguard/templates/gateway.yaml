@@ -1,0 +1,200 @@
+{{- if .Values.wireguard.enabled }}
+{{- $w := .Values.wireguard }}
+{{- if eq $w.virtualIP $w.forgejoServiceIP }}
+{{- fail "wireguard virtualIP and forgejoServiceIP must differ" }}
+{{- end }}
+{{- range $w.peers }}
+{{- if or (eq .address $w.virtualIP) (eq .address $w.forgejoServiceIP) }}
+{{- fail "wireguard peer and destination addresses must differ" }}
+{{- end }}
+{{- end }}
+{{- if and (eq $w.service.type "NodePort") (lt (int $w.service.nodePort) 30000) }}
+{{- fail "wireguard NodePort requires an explicit port in 30000-32767" }}
+{{- end }}
+{{- if and (eq $w.service.type "ClusterIP") (ne (int $w.service.nodePort) 0) }}
+{{- fail "wireguard ClusterIP must not set nodePort" }}
+{{- end }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: wireguard-config
+data:
+  start.sh: |
+{{ .Files.Get "files/start.sh" | indent 4 }}
+  addresses: |
+    {{- range $w.peers }}
+    {{ .address }}
+    {{- end }}
+  peers.conf: |
+    {{- range $w.peers }}
+    [Peer]
+    PublicKey = {{ .publicKey }}
+    AllowedIPs = {{ .address }}/32
+    {{- end }}
+  firewall.nft: |
+    destroy table inet wireguard
+    table inet wireguard {
+      chain input {
+        type filter hook input priority filter; policy drop;
+        iifname "eth0" ip saddr { {{ join ", " $w.outerSourceCIDRs }} } udp dport 51820 accept
+      }
+      chain output {
+        type filter hook output priority filter; policy drop;
+        oifname "eth0" ip daddr { {{ join ", " $w.outerSourceCIDRs }} } udp sport 51820 accept
+      }
+      chain forward {
+        type filter hook forward priority filter; policy drop;
+        ct state invalid drop
+        {{- range $w.peers }}
+        iifname "wg0" oifname "eth0" ip saddr {{ .address }} ip daddr {{ $w.forgejoServiceIP }} tcp dport 443 ct status dnat ct original ip daddr {{ $w.virtualIP }} ct original proto-dst 443 accept
+        iifname "eth0" oifname "wg0" ip saddr {{ $w.forgejoServiceIP }} ip daddr {{ .address }} tcp sport 443 ct state established ct original ip saddr {{ .address }} ct original ip daddr {{ $w.virtualIP }} ct original proto-dst 443 accept
+        {{- end }}
+      }
+      chain prerouting {
+        type nat hook prerouting priority dstnat; policy accept;
+        {{- range $w.peers }}
+        iifname "wg0" ip saddr {{ .address }} ip daddr {{ $w.virtualIP }} tcp dport 443 dnat ip to {{ $w.forgejoServiceIP }}:443
+        {{- end }}
+      }
+      chain postrouting {
+        type nat hook postrouting priority srcnat; policy accept;
+        {{- range $w.peers }}
+        oifname "eth0" ip saddr {{ .address }} ip daddr {{ $w.forgejoServiceIP }} tcp dport 443 ct status dnat masquerade
+        {{- end }}
+      }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wireguard
+  annotations:
+    ignore-check.kube-linter.io/unsafe-sysctls: "Pod-local IPv4 forwarding is required; explicit node admission is an activation prerequisite, with deny rules installed before WireGuard starts."
+  labels: &labels
+    app.kubernetes.io/name: wireguard
+    app.kubernetes.io/instance: wireguard
+    app.kubernetes.io/part-of: wireguard
+spec:
+  replicas: {{ $w.replicas }}
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels: *labels
+  template:
+    metadata:
+      labels: *labels
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 10
+      securityContext:
+        runAsUser: 0
+        runAsGroup: 0
+        seccompProfile:
+          type: RuntimeDefault
+        sysctls:
+          - name: net.ipv4.ip_forward
+            value: "1"
+      containers:
+        - name: wireguard
+          image: {{ $w.image }}
+          command: ["/bin/sh", "/etc/gateway/start.sh"]
+          env:
+            - name: MTU
+              value: {{ $w.mtu | quote }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+              add: [NET_ADMIN]
+          resources:
+            {{- toYaml $w.resources | nindent 12 }}
+          ports:
+            - name: wireguard
+              containerPort: 51820
+              protocol: UDP
+          readinessProbe:
+            exec:
+              command: ["/bin/sh", "-c", "ip -o link show wg0 | grep -q '<[^>]*UP[,>]'" ]
+            periodSeconds: 5
+          livenessProbe:
+            exec:
+              command: ["/bin/sh", "-c", "ip -o link show wg0 | grep -q '<[^>]*UP[,>]'" ]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          volumeMounts:
+            - name: config
+              mountPath: /etc/gateway
+              readOnly: true
+            - name: server-key
+              mountPath: /run/server-key
+              readOnly: true
+      volumes:
+        - name: config
+          configMap:
+            name: wireguard-config
+        - name: server-key
+          secret:
+            secretName: {{ $w.serverKeySecret }}
+            defaultMode: 0400
+            items:
+              - key: privateKey
+                path: privateKey
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: wireguard
+spec:
+  type: {{ $w.service.type }}
+  ipFamilyPolicy: SingleStack
+  ipFamilies: [IPv4]
+  {{- if eq $w.service.type "NodePort" }}
+  externalTrafficPolicy: Local
+  {{- end }}
+  selector:
+    app.kubernetes.io/name: wireguard
+    app.kubernetes.io/instance: wireguard
+    app.kubernetes.io/part-of: wireguard
+  ports:
+    - name: wireguard
+      port: 51820
+      targetPort: wireguard
+      protocol: UDP
+      {{- if eq $w.service.type "NodePort" }}
+      nodePort: {{ $w.service.nodePort }}
+      {{- end }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: wireguard
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: wireguard
+      app.kubernetes.io/instance: wireguard
+      app.kubernetes.io/part-of: wireguard
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        {{- range $w.outerSourceCIDRs }}
+        - ipBlock:
+            cidr: {{ . | quote }}
+        {{- end }}
+      ports:
+        - protocol: UDP
+          port: 51820
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: forgejo
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: forgejo
+              app.kubernetes.io/instance: forgejo
+      ports:
+        - protocol: TCP
+          port: 3000
+{{- end }}
