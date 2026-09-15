@@ -38,7 +38,19 @@ spec:
         - port: 2222
           protocol: TCP
     {{- end }}
-    {{- if and (not .Values.externalGateway.enabled) (empty .Values.forgejo.networkPolicy.clients) }} []
+    {{- range .Values.forgejo.networkPolicy.httpsClients }}
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .namespace | quote }}
+          podSelector:
+            matchLabels:
+              {{- toYaml .podSelector | nindent 14 }}
+      ports:
+        - port: 3000
+          protocol: TCP
+    {{- end }}
+    {{- if and (not .Values.externalGateway.enabled) (empty .Values.forgejo.networkPolicy.clients) (empty .Values.forgejo.networkPolicy.httpsClients) }} []
     {{- end }}
   egress:
     - to:

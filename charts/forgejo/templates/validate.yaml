@@ -1,3 +1,6 @@
+{{- if and .Values.externalGateway.enabled (not (empty .Values.forgejo.networkPolicy.httpsClients)) -}}
+{{- fail "forgejo.networkPolicy.httpsClients requires externalGateway.enabled=false for native private HTTPS" -}}
+{{- end -}}
 {{- if .Values.forgejo.enabled -}}
 {{- $hostnamePattern := `^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$` -}}
 {{- if or (gt (len .Values.forgejo.hostname) 253) (not (regexMatch $hostnamePattern .Values.forgejo.hostname)) -}}

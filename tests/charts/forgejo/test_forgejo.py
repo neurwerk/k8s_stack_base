@@ -12,12 +12,14 @@ CHART = ROOT / "charts/forgejo"
 FIXTURE = Path(__file__).with_name("enabled.yaml")
 
 
-def render(*overrides, enabled=True, success=True):
+def render(*overrides, enabled=True, success=True, json_overrides=()):
     command = ["helm", "template", "forgejo", str(CHART), "--namespace", "forgejo"]
     if enabled:
         command += ["--values", str(FIXTURE)]
     for override in overrides:
         command += ["--set", override]
+    for override in json_overrides:
+        command += ["--set-json", override]
     result = subprocess.run(command, capture_output=True, text=True, check=False)
     if not success:
         assert result.returncode != 0, result.stdout
@@ -116,6 +118,50 @@ class RenderTests(unittest.TestCase):
                 self.assertNotIn(("ConfigMap", "keycloak-ca"), docs)
                 self.assertIn('FORGEJO__SERVICE__ENABLE_INTERNAL_SIGNIN: "false"', docs["ConfigMap", "forgejo-config"])
 
+    def test_private_https_peers_do_not_inherit_ssh_or_public_transport(self):
+        peer = ("forgejo.networkPolicy.httpsClients[0].namespace=private-access",
+                "forgejo.networkPolicy.httpsClients[0].podSelector.app=device-gateway")
+        docs = render(*peer)
+        policy = docs["NetworkPolicy", "forgejo"]
+        ingress = policy.split("  ingress:", 1)[1].split("  egress:", 1)[0]
+        self.assertEqual(ingress, '''
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: "private-access"
+          podSelector:
+            matchLabels:
+              app: device-gateway
+      ports:
+        - port: 3000
+          protocol: TCP
+''')
+        self.assertIn("port: 443", docs["Service", "forgejo"])
+        self.assertNotIn(("Gateway", "forgejo-gateway"), docs)
+        baseline = render()
+        self.assertEqual({k: v for k, v in docs.items() if k[0] != "NetworkPolicy"},
+                         {k: v for k, v in baseline.items() if k[0] != "NetworkPolicy"})
+        self.assertEqual(policy.split("  egress:", 1)[1],
+                         baseline["NetworkPolicy", "forgejo"].split("  egress:", 1)[1])
+        self.assertIn("httpsClients requires externalGateway.enabled=false",
+                      render(*peer, "externalGateway.enabled=true", success=False))
+        self.assertEqual(render(*peer, enabled=False), {})
+        combined = render(*peer, "forgejo.networkPolicy.clients[0].namespace=integration",
+                          "forgejo.networkPolicy.clients[0].podSelector.app=consumer")
+        ingress = combined["NetworkPolicy", "forgejo"].split("  ingress:", 1)[1].split("  egress:", 1)[0]
+        self.assertEqual(ingress.count("port: 2222"), 1)
+        self.assertEqual(ingress.count("port: 3000"), 2)
+        for field, value, diagnostic in [
+            ("podSelector", {}, "minProperties"),
+            ("namespace", "*", "does not match pattern"),
+            ("ports", [2222], "additional properties"),
+        ]:
+            with self.subTest(field=field):
+                invalid = {"namespace": "private-access", "podSelector": {"app": "device-gateway"}, field: value}
+                error = render(success=False, json_overrides=[
+                    "forgejo.networkPolicy.httpsClients=" + json.dumps([invalid])])
+                self.assertIn(diagnostic, error)
+
     def test_rejects_unsupported_security_configuration(self):
         for setting in [
             "forgejo.hostname=", "forgejo.hostname=https://forgejo.example.com",
@@ -127,6 +173,8 @@ class RenderTests(unittest.TestCase):
             "canonicalEndpointRouting.mode=public-dns",
             "forgejo.networkPolicy.keycloakPublicCidrs[0]=0.0.0.0/0",
             "forgejo.networkPolicy.clients[0].namespace=integration",
+            "forgejo.networkPolicy.httpsClients[0].namespace=private-access",
+            "forgejo.networkPolicy.httpsClients[0].podSelector.app=device-gateway",
             "forgejo.oidc.caConfigMap=invalid/name", "forgejo.oidc.verify=false",
         ]:
             with self.subTest(setting=setting):
