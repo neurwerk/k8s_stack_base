@@ -588,6 +588,10 @@ pins are checked in the release manifest; any explicit policy declarations in
 notes must agree with it. Add instructions only when useful. Historical signed
 releases remain unchanged.
 
+An unpublished release may be refreshed after its preparation merges. Its
+included source may already use the target version, but the latest release tag
+at that source must still be the declared predecessor.
+
 ## Client Adoption Proposals
 
 Set `CLIENT_ADOPTION_ENABLED` and `CLIENT_ADOPTION_REPOSITORIES` as repository or

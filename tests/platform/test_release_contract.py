@@ -26,6 +26,28 @@ SPEC.loader.exec_module(platform_release)
 
 
 class ReleaseContractTest(unittest.TestCase):
+    def test_refresh_after_merged_preparation_keeps_exact_predecessor(self) -> None:
+        for included, current, latest, valid in (
+            ("0.3.6", "0.3.7", "v0.3.6", True),
+            ("0.3.7", "0.3.7", "v0.3.6", True),
+            ("0.3.7", "0.3.7", "v0.3.7", False),
+            ("0.3.8", "0.3.7", "v0.3.6", False),
+            ("0.3.5", "0.3.5", "v0.3.6", False),
+        ):
+            def git_result(*args, **kwargs):
+                if args[0] == "describe":
+                    return latest
+                return current if args[1] == "HEAD:VERSION" else included
+
+            with self.subTest(included=included, current=current, latest=latest), mock.patch.object(
+                platform_release, "git", side_effect=git_result
+            ):
+                if valid:
+                    platform_release.validate_previous_tag_at_included_through("v0.3.6", "a" * 40)
+                else:
+                    with self.assertRaises(platform_release.ReleaseError):
+                        platform_release.validate_previous_tag_at_included_through("v0.3.6", "a" * 40)
+
     def test_maintenance_embedded_images_are_release_artifacts(self) -> None:
         image = "registry.test/maintenance:0.0.0@sha256:" + "a" * 64
         config = {
