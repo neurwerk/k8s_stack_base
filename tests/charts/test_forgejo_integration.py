@@ -26,6 +26,25 @@ class ForgejoIntegrationTests(unittest.TestCase):
             "postgresOperationsSecrets": {"forgejoPassword": "fixture-only"},
         })
         enabled = enabled_result.stdout
+        for selected, result in ((False, disabled_result), (True, enabled_result)):
+            with self.subTest(forgejo_enabled=selected):
+                job = resources(result, "Job")[0]
+                self.assertIn("GRANT CONNECT ON DATABASE postgres TO documentdb_bg_worker_role;", job)
+                self.assertIn(
+                    "IF NOT has_database_privilege('documentdb_bg_worker_role', 'postgres', 'CONNECT') THEN",
+                    job,
+                )
+                self.assertIn("RAISE EXCEPTION 'DocumentDB background worker CONNECT verification failed';", job)
+                databases = (
+                    "'agentgateway', 'dify', 'dify_plugin', 'dify_vector', 'postgres_langfuse', 'librechat_rag'"
+                    + (" , 'forgejo'" if selected else "")
+                )
+                self.assertIn(
+                    f"IF EXISTS ( SELECT FROM pg_database WHERE datname IN ( {databases} ) "
+                    "AND has_database_privilege('documentdb_bg_worker_role', oid, 'CONNECT') ) THEN "
+                    "RAISE EXCEPTION 'DocumentDB background worker unexpectedly has application database access';",
+                    " ".join(job.split()),
+                )
         for kind in ("StatefulSet", "Secret"):
             disabled_resources = resources(disabled_result, kind)
             self.assertEqual(len(disabled_resources), 1)
