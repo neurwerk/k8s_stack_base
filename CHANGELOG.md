@@ -9,8 +9,34 @@ upgrade path.
 
 ## [Unreleased]
 
-- Update Studio to `0.9.1` so failed startup initialization stops the API instead
-  of serving requests without its shared HTTP clients.
+## [0.3.7] - 2026-09-15
+
+- Accept tool descriptions up to 20,000 characters with PII Engine `0.8.1-cpu`
+  and extProc `0.7.1`. PII also supports usage reporting in streamed chat.
+- Fix Studio startup: `0.9.1` stops the API if initialization fails.
+- Fix DocumentDB background workers that could not connect to their database.
+- Let `platform-admin` manage supported applications, with per-client exclusions.
+  Model/MCP access remains separate.
+- Add trusted group information to gateway requests with API-key bridge `0.7.0`.
+  This does not grant additional permissions.
+- Add offline checks for application access settings and dependencies. These
+  checks do not enforce network restrictions.
+- Add staged Forgejo hosting, a one-device WireGuard pilot, and maintenance pages
+  using Tooling `0.6.2`. These packages remain excluded from stable use, as do
+  LibreChat RAG and Code Interpreter.
+
+### Upgrade Notes
+
+Follow [the upgrade checklist](release/migrations/v0.3.7.md). An already-configured
+`v0.3.6` installation using supported packages needs no new OpenBao reconciliation.
+Model bundles are unchanged; this release updates the CPU image, not CUDA.
+
+### Known Limitations
+
+- An interrupted streamed answer can still look complete (#108). This is accepted
+  for interactive chat, not unattended actions.
+- The temporary LibreChat image exception expires on `2026-09-30`; replace the
+  image with an approved release before then.
 
 ## [0.3.6] - 2026-09-14
 
