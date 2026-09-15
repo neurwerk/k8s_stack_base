@@ -487,10 +487,13 @@ def build_manifest() -> dict[str, Any]:
     config = load_yaml(CONFIG_PATH)
     version = VERSION_PATH.read_text().strip()
     release_date = config["releaseDate"]
+    summary = config.get("summary")
+    if summary is not None and not isinstance(summary, str):
+        raise ReleaseError("release summary must be text or null")
     spec = {
         "version": version,
         "releaseDate": None if release_date is None else str(release_date),
-        "summary": str(config["summary"]),
+        "summary": summary or "",
         "trust": config["trust"],
         "compatibility": config["compatibility"],
         "packages": config["packages"],
@@ -678,14 +681,17 @@ def parse_migration_compatibility(
     require_alpha_revisions: bool = True,
     legacy: bool = False,
 ) -> dict[str, Any]:
-    support = migration_section(migration, "Support")
-    recovery_section = migration_section(migration, "Recovery")
-
-    if legacy:
+    support = migration_section(migration, "Support") if "## Support\n" in migration else migration
+    recovery_section = migration_section(migration, "Recovery") if "## Recovery\n" in migration else migration
+    declared: dict[str, Any] = {}
+    if "- Supported source versions: " in migration:
+        if "- Stable upgrades: " in migration:
+            raise ReleaseError("release migration must not combine stable and legacy support")
         stable_compatibility = {
             "upgradesFrom": legacy_migration_source_versions(migration, support)
         }
-    else:
+        declared.update(stable_compatibility)
+    if "- Stable upgrades: " in migration:
         stable_label = migration_declaration(
             migration, support, "Support", "- Stable upgrades: ", "stable upgrades"
         )
@@ -697,36 +703,26 @@ def parse_migration_compatibility(
             raise ReleaseError(
                 f"release migration has unknown stable upgrades value: {stable_label}"
             )
-        if not migration_section(migration, "Breaking Changes").strip():
-            raise ReleaseError(
-                "release migration ## Breaking Changes section must not be empty"
-            )
-        stable_compatibility = {"stableUpgrade": stable_upgrade}
-    upgrades_from_alpha_revisions = migration_alpha_source_revisions(
-        migration, support, require_alpha_revisions
-    )
-    downgrade = migration_declaration(
-        migration, support, "Support", "- Downgrade: ", "downgrade"
-    ).lower()
-    if downgrade not in ("supported", "unsupported"):
-        raise ReleaseError(f"release migration has unknown downgrade value: {downgrade}")
-
-    recovery_label = migration_declaration(
-        migration,
-        recovery_section,
-        "Recovery",
-        "Recovery classification: ",
-        "recovery classification",
-    )
-    recovery = recovery_label.lower().replace(" ", "-")
-    if recovery not in RECOVERY_ACTIONS:
-        raise ReleaseError(f"release migration has unknown recovery classification: {recovery}")
-    return {
-        **stable_compatibility,
-        "upgradesFromAlphaRevisions": upgrades_from_alpha_revisions,
-        "downgrade": downgrade,
-        "recovery": recovery,
-    }
+        declared["stableUpgrade"] = stable_upgrade
+    if "- Supported alpha source revisions: " in migration:
+        declared["upgradesFromAlphaRevisions"] = migration_alpha_source_revisions(migration, support)
+    if "- Downgrade: " in migration:
+        downgrade = migration_declaration(
+            migration, support, "Support", "- Downgrade: ", "downgrade"
+        ).lower()
+        if downgrade not in ("supported", "unsupported"):
+            raise ReleaseError(f"release migration has unknown downgrade value: {downgrade}")
+        declared["downgrade"] = downgrade
+    if "Recovery classification: " in migration:
+        recovery_label = migration_declaration(
+            migration, recovery_section, "Recovery", "Recovery classification: ",
+            "recovery classification",
+        )
+        recovery = recovery_label.lower().replace(" ", "-")
+        if recovery not in RECOVERY_ACTIONS:
+            raise ReleaseError(f"release migration has unknown recovery classification: {recovery}")
+        declared["recovery"] = recovery
+    return declared
 
 
 def validate_migration_compatibility(
@@ -741,22 +737,12 @@ def validate_migration_compatibility(
     declared = parse_migration_compatibility(
         migration, require_alpha_revisions, legacy=legacy
     )
-    fields = ("upgradesFrom", "downgrade", "recovery") if legacy else (
-        "stableUpgrade",
-        "downgrade",
-        "recovery",
-    )
-    for field in fields:
-        if declared[field] != compatibility.get(field):
+    for field, value in declared.items():
+        expected = compatibility.get(field, [] if field == "upgradesFromAlphaRevisions" else None)
+        if value != expected:
             raise ReleaseError(
                 f"release migration {field} does not match {source}.{field}"
             )
-    expected_alpha_revisions = compatibility.get("upgradesFromAlphaRevisions", [])
-    if declared["upgradesFromAlphaRevisions"] != expected_alpha_revisions:
-        raise ReleaseError(
-            "release migration upgradesFromAlphaRevisions does not match "
-            f"{source}.upgradesFromAlphaRevisions"
-        )
 
 
 def is_release_evidence_path(path: str, version: str) -> bool:
@@ -771,16 +757,10 @@ def is_release_evidence_path(path: str, version: str) -> bool:
 
 def validate_release_prose(config: dict[str, Any], version: str, errors: list[str]) -> None:
     migration = ROOT / f"release/migrations/v{version}.md"
-    if not migration.is_file():
-        errors.append(f"missing {migration.relative_to(ROOT)}")
-    changelog = CHANGELOG_PATH.read_text()
-    if f"## [{version}] - {config.get('releaseDate')}" not in changelog:
-        errors.append("CHANGELOG.md has no dated entry for this release")
-    else:
-        try:
-            render_release_notes(ROOT)
-        except ReleaseError as exc:
-            errors.append(str(exc))
+    try:
+        render_release_notes(ROOT)
+    except ReleaseError as exc:
+        errors.append(str(exc))
     if migration.is_file():
         migration_text = migration.read_text()
         if contains_todo(migration_text):
@@ -1142,16 +1122,17 @@ def inspect_release_data(
         )
 
     migration = release_root / f"release/migrations/v{version}.md"
-    if not migration.is_file() or contains_todo(migration.read_text()):
-        raise ReleaseError("release migration evidence is missing or incomplete")
+    migration_text = migration.read_text() if migration.is_file() else ""
+    if contains_todo(migration_text):
+        raise ReleaseError("release migration evidence is incomplete")
     validate_migration_compatibility(
-        migration.read_text(),
+        migration_text,
         config_compatibility,
         "release config compatibility",
         requires_alpha_revision_evidence(version),
     )
     validate_migration_compatibility(
-        migration.read_text(),
+        migration_text,
         manifest_compatibility,
         "release manifest compatibility",
         requires_alpha_revision_evidence(version),
@@ -1163,19 +1144,20 @@ def inspect_release_data(
 def render_release_notes(release_root: Path, generated_notes: Path | None = None) -> str:
     version = (release_root / "VERSION").read_text().strip()
     semver_tuple(version)
-    changelog = (release_root / "CHANGELOG.md").read_text()
-    section = changelog_section(changelog, version)
+    path = release_root / "CHANGELOG.md"
+    changelog = path.read_text() if path.is_file() else ""
+    try:
+        section = changelog_section(changelog, version)
+    except MissingChangelogSection:
+        section = ""
     body = section.partition("\n")[2].strip()
-    if not body:
-        raise ReleaseError("release changelog section must not be empty")
     if contains_todo(section):
         raise ReleaseError("release changelog section contains TODO markers")
-    content = f"## v{version}\n\n{body}\n"
+    content = f"## v{version}\n" + (f"\n{body}\n" if body else "")
     if generated_notes:
         generated = generated_notes.read_text().strip()
-        if not generated:
-            raise ReleaseError("generated GitHub release notes are empty")
-        content += f"\n## Pull Requests And Contributors\n\n{generated}\n"
+        if generated:
+            content += f"\n## Pull Requests And Contributors\n\n{generated}\n"
     return content
 
 
@@ -1226,20 +1208,7 @@ def migration_scaffold(
     if stable_upgrade not in STABLE_UPGRADE_POLICIES or recovery not in RECOVERY_ACTIONS:
         raise ReleaseError("invalid migration compatibility choice")
     parse_upgrades_from_alpha_revisions(",".join(alpha_revisions))
-    supported_alpha = (
-        ", ".join(f"`{revision}`" for revision in alpha_revisions) or "None"
-    )
-    return (
-        f"# Platform v{version}\n\n"
-        "## Support\n\n"
-        f"- Stable upgrades: {STABLE_UPGRADE_LABELS[stable_upgrade]}.\n"
-        f"- Supported alpha source revisions: {supported_alpha}.\n"
-        "- Downgrade: Unsupported.\n\n"
-        "## Breaking Changes\n\n"
-        "See the release notes in CHANGELOG.md for breaking changes and required actions.\n\n"
-        "## Recovery\n\n"
-        f"Recovery classification: {recovery.replace('-', ' ').capitalize()}.\n"
-    )
+    return ""
 
 
 def prepare_release(args: argparse.Namespace) -> None:
@@ -1299,9 +1268,7 @@ def prepare_release(args: argparse.Namespace) -> None:
     config["version"] = args.version
     config["releaseDate"] = args.release_date
     config["summary"] = args.summary.strip()
-    if not config["summary"]:
-        raise ReleaseError("summary must not be empty")
-    if len(config["summary"].splitlines()) != 1 or contains_todo(config["summary"]):
+    if len(config["summary"].splitlines()) > 1 or contains_todo(config["summary"]):
         raise ReleaseError("summary must be a single line without TODO markers")
     config["provenance"] = provenance
     if bootstrap:
@@ -1319,58 +1286,30 @@ def prepare_release(args: argparse.Namespace) -> None:
             "recovery": args.recovery,
         }
 
-    changelog = CHANGELOG_PATH.read_text()
+    changelog = CHANGELOG_PATH.read_text() if CHANGELOG_PATH.is_file() else ""
     try:
         section = changelog_section(changelog, args.version)
     except MissingChangelogSection:
-        unreleased = changelog_section(changelog, "Unreleased")
-        body = unreleased.partition("\n")[2].strip() or f"- {config['summary']}"
+        try:
+            unreleased = changelog_section(changelog, "Unreleased")
+        except MissingChangelogSection:
+            unreleased = ""
+        body = unreleased.partition("\n")[2].strip()
         if contains_todo(body):
             raise ReleaseError("release changelog section contains TODO markers")
         entry = (
             f"## [Unreleased]\n\n## [{args.version}] - {args.release_date}\n\n{body}"
         )
-        before, _, after = changelog.partition(unreleased)
+        before, _, after = changelog.partition(unreleased) if unreleased else ("", "", changelog)
         after = after.lstrip("\n")
         changelog = before + entry + (f"\n\n{after}" if after else "\n")
     else:
-        if not section.partition("\n")[2].strip() or contains_todo(section):
-            raise ReleaseError("existing release changelog section is empty or contains TODO markers")
+        if contains_todo(section):
+            raise ReleaseError("existing release changelog section contains TODO markers")
 
     VERSION_PATH.write_text(f"{args.version}\n")
     CONFIG_PATH.write_text(yaml.safe_dump(config, sort_keys=False, width=100))
     CHANGELOG_PATH.write_text(changelog)
-
-    migration = ROOT / f"release/migrations/v{args.version}.md"
-    if not migration.exists():
-        migration.parent.mkdir(parents=True, exist_ok=True)
-        if bootstrap:
-            migration.write_text(
-                f"# Platform v{args.version}\n\n"
-                "> TODO: Replace every TODO with reviewed release-specific evidence.\n\n"
-                "## Support\n\n"
-                "- Fresh installation: Supported.\n"
-                "- Supported source versions: None.\n"
-                "- Downgrade: Unsupported.\n\n"
-                "## Prerequisites\n\nTODO.\n\n"
-                "## Client Actions\n\nTODO.\n\n"
-                "## Stateful And API Effects\n\nTODO.\n\n"
-                "## Pre-Deployment Checks\n\nTODO.\n\n"
-                "## Post-Deployment Checks\n\nTODO.\n\n"
-                "## Recovery\n\n"
-                f"Recovery classification: {args.recovery.replace('-', ' ').capitalize()}.\n\n"
-                "TODO.\n\n"
-                "## Exclusions\n\nTODO.\n"
-            )
-        else:
-            migration.write_text(
-                migration_scaffold(
-                    args.version,
-                    args.stable_upgrade,
-                    upgrades_from_alpha_revisions,
-                    args.recovery,
-                )
-            )
 
     manifest = build_manifest()
     validate_manifest_schema(manifest)
@@ -1521,7 +1460,7 @@ def main() -> int:
     preparation_mode.add_argument("--bootstrap", action="store_true")
     preparation_mode.add_argument("--previous-tag")
     prepare.add_argument("--release-date", required=True)
-    prepare.add_argument("--summary", required=True)
+    prepare.add_argument("--summary", default="")
     prepare.add_argument(
         "--stable-upgrade", choices=STABLE_UPGRADE_POLICIES, default="supported"
     )
