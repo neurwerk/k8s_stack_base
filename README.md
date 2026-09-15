@@ -76,8 +76,11 @@ the chart does not load modules or change nodes. Deny rules precede tunnel start
 Supply reviewed `wireguard.virtualIP`, `forgejoServiceIP`, Pod-visible
 `outerSourceCIDRs`, `serverKeySecret` and the Mac's public peer identity in the
 namespace-local `wireguard-product-values` ConfigMap. The referenced Secret must
-contain `privateKey`; delivery through the existing OpenBao/ESO workflow remains
-a separate activation prerequisite, not an implemented new credential catalog.
+contain `privateKey`; the unselected `releases/wireguard/secret-sync/` package
+delivers only `wireguard/internal:privateKey` through the namespace-local OpenBao
+store to `wireguard-server-key`. The optional namespace carries the existing
+OpenBao CA trust label. Provisioning requires the selected `openbao-stack-setup`
+`0.2.13` catalog and a separately authorized operator ceremony, not a new provider.
 No device private key belongs in Kubernetes. The virtual destination and peer
 addresses must be non-overlapping unicast IPv4 addresses outside the actual
 cluster/node/LAN ranges. Do not copy synthetic validation addresses into clients.
@@ -113,6 +116,17 @@ That test uses the pinned image and rendered startup files, not a mock firewall,
 but is not proof of Kubernetes CNI, EC2 forwarding, macOS DNS, TLS/login or MTU.
 Image publication, client adoption and live activation are separate operations;
 this package publishes no image and changes no active client.
+
+Stage namespace, product values and secret-sync separately before selecting the
+gateway release. `stack-setup` reads `wireguard.enabled` and the exact
+`serverKeySecret: wireguard-server-key` from `wireguard-product-values`, not from
+shared client values; keep `replicas: 0` and `peers: []` during setup. Do not add
+inline HelmRelease overrides that disagree with this selector. The secret-sync
+Flux stage depends on namespace and existing ESO/OpenBao/trust readiness, but its
+first Ready wait may remain pending until catalog reconciliation. Run the pinned
+operator tool, then require the SecretStore and ExternalSecret to be Ready before
+the gateway stage can start. Its generated key is persistent across retries;
+no peer, route or live runtime selection is added by this package.
 
 Local validation requires a Unix-like shell, Git, GNU Make, and the versions in
 [`.tool-versions`](.tool-versions):

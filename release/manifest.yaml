@@ -27,9 +27,21 @@ spec:
       chartPrefixes: []
     - path: releases/wireguard
       status: excluded
-      reason: Server-key delivery, reviewed network facts and live acceptance are pending.
+      reason: Reviewed network facts, credential provisioning and live acceptance are pending.
       chartPrefixes:
       - charts/wireguard
+      prerequisites:
+      - name: openbao-stack-setup
+        version: 0.2.13
+        source: https://github.com/neurwerk/k8s_stack_tooling/commit/0c0d5b35fc9e68b70e0cb48f3741e1888f7a287b
+    - path: releases/wireguard/secret-sync
+      status: excluded
+      reason: Requires the selection-gated WireGuard OpenBao catalog before separately authorized activation.
+      chartPrefixes: []
+      prerequisites:
+      - name: openbao-stack-setup
+        version: 0.2.13
+        source: https://github.com/neurwerk/k8s_stack_tooling/commit/0c0d5b35fc9e68b70e0cb48f3741e1888f7a287b
     - path: releases/namespaces/forgejo
       status: excluded
       reason: Staged Forgejo package; live acceptance and client activation are not complete.
