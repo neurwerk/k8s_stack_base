@@ -241,7 +241,7 @@ spec:
       appVersion: '1.0'
     - path: charts/forgejo
       name: forgejo
-      version: 0.1.0
+      version: 0.1.1
       appVersion: 15.0.8
     - path: charts/keycloak/oidc/agentgateway
       name: agentgateway
