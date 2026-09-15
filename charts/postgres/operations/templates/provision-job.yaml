@@ -112,6 +112,7 @@ spec:
               ALTER DATABASE librechat_rag OWNER TO librechat_rag;
               REVOKE CONNECT, TEMPORARY ON DATABASE postgres, template1 FROM PUBLIC;
               GRANT CONNECT ON DATABASE postgres TO documentdb, operations_admin;
+              GRANT CONNECT ON DATABASE postgres TO documentdb_bg_worker_role;
               REVOKE ALL ON DATABASE agentgateway, dify, dify_plugin, dify_vector, postgres_langfuse, librechat_rag FROM PUBLIC;
               GRANT CONNECT, TEMPORARY ON DATABASE agentgateway TO agentgateway;
               GRANT CONNECT, TEMPORARY ON DATABASE dify, dify_plugin, dify_vector TO dify;
@@ -165,6 +166,20 @@ spec:
               GRANT CONNECT ON DATABASE postgres TO librechat;
               DO $verify$
               BEGIN
+                IF NOT has_database_privilege('documentdb_bg_worker_role', 'postgres', 'CONNECT') THEN
+                  RAISE EXCEPTION 'DocumentDB background worker CONNECT verification failed';
+                END IF;
+                IF EXISTS (
+                  SELECT FROM pg_database
+                  WHERE datname IN (
+                    'agentgateway', 'dify', 'dify_plugin', 'dify_vector', 'postgres_langfuse', 'librechat_rag'
+                    {{- if .Values.forgejo.enabled }}
+                    , 'forgejo'
+                    {{- end }}
+                  ) AND has_database_privilege('documentdb_bg_worker_role', oid, 'CONNECT')
+                ) THEN
+                  RAISE EXCEPTION 'DocumentDB background worker unexpectedly has application database access';
+                END IF;
                 IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'librechat' AND rolcanlogin) THEN
                   RAISE EXCEPTION 'DocumentDB application role verification failed';
                 END IF;
