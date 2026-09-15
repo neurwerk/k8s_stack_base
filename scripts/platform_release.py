@@ -404,6 +404,9 @@ def normalize_image_reference(reference: str) -> str:
 
 def _manifest_images(value: Any) -> Iterable[str]:
     if isinstance(value, dict):
+        # Operator-created maintenance manifests are packaged as JSON, not live resources.
+        if value.get("kind") == "ConfigMap" and value.get("metadata", {}).get("name") == "maintenance-runtime":
+            yield from _manifest_images(json.loads(value["data"]["contract.json"]))
         image = value.get("image")
         if isinstance(image, str) and image:
             yield image

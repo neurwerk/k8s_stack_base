@@ -21,6 +21,16 @@ spec:
     - releases/infrastructure
     - releases/applications
     optional:
+    - path: releases/namespaces/maintenance
+      status: excluded
+      reason: Optional on-demand maintenance; client composition and runtime acceptance are pending.
+      chartPrefixes: []
+    - path: releases/maintenance
+      status: excluded
+      reason: Disabled by default. A verified versioned image providing maintenance-server has not been
+        published; runtime activation is blocked.
+      chartPrefixes:
+      - charts/maintenance
     - path: releases/namespaces/wireguard
       status: excluded
       reason: Optional static gateway; node prerequisites and activation acceptance are pending.
@@ -361,6 +371,9 @@ spec:
       name: frontend-librechat-valkey
       version: 1.0.0
       appVersion: 9.1.1
+    - path: charts/maintenance
+      name: maintenance
+      version: 0.1.0
     - path: charts/openbao
       name: infra-openbao
       version: 1.0.0
@@ -433,7 +446,7 @@ spec:
       appVersion: 0.9.1
     - path: charts/traefik
       name: traefik
-      version: 1.0.1
+      version: 1.0.2
     - path: charts/trust-manager
       name: infra-trust-manager
       version: 1.0.0
@@ -640,6 +653,10 @@ spec:
       namespace: frontend-librechat
       name: frontend-librechat-rag-api
       chart: ./charts/librechat/rag-api
+    - path: releases/maintenance/maintenance.yaml
+      namespace: maintenance
+      name: maintenance
+      chart: ./charts/maintenance
     - path: releases/openbao/app.yaml
       namespace: infra-openbao
       name: openbao

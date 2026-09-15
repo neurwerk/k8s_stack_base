@@ -1,0 +1,54 @@
+{{- if .Values.maintenance.enabled -}}
+{{- if not (regexMatch `^ghcr\.io/neurwerk/k8s-stack-tooling:(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)@sha256:[a-f0-9]{64}$` .Values.maintenance.image) -}}
+  {{- fail "maintenance.image requires published ghcr.io/neurwerk/k8s-stack-tooling:X.Y.Z@sha256 with strict SemVer and maintenance-server" -}}
+{{- end -}}
+{{- $company := required "authKeycloak.realmDisplayName is required" .Values.authKeycloak.realmDisplayName -}}
+{{- if not (trim $company) -}}{{- fail "authKeycloak.realmDisplayName must not be blank" -}}{{- end -}}
+{{- $logo := required "authKeycloak.branding.logoConfigMapName is required" .Values.authKeycloak.branding.logoConfigMapName -}}
+{{- if or (gt (len $logo) 253) (not (regexMatch `^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$` $logo)) -}}
+  {{- fail "authKeycloak.branding.logoConfigMapName must be a DNS subdomain" -}}
+{{- end -}}
+{{- if not (has .Values.authKeycloak.branding.logoFormat (list "png" "svg")) -}}{{- fail "authKeycloak.branding.logoFormat must be png or svg" -}}{{- end -}}
+{{- $hosts := dict "studio" (list .Values.frontendStudio.studio.hostname) "dify" (list .Values.frontendDify.hostname) "librechat" (list .Values.frontendLibrechat.hostname .Values.frontendLibrechat.adminPanel.hostname) "langfuse" (list .Values.monitorLangfuseWrapper.hostname) -}}
+{{- $selected := dict -}}
+{{- $all := list -}}
+{{- $excluded := list (dig "hostname" "" .Values.authKeycloak) (dig "hostname" "" (.Values.infraAgentgatewayWrapper | default dict)) (dig "objectStore" "publicHostname" "" (.Values.infraRookCeph | default dict)) -}}
+{{- range $product, $settings := .Values.maintenance.products -}}
+  {{- if $settings.enabled -}}
+    {{- $selection := index $hosts $product -}}
+    {{- range $host := $selection -}}
+      {{- if or (not (kindIs "string" $host)) (gt (len $host) 253) (not (regexMatch `^([a-z0-9]([-a-z0-9]*[a-z0-9])?\.)+[a-z]([-a-z0-9]*[a-z0-9])?$` $host)) (regexMatch `(^|\.)(example|invalid|localhost|placeholder)(\.|$)|CHANGEME|change-me|(^|\.)place\.holder$` $host) -}}
+        {{- fail (printf "maintenance %s requires a non-placeholder exact canonical hostname" $product) -}}
+      {{- end -}}
+      {{- range $label := splitList "." $host -}}
+        {{- if gt (len $label) 63 -}}{{- fail "maintenance hostname label exceeds 63 characters" -}}{{- end -}}
+      {{- end -}}
+      {{- if has $host $all -}}{{- fail "maintenance canonical hostnames must not be duplicated" -}}{{- end -}}
+      {{- if has $host $excluded -}}{{- fail "maintenance must not cover identity, model or storage hosts" -}}{{- end -}}
+      {{- $all = append $all $host -}}
+    {{- end -}}
+    {{- $_ := set $selected $product $selection -}}
+  {{- end -}}
+{{- end -}}
+{{- if not $all -}}{{- fail "maintenance requires at least one approved product" -}}{{- end -}}
+{{- $_ := set $selected "global" $all -}}
+{{- $labels := dict "app.kubernetes.io/name" "maintenance" "app.kubernetes.io/instance" "maintenance" "app.kubernetes.io/part-of" "maintenance" "maintenance.neurwerk.com/managed-by" "operator" -}}
+{{- $routes := dict -}}
+{{- range $scope, $selection := $selected -}}
+  {{- $matches := list -}}
+  {{- range $host := $selection -}}{{- $matches = append $matches (printf "Host(`%s`)" $host) -}}{{- end -}}
+  {{- $priority := 1900000000 -}}
+  {{- if eq $scope "global" -}}{{- $priority = 2000000000 -}}{{- end -}}
+  {{- $metadata := dict "name" (printf "maintenance-%s" $scope) "namespace" "maintenance" "labels" $labels "annotations" (dict "maintenance.neurwerk.com/hosts" (toJson $selection)) -}}
+  {{- $route := dict "kind" "Rule" "match" (join " || " $matches) "priority" $priority "services" (list (dict "name" "maintenance" "port" 8080)) -}}
+  {{- $_ := set $routes $scope (dict "apiVersion" "traefik.io/v1alpha1" "kind" "IngressRoute" "metadata" $metadata "spec" (dict "entryPoints" (list "websecure") "tls" (dict) "routes" (list $route))) -}}
+{{- end -}}
+{{- $deployment := include "maintenance.deployment" (dict "values" .Values "labels" $labels) | fromYaml -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: maintenance-runtime
+  namespace: maintenance
+data:
+  contract.json: {{ dict "version" 1 "namespace" "maintenance" "serviceName" "maintenance" "servicePort" 8080 "deployment" $deployment "routes" $routes | toJson | quote }}
+{{- end }}

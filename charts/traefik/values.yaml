@@ -9,5 +9,9 @@ traefik:
       port: 443
       exposedPort: 443
   providers:
+    kubernetesCRD:
+      enabled: true
+      # Keep maintenance overlays fail-closed while their temporary Pod is absent.
+      allowEmptyServices: true
     kubernetesGateway:
       enabled: true

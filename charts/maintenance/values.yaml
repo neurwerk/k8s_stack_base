@@ -1,0 +1,40 @@
+# No server image has been published. Enabling requires a verified release that
+# provides maintenance-server; existing tooling images must not be used.
+maintenance:
+  enabled: false
+  image: ""
+  # Approval scopes, not activation state. Only the operator creates runtime copies.
+  # LibreChat covers both its canonical application and Admin Panel hostnames.
+  products:
+    studio:
+      enabled: false
+    dify:
+      enabled: false
+    librechat:
+      enabled: false
+    langfuse:
+      enabled: false
+  resources:
+    requests:
+      cpu: 10m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+# Project these canonical client facts and the logo ConfigMap into maintenance.
+authKeycloak:
+  realmDisplayName: ""
+  branding:
+    logoConfigMapName: ""
+    logoFormat: png
+frontendStudio:
+  studio:
+    hostname: ""
+frontendDify:
+  hostname: ""
+frontendLibrechat:
+  hostname: ""
+  adminPanel:
+    hostname: ""
+monitorLangfuseWrapper:
+  hostname: ""

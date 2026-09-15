@@ -39,12 +39,13 @@ GATEWAY_PORTS = {
     "agentgateway": "infraAgentgatewayWrapper.ports.gateway.tls",
 }
 # Explicit exclusions: operator/control plane, backend-only products, and jobs.
+# Maintenance packages only static infrastructure and inert operator templates.
 NON_ENDPOINT_CHARTS = set("""
 agentgateway-extproc cert-manager/approver-policy cert-manager/issuers
 cert-manager/approval-policy cert-manager/controller cert-manager/internal-issuer
 external-secrets fluent-bit fluent-bit/shared kube-prometheus-stack
 openbao openbao/operator opensearch pii-engine pii-engine-model-sync
-postgres/auth postgres/operations reloader traefik trust-manager studio/shared
+postgres/auth postgres/operations reloader traefik trust-manager studio/shared maintenance
 keycloak-api-key-bridge keycloak/realm-config/active-directory
 keycloak/realm-config/initial-admin keycloak/realm-config/realm-roles
 keycloak/oidc/keycloak-api-key-bridge keycloak/oidc/dify-agentgateway

@@ -16,6 +16,15 @@ packages:
   - releases/infrastructure
   - releases/applications
   optional:
+  - path: releases/namespaces/maintenance
+    status: excluded
+    reason: Optional on-demand maintenance; client composition and runtime acceptance are pending.
+    chartPrefixes: []
+  - path: releases/maintenance
+    status: excluded
+    reason: Disabled by default. A verified versioned image providing maintenance-server has not been published; runtime activation is blocked.
+    chartPrefixes:
+    - charts/maintenance
   - path: releases/namespaces/wireguard
     status: excluded
     reason: Optional static gateway; node prerequisites and activation acceptance are pending.
