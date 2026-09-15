@@ -39,10 +39,12 @@ GATEWAY_PORTS = {
     "agentgateway": "infraAgentgatewayWrapper.ports.gateway.tls",
 }
 # Explicit exclusions: operator/control plane, backend-only products, and jobs.
+# WireGuard's UDP transport is not a browser application, even with NodePort;
+# classification does not verify its outer exposure, peers or firewall grants.
 NON_ENDPOINT_CHARTS = set("""
 agentgateway-extproc cert-manager/approver-policy cert-manager/issuers
 cert-manager/approval-policy cert-manager/controller cert-manager/internal-issuer
-external-secrets fluent-bit fluent-bit/shared kube-prometheus-stack
+external-secrets fluent-bit fluent-bit/shared kube-prometheus-stack wireguard
 openbao openbao/operator opensearch pii-engine pii-engine-model-sync
 postgres/auth postgres/operations reloader traefik trust-manager studio/shared
 keycloak-api-key-bridge keycloak/realm-config/active-directory
