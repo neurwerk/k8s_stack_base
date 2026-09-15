@@ -1,11 +1,33 @@
 """Static gateway rendering; actual packet checks run separately on isolated CI."""
 
 import unittest
+import subprocess
 
-from test_openrouter_catalog import render, resources
+from test_openrouter_catalog import ROOT, render, resources
 
 
 class WireguardTests(unittest.TestCase):
+    def test_optional_secret_delivery_is_exact_and_unselected(self):
+        package = subprocess.check_output(
+            ["kustomize", "build", str(ROOT / "releases/wireguard/secret-sync")], text=True
+        )
+        for text in ["name: wireguard-external-secrets", "name: wireguard-openbao-secret-store",
+                     "name: wireguard-server-key", "key: wireguard/internal", "property: privateKey",
+                     "audiences:", "- openbao", "deletionPolicy: Retain"]:
+            self.assertIn(text, package)
+        self.assertEqual(package.count("secretKey:"), 1)
+        self.assertNotIn("kind: Secret\n", package)
+        namespace = subprocess.check_output(
+            ["kustomize", "build", str(ROOT / "releases/namespaces/wireguard")], text=True
+        )
+        self.assertIn('secrets.neurwerk.com/openbao-trust: "true"', namespace)
+        for stage in ["namespaces", "infrastructure", "applications"]:
+            output = subprocess.check_output(
+                ["kustomize", "build", "--load-restrictor", "LoadRestrictionsNone",
+                 str(ROOT / "releases" / stage)], text=True
+            )
+            self.assertNotIn("wireguard", output)
+
     def test_static_boundary_and_empty_recovery(self):
         self.assertEqual(render("wireguard", {"wireguard": {"enabled": False}}).stdout.strip(), "")
         empty = render("wireguard", {})
