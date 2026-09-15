@@ -1,7 +1,7 @@
 version: 0.3.7
 releaseDate: '2026-09-15'
 summary: Update application administration, trusted API-key groups, DocumentDB provisioning, Studio and
-  PII CPU; inventory staged optional packages.
+  PII CPU/extProc tool-description support; inventory staged optional packages.
 trust:
   signerIdentity: platform-release
   algorithm: ssh-ed25519
@@ -121,7 +121,7 @@ exceptions:
     before dropping back to UID 1000.
 provenance:
   previousTag: v0.3.6
-  includedThrough: db39cb651607f0f38264f74f6e9af5e5a148d2d8
+  includedThrough: 67d60207066ec866f23bcd65f8ab36be4025fdf0
   commits:
   - d2ebc87361ec575d38d0b803f9a182fc626ddedd
   - 68a863c71bf675085f356207610f0352ff0bad28
@@ -141,4 +141,5 @@ provenance:
   - 158ab37d15557b349e9b512b76aa5b99cd25eb6a
   - 22e834c9161050756cca6bddb50d066359518e97
   - db39cb651607f0f38264f74f6e9af5e5a148d2d8
-  compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.6...db39cb651607f0f38264f74f6e9af5e5a148d2d8
+  - 67d60207066ec866f23bcd65f8ab36be4025fdf0
+  compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.6...67d60207066ec866f23bcd65f8ab36be4025fdf0

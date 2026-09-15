@@ -26,15 +26,24 @@ upgrade path.
   Operations PostgreSQL chart `1.2.2` does not broaden public database access.
 - Update Studio to `0.9.1` so failed startup initialization stops the API instead
   of serving requests without its shared HTTP clients (#139).
-- Adopt verified PII Engine `0.8.0-cpu` in all Engine and model-sync CPU defaults
+- Adopt verified PII Engine `0.8.1-cpu` in all three Engine/model-sync CPU defaults
   (#152), including strict streamed Chat `stream_options.include_usage` support.
-  Engine chart `1.0.3` and model-sync chart `1.0.2` use appVersion `0.8.0`;
+  Engine chart `1.0.3` and model-sync chart `1.0.2` use appVersion `0.8.1`;
   model bundle pins and CPU device settings are unchanged. The scoped CPU-only
   adoption exception permits proceeding without CUDA or the combined PII GitHub
   Release, not without image verification. CPU source is
-  `d3bf3595f94e3fee0e33c6eae89ac4377474ee6e`, with verified `linux/amd64` digest
-  `sha256:2cfb28997c8063938c96bd414093f5395da2c102015b7269a84157d3cfdb0fc9`
-  from [CPU publication job 104361602237](https://github.com/neurwerk/k8s_stack_pii_engine/actions/runs/34963163582/job/104361602237).
+  `a0883dee93333f05af5ba19034c34dcc87dbe230`, with verified `linux/amd64` digest
+  `sha256:a829987654971c87d802f6ba3059d19caf69bc3e969a95bebee62986355cd76a`
+  from [CPU publication job 104388944955](https://github.com/neurwerk/k8s_stack_pii_engine/actions/runs/34971499708/job/104388944955).
+- Adopt published extProc `0.7.1` in chart `1.0.5`, appVersion `0.7.1`, from
+  source `e50450d50849d9254fb9d87d6090d9cd92f3947e` and verified image digest
+  `sha256:59bb5a51192dbbb01ba5cb30c4d4b182c5fde2c3ae8c3193b3eda1cb6de3fbe6`
+  ([release](https://github.com/neurwerk/k8s_stack_agentgateway_extproc/releases/tag/v0.7.1)).
+  Together these pins include the coordinated 20,000-character tool-description
+  fixes from [extProc #23](https://github.com/neurwerk/k8s_stack_agentgateway_extproc/pull/23)
+  and [PII #11](https://github.com/neurwerk/k8s_stack_pii_engine/pull/11).
+  This supersedes #152's earlier `0.8.0-cpu` adoption; source inclusion and
+  verified publication do not establish deployment or end-to-end acceptance.
 
 ### Staged Optional Packages
 
@@ -79,7 +88,8 @@ upgrade path.
 - Verify operations PostgreSQL provisioning completes, worker connectivity is
   repaired and managed application databases remain isolated. Verify Studio
   startup, bridge authorization and PII Engine/model-sync readiness, including
-  streamed usage through the existing extProc path. Preserve databases, keys,
+  streamed usage and 20,000-character tool descriptions through the coordinated
+  extProc/PII path. Preserve databases, keys,
   model objects and bundle pins; a passing readiness probe is not data-integrity
   or end-to-end acceptance evidence.
 - Baseline prerequisites are unchanged, including schema-4 `openbao-stack-setup`
@@ -102,13 +112,14 @@ upgrade path.
 - AgentGateway may report a partial streamed response as complete after a late
   extProc failure (#108). The rejected chunk was not forwarded and no PII leak
   was demonstrated. This remains accepted only for interactive chat; reassess
-  before unattended actions. PII `0.8.0` does not resolve this limitation.
+  before unattended actions. PII `0.8.1` / extProc `0.7.1` do not resolve it.
 - The existing exact LibreChat development-image exception still expires
   `2026-09-30`; neither its digest nor expiry is extended. Replace it with a
   reviewed immutable upstream release before expiry.
 - This is draft preparation dependent on unmerged #152. Provenance currently
-  records all 17 commits after `v0.3.6` through main `22e834c`, plus #152 at
-  `db39cb651607f0f38264f74f6e9af5e5a148d2d8`. Refresh against actual merged main
+  records all 17 commits after `v0.3.6` through main `22e834c`, plus both #152
+  adoption commits through `67d60207066ec866f23bcd65f8ab36be4025fdf0`.
+  Refresh against actual merged main
   history before final release review. Local checks do not establish alpha
   acceptance of the complete candidate, a tested stable transition, or recovery.
 
