@@ -62,7 +62,7 @@ tests/                          rendered, security, and release-contract tests
 `charts/wireguard/` and the separate `releases/wireguard/` and
 `releases/namespaces/wireguard/` packages provide a disabled-by-default pilot for
 one manually approved device and Forgejo native HTTPS only. Neither default
-stage selects them, and stable release eligibility remains excluded. The chart
+stage selects them; the operator-tested packages are available for optional stable use. The chart
 defaults to `enabled: false`, `replicas: 0`, and `peers: []`.
 
 The runtime uses LinuxServer WireGuard `1.0.20260223-r0-ls122`, pinned by its
@@ -97,7 +97,8 @@ TLS passes through unchanged; keep the canonical hostname, certificate and OIDC.
 The UDP Service defaults to ClusterIP; optional NodePort needs an explicit
 `30000-32767` port and uses `externalTrafficPolicy: Local`. Outer firewalling,
 routing to the node actually hosting the Pod, UDP return traffic and CNI identity
-after NAT require live acceptance. Never broaden egress to compensate for a
+after NAT must match the client's network configuration. Reuse accepted feature
+testing rather than requiring another test server. Never broaden egress to compensate for a
 non-enforcing CNI or node-source translation.
 
 For every peer, key, script, image or destination change: reconcile `replicas: 0`,
