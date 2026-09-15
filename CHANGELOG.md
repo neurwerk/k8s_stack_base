@@ -9,6 +9,9 @@ upgrade path.
 
 ## [Unreleased]
 
+- Update Studio to `0.9.1` so failed startup initialization stops the API instead
+  of serving requests without its shared HTTP clients.
+
 ## [0.3.6] - 2026-09-14
 
 - Fix delayed model/MCP streams and incorrect MCP cleanup/error responses.
