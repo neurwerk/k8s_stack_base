@@ -1,11 +1,12 @@
 apiVersion: platform.neurwerk.com/v1alpha1
 kind: PlatformRelease
 metadata:
-  name: v0.3.6
+  name: v0.3.7
 spec:
-  version: 0.3.6
-  releaseDate: '2026-09-14'
-  summary: Fix gateway streaming and MCP errors; update Studio and Keycloak theme.
+  version: 0.3.7
+  releaseDate: '2026-09-15'
+  summary: Update application administration, trusted API-key groups, DocumentDB provisioning, Studio
+    and PII CPU; inventory staged optional packages.
   trust:
     signerIdentity: platform-release
     algorithm: ssh-ed25519
@@ -1088,10 +1089,25 @@ spec:
       uv: 0.11.21
       node: 24.20.0
   provenance:
-    previousTag: v0.3.5
-    includedThrough: b272ed0f8a5c7f0e4adb3e63e547877d4154a9bb
+    previousTag: v0.3.6
+    includedThrough: db39cb651607f0f38264f74f6e9af5e5a148d2d8
     commits:
-    - 617a32a8787b67441bf49526a2d9b88263444422
-    - beb2b790542127ca3f63a92bde5443833d9ffb3d
-    - b272ed0f8a5c7f0e4adb3e63e547877d4154a9bb
-    compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.5...b272ed0f8a5c7f0e4adb3e63e547877d4154a9bb
+    - d2ebc87361ec575d38d0b803f9a182fc626ddedd
+    - 68a863c71bf675085f356207610f0352ff0bad28
+    - efe2a4b23b7ed0001fca68cfa7fe06bd5fe63bd9
+    - 63ff2a0b9965075afcd543ad4839828ff8c96600
+    - 6cee31b25d7ca92c2b829d0f1aaeee18f5a828b0
+    - 70bf2955dbd5d52b9ce2d74a5e52a557e4610eec
+    - e3cfbc369e4008533c62e717e8fe1c107a380400
+    - 59594629cd1e0c84d683e4e21b0f6015236db516
+    - 90d6ce6342375520ee1bd644aa24d8013ee1d96f
+    - 3c311d905ee934ec59a83b751899ee97c0973943
+    - dc59d300bf79b6fb0e82c3df27a2d3c45bab262f
+    - 628c935f29c23464380f9c643a03c40412fb6449
+    - 763c55e0079a5ee24b9eaed0f92a2ff946c96ef5
+    - f3ad4196382da780c1ae073d845b2de221bad4e3
+    - a6b325f9f1425a3c315462b31ff058c68a9c6de8
+    - 158ab37d15557b349e9b512b76aa5b99cd25eb6a
+    - 22e834c9161050756cca6bddb50d066359518e97
+    - db39cb651607f0f38264f74f6e9af5e5a148d2d8
+    compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.6...db39cb651607f0f38264f74f6e9af5e5a148d2d8
