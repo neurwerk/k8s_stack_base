@@ -137,6 +137,19 @@ class AdapterTest(unittest.TestCase):
         self.assertEqual(plan["endpoints"]["dify"]["features"], {"consoleSSO": True})
         self.assertEqual(before, {p: p.read_bytes() for p in self.root.rglob("*") if p.is_file()})
 
+    def test_wireguard_transport_does_not_add_an_application_or_allow_unknown_charts(self):
+        self.select("keycloak", "forgejo")
+        expected = self.derive()
+        self.chart("wireguard", {"wireguard": {
+            "enabled": True, "replicas": 1,
+            "service": {"type": "NodePort", "nodePort": 31820},
+        }}, namespace="wireguard")
+        self.assertEqual(self.derive(), expected)
+        self.assertEqual(set(expected["endpoints"]), {"keycloak", "forgejo"})
+        self.chart("unknown-transport")
+        with self.assertRaisesRegex(adapter.PlanError, "unknown selected chart"):
+            self.derive()
+
     def test_actual_platform_releases_with_synthetic_client_generators(self):
         self.platform = ROOT
         self.snapshot_factory.return_value = access_git.GitSnapshot(ROOT)
