@@ -21,6 +21,15 @@ spec:
     - releases/infrastructure
     - releases/applications
     optional:
+    - path: releases/namespaces/maintenance
+      status: excluded
+      reason: Optional on-demand maintenance; explicit client adoption and runtime acceptance are required.
+      chartPrefixes: []
+    - path: releases/maintenance
+      status: excluded
+      reason: Optional and disabled by default; explicit client adoption and runtime acceptance are required.
+      chartPrefixes:
+      - charts/maintenance
     - path: releases/namespaces/wireguard
       status: excluded
       reason: Optional static gateway; node prerequisites and activation acceptance are pending.
@@ -361,6 +370,9 @@ spec:
       name: frontend-librechat-valkey
       version: 1.0.0
       appVersion: 9.1.1
+    - path: charts/maintenance
+      name: maintenance
+      version: 0.1.1
     - path: charts/openbao
       name: infra-openbao
       version: 1.0.0
@@ -433,7 +445,7 @@ spec:
       appVersion: 0.9.1
     - path: charts/traefik
       name: traefik
-      version: 1.0.1
+      version: 1.0.2
     - path: charts/trust-manager
       name: infra-trust-manager
       version: 1.0.0
@@ -640,6 +652,10 @@ spec:
       namespace: frontend-librechat
       name: frontend-librechat-rag-api
       chart: ./charts/librechat/rag-api
+    - path: releases/maintenance/maintenance.yaml
+      namespace: maintenance
+      name: maintenance
+      chart: ./charts/maintenance
     - path: releases/openbao/app.yaml
       namespace: infra-openbao
       name: openbao
@@ -883,6 +899,11 @@ spec:
       - charts/keycloak/realm-config/realm-roles/values.yaml
       - charts/keycloak/server/values.yaml
       - charts/opensearch/values.yaml
+    - reference: ghcr.io/neurwerk/k8s-stack-tooling:0.6.2@sha256:299ded44d76d5a73e3c1045af09b02649b08a3b5f00d07a993e3be7c61a490fd
+      pinned: true
+      eligibility: excluded
+      origins:
+      - charts/maintenance/values.yaml
     - reference: ghcr.io/neurwerk/librechat-code-interpreter-api:fea707467600f3802d65596a6875c7822f25cfd8
       pinned: true
       eligibility: excluded

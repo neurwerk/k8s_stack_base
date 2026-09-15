@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import os
 import re
 import subprocess
@@ -25,6 +26,16 @@ SPEC.loader.exec_module(platform_release)
 
 
 class ReleaseContractTest(unittest.TestCase):
+    def test_maintenance_embedded_images_are_release_artifacts(self) -> None:
+        image = "registry.test/maintenance:0.0.0@sha256:" + "a" * 64
+        config = {
+            "kind": "ConfigMap", "metadata": {"name": "maintenance-runtime"},
+            "data": {"contract.json": json.dumps({
+                "deployment": {"spec": {"template": {"spec": {"containers": [{"image": image}]}}}},
+            })},
+        }
+        self.assertEqual(list(platform_release._manifest_images(config)), [image])
+
     def test_keycloak_branding_render_contract(self) -> None:
         def render(auth):
             return subprocess.run(

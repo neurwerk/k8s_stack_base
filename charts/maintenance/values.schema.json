@@ -1,0 +1,46 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "maintenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "image", "products", "resources"],
+      "properties": {
+        "enabled": {"type": "boolean"},
+        "image": {
+          "type": "string",
+          "pattern": "^$|^ghcr\\.io/neurwerk/k8s-stack-tooling:(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)@sha256:[a-f0-9]{64}$"
+        },
+        "resources": {
+          "type": "object",
+          "required": ["requests", "limits"],
+          "properties": {
+            "requests": {"type": "object", "required": ["cpu", "memory"]},
+            "limits": {"type": "object", "required": ["cpu", "memory"]}
+          }
+        },
+        "products": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "studio": {"$ref": "#/definitions/product"},
+            "dify": {"$ref": "#/definitions/product"},
+            "librechat": {"$ref": "#/definitions/product"},
+            "langfuse": {"$ref": "#/definitions/product"}
+          }
+        }
+      },
+      "if": {"properties": {"enabled": {"const": true}}},
+      "then": {"properties": {"image": {"minLength": 1}}}
+    }
+  },
+  "definitions": {
+    "product": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled"],
+      "properties": {"enabled": {"type": "boolean"}}
+    }
+  }
+}

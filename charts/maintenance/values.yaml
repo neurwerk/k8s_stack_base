@@ -1,0 +1,39 @@
+# Published server image; adoption and runtime acceptance remain separate gates.
+maintenance:
+  enabled: false
+  image: ghcr.io/neurwerk/k8s-stack-tooling:0.6.2@sha256:299ded44d76d5a73e3c1045af09b02649b08a3b5f00d07a993e3be7c61a490fd
+  # Approval scopes, not activation state. Only the operator creates runtime copies.
+  # LibreChat covers both its canonical application and Admin Panel hostnames.
+  products:
+    studio:
+      enabled: false
+    dify:
+      enabled: false
+    librechat:
+      enabled: false
+    langfuse:
+      enabled: false
+  resources:
+    requests:
+      cpu: 10m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+# Project these canonical client facts and the logo ConfigMap into maintenance.
+authKeycloak:
+  realmDisplayName: ""
+  branding:
+    logoConfigMapName: ""
+    logoFormat: png
+frontendStudio:
+  studio:
+    hostname: ""
+frontendDify:
+  hostname: ""
+frontendLibrechat:
+  hostname: ""
+  adminPanel:
+    hostname: ""
+monitorLangfuseWrapper:
+  hostname: ""

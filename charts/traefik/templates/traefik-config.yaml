@@ -38,6 +38,9 @@ spec:
 
     # ── Providers ────────────────────────────────────────────────────────────
     providers:
+      kubernetesCRD:
+        enabled: {{ .Values.traefik.providers.kubernetesCRD.enabled }}
+        allowEmptyServices: {{ .Values.traefik.providers.kubernetesCRD.allowEmptyServices }}
       kubernetesGateway:
         enabled: {{ .Values.traefik.providers.kubernetesGateway.enabled }}
 
