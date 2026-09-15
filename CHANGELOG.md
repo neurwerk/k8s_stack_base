@@ -119,8 +119,9 @@ upgrade path.
 - This is draft preparation dependent on unmerged #152. Provenance currently
   records all 17 commits after `v0.3.6` through main `22e834c`, plus both #152
   adoption commits through `67d60207066ec866f23bcd65f8ab36be4025fdf0`.
-  Refresh against actual merged main
-  history before final release review. Local checks do not establish alpha
+  #152 was closed unmerged after replacement #156 merged separately. Refresh
+  against actual main history before final review; this stack retains the
+  requested dependency endpoint. Local checks do not establish alpha
   acceptance of the complete candidate, a tested stable transition, or recovery.
 
 ## [0.3.6] - 2026-09-14
