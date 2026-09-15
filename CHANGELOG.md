@@ -21,14 +21,15 @@ upgrade path.
   This does not grant additional permissions.
 - Add offline checks for application access settings and dependencies. These
   checks do not enforce network restrictions.
+- Make release notes and migration sections optional; the manifest defines compatibility.
 - Add staged Forgejo hosting, a one-device WireGuard pilot, and maintenance pages
   using Tooling `0.6.2`. These packages remain excluded from stable use, as do
   LibreChat RAG and Code Interpreter.
 
 ### Upgrade Notes
 
-Follow [the upgrade checklist](release/migrations/v0.3.7.md). An already-configured
-`v0.3.6` installation using supported packages needs no new OpenBao reconciliation.
+An already-configured `v0.3.6` installation using supported packages needs no new
+OpenBao reconciliation.
 Model bundles are unchanged; this release updates the CPU image, not CUDA.
 
 ### Known Limitations
