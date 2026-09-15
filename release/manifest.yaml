@@ -23,21 +23,21 @@ spec:
     - releases/applications
     optional:
     - path: releases/namespaces/maintenance
-      status: excluded
-      reason: Optional on-demand maintenance; explicit client adoption and runtime acceptance are required.
+      status: included
+      reason: Operator-tested optional maintenance; enable only when selected by the client.
       chartPrefixes: []
     - path: releases/maintenance
-      status: excluded
-      reason: Optional and disabled by default; explicit client adoption and runtime acceptance are required.
+      status: included
+      reason: Operator-tested maintenance pages; disabled by default and activated on demand.
       chartPrefixes:
       - charts/maintenance
     - path: releases/namespaces/wireguard
-      status: excluded
-      reason: Optional static gateway; node prerequisites and activation acceptance are pending.
+      status: included
+      reason: Operator-tested optional gateway; client network and node prerequisites still apply.
       chartPrefixes: []
     - path: releases/wireguard
-      status: excluded
-      reason: Reviewed network facts, credential provisioning and live acceptance are pending.
+      status: included
+      reason: Operator-tested one-device Forgejo HTTPS gateway; disabled by default.
       chartPrefixes:
       - charts/wireguard
       prerequisites:
@@ -45,25 +45,24 @@ spec:
         version: 0.2.13
         source: https://github.com/neurwerk/k8s_stack_tooling/commit/0c0d5b35fc9e68b70e0cb48f3741e1888f7a287b
     - path: releases/wireguard/secret-sync
-      status: excluded
-      reason: Requires the selection-gated WireGuard OpenBao catalog before separately authorized activation.
+      status: included
+      reason: Optional server-key delivery; provision the selected OpenBao catalog before startup.
       chartPrefixes: []
       prerequisites:
       - name: openbao-stack-setup
         version: 0.2.13
         source: https://github.com/neurwerk/k8s_stack_tooling/commit/0c0d5b35fc9e68b70e0cb48f3741e1888f7a287b
     - path: releases/namespaces/forgejo
-      status: excluded
-      reason: Staged Forgejo package; live acceptance and client activation are not complete.
+      status: included
+      reason: Operator-tested optional Forgejo hosting; enable only when selected by the client.
       chartPrefixes: []
     - path: releases/forgejo/secret-sync
-      status: excluded
-      reason: Requires the selection-gated Forgejo OpenBao catalog and credential copies before activation.
+      status: included
+      reason: Optional Forgejo credentials; provision the selected OpenBao catalog before startup.
       chartPrefixes: []
     - path: releases/forgejo/app
-      status: excluded
-      reason: Staged optional package; live acceptance and separately authorized client activation are
-        pending.
+      status: included
+      reason: Operator-tested Forgejo hosting with Keycloak login; disabled by default.
       chartPrefixes:
       - charts/forgejo
       - charts/keycloak/oidc/forgejo
@@ -716,7 +715,7 @@ spec:
     images:
     - reference: code.forgejo.org/forgejo/forgejo:15.0.8-rootless@sha256:8f97b55ca162ef3b538c6c78a2a077df9f2143c41d80b2bc6b6920f8d430df34
       pinned: true
-      eligibility: excluded
+      eligibility: included
       origins:
       - charts/forgejo/values.yaml
     - reference: cr.agentgateway.dev/controller:v1.5.0
@@ -838,7 +837,7 @@ spec:
       - charts/external-secrets/values.yaml
     - reference: ghcr.io/linuxserver/wireguard:1.0.20260223-r0-ls122@sha256:dca67384e3e9a5bcc288461fa983e6fcb0e248e5a2d8e5b3e5d3f753bfac3e35
       pinned: true
-      eligibility: excluded
+      eligibility: included
       origins:
       - charts/wireguard/values.yaml
     - reference: ghcr.io/neurwerk/addon-dify-ce-builder-api:1.15.0-kc-v2
@@ -902,7 +901,7 @@ spec:
       - charts/opensearch/values.yaml
     - reference: ghcr.io/neurwerk/k8s-stack-tooling:0.6.2@sha256:299ded44d76d5a73e3c1045af09b02649b08a3b5f00d07a993e3be7c61a490fd
       pinned: true
-      eligibility: excluded
+      eligibility: included
       origins:
       - charts/maintenance/values.yaml
     - reference: ghcr.io/neurwerk/librechat-code-interpreter-api:fea707467600f3802d65596a6875c7822f25cfd8

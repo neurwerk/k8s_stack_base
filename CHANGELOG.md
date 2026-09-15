@@ -9,6 +9,11 @@ upgrade path.
 
 ## [Unreleased]
 
+- Make Forgejo, the one-device WireGuard pilot, and maintenance pages available
+  as optional stable features. They stay disabled until selected by a client.
+- Reuse operator-confirmed testing; no disposable-server or restore rehearsal
+  is required for release or upgrade approval.
+
 ## [0.3.7] - 2026-09-15
 
 - Accept tool descriptions up to 20,000 characters with PII Engine `0.8.1-cpu`
