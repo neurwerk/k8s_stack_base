@@ -57,6 +57,63 @@ tests/                          rendered, security, and release-contract tests
 
 ## Prerequisites
 
+### Optional Static WireGuard Gateway
+
+`charts/wireguard/` and the separate `releases/wireguard/` and
+`releases/namespaces/wireguard/` packages provide a disabled-by-default pilot for
+one manually approved device and Forgejo native HTTPS only. Neither default
+stage selects them, and stable release eligibility remains excluded. The chart
+defaults to `enabled: false`, `replicas: 0`, and `peers: []`.
+
+The runtime uses LinuxServer WireGuard `1.0.20260223-r0-ls122`, pinned by its
+published OCI digest, but runs only the chart's startup script, not upstream
+initialization, configuration generation, CoreDNS or services. It uses kernel
+WireGuard, `ip` and `nft` with UID 0 and only `NET_ADMIN`, a read-only root,
+no host access and no Kubernetes API token. Node kernel support and explicit
+kubelet admission of the Pod-local `net.ipv4.ip_forward` sysctl are prerequisites;
+the chart does not load modules or change nodes. Deny rules precede tunnel startup.
+
+Supply reviewed `wireguard.virtualIP`, `forgejoServiceIP`, Pod-visible
+`outerSourceCIDRs`, `serverKeySecret` and the Mac's public peer identity in the
+namespace-local `wireguard-product-values` ConfigMap. The referenced Secret must
+contain `privateKey`; delivery through the existing OpenBao/ESO workflow remains
+a separate activation prerequisite, not an implemented new credential catalog.
+No device private key belongs in Kubernetes. The virtual destination and peer
+addresses must be non-overlapping unicast IPv4 addresses outside the actual
+cluster/node/LAN ranges. Do not copy synthetic validation addresses into clients.
+
+Only that peer's TCP 443 traffic to the virtual IP is DNATed to Forgejo Service
+TCP 443 and SNATed to the gateway Pod. Direct Service routes, SSH, management,
+IPv6 and unrelated traffic are denied. Egress additionally selects only Forgejo
+Pods in namespace `forgejo` on TCP 3000; activation must select the reciprocal
+`forgejo.networkPolicy.httpsClients` namespace `wireguard` and Pod labels
+`app.kubernetes.io/name: wireguard`, `app.kubernetes.io/instance: wireguard`.
+Disable Forgejo's public Gateway and remove other human bypass paths separately.
+TLS passes through unchanged; keep the canonical hostname, certificate and OIDC.
+
+The UDP Service defaults to ClusterIP; optional NodePort needs an explicit
+`30000-32767` port and uses `externalTrafficPolicy: Local`. Outer firewalling,
+routing to the node actually hosting the Pod, UDP return traffic and CNI identity
+after NAT require live acceptance. Never broaden egress to compensate for a
+non-enforcing CNI or node-source translation.
+
+For every peer, key, script, image or destination change: reconcile `replicas: 0`,
+wait for **all old Pods to be deleted**, update the approved configuration, then
+reconcile `replicas: 1`. Do not force-delete an unreachable Pod and assume it has
+stopped. Recreate strategy is not a substitute for this stop/update/start procedure.
+There is deliberately no reloader, automatic policy synchronization or expiry.
+Stop before target Service recreation; reverify its IP and selectors before restart.
+Recover with an empty peer list if the current list is untrusted, never historical
+permissions from an application rollback. Confirm denial before calling removal
+complete; separate application credentials are unaffected.
+
+`make check` covers chart contracts; Required CI additionally runs
+`uv run --frozen python tests/wireguard/packets.py` in disposable Docker networking.
+That test uses the pinned image and rendered startup files, not a mock firewall,
+but is not proof of Kubernetes CNI, EC2 forwarding, macOS DNS, TLS/login or MTU.
+Image publication, client adoption and live activation are separate operations;
+this package publishes no image and changes no active client.
+
 Local validation requires a Unix-like shell, Git, GNU Make, and the versions in
 [`.tool-versions`](.tool-versions):
 

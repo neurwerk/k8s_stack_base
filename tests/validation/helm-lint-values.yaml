@@ -1,5 +1,11 @@
 # Synthetic, non-secret values used by the chart validation targets.
 # HelmRelease ConfigMaps and Secrets provide these values in deployments.
+wireguard:
+  enabled: true
+  serverKeySecret: wireguard-server-key
+  virtualIP: 192.0.2.10
+  forgejoServiceIP: 198.51.100.10
+  outerSourceCIDRs: [203.0.113.1/32]
 forgejo:
   enabled: true
   hostname: forgejo.example.com

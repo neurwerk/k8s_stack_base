@@ -1,0 +1,6 @@
+apiVersion: v2
+name: wireguard
+description: Static device access to private Forgejo HTTPS
+type: application
+version: 0.1.0
+appVersion: "1.0.20260223"
