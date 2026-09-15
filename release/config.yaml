@@ -1,7 +1,6 @@
-version: 0.3.7
+version: 0.3.8
 releaseDate: '2026-09-15'
-summary: Update application administration, trusted API-key groups, DocumentDB provisioning, Studio and
-  PII CPU/extProc tool-description support; inventory staged optional packages.
+summary: Make tested Forgejo, WireGuard and maintenance packages available for optional stable use.
 trust:
   signerIdentity: platform-release
   algorithm: ssh-ed25519
@@ -120,28 +119,9 @@ exceptions:
   reason: The reviewed upstream DocumentDB local image requires passwordless sudo to prepare runtime directories
     before dropping back to UID 1000.
 provenance:
-  previousTag: v0.3.6
-  includedThrough: da710254fa26439bd8328c0ddb3011294bcca3f5
+  previousTag: v0.3.7
+  includedThrough: ad3200bdf2c2e90af3a33a8aae98c6ea38011c90
   commits:
-  - d2ebc87361ec575d38d0b803f9a182fc626ddedd
-  - 68a863c71bf675085f356207610f0352ff0bad28
-  - efe2a4b23b7ed0001fca68cfa7fe06bd5fe63bd9
-  - 63ff2a0b9965075afcd543ad4839828ff8c96600
-  - 6cee31b25d7ca92c2b829d0f1aaeee18f5a828b0
-  - 70bf2955dbd5d52b9ce2d74a5e52a557e4610eec
-  - e3cfbc369e4008533c62e717e8fe1c107a380400
-  - 59594629cd1e0c84d683e4e21b0f6015236db516
-  - 90d6ce6342375520ee1bd644aa24d8013ee1d96f
-  - 3c311d905ee934ec59a83b751899ee97c0973943
-  - dc59d300bf79b6fb0e82c3df27a2d3c45bab262f
-  - 628c935f29c23464380f9c643a03c40412fb6449
-  - 763c55e0079a5ee24b9eaed0f92a2ff946c96ef5
-  - f3ad4196382da780c1ae073d845b2de221bad4e3
-  - a6b325f9f1425a3c315462b31ff058c68a9c6de8
-  - 158ab37d15557b349e9b512b76aa5b99cd25eb6a
-  - 22e834c9161050756cca6bddb50d066359518e97
-  - 425f21abaa7100217d26379979904ee8a92e08b5
-  - a5f8748a36a0d305c3848e93ed22dd88ec7169a3
-  - d954294a5386dc6d8e4124ce774f1552de88fbc0
-  - da710254fa26439bd8328c0ddb3011294bcca3f5
-  compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.6...da710254fa26439bd8328c0ddb3011294bcca3f5
+  - e59c3fa81cbf8d625c6d34409bb80ddcedef9f56
+  - ad3200bdf2c2e90af3a33a8aae98c6ea38011c90
+  compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.7...ad3200bdf2c2e90af3a33a8aae98c6ea38011c90
