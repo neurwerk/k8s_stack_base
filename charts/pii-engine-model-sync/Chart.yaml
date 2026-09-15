@@ -3,4 +3,4 @@ name: pii-engine-model-sync
 description: Optional synchronization and activation of a pinned PII model bundle.
 type: application
 version: 1.0.2
-appVersion: "0.8.0"
+appVersion: "0.8.1"

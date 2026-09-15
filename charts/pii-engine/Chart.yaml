@@ -3,4 +3,4 @@ name: pii-engine
 description: In-process PII policy engine with an offline Ceph-backed model cache.
 type: application
 version: 1.0.3
-appVersion: "0.8.0"
+appVersion: "0.8.1"
