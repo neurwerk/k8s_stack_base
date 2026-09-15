@@ -18,11 +18,11 @@ packages:
   optional:
   - path: releases/namespaces/maintenance
     status: excluded
-    reason: Optional on-demand maintenance; client composition and runtime acceptance are pending.
+    reason: Optional on-demand maintenance; explicit client adoption and runtime acceptance are required.
     chartPrefixes: []
   - path: releases/maintenance
     status: excluded
-    reason: Disabled by default. A verified versioned image providing maintenance-server has not been published; runtime activation is blocked.
+    reason: Optional and disabled by default; explicit client adoption and runtime acceptance are required.
     chartPrefixes:
     - charts/maintenance
   - path: releases/namespaces/wireguard

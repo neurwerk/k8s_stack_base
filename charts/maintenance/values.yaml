@@ -1,8 +1,7 @@
-# No server image has been published. Enabling requires a verified release that
-# provides maintenance-server; existing tooling images must not be used.
+# Published server image; adoption and runtime acceptance remain separate gates.
 maintenance:
   enabled: false
-  image: ""
+  image: ghcr.io/neurwerk/k8s-stack-tooling:0.6.2@sha256:299ded44d76d5a73e3c1045af09b02649b08a3b5f00d07a993e3be7c61a490fd
   # Approval scopes, not activation state. Only the operator creates runtime copies.
   # LibreChat covers both its canonical application and Admin Panel hostnames.
   products:

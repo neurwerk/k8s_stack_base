@@ -2,4 +2,4 @@ apiVersion: v2
 name: maintenance
 description: Static maintenance infrastructure and operator-owned runtime contract
 type: application
-version: 0.1.0
+version: 0.1.1

@@ -148,12 +148,15 @@ class MaintenanceTests(unittest.TestCase):
 
     def test_selection_and_resources(self):
         values = copy.deepcopy(VALUES)
+        del values["maintenance"]["image"]
         values["maintenance"]["products"] = {"studio": {"enabled": True}}
         values["maintenance"]["resources"] = {
             "requests": {"cpu": "20m", "memory": "80Mi"}, "limits": {"cpu": "200m", "memory": "160Mi"},
         }
         data = contract(render(values))
         self.assertEqual(set(data["routes"]), {"global", "studio"})
+        self.assertRegex(data["deployment"]["spec"]["template"]["spec"]["containers"][0]["image"],
+                         r"^ghcr\.io/neurwerk/k8s-stack-tooling:0\.6\.2@sha256:[0-9a-f]{64}$")
         self.assertEqual(data["deployment"]["spec"]["template"]["spec"]["containers"][0]["resources"], values["maintenance"]["resources"])
 
     def test_reject_invalid_approval_inputs(self):

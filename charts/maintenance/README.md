@@ -12,9 +12,11 @@ certificate, or activation state managed by Helm.
 be a verified published `ghcr.io/neurwerk/k8s-stack-tooling:X.Y.Z@sha256:<64 lowercase hex digits>` image
 providing `maintenance-server`. Each version component is a nonnegative integer
 without leading zeros; prerelease/build suffixes and other repositories or mirrors
-are unsupported. Its default is empty: no currently published
-tooling image is claimed to provide that command. Publication and verification
-of the new server image are release/activation blockers.
+are unsupported. The default pins published, verified Tooling `0.6.2` for
+`linux/amd64`, from source revision `03f5767f6716da1838b8d248317ae4d7b96a3953`.
+See the [Tooling release](https://github.com/neurwerk/k8s_stack_tooling/releases/tag/v0.6.2)
+and [successful publication run](https://github.com/neurwerk/k8s_stack_tooling/actions/runs/34959505870).
+Explicit adoption and runtime acceptance remain required.
 
 `maintenance.products.<product>.enabled` is an approval scope, not runtime
 activation. All four default to `false`; enabled maintenance requires at least
@@ -48,7 +50,7 @@ both require `cpu` and `memory`. Defaults are requests `10m`/`64Mi` and limits
 root filesystem and logo mount, and a bounded writable `/tmp`.
 
 Keep prepared maintenance stages outside the client's selected root resource
-inventory until image publication and adoption are approved. The access planner
+inventory until adoption is approved. The access planner
 does not accept suspended selected stages.
 
 ## Operator Contract
@@ -93,14 +95,14 @@ default. Keeping the overlay router when the Service has no ready endpoints
 prevents accidental fallback to an application. Ordinary product routes remain
 unchanged, and this release has no normal application/server dependency.
 
-## Server Acceptance Blocker
+## Runtime Acceptance Pending
 
-The next published server must run `maintenance-server` on port 8080 using
+The published server must run `maintenance-server` on port 8080 using
 `MAINTENANCE_COMPANY_NAME`, `MAINTENANCE_LOGO_PATH`, and
 `MAINTENANCE_RETRY_AFTER=300`. `/_maintenance/healthz` must return 200 for the
 readiness/liveness probes. Normal application paths must return 503 with
 `X-Platform-Maintenance: true` and `Retry-After: 300`, independently of application
 or identity-server health. Offline chart tests validate the actual embedded JSON
-and Deployment schema, not this unpublished server's HTTP behavior. TLS reuse,
+and Deployment schema, not the published server's live HTTP behavior. TLS reuse,
 empty-backend fail-closed behavior, NetworkPolicy enforcement and server behavior
 still require separately authorized runtime acceptance before rollout.
