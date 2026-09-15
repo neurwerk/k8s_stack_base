@@ -134,9 +134,20 @@ def validate_previous_tag_at_included_through(
     if SEMVER.fullmatch(included_version) is None:
         raise ReleaseError("VERSION at provenance includedThrough is not strict SemVer")
     if previous_tag != f"v{included_version}":
-        raise ReleaseError(
-            "release provenance previousTag does not match VERSION at includedThrough"
-        )
+        target_version = git("show", "HEAD:VERSION", repository=repository).strip()
+        latest_at_source = git(
+            "describe", "--tags", "--abbrev=0", "--match", "v[0-9]*", included_through,
+            repository=repository,
+        ).strip()
+        # A merged preparation may already carry the new version before publication.
+        if (
+            included_version != target_version
+            or semver_tuple(included_version) <= semver_tuple(previous_tag.removeprefix("v"))
+            or latest_at_source != previous_tag
+        ):
+            raise ReleaseError(
+                "release provenance previousTag does not match VERSION at includedThrough"
+            )
 
 
 def provenance_from_git(previous_tag: str, included_through: str | None = None) -> dict[str, Any]:
