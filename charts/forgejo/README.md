@@ -18,6 +18,7 @@ provisioning, PostgreSQL ingress, cert-manager approval, and tunnel access.
 | `authKeycloak.hostname`, `authKeycloak.realm` | Established shared facts; issuer is `https://<hostname>/realms/<realm>` |
 | `forgejo.oidc.caConfigMap` | Optional namespace-local, client-owned public CA ConfigMap with key `ca.crt`; empty uses system roots only |
 | `forgejo.networkPolicy.clients` | List of exact `namespace` and nonempty `podSelector` maps for approved internal HTTPS/SSH consumers; default empty |
+| `forgejo.networkPolicy.httpsClients` | Exact `namespace` and nonempty `podSelector` maps for private HTTPS-only peers; default empty, incompatible with an enabled public Gateway |
 | `forgejo.networkPolicy.postgresPodSelector` | Operations database Pod labels; default `app.kubernetes.io/name: postgres-operations` |
 | `forgejo.networkPolicy.postgresPodPort` | Destination Pod port, default `9712`, NOT Service port `5432` |
 | `canonicalEndpointRouting.mode` | `internal-traefik` by default; only DNS, operations PostgreSQL and Traefik TCP 443 egress |
@@ -77,6 +78,21 @@ keys. Removing an OIDC role is not revocation of already-issued Forgejo sessions
 tokens, or SSH keys; manage native service credentials independently.
 
 ## Transport And Persistence
+
+`forgejo.networkPolicy.httpsClients` grants only TCP `3000` on Forgejo Pods,
+behind native HTTPS Service port `443`, without granting SSH `2222`. Each peer
+combines its exact namespace and Pod labels in one NetworkPolicy source. An empty
+list adds no allowance; selecting peers with `externalGateway.enabled: true`
+fails rendering rather than admitting them to the public-mode plaintext backend.
+Existing `clients` entries retain their web-and-SSH behavior.
+
+This is only a destination-side building block, not a device gateway or a
+restricted-access mode. NetworkPolicies are additive: another rule, including an
+overlapping `clients` entry, can still grant SSH. Review all effective selectors
+before adoption. A future gateway must enforce per-device grants before SNAT,
+restrict its own egress, and demonstrate that the CNI sees the selected gateway
+Pod identity; node-source exceptions are not an acceptable substitute. No gateway
+peers are selected in platform defaults or client values by this change.
 
 Exactly one explicit Certificate `forgejo-tls` exists whenever enabled, even in
 private mode. It requests the canonical hostname, RSA 2048, duration `2160h`, and

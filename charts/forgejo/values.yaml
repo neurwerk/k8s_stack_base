@@ -26,6 +26,9 @@ forgejo:
       app.kubernetes.io/name: postgres-operations
     # Explicit namespace + Pod peers for internal HTTPS/SSH service consumers.
     clients: []
+    # Private native HTTPS only (Service 443 -> Pod 3000), never SSH.
+    # Exact namespace + nonempty Pod selectors; incompatible with the public Gateway.
+    httpsClients: []
     # public-dns requires exact reviewed Keycloak destination /32 or /128 CIDRs.
     keycloakPublicCidrs: []
 authKeycloak:
