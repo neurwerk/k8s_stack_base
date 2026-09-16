@@ -33,6 +33,7 @@ def main():
             workers=1, reload=False, log_config=None, access_log=False,
             proxy_headers=False, ssl_certfile="/tls/tls.crt",
             ssl_keyfile="/tls/tls.key", limit_concurrency=None,
+            timeout_graceful_shutdown=settings["max_sync_wait"],
             h11_max_incomplete_event_size=16384,
         )
     except Exception:

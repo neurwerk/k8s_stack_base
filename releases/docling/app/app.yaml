@@ -6,7 +6,8 @@ metadata:
 spec:
   releaseName: docling
   interval: 5m
-  timeout: 10m
+  # Covers maximum sync wait (3660s), cleanup (30s), startup (300s) and margin.
+  timeout: 70m
   install:
     strategy: {name: RetryOnFailure, retryInterval: 1m}
   upgrade:

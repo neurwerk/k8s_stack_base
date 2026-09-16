@@ -23,6 +23,7 @@ docling:
     caConfigMap: ""
   # Native conversion budget, NOT a hard job cancellation deadline.
   documentTimeoutSeconds: 300
+  # Also bounds Uvicorn draining; Pod termination adds 30 seconds for cleanup.
   syncWaitSeconds: 360
   resultRemovalDelaySeconds: 60
   cleanup:

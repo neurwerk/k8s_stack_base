@@ -26,7 +26,8 @@ spec:
         checksum/config: {{ include (print $.Template.BasePath "/config-map.yaml") . | sha256sum }}
     spec:
       automountServiceAccountToken: false
-      terminationGracePeriodSeconds: 30
+      # Let HTTP requests drain, then leave time for application cleanup.
+      terminationGracePeriodSeconds: {{ add .Values.docling.syncWaitSeconds 30 }}
       securityContext:
         runAsNonRoot: true
         runAsUser: 1001

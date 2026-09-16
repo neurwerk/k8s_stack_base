@@ -56,6 +56,7 @@ class DoclingTests(unittest.TestCase):
         }.items():
             self.assertEqual(settings[name], value, name)
         deployment, = resources(result, "Deployment")
+        self.assertIn("terminationGracePeriodSeconds: 390", deployment)
         for text in ("runAsUser: 1001", "runAsGroup: 1001", "fsGroup: 1001",
                      "automountServiceAccountToken: false", "readOnlyRootFilesystem: true",
                      "path: /livez", "path: /readyz", "scheme: HTTPS", "HF_HUB_OFFLINE",
@@ -124,6 +125,17 @@ class DoclingTests(unittest.TestCase):
             self.assertNotEqual(render("docling", {"documentAttachments": limits}, check=False).returncode, 0)
         settings = self.settings(render("docling", {"documentAttachments": {"fileBytes": 1048576, "pages": 10}}))
         self.assertEqual((settings["max_file_size"], settings["max_num_pages"]), (1048576, 10))
+        for document_timeout, sync_wait in ((300, 600), (3600, 3660)):
+            overridden = render("docling", {"docling": {
+                "documentTimeoutSeconds": document_timeout, "syncWaitSeconds": sync_wait,
+            }})
+            self.assertEqual(self.settings(overridden)["max_sync_wait"], sync_wait)
+            deployment, = resources(overridden, "Deployment")
+            self.assertIn(f"terminationGracePeriodSeconds: {sync_wait + 30}", deployment)
+        self.assertNotEqual(render("docling", {"docling": {"syncWaitSeconds": 3661}}, check=False).returncode, 0)
+        release = (ROOT / "releases/docling/app/app.yaml").read_text()
+        rollout_minutes = int(re.search(r"(?m)^  timeout: (\d+)m$", release).group(1))
+        self.assertGreater(rollout_minutes * 60, 3660 + 30 + 5 * 60)
 
     def test_bootstrap_orders_secret_injection_and_log_suppression(self):
         settings = self.settings(render("docling", {}))
@@ -159,6 +171,14 @@ class DoclingTests(unittest.TestCase):
             self.assertEqual(call.kwargs["ssl_keyfile"], "/tls/tls.key")
             self.assertEqual(call.kwargs["workers"], 1)
             self.assertIsNone(call.kwargs["limit_concurrency"])
+            self.assertEqual(call.kwargs["timeout_graceful_shutdown"], settings["max_sync_wait"])
+            with patch.dict(os.environ, {"DOCLING_SERVE_CONFIG_FILE": "/config/settings.json",
+                                        "DOCLING_INFERENCE_TOKEN": "test-upstream-token",
+                                        "DOCLING_SERVE_API_KEY": "test-api-key"}), \
+                    patch.dict(sys.modules, {"docling_serve.app": app, "uvicorn": uvicorn}), \
+                    patch("builtins.open", mock_open(read_data=json.dumps({**settings, "max_sync_wait": 600}))):
+                self.assertEqual(scope["main"](), 0)
+                self.assertEqual(uvicorn.run.call_args.kwargs["timeout_graceful_shutdown"], 600)
             for token in ("", "\n", "bad\r\nheader"):
                 error = io.StringIO()
                 with patch.dict(os.environ, {"DOCLING_SERVE_CONFIG_FILE": "/config/settings.json",
