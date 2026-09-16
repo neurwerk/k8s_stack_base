@@ -1,6 +1,26 @@
 # Non-secret LibreChat product configuration.
 frontendLibrechat:
   hostname: librechat.example.invalid
+  # Optional server-side speech; keep identical to app/values.yaml.
+  speech:
+    stt:
+      enabled: false
+      provider: openai-compatible
+      # Full HTTP(S) URL: canonical RFC1918 IPv4, explicit port and API path.
+      url: ""
+      model: ""
+      auth:
+        enabled: false
+    tts:
+      enabled: false
+      provider: openai-compatible
+      url: ""
+      model: ""
+      voices: []
+      # Explicit approval to send response text to an external HTTPS:443 service.
+      allowExternal: false
+      auth:
+        enabled: false
   agentGateway:
     baseUrl: http://infra-agentgateway-gateway.infra-agentgateway.svc.cluster.local:80/v1
     hostPort: infra-agentgateway-gateway.infra-agentgateway.svc.cluster.local:80

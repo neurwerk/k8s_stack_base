@@ -6,7 +6,7 @@ import re
 import textwrap
 import unittest
 
-from .helpers import render_chart, resource
+from .helpers import ROOT, render_chart, resource, resources_of_kind
 
 
 DISABLE_OPTIONAL_CAPABILITIES = (
@@ -47,6 +47,114 @@ def agent_capabilities(config: str) -> list[str]:
 
 class SharedConfigTests(unittest.TestCase):
     """Keep generated agent, reasoning, and MCP settings aligned."""
+
+    def test_speech_disabled_has_policy_but_no_provider_or_credentials(self) -> None:
+        self.assertEqual(
+            (ROOT / "charts/librechat/app/templates/_speech.tpl").read_text(),
+            (ROOT / "charts/librechat/shared/templates/_speech.tpl").read_text(),
+        )
+        args = ("--set", "frontendLibrechat.speech.stt.auth.enabled=true",
+                "--set", "frontendLibrechat.speech.tts.auth.enabled=true")
+        config = render_librechat_config(*args)
+        self.assertIn("speech:\n  allowBrowserSTT: false\n", config.replace(
+            "  # Requires an adopted upstream image supporting this deployment policy.\n", ""))
+        self.assertNotIn("conversationMode:", config)
+        self.assertNotIn("engineSTT:", config)
+        self.assertNotIn("engineTTS:", config)
+        self.assertNotIn("apiKey: \"\"", config)
+        app = render_chart("app", extra_args=args).stdout
+        self.assertEqual(resources_of_kind(app, "ExternalSecret"), [])
+        for direction in ("stt", "tts"):
+            self.assertNotIn(f"LIBRECHAT_{direction.upper()}_API_KEY", config + app)
+            self.assertNotIn(f"frontend-librechat-{direction}-secret", app)
+
+    def test_local_speech_scopes_egress_and_optional_credentials(self) -> None:
+        for direction, host in (("stt", "10.20.30.40"), ("tts", "172.16.30.40")):
+            for auth in (False, True):
+                with self.subTest(direction=direction, auth=auth):
+                    prefix = f"frontendLibrechat.speech.{direction}"
+                    args = ("--set", f"{prefix}.enabled=true",
+                            "--set-string", f"{prefix}.url=http://{host}:8000/v1/audio/{direction}",
+                            "--set-string", f"{prefix}.model=speech-model",
+                            "--set-string", f"{prefix}.voices[0]=voice-one",
+                            "--set", f"{prefix}.auth.enabled={str(auth).lower()}")
+                    config = render_librechat_config(*args)
+                    self.assertIn(f'allowedAddresses:\n      - "{host}:8000"', config)
+                    self.assertIn(f"engine{direction.upper()}: external", config)
+                    self.assertNotIn("conversationMode:", config)
+                    app = render_chart("app", extra_args=args).stdout
+                    policy = resource(app, "NetworkPolicy", "frontend-librechat-network-policy")
+                    self.assertIn(f"cidr: {host}/32\n      ports:\n        - port: 8000\n          protocol: TCP", policy)
+                    name = f"frontend-librechat-{direction}-secret"
+                    env = f"LIBRECHAT_{direction.upper()}_API_KEY"
+                    if auth:
+                        self.assertIn(f'apiKey: "${{{env}}}"', config)
+                        secret = resource(app, "ExternalSecret", name)
+                        self.assertIn("name: frontend-librechat-openbao-secret-store", secret)
+                        self.assertIn(f"key: frontend-librechat/external\n        property: {direction}ApiKey", secret)
+                        deployment = resource(app, "Deployment", "frontend-librechat")
+                        self.assertIn(f"reload: frontend-librechat-secret,{name}", deployment)
+                        self.assertIn(f"name: {name}\n                  key: {direction}ApiKey\n                  optional: false", deployment)
+                    else:
+                        self.assertIn('apiKey: ""', config)
+                        self.assertNotIn(env, config + app)
+                        self.assertNotIn(name, app)
+                    other = "tts" if direction == "stt" else "stt"
+                    self.assertNotIn(f"frontend-librechat-{other}-secret", app)
+
+    def test_speech_rejects_unsafe_urls_in_both_charts(self) -> None:
+        urls = (
+            "http://speech.example.invalid:8000/v1/audio/transcriptions",
+            "http://8.8.8.8:8000/v1/audio/transcriptions",
+            "http://127.0.0.1:8000/v1/audio/transcriptions",
+            "http://169.254.169.254:8000/v1/audio/transcriptions",
+            "http://10.20.30.256:8000/v1/audio/transcriptions",
+            "http://010.20.30.40:8000/v1/audio/transcriptions",
+            "http://10.20.30.40:65536/v1/audio/transcriptions",
+            "http://10.20.30.40:0/v1/audio/transcriptions",
+            "http://10.20.30.40/v1/audio/transcriptions",
+            "http://10.20.30.40:8000/",
+            "http://user:password@10.20.30.40:8000/v1/audio/transcriptions",
+            "http://10.20.30.40:8000/v1/audio/transcriptions?key=value",
+            "http://10.20.30.40:8000/v1/audio/transcriptions#fragment",
+            "http://10.20.30.40:8000/${API_PATH}",
+        )
+        for chart in ("app", "shared"):
+            for url in urls:
+                with self.subTest(chart=chart, url=url):
+                    result = render_chart(chart, check=False, extra_args=(
+                        "--set", "frontendLibrechat.speech.stt.enabled=true",
+                        "--set-string", "frontendLibrechat.speech.stt.model=speech-model",
+                        "--set-string", f"frontendLibrechat.speech.stt.url={url}"))
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertIn("frontendLibrechat.speech.stt.url", result.stderr)
+
+    def test_external_tts_requires_approval_https_model_and_voices(self) -> None:
+        prefix = "frontendLibrechat.speech.tts"
+        args = ("--set", f"{prefix}.enabled=true",
+                "--set", f"{prefix}.allowExternal=true",
+                "--set", f"{prefix}.url=https://speech.example.invalid/v1/audio/speech",
+                "--set", f"{prefix}.model=speech-model",
+                "--set", f"{prefix}.voices[0]=voice-one")
+        config = render_librechat_config(*args)
+        speech = config.split("speech:\n", 1)[1].split("interface:", 1)[0]
+        self.assertNotIn("allowedAddresses:", speech)
+        self.assertIn('voices: ["voice-one"]', speech)
+        self.assertEqual(
+            resource(render_chart("app", extra_args=args).stdout, "NetworkPolicy", "frontend-librechat-network-policy"),
+            resource(render_chart("app").stdout, "NetworkPolicy", "frontend-librechat-network-policy"),
+        )
+        for chart in ("app", "shared"):
+            for override in ("allowExternal=false", "model=", "voices[0]=",
+                             "model=${SPEECH_MODEL}", "voices[0]=${SPEECH_VOICE}",
+                             "voices[0]=ALL", "voices[0]=all", "voices[0]=aLl",
+                             "provider=other", "url=http://speech.example.invalid/v1/audio/speech",
+                             "url=https://speech.example.invalid:8443/v1/audio/speech"):
+                with self.subTest(chart=chart, override=override):
+                    result = render_chart(chart, check=False, extra_args=(
+                        *args, "--set", f"{prefix}.{override}"))
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertIn(prefix, result.stderr)
 
     def test_disabled_optional_features_grant_no_agent_capabilities(self) -> None:
         config = render_librechat_config(*DISABLE_OPTIONAL_CAPABILITIES)

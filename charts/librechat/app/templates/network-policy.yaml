@@ -1,7 +1,8 @@
 {{- $canonicalEndpointRoutingMode := .Values.canonicalEndpointRouting.mode -}}
 {{- if not (has $canonicalEndpointRoutingMode (list "internal-traefik" "public-dns")) -}}
 {{- fail "canonicalEndpointRouting.mode must be internal-traefik or public-dns" -}}
-{{- end }}
+{{- end -}}
+{{- $speech := include "librechat.speechEndpoints" . | fromYaml }}
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -35,6 +36,16 @@ spec:
         - port: {{ .Values.frontendLibrechat.app.service.port }}
           protocol: TCP
   egress:
+    {{- range $speech }}
+    {{- if .local }}
+    - to:
+        - ipBlock:
+            cidr: {{ printf "%s/32" .host }}
+      ports:
+        - port: {{ .port }}
+          protocol: TCP
+    {{- end }}
+    {{- end }}
     - to:
         - namespaceSelector:
             matchLabels:

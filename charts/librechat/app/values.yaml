@@ -1,5 +1,25 @@
 frontendLibrechat:
   hostname: librechat.example.invalid
+  # Optional server-side speech; keep identical to shared/values.yaml.
+  speech:
+    stt:
+      enabled: false
+      provider: openai-compatible
+      # Full HTTP(S) URL: canonical RFC1918 IPv4, explicit port and API path.
+      url: ""
+      model: ""
+      auth:
+        enabled: false
+    tts:
+      enabled: false
+      provider: openai-compatible
+      url: ""
+      model: ""
+      voices: []
+      # Explicit approval to send response text to an external HTTPS:443 service.
+      allowExternal: false
+      auth:
+        enabled: false
   app:
     image: ghcr.io/danny-avila/librechat-dev@sha256:d05623decc48482bd83560248eb6efbdb5e60ea844298ab2fbaa70b462feb611
     imagePullPolicy: IfNotPresent
