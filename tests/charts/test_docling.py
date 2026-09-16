@@ -158,6 +158,7 @@ class DoclingTests(unittest.TestCase):
             self.assertFalse(call.kwargs["access_log"])
             self.assertEqual(call.kwargs["ssl_keyfile"], "/tls/tls.key")
             self.assertEqual(call.kwargs["workers"], 1)
+            self.assertIsNone(call.kwargs["limit_concurrency"])
             for token in ("", "\n", "bad\r\nheader"):
                 error = io.StringIO()
                 with patch.dict(os.environ, {"DOCLING_SERVE_CONFIG_FILE": "/config/settings.json",

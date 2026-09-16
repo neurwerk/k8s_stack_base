@@ -27,11 +27,12 @@ def main():
 
         # Upstream configures logging during import. Do not let Uvicorn reset it.
         logging.disable(logging.CRITICAL)
+        # A server-wide concurrency cap would reject health probes when busy.
         uvicorn.run(
             create_app, factory=True, host="0.0.0.0", port=5001,
             workers=1, reload=False, log_config=None, access_log=False,
             proxy_headers=False, ssl_certfile="/tls/tls.crt",
-            ssl_keyfile="/tls/tls.key", limit_concurrency=8,
+            ssl_keyfile="/tls/tls.key", limit_concurrency=None,
             h11_max_incomplete_event_size=16384,
         )
     except Exception:
