@@ -1,0 +1,9 @@
+apiVersion: v2
+name: docling
+description: Private upstream CPU document conversion with operator-owned remote inference
+type: application
+version: 0.1.0
+appVersion: "1.33.0"
+annotations:
+  source.repository: https://github.com/docling-project/docling-serve
+  source.commit: 27fa2aa9638e449d7fcd4364ffcde8d9a47bc4eb

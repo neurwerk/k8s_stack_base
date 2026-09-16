@@ -1,0 +1,3 @@
+{{- if not (kindIs "bool" .Values.docling.enabled) -}}
+{{- fail "docling.enabled must be boolean" -}}
+{{- end -}}

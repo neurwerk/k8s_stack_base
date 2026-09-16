@@ -32,3 +32,5 @@ monitorLangfuseWrapper:
 forgejo:
   enabled: false
   hostname: ""
+docling:
+  enabled: false

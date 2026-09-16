@@ -24,6 +24,9 @@ spec:
       interval: 1m
   valuesFrom:
     - kind: ConfigMap
+      name: base-shared-document-attachments-config-map
+      valuesKey: values.yaml
+    - kind: ConfigMap
       name: base-shared-hostnames-config-map
       valuesKey: values.yaml
     - kind: ConfigMap

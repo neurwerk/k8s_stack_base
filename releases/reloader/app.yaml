@@ -23,3 +23,8 @@ spec:
         name: k8s-stack
         namespace: flux-system
       interval: 1m
+  valuesFrom:
+    - kind: ConfigMap
+      name: docling-reloader-values
+      valuesKey: values.yaml
+      optional: true

@@ -1,0 +1,68 @@
+{{- if .Values.docling.enabled }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: docling-result-cleanup
+  labels:
+    {{- include "docling.labels" . | nindent 4 }}
+spec:
+  schedule: {{ .Values.docling.cleanup.schedule | quote }}
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 120
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      activeDeadlineSeconds: {{ .Values.docling.cleanup.activeDeadlineSeconds }}
+      backoffLimit: 0
+      ttlSecondsAfterFinished: 600
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: docling-result-cleanup
+            app.kubernetes.io/instance: {{ .Release.Name }}
+            app.kubernetes.io/part-of: docling
+        spec:
+          restartPolicy: Never
+          automountServiceAccountToken: false
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1001
+            runAsGroup: 1001
+            fsGroup: 1001
+            seccompProfile: {type: RuntimeDefault}
+          containers:
+            - name: cleanup
+              image: {{ .Values.docling.image | quote }}
+              imagePullPolicy: IfNotPresent
+              command: [/opt/app-root/bin/python, /config/cleanup.py]
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities: {drop: [ALL]}
+              resources:
+                {{- .Values.docling.cleanup.resources | toYaml | nindent 16 }}
+              env:
+                - name: DOCLING_SERVE_API_KEY
+                  valueFrom:
+                    secretKeyRef: {{ .Values.docling.apiKeySecretRef | toJson }}
+                - {name: RESULT_RETENTION_SECONDS, value: {{ .Values.docling.cleanup.retentionSeconds | quote }}}
+                - {name: PYTHONDONTWRITEBYTECODE, value: "1"}
+              volumeMounts:
+                - {name: config, mountPath: /config, readOnly: true}
+                - {name: ca, mountPath: /tls, readOnly: true}
+                - {name: tmp, mountPath: /tmp}
+          volumes:
+            - name: config
+              configMap:
+                name: docling-runtime
+                items:
+                  - {key: cleanup.py, path: cleanup.py}
+            - name: ca
+              secret:
+                secretName: docling-tls
+                items:
+                  - {key: ca.crt, path: ca.crt}
+            - name: tmp
+              emptyDir: {sizeLimit: 16Mi}
+{{- end }}

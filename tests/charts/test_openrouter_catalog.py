@@ -652,6 +652,7 @@ class CatalogOwnershipTests(unittest.TestCase):
                 ("ConfigMap", "keycloak-api-key-bridge-product-values"),
             ],
             "librechat/core/shared.yaml": [
+                ("ConfigMap", "base-shared-document-attachments-config-map"),
                 ("ConfigMap", "base-shared-hostnames-config-map"),
                 ("ConfigMap", "base-shared-resources-config-map"),
                 ("ConfigMap", "base-shared-mcp-config-map"),

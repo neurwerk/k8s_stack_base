@@ -1,0 +1,37 @@
+{
+  "reloader": {
+    "reloader": {
+      "namespaces": [
+        "auth-keycloak",
+        "auth-keycloak-api-key-bridge",
+        "frontend-dify",
+        "frontend-librechat",
+        "frontend-studio",
+        "infra-postgres-auth",
+        "infra-postgres-operations",
+        "monitor-fluent-bit",
+        "monitor-langfuse",
+        "monitor-pii-engine",
+        "monitor-agentgateway-extproc",
+        "docling"
+      ]
+    }
+  },
+  "infraReloader": {
+    "watchedNamespaces": [
+      "auth-keycloak",
+      "auth-keycloak-api-key-bridge",
+      "frontend-dify",
+      "frontend-librechat",
+      "frontend-studio",
+      "infra-postgres-auth",
+      "infra-postgres-operations",
+      "infra-reloader",
+      "monitor-fluent-bit",
+      "monitor-langfuse",
+      "monitor-pii-engine",
+      "monitor-agentgateway-extproc",
+      "docling"
+    ]
+  }
+}

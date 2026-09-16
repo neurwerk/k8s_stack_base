@@ -1,0 +1,40 @@
+# Keep aligned with releases/shared/document-attachments.yaml. Client-wide
+# overrides belong in client-values, projected into each consumer namespace.
+documentAttachments:
+  fileBytes: 20971520
+  totalBytes: 41943040
+  count: 5
+  pages: 200
+
+docling:
+  enabled: false
+  image: ghcr.io/docling-project/docling-serve-cpu:v1.33.0@sha256:546cf392145a0a578f23e4250663a37a5fb727fe6b57fd163e301584ad8bc18c
+  # Existing namespace-local Secrets only; never put credentials in values.
+  apiKeySecretRef: {name: "", key: ""}
+  inference:
+    url: ""
+    model: ""
+    tokenSecretRef: {name: "", key: ""}
+    # Explicit RFC1918 IPv4 destinations; DNS alone is not an egress allowlist.
+    cidrs: []
+    port: 443
+    timeoutSeconds: 90
+    # Optional public CA bundle, with key ca.crt (include all required roots).
+    caConfigMap: ""
+  # Native conversion budget, NOT a hard job cancellation deadline.
+  documentTimeoutSeconds: 300
+  syncWaitSeconds: 360
+  resultRemovalDelaySeconds: 60
+  cleanup:
+    schedule: "*/5 * * * *"
+    retentionSeconds: 600
+    activeDeadlineSeconds: 60
+    resources:
+      requests: {cpu: 10m, memory: 32Mi, ephemeral-storage: 16Mi}
+      limits: {cpu: 100m, memory: 128Mi, ephemeral-storage: 64Mi}
+  # Disposable per-Pod storage, never mounted over the baked model artifacts.
+  scratchSizeLimit: 1Gi
+  tmpSizeLimit: 256Mi
+  resources:
+    requests: {cpu: 500m, memory: 1Gi, ephemeral-storage: 256Mi}
+    limits: {cpu: "2", memory: 4Gi, ephemeral-storage: 2Gi}

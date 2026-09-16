@@ -1,0 +1,15 @@
+{{- if .Values.docling.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: docling
+  labels:
+    {{- include "docling.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: docling
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  ports:
+    - {name: https, port: 443, targetPort: https, protocol: TCP}
+{{- end }}

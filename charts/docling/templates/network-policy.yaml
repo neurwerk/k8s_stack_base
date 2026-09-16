@@ -1,0 +1,64 @@
+{{- if .Values.docling.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: docling
+  labels:
+    {{- include "docling.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: docling
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: monitor-agentgateway-extproc}
+          podSelector:
+            matchLabels: {app.kubernetes.io/name: monitor-agentgateway-extproc}
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: docling-result-cleanup
+              app.kubernetes.io/instance: {{ .Release.Name }}
+      ports: [{port: 5001, protocol: TCP}]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: kube-system}
+          podSelector:
+            matchLabels: {k8s-app: kube-dns}
+      ports: [{port: 53, protocol: UDP}, {port: 53, protocol: TCP}]
+    - to:
+        {{- range .Values.docling.inference.cidrs }}
+        - ipBlock: {cidr: {{ . | quote }}}
+        {{- end }}
+      ports: [{port: {{ .Values.docling.inference.port }}, protocol: TCP}]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: docling-result-cleanup
+  labels:
+    {{- include "docling.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: docling-result-cleanup
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  policyTypes: [Ingress, Egress]
+  ingress: []
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: kube-system}
+          podSelector:
+            matchLabels: {k8s-app: kube-dns}
+      ports: [{port: 53, protocol: UDP}, {port: 53, protocol: TCP}]
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: docling
+              app.kubernetes.io/instance: {{ .Release.Name }}
+      ports: [{port: 5001, protocol: TCP}]
+{{- end }}

@@ -1,0 +1,31 @@
+{{- if .Values.docling.enabled }}
+apiVersion: policy.cert-manager.io/v1alpha1
+kind: CertificateRequestPolicy
+metadata:
+  name: cert-manager-internal-docling-server
+  labels:
+    {{- include "cert-manager-approval-policy.labels" . | nindent 4 }}
+spec:
+  allowed:
+    commonName: {value: docling, required: true}
+    dnsNames:
+      values:
+        - docling
+        - docling.docling
+        - docling.docling.svc
+        - docling.docling.svc.cluster.local
+      required: true
+    isCA: false
+    usages: [server auth]
+  constraints:
+    minDuration: 2160h
+    maxDuration: 2160h
+    privateKey: {algorithm: RSA, minSize: 2048, maxSize: 2048}
+  selector:
+    issuerRef:
+      group: cert-manager.io
+      kind: ClusterIssuer
+      name: infra-cert-manager-internal-ca-issuer
+    namespace:
+      matchNames: [docling]
+{{- end }}
