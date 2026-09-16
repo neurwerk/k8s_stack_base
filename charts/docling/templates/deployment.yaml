@@ -1,0 +1,108 @@
+{{- if .Values.docling.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: docling
+  labels:
+    {{- include "docling.labels" . | nindent 4 }}
+  annotations:
+    secret.reloader.stakater.com/reload: {{ printf "docling-tls,%s,%s" .Values.docling.apiKeySecretRef.name .Values.docling.inference.tokenSecretRef.name | quote }}
+    {{- if .Values.docling.inference.caConfigMap }}
+    configmap.reloader.stakater.com/reload: {{ .Values.docling.inference.caConfigMap | quote }}
+    {{- end }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: docling
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        {{- include "docling.labels" . | nindent 8 }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/config-map.yaml") . | sha256sum }}
+    spec:
+      automountServiceAccountToken: false
+      # Let HTTP requests drain, then leave time for application cleanup.
+      terminationGracePeriodSeconds: {{ add .Values.docling.syncWaitSeconds 30 }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        fsGroup: 1001
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: docling
+          image: {{ .Values.docling.image | quote }}
+          imagePullPolicy: IfNotPresent
+          command: [/opt/app-root/bin/python, /config/bootstrap.py]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          ports:
+            - {name: https, containerPort: 5001, protocol: TCP}
+          env:
+            - {name: DOCLING_SERVE_CONFIG_FILE, value: /config/settings.json}
+            - name: DOCLING_SERVE_API_KEY
+              valueFrom:
+                secretKeyRef: {{ .Values.docling.apiKeySecretRef | toJson }}
+            - name: DOCLING_INFERENCE_TOKEN
+              valueFrom:
+                secretKeyRef: {{ .Values.docling.inference.tokenSecretRef | toJson }}
+            - {name: HF_HUB_OFFLINE, value: "1"}
+            - {name: TRANSFORMERS_OFFLINE, value: "1"}
+            - {name: HF_HUB_DISABLE_TELEMETRY, value: "1"}
+            - {name: PYTHONDONTWRITEBYTECODE, value: "1"}
+            - {name: TMPDIR, value: /tmp}
+            - {name: MPLCONFIGDIR, value: /tmp/matplotlib}
+            {{- if .Values.docling.inference.caConfigMap }}
+            - {name: REQUESTS_CA_BUNDLE, value: /inference-ca/ca.crt}
+            {{- end }}
+          resources:
+            {{- .Values.docling.resources | toYaml | nindent 12 }}
+          startupProbe:
+            httpGet: {path: /livez, port: https, scheme: HTTPS}
+            periodSeconds: 5
+            failureThreshold: 60
+          livenessProbe:
+            httpGet: {path: /livez, port: https, scheme: HTTPS}
+            timeoutSeconds: 3
+            periodSeconds: 15
+          readinessProbe:
+            httpGet: {path: /readyz, port: https, scheme: HTTPS}
+            timeoutSeconds: 3
+            periodSeconds: 5
+          volumeMounts:
+            - {name: config, mountPath: /config, readOnly: true}
+            - {name: tls, mountPath: /tls, readOnly: true}
+            - {name: scratch, mountPath: /scratch}
+            - {name: tmp, mountPath: /tmp}
+            {{- if .Values.docling.inference.caConfigMap }}
+            - {name: inference-ca, mountPath: /inference-ca, readOnly: true}
+            {{- end }}
+      volumes:
+        - name: config
+          configMap: {name: docling-runtime}
+        - name: tls
+          secret:
+            secretName: docling-tls
+            defaultMode: 0440
+            items:
+              - {key: tls.crt, path: tls.crt}
+              - {key: tls.key, path: tls.key}
+        - name: scratch
+          emptyDir: {sizeLimit: {{ .Values.docling.scratchSizeLimit }}}
+        - name: tmp
+          emptyDir: {sizeLimit: {{ .Values.docling.tmpSizeLimit }}}
+        {{- if .Values.docling.inference.caConfigMap }}
+        - name: inference-ca
+          configMap:
+            name: {{ .Values.docling.inference.caConfigMap }}
+            items:
+              - {key: ca.crt, path: ca.crt}
+        {{- end }}
+{{- end }}

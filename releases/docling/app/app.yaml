@@ -1,0 +1,40 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: docling
+  namespace: docling
+spec:
+  releaseName: docling
+  interval: 5m
+  # Covers maximum sync wait (3660s), cleanup (30s), startup (300s) and margin.
+  timeout: 70m
+  install:
+    strategy: {name: RetryOnFailure, retryInterval: 1m}
+  upgrade:
+    strategy: {name: RetryOnFailure, retryInterval: 1m}
+  dependsOn:
+    - name: cert-manager-internal-issuer
+      namespace: infra-cert-manager
+    - name: reloader
+      namespace: infra-reloader
+  chart:
+    spec:
+      chart: ./charts/docling
+      sourceRef:
+        kind: GitRepository
+        name: k8s-stack
+        namespace: flux-system
+      interval: 1m
+  valuesFrom:
+    - kind: ConfigMap
+      name: base-shared-document-attachments-config-map
+      valuesKey: values.yaml
+    - kind: ConfigMap
+      name: docling-app-defaults
+      valuesKey: values.yaml
+    - kind: ConfigMap
+      name: client-values
+      valuesKey: values.yaml
+    - kind: ConfigMap
+      name: docling-product-values
+      valuesKey: values.yaml

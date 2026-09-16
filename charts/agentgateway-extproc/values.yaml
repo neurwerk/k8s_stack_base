@@ -64,3 +64,5 @@ monitorAgentgatewayExtproc:
 
   nodeSelector: {}
   tolerations: []
+docling:
+  enabled: false

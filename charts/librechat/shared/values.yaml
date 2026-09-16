@@ -1,5 +1,8 @@
 # Non-secret LibreChat product configuration.
 frontendLibrechat:
+  # Opt-in provider delivery only; does not activate model attachment modes.
+  documentAttachments:
+    enabled: false
   hostname: librechat.example.invalid
   # Optional server-side speech; keep identical to app/values.yaml.
   speech:
@@ -114,3 +117,8 @@ openrouterCatalog:
 guardrails:
   llmPolicyEngine:
     models: []
+documentAttachments:
+  fileBytes: 20971520
+  totalBytes: 41943040
+  count: 5
+  pages: 200

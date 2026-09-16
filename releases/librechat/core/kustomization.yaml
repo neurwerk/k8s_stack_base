@@ -10,6 +10,9 @@ resources:
 generatorOptions:
   disableNameSuffixHash: true
 configMapGenerator:
+  - name: base-shared-document-attachments-config-map
+    files:
+      - values.yaml=../../shared/document-attachments.yaml
   - name: base-shared-hostnames-config-map
     files:
       - values.yaml=../../shared/hostnames.yaml

@@ -16,6 +16,19 @@ packages:
   - releases/infrastructure
   - releases/applications
   optional:
+  - path: releases/docling/reloader
+    status: excluded
+    reason: Optional Docling namespace watch and rotation RBAC; compose only after its namespace exists.
+    chartPrefixes: []
+  - path: releases/namespaces/docling
+    status: excluded
+    reason: Disabled source addition; client composition and approved credential provisioning are pending.
+    chartPrefixes: []
+  - path: releases/docling/app
+    status: excluded
+    reason: Disabled source addition; trusted extProc admission and conversion integration are not yet deployed.
+    chartPrefixes:
+    - charts/docling
   - path: releases/namespaces/maintenance
     status: included
     reason: Operator-tested optional maintenance; enable only when selected by the client.

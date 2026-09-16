@@ -45,6 +45,19 @@ spec:
         - port: {{ .Values.monitorAgentgatewayExtproc.ports.container.http }}
           protocol: TCP
   egress:
+    {{- if .Values.docling.enabled }}
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: docling
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: docling
+              app.kubernetes.io/instance: docling
+      ports:
+        - port: 5001
+          protocol: TCP
+    {{- end }}
     - to:
         - namespaceSelector:
             matchLabels:

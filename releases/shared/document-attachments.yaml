@@ -1,0 +1,7 @@
+# Canonical platform defaults; client-wide overrides must be projected to all
+# consumers. Bytes here, MiB only at the LibreChat configuration boundary.
+documentAttachments:
+  fileBytes: 20971520
+  totalBytes: 41943040
+  count: 5
+  pages: 200

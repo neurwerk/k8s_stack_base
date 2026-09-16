@@ -1,5 +1,13 @@
 # Synthetic, non-secret values used by the chart validation targets.
 # HelmRelease ConfigMaps and Secrets provide these values in deployments.
+docling:
+  enabled: true
+  apiKeySecretRef: {name: docling-api, key: api-key}
+  inference:
+    url: https://inference.example.test/v1/chat/completions
+    model: granite-docling
+    tokenSecretRef: {name: docling-inference, key: token}
+    cidrs: [10.20.30.40/32]
 wireguard:
   enabled: true
   serverKeySecret: wireguard-server-key
