@@ -121,6 +121,85 @@ def agent_values(openrouter: dict, client_models: list[dict] | None = None) -> d
 
 
 class AgentGatewayCatalogTests(unittest.TestCase):
+    def test_attachment_metadata_is_sparse_and_preserves_replacement(self) -> None:
+        selected = catalog()
+        name = selected["models"][0]["name"]
+        direct = {"name": "Local/Mixed_Case", "provider": "OpenAI", "model": "plain"}
+        values = agent_values(selected, [direct])
+        values["authKeycloak"]["agentgatewayClientRoles"].append(f"model:{direct['name']}:invoke")
+
+        def metadata() -> dict:
+            result = render("agentgateway", values)
+            return {
+                key: json.loads(json.loads(value))
+                for key, value in re.findall(
+                    r'(?m)^                (contract_version|models|attachment_modes): (".*")$',
+                    result.stdout,
+                )
+            }
+
+        expected = {"contract_version": 1, "models": {name: True, direct["name"]: True}}
+        self.assertEqual(metadata(), expected)
+        for mode in ("block", "extract"):
+            selected["models"][0]["attachmentMode"] = mode
+            self.assertEqual(metadata(), {**expected, "attachment_modes": {name: mode}})
+        for mode, pii in (("block", True), ("block", False), ("extract", True), ("extract", False), ("passthrough", False)):
+            direct.update(attachmentMode=mode, piiEnabled=pii)
+            expected["models"][direct["name"]] = pii
+            self.assertEqual(metadata(), {
+                **expected,
+                "attachment_modes": {name: "extract", direct["name"]: mode},
+            })
+
+        direct.update(name=name)
+        del direct["attachmentMode"]
+        self.assertEqual(metadata(), {"contract_version": 1, "models": {name: False}})
+        direct["attachmentMode"] = "passthrough"
+        self.assertEqual(metadata(), {
+            "contract_version": 1, "models": {name: False},
+            "attachment_modes": {name: "passthrough"},
+        })
+        values["guardrails"]["llmPolicyEngine"]["models"] = []
+        selected["excludedModels"] = ["acme/model"]
+        self.assertNotIn("attachment_modes:", render("agentgateway", values).stdout)
+
+    def test_invalid_attachment_modes_and_pii_constraint(self) -> None:
+        for source in ("direct", "catalog"):
+            for mode in (None, True, False, 1, [], {}, "", "unknown", "BLOCK", "passthrough"):
+                with self.subTest(source=source, mode=mode):
+                    selected = catalog()
+                    direct = {"name": selected["models"][0]["name"], "provider": "OpenAI", "model": "plain"}
+                    row = direct if source == "direct" else selected["models"][0]
+                    row["attachmentMode"] = mode
+                    if source == "catalog":
+                        row["piiEnabled"] = False  # Catalog PII overrides remain unsupported.
+                    values = agent_values(selected, [direct] if source == "direct" else [])
+                    failed = render("agentgateway", values, check=False)
+                    self.assertNotEqual(failed.returncode, 0)
+                    self.assertIn("attachmentMode", failed.stderr)
+                    if mode == "passthrough":
+                        self.assertIn("requires piiEnabled:false", failed.stderr)
+            direct.update(attachmentMode="passthrough", piiEnabled=True)
+            failed = render("agentgateway", agent_values(catalog(), [direct]), check=False)
+            self.assertNotEqual(failed.returncode, 0)
+            self.assertIn("requires piiEnabled:false", failed.stderr)
+
+    def test_attachment_metadata_expression_size_limit(self) -> None:
+        selected = catalog()
+        selected["models"] = [
+            {"name": f"remote/{index:03d}/" + "x" * 44, "upstreamModel": f"acme/{index}", "attachmentMode": "extract"}
+            for index in range(256)
+        ]
+        pii = {row["name"]: True for row in selected["models"]}
+        modes = {row["name"]: row["attachmentMode"] for row in selected["models"]}
+        self.assertLessEqual(len(json.dumps(pii, separators=(",", ":"))), 16384)
+        self.assertGreater(len(json.dumps(modes, separators=(",", ":"))), 16384)
+        failed = render("agentgateway", agent_values(selected), check=False)
+        self.assertNotEqual(failed.returncode, 0)
+        self.assertIn("attachment mode destination metadata JSON exceeds", failed.stderr)
+        selected["models"] = selected["models"][:240]
+        render("agentgateway", agent_values(selected))
+
     def test_empty_base_catalog_is_safe_with_policy_engine_disabled(self) -> None:
         values = agent_values(
             {

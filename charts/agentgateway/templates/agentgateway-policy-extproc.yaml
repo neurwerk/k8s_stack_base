@@ -1,10 +1,14 @@
 {{- $models := include "infra-agentgateway.effectiveModels" . | fromYamlArray }}
 {{- if and .Values.guardrails.llmPolicyEngine.enabled $models }}
 {{- $piiCatalog := dict }}
+{{- $attachmentModes := dict }}
 {{- range $model := $models }}
 {{-   $piiEnabled := true }}
 {{-   if hasKey $model "piiEnabled" }}{{- $piiEnabled = $model.piiEnabled }}{{- end }}
 {{-   $_ := set $piiCatalog $model.name $piiEnabled }}
+{{-   if hasKey $model "attachmentMode" }}
+{{-     $_ := set $attachmentModes $model.name $model.attachmentMode }}
+{{-   end }}
 {{- end }}
 apiVersion: agentgateway.dev/v1alpha1
 kind: AgentgatewayPolicy
@@ -40,6 +44,9 @@ spec:
                 destination_kind: '"model"'
                 principal_id: 'has(jwt.sub) ? jwt.sub : extauthz.principal_id'
                 models: {{ $piiCatalog | toJson | quote }}
+                {{- if $attachmentModes }}
+                attachment_modes: {{ $attachmentModes | toJson | quote }}
+                {{- end }}
             processingOptions:
               requestBodyMode: Buffered
               responseBodyMode: FullDuplexStreamed

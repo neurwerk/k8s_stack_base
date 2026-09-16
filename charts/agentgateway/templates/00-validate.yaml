@@ -26,6 +26,17 @@
 {{-   if hasKey $model "piiEnabled" -}}
 {{-     $piiEnabled = $model.piiEnabled -}}
 {{-   end -}}
+{{-   if hasKey $model "attachmentMode" -}}
+{{-     if not (kindIs "string" $model.attachmentMode) -}}
+{{-       fail (printf "model %q attachmentMode must be a string: block, extract, or passthrough" $modelName) -}}
+{{-     end -}}
+{{-     if not (has $model.attachmentMode (list "block" "extract" "passthrough")) -}}
+{{-       fail (printf "model %q attachmentMode must be block, extract, or passthrough" $modelName) -}}
+{{-     end -}}
+{{-     if and (eq $model.attachmentMode "passthrough") $piiEnabled -}}
+{{-       fail (printf "model %q attachmentMode passthrough requires piiEnabled:false" $modelName) -}}
+{{-     end -}}
+{{-   end -}}
 {{-   if and $model.piiReroute (not $piiEnabled) -}}
 {{-     fail (printf "model %q sets piiReroute:true but piiEnabled:false" $modelName) -}}
 {{-   end -}}
@@ -56,13 +67,20 @@
 {{- end -}}
 
 {{- $piiCatalog := dict -}}
+{{- $attachmentModes := dict -}}
 {{- range $model := $models -}}
 {{-   $piiEnabled := true -}}
 {{-   if hasKey $model "piiEnabled" -}}{{- $piiEnabled = $model.piiEnabled -}}{{- end -}}
 {{-   $_ := set $piiCatalog $model.name $piiEnabled -}}
+{{-   if hasKey $model "attachmentMode" -}}
+{{-     $_ := set $attachmentModes $model.name $model.attachmentMode -}}
+{{-   end -}}
 {{- end -}}
 {{- if gt (len ($piiCatalog | toJson)) 16384 -}}
 {{-   fail "compact PII destination metadata JSON exceeds the 16384-byte AgentGateway limit" -}}
+{{- end -}}
+{{- if gt (len ($attachmentModes | toJson)) 16384 -}}
+{{-   fail "attachment mode destination metadata JSON exceeds the 16384-byte AgentGateway limit" -}}
 {{- end -}}
 
 {{- range $index, $source := .Values.infraAgentgatewayWrapper.modelCatalog.sources | default list -}}
