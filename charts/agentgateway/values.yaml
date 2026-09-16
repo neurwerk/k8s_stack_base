@@ -247,6 +247,22 @@ guardrails:
     # Long generated Kubernetes names use a deterministic truncated hash while
     # preserving the caller-facing model ID.
     #
+    # Optional attachmentMode: block (default), extract, or passthrough.
+    # block rejects typed attachments. extract converts supported documents to
+    # text before optional PII processing; it does not provide native multimodal
+    # input and never falls back to raw attachments if extraction fails.
+    # Extraction is not implemented by the first mode-aware extProc consumer:
+    # it rejects file parts with 503 until the Docling integration is ready.
+    # passthrough preserves native attachments for a capable upstream model,
+    # without extraction or PII scanning, and requires piiEnabled: false.
+    # block and extract allow either PII setting. Model capability alone never
+    # enables attachments. Missing modes are treated as block by the new consumer.
+    # Deploy an extProc consumer supporting attachment_modes BEFORE setting ANY
+    # explicit mode (even block): the shipped consumer rejects unknown metadata.
+    # With no explicit effective modes, the chart omits attachment_modes entirely
+    # and preserves contract_version=1 and the existing models ID-to-bool map.
+    # Set direct model values here; Helm list overrides replace the whole list.
+    #
     # Entry shapes:
     #   Plain remote (no reroute) — Public concrete model → provider:
     #     - name: <user-facing ID; also the "model" clients send, e.g. remote/example>
@@ -285,6 +301,10 @@ openrouterCatalog:
   enabled: false
   excludedModels: []
   grantToAccessGroups: false
+  # Rows may explicitly set attachmentMode using the same contract above.
+  # No mode is inserted by default. Derived rows keep piiEnabled: true, so
+  # passthrough requires a same-name direct model replacement with PII disabled;
+  # catalog rows cannot override piiEnabled. Replacement does not inherit modes.
   models: []
 
 # ── Subchart values (agentgateway Helm chart) ────────────────────────────────

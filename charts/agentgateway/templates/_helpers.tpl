@@ -41,7 +41,11 @@
 {{- if .Values.openrouterCatalog.enabled -}}
 {{- range $entry := $catalog -}}
 {{- if and (not (has $entry.upstreamModel $exclusions)) (not (hasKey $clientNames $entry.name)) -}}
-{{- $effective = append $effective (dict "name" $entry.name "provider" "Openrouter" "model" $entry.upstreamModel "baseURL" "https://openrouter.ai/api/v1" "authSecret" "infra-agentgateway-secret" "piiEnabled" true "contentTracingEnabled" true "piiReroute" true) -}}
+{{- $model := dict "name" $entry.name "provider" "Openrouter" "model" $entry.upstreamModel "baseURL" "https://openrouter.ai/api/v1" "authSecret" "infra-agentgateway-secret" "piiEnabled" true "contentTracingEnabled" true "piiReroute" true -}}
+{{- if hasKey $entry "attachmentMode" -}}
+{{- $_ := set $model "attachmentMode" $entry.attachmentMode -}}
+{{- end -}}
+{{- $effective = append $effective $model -}}
 {{- end -}}
 {{- end -}}
 {{- end -}}
