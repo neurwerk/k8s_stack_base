@@ -3,6 +3,7 @@
 {{- fail "canonicalEndpointRouting.mode must be internal-traefik or public-dns" -}}
 {{- end -}}
 {{- $modelCatalog := include "frontend-librechat-shared.modelCatalog" . | fromYaml -}}
+{{- $speech := include "librechat.speechEndpoints" . | fromYaml -}}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -14,6 +15,36 @@ data:
   librechat.yaml: |
     version: 1.3.14
     cache: true
+    {{- if $speech }}
+    speech:
+      {{- range $direction, $endpoint := $speech }}
+      {{ $direction }}:
+        {{- if $endpoint.local }}
+        allowedAddresses:
+          - {{ printf "%s:%d" $endpoint.host (int $endpoint.port) | quote }}
+        {{- end }}
+        openai:
+          url: {{ $endpoint.settings.url | quote }}
+          model: {{ $endpoint.settings.model | quote }}
+          {{- if $endpoint.settings.auth.enabled }}
+          apiKey: {{ printf "${LIBRECHAT_%s_API_KEY}" (upper $direction) | quote }}
+          {{- else }}
+          apiKey: ""
+          {{- end }}
+          {{- if eq $direction "tts" }}
+          voices: {{ $endpoint.settings.voices | toJson }}
+          {{- end }}
+      {{- end }}
+      speechTab:
+        {{- if hasKey $speech "stt" }}
+        speechToText:
+          engineSTT: external
+        {{- end }}
+        {{- if hasKey $speech "tts" }}
+        textToSpeech:
+          engineTTS: external
+        {{- end }}
+      {{- end }}
     {{- if .Values.frontendLibrechat.objectStorage.enabled }}
     # Keep the legacy selector aligned because LibreChat's file-list endpoint
     # still uses it to refresh expiring S3 URLs.
