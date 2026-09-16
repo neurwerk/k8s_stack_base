@@ -15,9 +15,8 @@ data:
   librechat.yaml: |
     version: 1.3.14
     cache: true
+    {{- if $speech }}
     speech:
-      # Requires an adopted upstream image supporting this deployment policy.
-      allowBrowserSTT: false
       {{- range $direction, $endpoint := $speech }}
       {{ $direction }}:
         {{- if $endpoint.local }}
@@ -36,7 +35,6 @@ data:
           voices: {{ $endpoint.settings.voices | toJson }}
           {{- end }}
       {{- end }}
-      {{- if $speech }}
       speechTab:
         {{- if hasKey $speech "stt" }}
         speechToText:

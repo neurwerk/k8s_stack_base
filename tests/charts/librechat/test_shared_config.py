@@ -48,7 +48,7 @@ def agent_capabilities(config: str) -> list[str]:
 class SharedConfigTests(unittest.TestCase):
     """Keep generated agent, reasoning, and MCP settings aligned."""
 
-    def test_speech_disabled_has_policy_but_no_provider_or_credentials(self) -> None:
+    def test_speech_disabled_has_no_config_or_credentials(self) -> None:
         self.assertEqual(
             (ROOT / "charts/librechat/app/templates/_speech.tpl").read_text(),
             (ROOT / "charts/librechat/shared/templates/_speech.tpl").read_text(),
@@ -56,8 +56,7 @@ class SharedConfigTests(unittest.TestCase):
         args = ("--set", "frontendLibrechat.speech.stt.auth.enabled=true",
                 "--set", "frontendLibrechat.speech.tts.auth.enabled=true")
         config = render_librechat_config(*args)
-        self.assertIn("speech:\n  allowBrowserSTT: false\n", config.replace(
-            "  # Requires an adopted upstream image supporting this deployment policy.\n", ""))
+        self.assertNotIn("speech:", config)
         self.assertNotIn("conversationMode:", config)
         self.assertNotIn("engineSTT:", config)
         self.assertNotIn("engineTTS:", config)
@@ -79,6 +78,7 @@ class SharedConfigTests(unittest.TestCase):
                             "--set-string", f"{prefix}.voices[0]=voice-one",
                             "--set", f"{prefix}.auth.enabled={str(auth).lower()}")
                     config = render_librechat_config(*args)
+                    self.assertNotIn("allowBrowserSTT:", config)
                     self.assertIn(f'allowedAddresses:\n      - "{host}:8000"', config)
                     self.assertIn(f"engine{direction.upper()}: external", config)
                     self.assertNotIn("conversationMode:", config)

@@ -1,17 +1,17 @@
 # Optional Speech
 
-This configuration is staged: the current pinned LibreChat image does not support
-`speech.allowBrowserSTT`. Keep the adoption PR **draft** until a verified upstream
-image implements the policy, exposes it through `getCustomConfigSpeech`, and is
-adopted. Rendering `allowBrowserSTT: false` does not enforce it on the current
-image. No image or source pin is changed here.
+This configuration uses existing LibreChat speech support. No application patch,
+upstream contribution, custom image, or image/source pin change is required.
+Only configured server STT endpoints are restricted to local addresses; existing
+browser recognition remains outside these chart controls and may use a cloud
+service. Do not describe this as enforcement of local-only browser recognition.
 
 Both `app` and `shared` consume the same `frontendLibrechat.speech.stt` and `.tts`
 values. Each defaults to `enabled: false`, `provider: openai-compatible`, empty
 `url` and `model`, and `auth.enabled: false`. TTS also defaults to `voices: []` and
 `allowExternal: false`. Disabled directions create no provider configuration,
-speech egress, environment variables or ExternalSecrets. The browser STT policy
-is always rendered, including when both directions are disabled.
+speech egress, environment variables or ExternalSecrets. When both directions
+are disabled, no speech configuration is rendered.
 
 Enabled directions require a nonempty model and a full HTTP(S) API URL with a
 canonical RFC1918 IPv4 address and explicit port from 1 to 65535. For example,
@@ -41,6 +41,5 @@ runtime-secret fields are required.
 
 Speech UI engines default to `external` for enabled directions. These are user
 defaults, not locks. Conversation mode remains controlled by the user. Browser
-STT prevention depends on the upstream policy, not these defaults. Use the same
-speech values for both charts; changing only one release breaks the configuration,
-credential and egress contract.
+recognition behavior is unchanged. Use the same speech values for both charts;
+changing only one release breaks the configuration, credential and egress contract.
