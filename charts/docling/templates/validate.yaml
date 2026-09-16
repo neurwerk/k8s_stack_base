@@ -1,3 +1,143 @@
-{{- if not (kindIs "bool" .Values.docling.enabled) -}}
-{{- fail "docling.enabled must be boolean" -}}
+{{- $docling := .Values.docling -}}
+{{- if not (kindIs "bool" $docling.enabled) -}}
+  {{- fail "docling.enabled must be boolean" -}}
+{{- end -}}
+
+{{- if $docling.enabled -}}
+{{- $inference := $docling.inference -}}
+{{- $attachments := .Values.documentAttachments -}}
+
+{{/* Inference endpoint and model. */}}
+{{- $endpointPattern := `^https://[a-zA-Z0-9]([a-zA-Z0-9.-]*[a-zA-Z0-9])?(:[1-9][0-9]{0,4})?/v1/chat/completions$` -}}
+{{- if not (regexMatch $endpointPattern $inference.url) -}}
+  {{- fail "docling.inference.url must be a full HTTPS /v1/chat/completions URL without userinfo, query or fragment" -}}
+{{- end -}}
+{{- $url := urlParse $inference.url -}}
+{{- if not (regexMatch `^[1-9][0-9]*$` (toJson $inference.port)) -}}
+  {{- fail "docling.inference.port must be an integer" -}}
+{{- end -}}
+{{- $urlPort := "443" -}}
+{{- if contains ":" $url.host -}}
+  {{- $urlPort = last (splitList ":" $url.host) -}}
+{{- end -}}
+{{- if or (ne (int $urlPort) (int $inference.port)) (gt (int $urlPort) 65535) -}}
+  {{- fail "docling.inference.port must match the URL port" -}}
+{{- end -}}
+{{- if or
+    (not (kindIs "string" $inference.model))
+    (not (regexMatch `^[^\s]+$` $inference.model))
+-}}
+  {{- fail "docling.inference.model must be a nonempty alias without whitespace" -}}
+{{- end -}}
+
+{{/* Separate credentials for callers and the inference server. */}}
+{{- range $ref := list $docling.apiKeySecretRef $inference.tokenSecretRef -}}
+  {{- if or
+      (not (regexMatch `^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$` $ref.name))
+      (not (regexMatch `^[a-zA-Z0-9._-]+$` $ref.key))
+  -}}
+    {{- fail "docling requires existing API and inference Secret name/key references" -}}
+  {{- end -}}
+{{- end -}}
+{{- if eq (toJson $docling.apiKeySecretRef) (toJson $inference.tokenSecretRef) -}}
+  {{- fail "docling API and inference credentials must be separate references" -}}
+{{- end -}}
+
+{{/* Egress must remain within RFC1918 networks. */}}
+{{- if not $inference.cidrs -}}
+  {{- fail "docling.inference.cidrs requires private inference destinations" -}}
+{{- end -}}
+{{- range $cidr := $inference.cidrs -}}
+  {{- if not (regexMatch `^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+/[0-9]+$` $cidr) -}}
+    {{- fail "docling inference CIDRs must be RFC1918 IPv4" -}}
+  {{- end -}}
+  {{- $parts := splitList "/" $cidr -}}
+  {{- $octets := splitList "." (first $parts) -}}
+  {{- $prefix := int (last $parts) -}}
+  {{- range $octet := $octets -}}
+    {{- if or (gt (int $octet) 255) (ne (toString (int $octet)) $octet) -}}
+      {{- fail "invalid docling IPv4 CIDR" -}}
+    {{- end -}}
+  {{- end -}}
+  {{- $firstOctet := int (index $octets 0) -}}
+  {{- $secondOctet := int (index $octets 1) -}}
+  {{- $in10Range := and (eq $firstOctet 10) (ge $prefix 8) -}}
+  {{- $in172Range := and
+      (eq $firstOctet 172) (ge $secondOctet 16) (le $secondOctet 31) (ge $prefix 12)
+  -}}
+  {{- $in192Range := and (eq $firstOctet 192) (eq $secondOctet 168) (ge $prefix 16) -}}
+  {{- if not (and (le $prefix 32) (or $in10Range $in172Range $in192Range)) -}}
+    {{- fail "docling inference CIDRs must stay within RFC1918 ranges" -}}
+  {{- end -}}
+{{- end -}}
+
+{{/* Attachment and time limits. */}}
+{{- range $name := list "fileBytes" "totalBytes" "count" "pages" -}}
+  {{- if not (regexMatch `^[1-9][0-9]*$` (toJson (index $attachments $name))) -}}
+    {{- fail (printf "documentAttachments.%s must be a positive integer" $name) -}}
+  {{- end -}}
+{{- end -}}
+{{- if lt (int64 $attachments.totalBytes) (int64 $attachments.fileBytes) -}}
+  {{- fail "documentAttachments.totalBytes must cover fileBytes" -}}
+{{- end -}}
+{{- range $seconds := list
+    $docling.documentTimeoutSeconds
+    $docling.syncWaitSeconds
+    $inference.timeoutSeconds
+    $docling.resultRemovalDelaySeconds
+    $docling.cleanup.retentionSeconds
+    $docling.cleanup.activeDeadlineSeconds
+-}}
+  {{- if not (regexMatch `^[1-9][0-9]*$` (toJson $seconds)) -}}
+    {{- fail "docling time bounds must be positive integer seconds" -}}
+  {{- end -}}
+{{- end -}}
+{{- if or
+    (gt (int $docling.documentTimeoutSeconds) 3600)
+    (gt (int $inference.timeoutSeconds) (int $docling.documentTimeoutSeconds))
+    (le (int $docling.syncWaitSeconds) (int $docling.documentTimeoutSeconds))
+    (gt (int $docling.syncWaitSeconds) 3660)
+    (gt (int $docling.resultRemovalDelaySeconds) 600)
+    (gt (int $docling.cleanup.retentionSeconds) 3600)
+    (gt (int $docling.cleanup.activeDeadlineSeconds) 300)
+-}}
+  {{- fail "docling time bounds are inconsistent or exceed safety maxima" -}}
+{{- end -}}
+
+{{/* CPU, memory and disposable storage. Compare quantities in common units. */}}
+{{- $resourceNames := list "cpu" "memory" "ephemeral-storage" -}}
+{{- $unitFactors := dict "" 1 "m" 0.001 "Ki" 1024 "Mi" 1048576 "Gi" 1073741824 -}}
+{{- range $resources := list $docling.resources $docling.cleanup.resources -}}
+  {{- range $resource := $resourceNames -}}
+    {{- $amounts := dict -}}
+    {{- range $kind := list "requests" "limits" -}}
+      {{- $value := toString (index $resources $kind $resource) -}}
+      {{- $pattern := `^[1-9][0-9]*(Ki|Mi|Gi)?$` -}}
+      {{- if eq $resource "cpu" -}}
+        {{- $pattern = `^[1-9][0-9]*m?$` -}}
+      {{- end -}}
+      {{- if not (regexMatch $pattern $value) -}}
+        {{- fail "docling resources require positive cpu, memory and ephemeral-storage requests/limits" -}}
+      {{- end -}}
+      {{- $unit := regexFind `[A-Za-z]+$` $value -}}
+      {{- $factor := get $unitFactors $unit -}}
+      {{- $_ := set $amounts $kind (mulf (regexFind `^[0-9]+` $value) $factor) -}}
+    {{- end -}}
+    {{- if gt (float64 $amounts.requests) (float64 $amounts.limits) -}}
+      {{- fail "docling resource requests must not exceed limits" -}}
+    {{- end -}}
+  {{- end -}}
+  {{- range $entries := $resources -}}
+    {{- range $key, $_ := $entries -}}
+      {{- if not (has $key $resourceNames) -}}
+        {{- fail "docling is CPU-only; unsupported resource" -}}
+      {{- end -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+{{- range $size := list $docling.scratchSizeLimit $docling.tmpSizeLimit -}}
+  {{- if not (regexMatch `^[1-9][0-9]*(Mi|Gi)$` $size) -}}
+    {{- fail "docling disposable volume bounds must be positive Mi/Gi quantities" -}}
+  {{- end -}}
+{{- end -}}
 {{- end -}}

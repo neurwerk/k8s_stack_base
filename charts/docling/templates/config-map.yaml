@@ -1,10 +1,28 @@
 {{- if .Values.docling.enabled }}
-{{- include "docling.validate" . }}
-{{- $d := .Values.docling }}
+{{- $docling := .Values.docling }}
+{{- $modelSpec := dict
+  "name" "Granite-Docling-258M"
+  "default_repo_id" "ibm-granite/granite-docling-258M"
+  "prompt" "Convert this page to docling."
+  "response_format" "doctags"
+  "temperature" 0
+  "max_new_tokens" 8192
+  "stop_strings" (list "</doctag>" "<|end_of_text|>")
+}}
+{{- $engineOptions := dict
+  "engine_type" "api"
+  "url" $docling.inference.url
+  "headers" (dict)
+  "params" (dict "model" $docling.inference.model)
+  "timeout" $docling.inference.timeoutSeconds
+  "concurrency" 1
+}}
 {{- $preset := dict
-  "model_spec" (dict "name" "Granite-Docling-258M" "default_repo_id" "ibm-granite/granite-docling-258M" "prompt" "Convert this page to docling." "response_format" "doctags" "temperature" 0 "max_new_tokens" 8192 "stop_strings" (list "</doctag>" "<|end_of_text|>"))
-  "engine_options" (dict "engine_type" "api" "url" $d.inference.url "headers" (dict) "params" (dict "model" $d.inference.model) "timeout" $d.inference.timeoutSeconds "concurrency" 1)
-  "scale" 2.0 "force_backend_text" false }}
+  "model_spec" $modelSpec
+  "engine_options" $engineOptions
+  "scale" 2.0
+  "force_backend_text" false
+}}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -18,25 +36,54 @@ data:
     {{- .Files.Get "files/cleanup.py" | nindent 4 }}
   settings.json: {{ dict
     "custom_vlm_presets" (dict "default" $preset)
-    "default_vlm_preset" "default" "allowed_vlm_presets" (list) "allowed_vlm_engines" (list "api")
-    "allow_custom_vlm_config" false "enable_remote_services" true
-    "load_models_at_boot" false "eng_kind" "local" "eng_loc_num_workers" 1 "eng_loc_share_models" false
-    "options_cache_size" 1 "enable_ui" false "enable_management_endpoints" false
-    "show_version_info" false "debug_error_details" false "allow_external_plugins" false
-    "allow_custom_picture_description_config" false "allow_custom_code_formula_config" false
-    "allow_custom_table_structure_config" false "allow_custom_layout_config" false
-    "allow_custom_picture_classification_config" false "allow_custom_ocr_config" false
-    "allowed_picture_description_presets" (list) "allowed_picture_description_engines" (list)
-    "allowed_code_formula_presets" (list) "allowed_code_formula_engines" (list)
+    "default_vlm_preset" "default"
+    "allowed_vlm_presets" (list)
+    "allowed_vlm_engines" (list "api")
+    "allow_custom_vlm_config" false
+    "enable_remote_services" true
+    "load_models_at_boot" false
+    "eng_kind" "local"
+    "eng_loc_num_workers" 1
+    "eng_loc_share_models" false
+    "options_cache_size" 1
+    "enable_ui" false
+    "enable_management_endpoints" false
+    "show_version_info" false
+    "debug_error_details" false
+    "allow_external_plugins" false
+    "allow_custom_picture_description_config" false
+    "allow_custom_code_formula_config" false
+    "allow_custom_table_structure_config" false
+    "allow_custom_layout_config" false
+    "allow_custom_picture_classification_config" false
+    "allow_custom_ocr_config" false
+    "allowed_picture_description_presets" (list)
+    "allowed_picture_description_engines" (list)
+    "allowed_code_formula_presets" (list)
+    "allowed_code_formula_engines" (list)
     "allowed_picture_classification_presets" (list)
-    "max_file_size" .Values.documentAttachments.fileBytes "max_num_pages" .Values.documentAttachments.pages
-    "max_sources_per_request" 1 "allowed_source_types" (list "file") "allowed_target_types" (list "inbody")
-    "allowed_image_export_modes" (list "placeholder") "artifact_storage_enabled" false
-    "scratch_path" "/scratch" "artifacts_path" "/opt/app-root/src/.cache/docling/models"
-    "single_use_results" true "result_removal_delay" $d.resultRemovalDelaySeconds
-    "max_document_timeout" $d.documentTimeoutSeconds "max_sync_wait" $d.syncWaitSeconds
-    "queue_max_size" 1 "ocr_batch_size" 1 "layout_batch_size" 1 "table_batch_size" 1
-    "otel_enable_metrics" false "otel_enable_traces" false "otel_enable_prometheus" false
-    "cors_origins" (list) "cors_methods" (list) "cors_headers" (list)
+    "max_file_size" .Values.documentAttachments.fileBytes
+    "max_num_pages" .Values.documentAttachments.pages
+    "max_sources_per_request" 1
+    "allowed_source_types" (list "file")
+    "allowed_target_types" (list "inbody")
+    "allowed_image_export_modes" (list "placeholder")
+    "artifact_storage_enabled" false
+    "scratch_path" "/scratch"
+    "artifacts_path" "/opt/app-root/src/.cache/docling/models"
+    "single_use_results" true
+    "result_removal_delay" $docling.resultRemovalDelaySeconds
+    "max_document_timeout" $docling.documentTimeoutSeconds
+    "max_sync_wait" $docling.syncWaitSeconds
+    "queue_max_size" 1
+    "ocr_batch_size" 1
+    "layout_batch_size" 1
+    "table_batch_size" 1
+    "otel_enable_metrics" false
+    "otel_enable_traces" false
+    "otel_enable_prometheus" false
+    "cors_origins" (list)
+    "cors_methods" (list)
+    "cors_headers" (list)
     | toJson | quote }}
 {{- end }}
