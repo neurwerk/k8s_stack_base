@@ -6,13 +6,18 @@
 {{- if or (le $readinessTimeout 0.0) (gt $readinessTimeout 1.0) -}}
 {{- fail "monitorAgentgatewayExtproc.engine.readinessTimeout must be greater than zero and at most one second" -}}
 {{- end }}
+{{- $docling := .Values.docling -}}
+{{- $resources := deepCopy .Values.monitorAgentgatewayExtproc.resources -}}
+{{- if $docling.enabled -}}
+{{- $resources = mergeOverwrite $resources .Values.monitorAgentgatewayExtproc.doclingResources -}}
+{{- end }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: monitor-agentgateway-extproc-deployment
   namespace: monitor-agentgateway-extproc
   annotations:
-    secret.reloader.stakater.com/reload: monitor-agentgateway-extproc-engine-client-tls
+    secret.reloader.stakater.com/reload: monitor-agentgateway-extproc-engine-client-tls{{ if $docling.enabled }},monitor-agentgateway-extproc-docling-secret{{ end }}
   labels:
     app.kubernetes.io/name: monitor-agentgateway-extproc
     app.kubernetes.io/instance: monitor-agentgateway-extproc
@@ -63,16 +68,48 @@ spec:
               value: {{ .Values.monitorAgentgatewayExtproc.engine.maxResponseBytes | quote }}
             - name: EXTPROC_ENGINE__READINESS_TIMEOUT
               value: {{ .Values.monitorAgentgatewayExtproc.engine.readinessTimeout | quote }}
+            {{- if $docling.enabled }}
+            - name: EXTPROC_DOCLING__ENABLED
+              value: "true"
+            - name: EXTPROC_DOCLING__BASE_URL
+              value: "https://docling.docling.svc"
+            # Reuse only the common internal CA, not the PII client identity.
+            - name: EXTPROC_DOCLING__CA_CERT
+              value: "/var/run/pii-engine/tls/ca.crt"
+            - name: EXTPROC_DOCLING__API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: monitor-agentgateway-extproc-docling-secret
+                  key: api-key
+            - name: EXTPROC_DOCLING__INFERENCE_MODE
+              value: {{ $docling.inference.mode | quote }}
+            - name: EXTPROC_DOCLING__TIMEOUT
+              value: {{ $docling.syncWaitSeconds | quote }}
+            - name: EXTPROC_DOCLING__DOCUMENT_TIMEOUT
+              value: {{ $docling.documentTimeoutSeconds | quote }}
+            - name: EXTPROC_DOCLING__FILE_BYTES
+              value: {{ .Values.documentAttachments.fileBytes | int64 | quote }}
+            - name: EXTPROC_DOCLING__TOTAL_BYTES
+              value: {{ .Values.documentAttachments.totalBytes | int64 | quote }}
+            - name: EXTPROC_DOCLING__COUNT
+              value: {{ .Values.documentAttachments.count | int | quote }}
+            - name: EXTPROC_DOCLING__PAGES
+              value: {{ .Values.documentAttachments.pages | int | quote }}
+            - name: EXTPROC_DOCLING__MAX_RESPONSE_BYTES
+              value: "16777216"
+            {{- end }}
             - name: EXTPROC_DEBUG
               value: {{ .Values.monitorAgentgatewayExtproc.debug | quote }}
             - name: EXTPROC_MAX_REQUEST_BYTES
-              value: {{ .Values.monitorAgentgatewayExtproc.maxRequestBytes | quote }}
+              value: {{ if $docling.enabled }}"67108864"{{ else }}{{ .Values.monitorAgentgatewayExtproc.maxRequestBytes | quote }}{{ end }}
             - name: EXTPROC_MAX_RESPONSE_BYTES
               value: {{ .Values.monitorAgentgatewayExtproc.maxResponseBytes | quote }}
             - name: EXTPROC_MAX_TRANSFORMED_REQUEST_BYTES
               value: {{ .Values.monitorAgentgatewayExtproc.maxTransformedRequestBytes | quote }}
             - name: EXTPROC_GRPC_MAX_RECEIVE_MESSAGE_BYTES
-              value: {{ .Values.monitorAgentgatewayExtproc.grpcMaxReceiveMessageBytes | quote }}
+              value: {{ if $docling.enabled }}"68222976"{{ else }}{{ .Values.monitorAgentgatewayExtproc.grpcMaxReceiveMessageBytes | quote }}{{ end }}
+            - name: EXTPROC_GRPC_MAXIMUM_CONCURRENT_RPCS
+              value: {{ .Values.monitorAgentgatewayExtproc.grpcMaximumConcurrentRpcs | quote }}
           volumeMounts:
             - name: engine-tls
               mountPath: /var/run/pii-engine/tls
@@ -93,7 +130,7 @@ spec:
             initialDelaySeconds: 15
             periodSeconds: 20
           resources:
-            {{- toYaml .Values.monitorAgentgatewayExtproc.resources | nindent 12 }}
+            {{- toYaml $resources | nindent 12 }}
       volumes:
         - name: engine-tls
           secret:

@@ -1,0 +1,35 @@
+{{- $docling := .Values.docling -}}
+{{- if not (kindIs "bool" $docling.enabled) -}}
+  {{- fail "docling.enabled must be boolean" -}}
+{{- end -}}
+{{- if not (and (kindIs "string" $docling.inference.mode) (has $docling.inference.mode (list "cpu" "remote"))) -}}
+  {{- fail "docling.inference.mode must be cpu or remote" -}}
+{{- end -}}
+{{- $rpcs := .Values.monitorAgentgatewayExtproc.grpcMaximumConcurrentRpcs -}}
+{{- if or (not (regexMatch `^[1-9][0-9]*$` (toJson $rpcs))) (gt (float64 $rpcs) 16.0) -}}
+  {{- fail "monitorAgentgatewayExtproc.grpcMaximumConcurrentRpcs must be an integer from 1 to 16" -}}
+{{- end -}}
+{{- if $docling.enabled -}}
+{{- if ne (toString .Values.monitorAgentgatewayExtproc.replicas) "2" -}}
+  {{- fail "Docling requires two fixed extProc replicas" -}}
+{{- end -}}
+{{- $attachments := .Values.documentAttachments -}}
+{{- range $name, $maximum := dict "fileBytes" 41943040 "totalBytes" 41943040 "count" 20 "pages" 1000 -}}
+  {{- $value := index $attachments $name -}}
+  {{- if or (not (regexMatch `^[1-9][0-9]*$` (toJson $value))) (gt (float64 $value) (float64 $maximum)) -}}
+    {{- fail (printf "documentAttachments.%s must be a positive integer at most %d" $name $maximum) -}}
+  {{- end -}}
+{{- end -}}
+{{- if lt (int64 $attachments.totalBytes) (int64 $attachments.fileBytes) -}}
+  {{- fail "documentAttachments.totalBytes must cover fileBytes" -}}
+{{- end -}}
+{{- range $name, $maximum := dict "documentTimeoutSeconds" 3600 "syncWaitSeconds" 3660 -}}
+  {{- $value := index $docling $name -}}
+  {{- if or (not (regexMatch `^[1-9][0-9]*$` (toJson $value))) (gt (float64 $value) (float64 $maximum)) -}}
+    {{- fail (printf "docling.%s must be positive integer seconds at most %d" $name $maximum) -}}
+  {{- end -}}
+{{- end -}}
+{{- if le (int $docling.syncWaitSeconds) (int $docling.documentTimeoutSeconds) -}}
+  {{- fail "docling.syncWaitSeconds must exceed documentTimeoutSeconds" -}}
+{{- end -}}
+{{- end -}}

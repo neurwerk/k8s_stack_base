@@ -128,6 +128,20 @@ class AgentGatewayCatalogTests(unittest.TestCase):
         values = agent_values(selected, [direct])
         values["authKeycloak"]["agentgatewayClientRoles"].append(f"model:{direct['name']}:invoke")
 
+        text_only = render("agentgateway", {**values, "docling": {"enabled": False}}).stdout
+        self.assertIn("maxBufferSize: 6291456", text_only)
+        self.assertIn('requestTimeout: "630s"', text_only)
+        for wait in (360, 600, 3660):
+            documents = render("agentgateway", {**values, "docling": {
+                "enabled": True, "syncWaitSeconds": wait,
+            }}).stdout
+            self.assertIn("maxBufferSize: 67108864", documents)
+            self.assertIn(f'requestTimeout: "{wait + 615 + 30}s"', documents)
+        for wait in (0, 3661, "360", True):
+            self.assertNotEqual(render("agentgateway", {**values, "docling": {
+                "enabled": True, "syncWaitSeconds": wait,
+            }}, check=False).returncode, 0)
+
         def metadata() -> dict:
             result = render("agentgateway", values)
             return {

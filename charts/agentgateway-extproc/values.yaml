@@ -6,6 +6,7 @@
 #
 # These defaults are overridden by:
 #   - ConfigMap: base-shared-resources-config-map (releases/shared/resources.yaml)
+#   - ConfigMap: base-shared-document-attachments-config-map
 #   - ConfigMap: monitor-agentgateway-extproc-app-defaults
 #   - ConfigMap: client-values (client config/client.yaml)
 #   - ConfigMap: agentgateway-extproc-product-values (client product values)
@@ -13,8 +14,9 @@
 
 # ── extProc gRPC service ──────────────────────────────────────────────────────
 monitorAgentgatewayExtproc:
-  extprocImage: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.7.1@sha256:59bb5a51192dbbb01ba5cb30c4d4b182c5fde2c3ae8c3193b3eda1cb6de3fbe6
+  extprocImage: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.8.0@sha256:908d088a10014f0f868f2d04a9bbf3521f1659966af7c2583c4746fa660d74f5
 
+  # Docling requires exactly two fixed replicas (no HPA while enabled).
   replicas: 2
 
   ports:
@@ -37,10 +39,14 @@ monitorAgentgatewayExtproc:
     # Keep the dependency handshake below the outer Kubernetes probe timeout.
     readinessTimeout: 1
 
+  # Text-only limits. Docling derives 64 MiB requests and a 68222976-byte gRPC
+  # envelope instead, even if an existing client still supplies these values.
   maxRequestBytes: "5242880"
   maxResponseBytes: "10485760"
   maxTransformedRequestBytes: "10485760"
   grpcMaxReceiveMessageBytes: "6356992"
+  # Native gRPC admission per process, including non-document streams (1..16).
+  grpcMaximumConcurrentRpcs: 4
 
   # ── Adapter logging ───────────────────────────────────────────────────────
   debug: false
@@ -62,7 +68,31 @@ monitorAgentgatewayExtproc:
       cpu: 2000m
       memory: 512Mi
 
+  # Merged over resources only when Docling is enabled, including client values.
+  # Override this block to resize upload workers; CPU inherits resources above.
+  doclingResources:
+    requests:
+      memory: 1Gi
+    limits:
+      memory: 2Gi
+
   nodeSelector: {}
   tolerations: []
+
+# Canonical client-wide values, shared with the Docling service and Gateway.
+# Never override these independently in product values.
 docling:
   enabled: false
+  inference:
+    mode: remote
+  documentTimeoutSeconds: 300
+  # Whole document batch budget, not a separate timeout for every file.
+  syncWaitSeconds: 360
+
+# Keep aligned with releases/shared/document-attachments.yaml.
+# Positive integers: fileBytes/totalBytes <= 40 MiB, count <= 20, pages <= 1000.
+documentAttachments:
+  fileBytes: 20971520
+  totalBytes: 41943040
+  count: 5
+  pages: 200

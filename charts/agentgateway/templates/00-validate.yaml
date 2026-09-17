@@ -1,4 +1,13 @@
 {{- $engine := .Values.guardrails.llmPolicyEngine -}}
+{{- if not (kindIs "bool" .Values.docling.enabled) -}}
+  {{- fail "docling.enabled must be boolean" -}}
+{{- end -}}
+{{- if .Values.docling.enabled -}}
+{{- $wait := .Values.docling.syncWaitSeconds -}}
+{{- if or (not (regexMatch `^[1-9][0-9]*$` (toJson $wait))) (gt (float64 $wait) 3660.0) -}}
+  {{- fail "docling.syncWaitSeconds must be positive integer seconds at most 3660" -}}
+{{- end -}}
+{{- end -}}
 {{- $models := include "infra-agentgateway.effectiveModels" . | fromYamlArray -}}
 {{- if gt (len $models) 256 -}}
 {{-   fail "effective model catalog supports at most 256 destinations" -}}

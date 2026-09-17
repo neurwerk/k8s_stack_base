@@ -9,6 +9,9 @@ configMapGenerator:
   - name: base-shared-resources-config-map
     files:
       - values.yaml=../shared/resources.yaml
+  - name: base-shared-document-attachments-config-map
+    files:
+      - values.yaml=../shared/document-attachments.yaml
   - name: monitor-agentgateway-extproc-app-defaults
     files:
       - values.yaml=app-defaults.yaml

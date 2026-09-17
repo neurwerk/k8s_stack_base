@@ -13,7 +13,7 @@ import types
 import unittest
 from unittest.mock import patch, Mock, mock_open
 
-from test_openrouter_catalog import ROOT, render, resources
+from test_openrouter_catalog import ROOT, env_value, render, resources, values_from
 
 
 class DoclingTests(unittest.TestCase):
@@ -26,8 +26,15 @@ class DoclingTests(unittest.TestCase):
             self.assertNotIn("kubernetes.io/metadata.name: docling", disabled)
             if chart == "agentgateway-extproc":
                 self.assertIn("port: 5001", enabled)
-                self.assertEqual(resources(render(chart, {}), "Deployment"),
-                                 resources(render(chart, {"docling": {"enabled": False}}), "Deployment"))
+                result = render(chart, {"docling": {"enabled": False}})
+                self.assertNotIn("EXTPROC_DOCLING__", disabled)
+                self.assertNotIn("monitor-agentgateway-extproc-docling-secret", disabled)
+                self.assertEqual(env_value(result, "EXTPROC_MAX_REQUEST_BYTES"), "5242880")
+                self.assertEqual(env_value(result, "EXTPROC_GRPC_MAX_RECEIVE_MESSAGE_BYTES"), "6356992")
+                self.assertEqual(env_value(result, "EXTPROC_GRPC_MAXIMUM_CONCURRENT_RPCS"), "4")
+                self.assertIn("memory: 256Mi", disabled)
+                self.assertIn("memory: 512Mi", disabled)
+                self.assertEqual(len(resources(result, "HorizontalPodAutoscaler")), 1)
             else:
                 self.assertEqual(enabled.count("cert-manager-internal-docling-server"), 2)
                 self.assertIn("matchNames: [docling]", enabled)
@@ -91,6 +98,35 @@ class DoclingTests(unittest.TestCase):
                                     input=result.stdout, text=True, capture_output=True)
         self.assertEqual(validation.returncode, 0, validation.stdout + validation.stderr)
 
+        extproc = render("agentgateway-extproc", {"monitorAgentgatewayExtproc": {
+            "maxRequestBytes": "5242880", "grpcMaxReceiveMessageBytes": "6356992",
+            "resources": {"requests": {"memory": "256Mi"}, "limits": {"memory": "512Mi"}},
+        }})
+        for name, value in {
+            "DOCLING__ENABLED": "true", "DOCLING__BASE_URL": "https://docling.docling.svc",
+            "DOCLING__CA_CERT": "/var/run/pii-engine/tls/ca.crt", "DOCLING__INFERENCE_MODE": "remote",
+            "DOCLING__TIMEOUT": "360", "DOCLING__DOCUMENT_TIMEOUT": "300",
+            "DOCLING__FILE_BYTES": "20971520", "DOCLING__TOTAL_BYTES": "41943040",
+            "DOCLING__COUNT": "5", "DOCLING__PAGES": "200", "DOCLING__MAX_RESPONSE_BYTES": "16777216",
+            "MAX_REQUEST_BYTES": "67108864", "GRPC_MAX_RECEIVE_MESSAGE_BYTES": "68222976",
+            "GRPC_MAXIMUM_CONCURRENT_RPCS": "4", "MAX_TRANSFORMED_REQUEST_BYTES": "10485760",
+            "MAX_RESPONSE_BYTES": "10485760", "ENGINE__TIMEOUT": "615",
+        }.items():
+            self.assertEqual(env_value(extproc, f"EXTPROC_{name}"), value, name)
+        deployment, = resources(extproc, "Deployment")
+        self.assertIn("reload: monitor-agentgateway-extproc-engine-client-tls,monitor-agentgateway-extproc-docling-secret", deployment)
+        self.assertRegex(deployment, r"name: EXTPROC_DOCLING__API_KEY\s+valueFrom:\s+secretKeyRef:\s+name: monitor-agentgateway-extproc-docling-secret\s+key: api-key")
+        for text in ("replicas: 2", "memory: 1Gi", "memory: 2Gi", "mountPath: /var/run/pii-engine/tls"):
+            self.assertIn(text, deployment)
+        for text in ("EXTPROC_DOCLING__CLIENT_CERT", "EXTPROC_DOCLING__CLIENT_KEY", "docling-inference"):
+            self.assertNotIn(text, extproc.stdout)
+        self.assertFalse(resources(extproc, "HorizontalPodAutoscaler"))
+        self.assertFalse(resources(extproc, "Secret"))
+        resized = render("agentgateway-extproc", {"monitorAgentgatewayExtproc": {
+            "doclingResources": {"requests": {"memory": "2Gi"}, "limits": {"memory": "4Gi"}},
+        }})
+        self.assertIn("memory: 4Gi", resources(resized, "Deployment")[0])
+
     @staticmethod
     def settings(result):
         line = re.search(r"(?m)^  settings.json: (.*)$", result.stdout)
@@ -98,7 +134,8 @@ class DoclingTests(unittest.TestCase):
 
     def test_bad_enabled_settings_fail(self):
         for flag in (0, "", "false"):
-            self.assertNotEqual(render("docling", {"docling": {"enabled": flag}}, check=False).returncode, 0)
+            for chart in ("docling", "agentgateway-extproc", "agentgateway"):
+                self.assertNotEqual(render(chart, {"docling": {"enabled": flag}}, check=False).returncode, 0)
             self.assertNotEqual(render("librechat/shared", {"frontendLibrechat": {"documentAttachments": {"enabled": flag}}}, check=False).returncode, 0)
         bad = [
             *({"inference": {"mode": mode}} for mode in ("auto", "", False, None, 0)),
@@ -122,8 +159,10 @@ class DoclingTests(unittest.TestCase):
         for values in bad:
             with self.subTest(values=values):
                 self.assertNotEqual(render("docling", {"docling": values}, check=False).returncode, 0)
-        for limits in ({"fileBytes": 0}, {"pages": -1}, {"count": 1.5}, {"totalBytes": 1}):
-            self.assertNotEqual(render("docling", {"documentAttachments": limits}, check=False).returncode, 0)
+        for limits in ({"fileBytes": 0}, {"pages": -1}, {"count": 1.5}, {"totalBytes": 1},
+                       {"fileBytes": 41943041}, {"totalBytes": 41943041}, {"count": 21}, {"pages": 1001}):
+            for chart in ("docling", "agentgateway-extproc"):
+                self.assertNotEqual(render(chart, {"documentAttachments": limits}, check=False).returncode, 0)
         settings = self.settings(render("docling", {"documentAttachments": {"fileBytes": 1048576, "pages": 10}}))
         self.assertEqual((settings["max_file_size"], settings["max_num_pages"]), (1048576, 10))
         for document_timeout, sync_wait in ((300, 600), (3600, 3660)):
@@ -134,6 +173,26 @@ class DoclingTests(unittest.TestCase):
             deployment, = resources(overridden, "Deployment")
             self.assertIn(f"terminationGracePeriodSeconds: {sync_wait + 30}", deployment)
         self.assertNotEqual(render("docling", {"docling": {"syncWaitSeconds": 3661}}, check=False).returncode, 0)
+        for values in ({"inference": {"mode": "auto"}}, {"documentTimeoutSeconds": 0},
+                       {"documentTimeoutSeconds": 3601}, {"syncWaitSeconds": 300}, {"syncWaitSeconds": 3661}):
+            self.assertNotEqual(render("agentgateway-extproc", {"docling": values}, check=False).returncode, 0)
+        for rpcs in (0, 17, 1.5, True):
+            self.assertNotEqual(render("agentgateway-extproc", {
+                "monitorAgentgatewayExtproc": {"grpcMaximumConcurrentRpcs": rpcs},
+            }, check=False).returncode, 0)
+        self.assertNotEqual(render("agentgateway-extproc", {
+            "monitorAgentgatewayExtproc": {"replicas": 3},
+        }, check=False).returncode, 0)
+        maximums = {"fileBytes": 41943040, "totalBytes": 41943040, "count": 20, "pages": 1000}
+        for chart in ("docling", "agentgateway-extproc"):
+            render(chart, {"documentAttachments": maximums})
+        extproc = render("agentgateway-extproc", {"docling": {
+            "documentTimeoutSeconds": 3600, "syncWaitSeconds": 3660,
+        }, "documentAttachments": maximums})
+        self.assertEqual(env_value(extproc, "EXTPROC_DOCLING__TIMEOUT"), "3660")
+        self.assertEqual(env_value(extproc, "EXTPROC_DOCLING__DOCUMENT_TIMEOUT"), "3600")
+        for name, value in zip(("FILE_BYTES", "TOTAL_BYTES", "COUNT", "PAGES"), maximums.values()):
+            self.assertEqual(env_value(extproc, f"EXTPROC_DOCLING__{name}"), str(value))
         release = (ROOT / "releases/docling/app/app.yaml").read_text()
         rollout_minutes = int(re.search(r"(?m)^  timeout: (\d+)m$", release).group(1))
         self.assertGreater(rollout_minutes * 60, 3660 + 30 + 5 * 60)
@@ -193,6 +252,8 @@ class DoclingTests(unittest.TestCase):
             logging.disable(previous_disable)
 
     def test_cpu_render_bootstrap_and_internal_delivery(self):
+        extproc = render("agentgateway-extproc", {"docling": {"inference": {"mode": "cpu"}}})
+        self.assertEqual(env_value(extproc, "EXTPROC_DOCLING__INFERENCE_MODE"), "cpu")
         result = render("docling", {"docling": {"inference": {
             "mode": "cpu", "caConfigMap": "stale-inference-ca",
         }}})
@@ -268,6 +329,17 @@ class DoclingTests(unittest.TestCase):
                                            str(ROOT / "releases/docling/app")], text=True)
         self.assertIn("name: base-shared-document-attachments-config-map", package)
         self.assertIn("name: docling-product-values", package)
+        extproc = subprocess.check_output(["kustomize", "build", "--load-restrictor", "LoadRestrictionsNone",
+                                           str(ROOT / "releases/agentgateway-extproc")], text=True)
+        self.assertIn("name: base-shared-document-attachments-config-map", extproc)
+        refs = values_from("agentgateway-extproc/app.yaml")
+        self.assertLess(refs.index(("ConfigMap", "base-shared-document-attachments-config-map")),
+                        refs.index(("ConfigMap", "client-values")))
+        caps = re.search(r"(?m)^documentAttachments:\n(?:  .*\n)+",
+                         (ROOT / "releases/shared/document-attachments.yaml").read_text()).group()
+        for chart in ("docling", "agentgateway-extproc", "librechat/shared"):
+            defaults = (ROOT / "charts" / chart / "values.yaml").read_text()
+            self.assertEqual(re.search(r"(?m)^documentAttachments:\n(?:  .*\n)+", defaults).group(), caps)
         for source in ("release/config.yaml", "release/manifest.yaml"):
             text = (ROOT / source).read_text()
             for path in ("releases/docling/app", "releases/namespaces/docling", "releases/docling/reloader",
