@@ -11,16 +11,20 @@ def main():
     try:
         with open(os.environ["DOCLING_SERVE_CONFIG_FILE"], encoding="utf-8") as source:
             settings = json.load(source)
-        token = os.environ.pop("DOCLING_INFERENCE_TOKEN")
         api_key = os.environ["DOCLING_SERVE_API_KEY"]
-        for value in (token, api_key):
+        credentials = [api_key]
+        if settings["enable_remote_services"]:
+            token = os.environ.pop("DOCLING_INFERENCE_TOKEN")
+            credentials.append(token)
+        for value in credentials:
             if not value.strip() or "\r" in value or "\n" in value:
                 raise ValueError("invalid credential")
-        presets = settings["custom_vlm_presets"]
-        presets["default"]["engine_options"]["headers"] = {
-            "Authorization": "Bearer " + token
-        }
-        os.environ["DOCLING_SERVE_CUSTOM_VLM_PRESETS"] = json.dumps(presets)
+        if settings["enable_remote_services"]:
+            presets = settings["custom_vlm_presets"]
+            presets["default"]["engine_options"]["headers"] = {
+                "Authorization": "Bearer " + token
+            }
+            os.environ["DOCLING_SERVE_CUSTOM_VLM_PRESETS"] = json.dumps(presets)
 
         from docling_serve.app import create_app
         import uvicorn

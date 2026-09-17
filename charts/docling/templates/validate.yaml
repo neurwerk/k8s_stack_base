@@ -3,11 +3,16 @@
   {{- fail "docling.enabled must be boolean" -}}
 {{- end -}}
 
-{{- if $docling.enabled -}}
 {{- $inference := $docling.inference -}}
+{{- if not (and (kindIs "string" $inference.mode) (has $inference.mode (list "cpu" "remote"))) -}}
+  {{- fail "docling.inference.mode must be cpu or remote" -}}
+{{- end -}}
+{{- $remote := eq $inference.mode "remote" -}}
+{{- if $docling.enabled -}}
 {{- $attachments := .Values.documentAttachments -}}
 
 {{/* Inference endpoint and model. */}}
+{{- if $remote -}}
 {{- $endpointPattern := `^https://[a-zA-Z0-9]([a-zA-Z0-9.-]*[a-zA-Z0-9])?(:[1-9][0-9]{0,4})?/v1/chat/completions$` -}}
 {{- if not (regexMatch $endpointPattern $inference.url) -}}
   {{- fail "docling.inference.url must be a full HTTPS /v1/chat/completions URL without userinfo, query or fragment" -}}
@@ -29,21 +34,27 @@
 -}}
   {{- fail "docling.inference.model must be a nonempty alias without whitespace" -}}
 {{- end -}}
+{{- end -}}
 
 {{/* Separate credentials for callers and the inference server. */}}
-{{- range $ref := list $docling.apiKeySecretRef $inference.tokenSecretRef -}}
+{{- $refs := list $docling.apiKeySecretRef -}}
+{{- if $remote -}}
+  {{- $refs = append $refs $inference.tokenSecretRef -}}
+{{- end -}}
+{{- range $ref := $refs -}}
   {{- if or
       (not (regexMatch `^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$` $ref.name))
       (not (regexMatch `^[a-zA-Z0-9._-]+$` $ref.key))
   -}}
-    {{- fail "docling requires existing API and inference Secret name/key references" -}}
+    {{- fail "docling requires existing Secret name/key references for the selected mode" -}}
   {{- end -}}
 {{- end -}}
-{{- if eq (toJson $docling.apiKeySecretRef) (toJson $inference.tokenSecretRef) -}}
+{{- if and $remote (eq (toJson $docling.apiKeySecretRef) (toJson $inference.tokenSecretRef)) -}}
   {{- fail "docling API and inference credentials must be separate references" -}}
 {{- end -}}
 
 {{/* Egress must remain within RFC1918 networks. */}}
+{{- if $remote -}}
 {{- if not $inference.cidrs -}}
   {{- fail "docling.inference.cidrs requires private inference destinations" -}}
 {{- end -}}
@@ -71,6 +82,14 @@
   {{- end -}}
 {{- end -}}
 
+{{- if not (regexMatch `^[1-9][0-9]*$` (toJson $inference.timeoutSeconds)) -}}
+  {{- fail "docling inference timeout must be positive integer seconds" -}}
+{{- end -}}
+{{- if gt (int $inference.timeoutSeconds) (int $docling.documentTimeoutSeconds) -}}
+  {{- fail "docling inference timeout must not exceed the document timeout" -}}
+{{- end -}}
+{{- end -}}
+
 {{/* Attachment and time limits. */}}
 {{- range $name := list "fileBytes" "totalBytes" "count" "pages" -}}
   {{- if not (regexMatch `^[1-9][0-9]*$` (toJson (index $attachments $name))) -}}
@@ -83,7 +102,6 @@
 {{- range $seconds := list
     $docling.documentTimeoutSeconds
     $docling.syncWaitSeconds
-    $inference.timeoutSeconds
     $docling.resultRemovalDelaySeconds
     $docling.cleanup.retentionSeconds
     $docling.cleanup.activeDeadlineSeconds
@@ -94,7 +112,6 @@
 {{- end -}}
 {{- if or
     (gt (int $docling.documentTimeoutSeconds) 3600)
-    (gt (int $inference.timeoutSeconds) (int $docling.documentTimeoutSeconds))
     (le (int $docling.syncWaitSeconds) (int $docling.documentTimeoutSeconds))
     (gt (int $docling.syncWaitSeconds) 3660)
     (gt (int $docling.resultRemovalDelaySeconds) 600)

@@ -47,23 +47,3 @@ spec:
       remoteRef:
         key: docling/internal
         property: apiKey
----
-apiVersion: external-secrets.io/v1
-kind: ExternalSecret
-metadata:
-  name: docling-inference
-  namespace: docling
-spec:
-  refreshInterval: 1h
-  secretStoreRef:
-    name: docling-openbao-secret-store
-    kind: SecretStore
-  target:
-    name: docling-inference
-    creationPolicy: Owner
-    deletionPolicy: Retain
-  data:
-    - secretKey: token
-      remoteRef:
-        key: docling/external
-        property: inferenceToken

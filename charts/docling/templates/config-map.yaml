@@ -1,5 +1,6 @@
 {{- if .Values.docling.enabled }}
 {{- $docling := .Values.docling }}
+{{- $remote := eq $docling.inference.mode "remote" }}
 {{- $modelSpec := dict
   "name" "Granite-Docling-258M"
   "default_repo_id" "ibm-granite/granite-docling-258M"
@@ -34,13 +35,12 @@ data:
     {{- .Files.Get "files/bootstrap.py" | nindent 4 }}
   cleanup.py: |
     {{- .Files.Get "files/cleanup.py" | nindent 4 }}
-  settings.json: {{ dict
-    "custom_vlm_presets" (dict "default" $preset)
-    "default_vlm_preset" "default"
+  {{- $settings := dict
+    "custom_vlm_presets" (dict)
     "allowed_vlm_presets" (list)
-    "allowed_vlm_engines" (list "api")
+    "allowed_vlm_engines" (list)
     "allow_custom_vlm_config" false
-    "enable_remote_services" true
+    "enable_remote_services" $remote
     "load_models_at_boot" false
     "eng_kind" "local"
     "eng_loc_num_workers" 1
@@ -85,5 +85,13 @@ data:
     "cors_origins" (list)
     "cors_methods" (list)
     "cors_headers" (list)
-    | toJson | quote }}
+  }}
+  {{- if $remote }}
+    {{- $_ := set $settings "custom_vlm_presets" (dict "default" $preset) }}
+    {{- $_ := set $settings "default_vlm_preset" "default" }}
+    {{- $_ := set $settings "allowed_vlm_engines" (list "api") }}
+  {{- else }}
+    {{- $_ := set $settings "default_ocr_preset" "rapidocr" }}
+  {{- end }}
+  settings.json: {{ $settings | toJson | quote }}
 {{- end }}
