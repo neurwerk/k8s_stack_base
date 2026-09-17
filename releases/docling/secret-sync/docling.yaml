@@ -1,0 +1,69 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: docling-external-secrets
+  namespace: docling
+automountServiceAccountToken: false
+---
+apiVersion: external-secrets.io/v1
+kind: SecretStore
+metadata:
+  name: docling-openbao-secret-store
+  namespace: docling
+spec:
+  provider:
+    vault:
+      server: https://infra-openbao.infra-openbao.svc:8200
+      path: secret
+      version: v2
+      caProvider:
+        type: ConfigMap
+        name: infra-openbao-ca-bundle
+        key: ca.crt
+      auth:
+        kubernetes:
+          mountPath: kubernetes
+          role: docling
+          serviceAccountRef:
+            name: docling-external-secrets
+            audiences: [openbao]
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: docling-api
+  namespace: docling
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: docling-openbao-secret-store
+    kind: SecretStore
+  target:
+    name: docling-api
+    creationPolicy: Owner
+    deletionPolicy: Retain
+  data:
+    - secretKey: api-key
+      remoteRef:
+        key: docling/internal
+        property: apiKey
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: docling-inference
+  namespace: docling
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: docling-openbao-secret-store
+    kind: SecretStore
+  target:
+    name: docling-inference
+    creationPolicy: Owner
+    deletionPolicy: Retain
+  data:
+    - secretKey: token
+      remoteRef:
+        key: docling/external
+        property: inferenceToken
