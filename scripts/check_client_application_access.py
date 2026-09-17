@@ -42,8 +42,9 @@ GATEWAY_PORTS = {
 # Maintenance packages only static infrastructure and inert operator templates.
 # WireGuard's UDP transport is not a browser application, even with NodePort;
 # classification does not verify its outer exposure, peers or firewall grants.
+# Docling is a private ClusterIP backend with no public route option.
 NON_ENDPOINT_CHARTS = set("""
-agentgateway-extproc cert-manager/approver-policy cert-manager/issuers
+agentgateway-extproc docling cert-manager/approver-policy cert-manager/issuers
 cert-manager/approval-policy cert-manager/controller cert-manager/internal-issuer
 external-secrets fluent-bit fluent-bit/shared kube-prometheus-stack wireguard
 openbao openbao/operator opensearch pii-engine pii-engine-model-sync

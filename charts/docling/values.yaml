@@ -1,5 +1,6 @@
 # Keep aligned with releases/shared/document-attachments.yaml. Client-wide
 # overrides belong in client-values, projected into each consumer namespace.
+# Positive integers: fileBytes/totalBytes <= 40 MiB, count <= 20, pages <= 1000.
 documentAttachments:
   fileBytes: 20971520
   totalBytes: 41943040
@@ -12,6 +13,7 @@ docling:
   # Existing namespace-local Secrets only; never put credentials in values.
   apiKeySecretRef: {name: "", key: ""}
   inference:
+    # Shared client-values selection for Docling and extProc, not a product override.
     # Explicit selection only; remote never falls back to local CPU inference.
     mode: remote
     # The following settings are used only in remote mode.
@@ -26,6 +28,7 @@ docling:
     caConfigMap: ""
   # Native conversion budget, NOT a hard job cancellation deadline.
   documentTimeoutSeconds: 300
+  # Shared with extProc's whole-batch budget and Gateway's derived outer timeout.
   # Also bounds Uvicorn draining; Pod termination adds 30 seconds for cleanup.
   syncWaitSeconds: 360
   resultRemovalDelaySeconds: 60

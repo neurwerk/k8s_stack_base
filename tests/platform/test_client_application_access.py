@@ -145,9 +145,23 @@ class AdapterTest(unittest.TestCase):
             "service": {"type": "NodePort", "nodePort": 31820},
         }}, namespace="wireguard")
         self.assertEqual(self.derive(), expected)
+        self.chart("docling", {"docling": {"enabled": True, "inference": {"mode": "cpu"}}}, namespace="docling")
+        self.assertEqual(self.derive(), expected)
         self.assertEqual(set(expected["endpoints"]), {"keycloak", "forgejo"})
-        self.chart("unknown-transport")
-        with self.assertRaisesRegex(adapter.PlanError, "unknown selected chart"):
+        for name in ("unknown-transport", "docling-extra", "docling/extra"):
+            _, path = self.chart(name)
+            with self.subTest(chart=name), self.assertRaisesRegex(adapter.PlanError, "unknown selected chart"):
+                self.derive()
+            self.inventory.remove(path.name)
+            self.write(self.platform / "releases/apps/kustomization.yaml", kustomization(self.inventory))
+        route = resource("HTTPRoute", "docling-public", {
+            "hostnames": ["documents.example.com"],
+            "rules": [{"backendRefs": [{"name": "docling", "port": 443}]}],
+        }, namespace="docling")
+        route["apiVersion"] = "gateway.networking.k8s.io/v1"
+        self.write(self.platform / "releases/apps/docling-public.yaml", route)
+        self.write(self.platform / "releases/apps/kustomization.yaml", kustomization([*self.inventory, "docling-public.yaml"]))
+        with self.assertRaisesRegex(adapter.PlanError, "unsupported selected resource API/kind"):
             self.derive()
 
     def test_actual_platform_releases_with_synthetic_client_generators(self):

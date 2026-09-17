@@ -78,7 +78,7 @@ spec:
           llm: metadata
       {{- if .Values.guardrails.llmPolicyEngine.enabled }}
       http:
-        maxBufferSize: {{ int .Values.guardrails.llmPolicyEngine.maxBufferSize }}
+        maxBufferSize: {{ if .Values.docling.enabled }}67108864{{ else }}{{ int .Values.guardrails.llmPolicyEngine.maxBufferSize }}{{ end }}
       {{- end }}
     config:
       adminAddr: "0.0.0.0:15000"

@@ -203,6 +203,12 @@ mcp:
   # verification bypass or custom CA option is exposed. Set port explicitly.
   servers: []
 
+# Canonical client-wide values, shared with Docling and extProc. Do not set a
+# different flag or time budget in product values. Higher budgets may reach 3660s.
+docling:
+  enabled: false
+  syncWaitSeconds: 360
+
 # ── Guardrails ────────────────────────────────────────────────────────────────
 # All guardrails are handled by the extProc LLM Policy Engine
 # (agentgateway-extproc chart).  See the llmPolicyEngine block below.
@@ -218,9 +224,12 @@ guardrails:
 
     # extProc timeout — implemented via AgentgatewayBackend wrapper
     # (extProc CRD field has no native timeout; same pattern as extAuth).
+    # With Docling enabled: syncWaitSeconds + 615 + 30. Gateway 1.5 applies this
+    # to initial response headers; extProc enforces conversion and PII deadlines.
     extProcTimeout: 630s
     extProcPort: 9000
     # Buffer enough body data for extProc to return its controlled 5 MiB limit.
+    # With Docling enabled, derived instead as 67108864 bytes regardless of this value.
     maxBufferSize: 6291456
 
     # ── Local fallback target (shared) ───────────────────────────────────

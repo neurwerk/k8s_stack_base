@@ -34,6 +34,9 @@ spec:
       name: base-shared-resources-config-map
       valuesKey: values.yaml
     - kind: ConfigMap
+      name: base-shared-document-attachments-config-map
+      valuesKey: values.yaml
+    - kind: ConfigMap
       name: monitor-agentgateway-extproc-app-defaults
       valuesKey: values.yaml
     - kind: ConfigMap

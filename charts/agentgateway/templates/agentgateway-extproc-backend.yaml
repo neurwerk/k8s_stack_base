@@ -14,5 +14,5 @@ spec:
     port: {{ .Values.guardrails.llmPolicyEngine.extProcPort | default 9000 }}
   policies:
     http:
-      requestTimeout: {{ .Values.guardrails.llmPolicyEngine.extProcTimeout | quote }}
+      requestTimeout: {{ if .Values.docling.enabled }}{{ printf "%ds" (add .Values.docling.syncWaitSeconds 615 30) | quote }}{{ else }}{{ .Values.guardrails.llmPolicyEngine.extProcTimeout | quote }}{{ end }}
 {{- end }}
