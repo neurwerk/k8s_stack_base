@@ -1,4 +1,9 @@
 {{- if .Values.docling.enabled }}
+{{- $remote := eq .Values.docling.inference.mode "remote" }}
+{{- $secrets := printf "docling-tls,%s" .Values.docling.apiKeySecretRef.name }}
+{{- if $remote }}
+  {{- $secrets = printf "%s,%s" $secrets .Values.docling.inference.tokenSecretRef.name }}
+{{- end }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -6,8 +11,8 @@ metadata:
   labels:
     {{- include "docling.labels" . | nindent 4 }}
   annotations:
-    secret.reloader.stakater.com/reload: {{ printf "docling-tls,%s,%s" .Values.docling.apiKeySecretRef.name .Values.docling.inference.tokenSecretRef.name | quote }}
-    {{- if .Values.docling.inference.caConfigMap }}
+    secret.reloader.stakater.com/reload: {{ $secrets | quote }}
+    {{- if and $remote .Values.docling.inference.caConfigMap }}
     configmap.reloader.stakater.com/reload: {{ .Values.docling.inference.caConfigMap | quote }}
     {{- end }}
 spec:
@@ -50,16 +55,20 @@ spec:
             - name: DOCLING_SERVE_API_KEY
               valueFrom:
                 secretKeyRef: {{ .Values.docling.apiKeySecretRef | toJson }}
+            {{- if $remote }}
             - name: DOCLING_INFERENCE_TOKEN
               valueFrom:
                 secretKeyRef: {{ .Values.docling.inference.tokenSecretRef | toJson }}
+            {{- else }}
+            - {name: DOCLING_DEVICE, value: cpu}
+            {{- end }}
             - {name: HF_HUB_OFFLINE, value: "1"}
             - {name: TRANSFORMERS_OFFLINE, value: "1"}
             - {name: HF_HUB_DISABLE_TELEMETRY, value: "1"}
             - {name: PYTHONDONTWRITEBYTECODE, value: "1"}
             - {name: TMPDIR, value: /tmp}
             - {name: MPLCONFIGDIR, value: /tmp/matplotlib}
-            {{- if .Values.docling.inference.caConfigMap }}
+            {{- if and $remote .Values.docling.inference.caConfigMap }}
             - {name: REQUESTS_CA_BUNDLE, value: /inference-ca/ca.crt}
             {{- end }}
           resources:
@@ -81,7 +90,7 @@ spec:
             - {name: tls, mountPath: /tls, readOnly: true}
             - {name: scratch, mountPath: /scratch}
             - {name: tmp, mountPath: /tmp}
-            {{- if .Values.docling.inference.caConfigMap }}
+            {{- if and $remote .Values.docling.inference.caConfigMap }}
             - {name: inference-ca, mountPath: /inference-ca, readOnly: true}
             {{- end }}
       volumes:
@@ -98,7 +107,7 @@ spec:
           emptyDir: {sizeLimit: {{ .Values.docling.scratchSizeLimit }}}
         - name: tmp
           emptyDir: {sizeLimit: {{ .Values.docling.tmpSizeLimit }}}
-        {{- if .Values.docling.inference.caConfigMap }}
+        {{- if and $remote .Values.docling.inference.caConfigMap }}
         - name: inference-ca
           configMap:
             name: {{ .Values.docling.inference.caConfigMap }}

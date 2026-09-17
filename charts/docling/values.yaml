@@ -12,6 +12,9 @@ docling:
   # Existing namespace-local Secrets only; never put credentials in values.
   apiKeySecretRef: {name: "", key: ""}
   inference:
+    # Explicit selection only; remote never falls back to local CPU inference.
+    mode: remote
+    # The following settings are used only in remote mode.
     url: ""
     model: ""
     tokenSecretRef: {name: "", key: ""}

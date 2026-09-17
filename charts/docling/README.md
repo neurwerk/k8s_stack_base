@@ -1,10 +1,10 @@
 # Docling
 
-- Disabled and excluded from normal stages; gateway extraction and credential provisioning are still pending.
-- Runs upstream Docling Serve on CPU and calls your external Granite-Docling server. No CPU-inference fallback; llama.cpp needs `--special`.
-- Set the inference URL, model, private IPv4 CIDRs, port and optional CA in `docling.inference` client values.
-- Supply separate existing Secrets through `docling.apiKeySecretRef` and `docling.inference.tokenSecretRef`; never put keys in values.
+- Disabled by default and excluded from normal stages; gateway extraction integration remains pending.
+- Select `docling.inference.mode: cpu` or `remote` (the default). There is no automatic failover.
+- CPU mode uses built-in OCR, layout and table models in the same Pod, without an external server or runtime downloads.
+- Remote mode needs the server URL, model, private IPv4 CIDRs, port and token reference. An optional CA applies only there; llama.cpp needs `--special` for Granite-Docling.
+- Both modes need `docling.apiKeySecretRef`; only remote needs `docling.inference.tokenSecretRef`. Never put keys in values.
+- CPU clients use `releases/docling/secret-sync/internal`; remote clients use `releases/docling/secret-sync`. Follow the package's pinned CLI prerequisite.
 - Shared `documentAttachments` defaults: 20 MiB/file, 40 MiB/request, 5 files and 200 pages. Override them in client-wide values.
-- Uses private HTTPS and temporary storage in namespace `docling`. Reconcile its namespace, optional Reloader package and certificate approval before enabling it.
-- Completed results are cleaned periodically; timeouts do not cancel active jobs. LibreChat's stored originals are untouched.
-- LibreChat raw delivery is opt-in through `frontendLibrechat.documentAttachments.enabled`, with normal waiting behavior. See the [architecture docs](https://github.com/neurwerk/documentation/blob/main/dev/architecture/docling.md) for setup details and limitations.
+- Only the trusted gateway may submit fixed conversion options. See the [architecture docs](https://github.com/neurwerk/documentation/blob/main/dev/architecture/docling.md) for setup, cleanup and limits.

@@ -101,6 +101,7 @@ class DoclingTests(unittest.TestCase):
             self.assertNotEqual(render("docling", {"docling": {"enabled": flag}}, check=False).returncode, 0)
             self.assertNotEqual(render("librechat/shared", {"frontendLibrechat": {"documentAttachments": {"enabled": flag}}}, check=False).returncode, 0)
         bad = [
+            *({"inference": {"mode": mode}} for mode in ("auto", "", False, None, 0)),
             {"inference": {"url": "http://inference.test/v1/chat/completions"}},
             {"inference": {"url": "https://user@inference.test/v1/chat/completions"}},
             {"inference": {"url": "https://inference.test/v1/chat/completions?token=x"}},
@@ -190,6 +191,71 @@ class DoclingTests(unittest.TestCase):
                 self.assertEqual(error.getvalue(), "Docling startup failed\n")
         finally:
             logging.disable(previous_disable)
+
+    def test_cpu_render_bootstrap_and_internal_delivery(self):
+        result = render("docling", {"docling": {"inference": {
+            "mode": "cpu", "caConfigMap": "stale-inference-ca",
+        }}})
+        settings = self.settings(result)
+        self.assertFalse(settings["enable_remote_services"])
+        self.assertEqual(settings["default_ocr_preset"], "rapidocr")
+        for name in ("custom_vlm_presets", "allowed_vlm_presets", "allowed_vlm_engines"):
+            self.assertFalse(settings[name])
+        self.assertNotIn("allowed_pipelines", settings)
+        deployment, = resources(result, "Deployment")
+        for text in ("DOCLING_INFERENCE_TOKEN", "docling-inference", "stale-inference-ca",
+                     "REQUESTS_CA_BUNDLE", "inference-ca", "configmap.reloader"):
+            self.assertNotIn(text, deployment)
+        for text in ("{name: DOCLING_DEVICE, value: cpu}", '"docling-tls,docling-api"',
+                     "HF_HUB_OFFLINE", "TRANSFORMERS_OFFLINE", "readOnlyRootFilesystem: true",
+                     "mountPath: /scratch", "mountPath: /tmp", "terminationGracePeriodSeconds: 390"):
+            self.assertIn(text, deployment)
+        self.assertNotIn("mountPath: /opt/app-root", deployment)
+        self.assertFalse(resources(result, "PersistentVolumeClaim"))
+        policy, _ = resources(result, "NetworkPolicy")
+        self.assertEqual(policy.split("  egress:")[1].count("- to:"), 1)
+        self.assertNotIn("ipBlock", policy)
+        cpu = {"inference": {"mode": "cpu", **dict.fromkeys(
+            ("url", "model", "tokenSecretRef", "cidrs", "port", "timeoutSeconds", "caConfigMap"))}}
+        self.assertEqual(self.settings(render("docling", {"docling": cpu})), settings)
+        for invalid in ({"apiKeySecretRef": {"name": ""}}, {"documentTimeoutSeconds": 0},
+                        {"resources": {"limits": {"nvidia.com/gpu": 1}}}):
+            self.assertNotEqual(render("docling", {"docling": {**cpu, **invalid}}, check=False).returncode, 0)
+
+        scope = {"__name__": "bootstrap_test"}
+        exec(compile((ROOT / "charts/docling/files/bootstrap.py").read_text(), "bootstrap.py", "exec"), scope)
+        app, uvicorn = types.ModuleType("docling_serve.app"), types.ModuleType("uvicorn")
+        app.create_app, uvicorn.run = Mock(), Mock()
+        previous_disable = logging.root.manager.disable
+        try:
+            with patch.dict(os.environ, {"DOCLING_SERVE_CONFIG_FILE": "/config/settings.json",
+                                         "DOCLING_SERVE_API_KEY": "test-api-key"}, clear=True), \
+                    patch.dict(sys.modules, {"docling_serve.app": app, "uvicorn": uvicorn}), \
+                    patch("builtins.open", mock_open(read_data=json.dumps(settings))):
+                self.assertEqual(scope["main"](), 0)
+                self.assertNotIn("DOCLING_SERVE_CUSTOM_VLM_PRESETS", os.environ)
+                self.assertEqual(logging.root.manager.disable, logging.CRITICAL)
+                self.assertFalse(uvicorn.run.call_args.kwargs["access_log"])
+                self.assertEqual(uvicorn.run.call_args.kwargs["timeout_graceful_shutdown"], 360)
+                os.environ["DOCLING_SERVE_API_KEY"] = ""
+                with contextlib.redirect_stderr(io.StringIO()) as error:
+                    self.assertEqual(scope["main"](), 1)
+                self.assertEqual(error.getvalue(), "Docling startup failed\n")
+        finally:
+            logging.disable(previous_disable)
+
+        delivery = subprocess.run(["kustomize", "build", str(ROOT / "releases/docling/secret-sync/internal")],
+                                  text=True, capture_output=True, check=True)
+        self.assertEqual([len(resources(delivery, kind)) for kind in
+                          ("ServiceAccount", "SecretStore", "ExternalSecret")], [2, 2, 2])
+        self.assertEqual(len(re.findall(r"(?m)^kind:", delivery.stdout)), 6)
+        for text in ("docling-inference", "inferenceToken", "/external", "dataFrom:"):
+            self.assertNotIn(text, delivery.stdout)
+        root = subprocess.run(["kustomize", "build", str(ROOT / "releases/docling/secret-sync")],
+                              text=True, capture_output=True, check=True)
+        for kind in ("ServiceAccount", "SecretStore", "ExternalSecret"):
+            for resource in resources(delivery, kind):
+                self.assertIn(resource.strip(), [item.strip() for item in resources(root, kind)])
 
     def test_optional_packages_and_shared_caps(self):
         for stage in ("namespaces", "infrastructure", "applications"):
