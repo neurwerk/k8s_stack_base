@@ -10,8 +10,10 @@
 #   - KC_HOSTNAME fixed to the full external HTTPS URL
 #   - KC_HEALTH_ENABLED for readiness/liveness probes
 # =============================================================================
+{{- $ad := .Values.authKeycloak.activeDirectory }}
+{{- $ldaps := and $ad.enabled (hasPrefix "ldaps://" $ad.connectionUrl) }}
 {{- $reload := list }}
-{{- if .Values.authKeycloak.activeDirectory.enabled }}
+{{- if $ldaps }}
 {{- $reload = append $reload .Values.authKeycloak.activeDirectory.caConfigMapName }}
 {{- end }}
 {{- if .Values.authKeycloak.branding.enabled }}
@@ -84,7 +86,7 @@ spec:
               value: "true"
             - name: KC_HOSTNAME_BACKCHANNEL_DYNAMIC
               value: "false"
-            {{- if .Values.authKeycloak.activeDirectory.enabled }}
+            {{- if $ldaps }}
             - name: KC_TRUSTSTORE_PATHS
               value: /opt/keycloak/conf/truststores/active-directory
             {{- end }}
@@ -121,7 +123,7 @@ spec:
             - name: postgres-ca
               mountPath: {{ .Values.authKeycloak.database.caMountPath | quote }}
               readOnly: true
-            {{- if .Values.authKeycloak.activeDirectory.enabled }}
+            {{- if $ldaps }}
             - name: active-directory-ca
               mountPath: /opt/keycloak/conf/truststores/active-directory/ca.crt
               subPath: ca.crt
@@ -179,7 +181,7 @@ spec:
             items:
               - key: {{ .Values.authKeycloak.database.caKey | quote }}
                 path: ca.crt
-        {{- if .Values.authKeycloak.activeDirectory.enabled }}
+        {{- if $ldaps }}
         - name: active-directory-ca
           configMap:
             name: {{ .Values.authKeycloak.activeDirectory.caConfigMapName | quote }}

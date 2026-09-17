@@ -110,7 +110,7 @@ spec:
             cidr: {{ . | quote }}
         {{- end }}
       ports:
-        - port: 636
+        - port: {{ ternary 389 636 (hasPrefix "ldap://" .Values.authKeycloak.activeDirectory.connectionUrl) }}
           protocol: TCP
     {{- end }}
     {{- if .Values.authKeycloak.smtp.enabled }}

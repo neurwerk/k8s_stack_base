@@ -2,4 +2,4 @@ apiVersion: v2
 name: keycloak-active-directory
 description: Reconciles optional Microsoft Active Directory federation in Keycloak
 type: application
-version: 1.0.2
+version: 1.1.0
