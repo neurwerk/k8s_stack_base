@@ -21,6 +21,14 @@ spec:
     - releases/infrastructure
     - releases/applications
     optional:
+    - path: releases/docling/secret-sync
+      status: excluded
+      reason: Optional credential delivery; stage before operator setup without starting Docling.
+      chartPrefixes: []
+      prerequisites:
+      - name: openbao-stack-setup
+        version: 0.2.15
+        source: https://github.com/neurwerk/k8s_stack_tooling/commit/79a3c2eb98ea1e407376a95f83d2441576d719f6
     - path: releases/docling/reloader
       status: excluded
       reason: Optional Docling namespace watch and rotation RBAC; compose only after its namespace exists.
@@ -35,6 +43,10 @@ spec:
         deployed.
       chartPrefixes:
       - charts/docling
+      prerequisites:
+      - name: openbao-stack-setup
+        version: 0.2.15
+        source: https://github.com/neurwerk/k8s_stack_tooling/commit/79a3c2eb98ea1e407376a95f83d2441576d719f6
     - path: releases/namespaces/maintenance
       status: included
       reason: Operator-tested optional maintenance; enable only when selected by the client.

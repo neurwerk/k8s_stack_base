@@ -196,14 +196,56 @@ class DoclingTests(unittest.TestCase):
             result = subprocess.check_output(["kustomize", "build", "--load-restrictor",
                                               "LoadRestrictionsNone", str(ROOT / "releases" / stage)], text=True)
             self.assertNotRegex(result, r"(?m)^  (?:name|namespace): docling$")
+            self.assertNotIn("name: monitor-agentgateway-extproc-docling-secret", result)
+            self.assertNotIn("name: monitor-agentgateway-extproc-openbao-secret-store", result)
         package = subprocess.check_output(["kustomize", "build", "--load-restrictor", "LoadRestrictionsNone",
                                            str(ROOT / "releases/docling/app")], text=True)
         self.assertIn("name: base-shared-document-attachments-config-map", package)
         self.assertIn("name: docling-product-values", package)
         for source in ("release/config.yaml", "release/manifest.yaml"):
             text = (ROOT / source).read_text()
-            for path in ("releases/docling/app", "releases/namespaces/docling", "releases/docling/reloader"):
+            for path in ("releases/docling/app", "releases/namespaces/docling", "releases/docling/reloader",
+                         "releases/docling/secret-sync"):
                 self.assertRegex(text, re.escape(path) + r"\n\s+status: excluded")
+
+        delivery = subprocess.run(["kustomize", "build", str(ROOT / "releases/docling/secret-sync")],
+                                  text=True, capture_output=True, check=True)
+        self.assertEqual(len(re.findall(r"(?m)^kind:", delivery.stdout)), 7)
+        self.assertFalse(resources(delivery, "Secret"))
+        self.assertNotIn("dataFrom:", delivery.stdout)
+        self.assertNotIn("template:", delivery.stdout)
+        accounts = resources(delivery, "ServiceAccount")
+        stores = resources(delivery, "SecretStore")
+        secrets = resources(delivery, "ExternalSecret")
+        self.assertEqual((len(accounts), len(stores), len(secrets)), (2, 2, 3))
+        for namespace, source in (("docling", "docling/namespace.yaml"),
+                                  ("monitor-agentgateway-extproc", "agentgateway-extproc.yaml")):
+            account, = [item for item in accounts if f"  namespace: {namespace}\n" in item]
+            self.assertIn(f"  name: {namespace}-external-secrets\n", account)
+            self.assertIn("automountServiceAccountToken: false", account)
+            store, = [item for item in stores if f"  namespace: {namespace}\n" in item]
+            for text in (f"name: {namespace}-openbao-secret-store\n", f"role: {namespace}\n",
+                         f"name: {namespace}-external-secrets\n", "mountPath: kubernetes",
+                         "server: https://infra-openbao.infra-openbao.svc:8200", "path: secret",
+                         "version: v2", "type: ConfigMap", "name: infra-openbao-ca-bundle",
+                         "key: ca.crt", "audiences:\n", "- openbao"):
+                self.assertIn(text, store)
+            self.assertIn('secrets.neurwerk.com/openbao-trust: "true"',
+                          (ROOT / "releases/namespaces" / source).read_text())
+        for namespace, name, key, record, field in (
+            ("docling", "docling-api", "api-key", "internal", "apiKey"),
+            ("docling", "docling-inference", "token", "external", "inferenceToken"),
+            ("monitor-agentgateway-extproc", "monitor-agentgateway-extproc-docling-secret",
+             "api-key", "internal", "doclingApiKey"),
+        ):
+            secret, = [item for item in secrets if f"  name: {name}\n" in item]
+            self.assertIn(f"  namespace: {namespace}\n", secret)
+            self.assertEqual(secret.count("secretKey:"), 1)
+            for text in (f"secretKey: {key}\n", f"key: {namespace}/{record}\n", f"property: {field}\n",
+                         f"name: {namespace}-openbao-secret-store\n", "kind: SecretStore",
+                         f"    name: {name}\n", "refreshInterval: 1h", "creationPolicy: Owner",
+                         "deletionPolicy: Retain"):
+                self.assertIn(text, secret)
 
         watcher_values = json.loads((ROOT / "releases/docling/reloader/values.json").read_text())
         default_reloader = render("reloader", {}).stdout
