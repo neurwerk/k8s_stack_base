@@ -153,6 +153,159 @@ class ReleaseContractTest(unittest.TestCase):
                 self.assertNotEqual(result.returncode, 0)
                 self.assertIn("authKeycloak.branding.logoConfigMapName", result.stderr)
 
+    def test_active_directory_mapping_transport_and_runtime_gate(self) -> None:
+        charts = ("server", "realm-config/active-directory")
+        image = "ghcr.io/neurwerk/k8s-stack-tooling:0.7.0"
+        legacy = ["neurwerk-platform-admins"]
+        mappings = [
+            {"sourceName": "APP_Users (West), R&D+Ops\\Team", "targetParent": "/access/neurwerk-studio-users"},
+            {"sourceName": "GIT_Admins", "targetParent": "/access/neurwerk-forgejo-admins"},
+        ]
+        ad = {
+            "enabled": True, "connectionUrl": "ldaps://ad.example:636",
+            "usersDn": "OU=Users,DC=example", "groupsDn": "OU=Groups,DC=example",
+            "groupNames": legacy, "egressCidrs": ["192.0.2.1/32"],
+        }
+
+        def render(chart, settings, tooling=None, branding=False):
+            values = {"authKeycloak": {"activeDirectory": settings, "smtp": {"enabled": False}, "branding": {
+                "enabled": branding, "logoConfigMapName": "keycloak-branding-logo",
+            }}}
+            if tooling is not None:
+                values["k8sTools"] = {"image": tooling}
+            return subprocess.run(
+                ["helm", "template", "keycloak", str(ROOT / "charts/keycloak" / chart),
+                 "--namespace", "auth-keycloak",
+                 "--values", str(ROOT / "tests/validation/helm-lint-values.yaml"),
+                 "--values", "-"],
+                input=yaml.safe_dump(values), capture_output=True, text=True, check=False,
+            )
+
+        for chart in charts:
+            for enabled, mapped, plain, allow, tooling in (
+                (False, False, False, False, None),
+                (True, False, False, False, None),
+                (True, False, False, True, None),
+                (True, True, False, False, image),
+                (True, True, True, True, image + "@sha256:" + "a" * 64),
+                (True, False, True, True, image),
+            ):
+                for branding in (False, True):
+                    with self.subTest(chart=chart, enabled=enabled, mapped=mapped,
+                                      plain=plain, allow=allow, branding=branding):
+                        settings = {
+                            **ad, "enabled": enabled, "allowInsecureLdap": allow,
+                            "connectionUrl": "ldap://ad.example:389" if plain else ad["connectionUrl"],
+                            "groupNames": [] if mapped else legacy,
+                            "groupMappings": mappings if mapped else [],
+                        }
+                        if plain:
+                            settings.update(caConfigMapName="", caKey="")
+                        result = render(chart, settings, tooling, branding)
+                        self.assertEqual(result.returncode, 0, result.stderr)
+                        docs = [doc for doc in yaml.safe_load_all(result.stdout) if doc]
+                        self.assertNotIn("KC_TLS_HOSTNAME_VERIFIER", result.stdout)
+                        self.assertNotIn("KC_SPI_TRUSTSTORE_FILE_HOSTNAME_VERIFICATION_POLICY", result.stdout)
+                        if chart == "server":
+                            sts = next(doc for doc in docs if doc["kind"] == "StatefulSet")
+                            pod = sts["spec"]["template"]["spec"]
+                            container = pod["containers"][0]
+                            env = {item["name"]: item for item in container["env"]}
+                            volumes = {item["name"]: item for item in pod["volumes"]}
+                            mounts = {item["name"]: item for item in container["volumeMounts"]}
+                            secure = enabled and not plain
+                            self.assertEqual("KC_TRUSTSTORE_PATHS" in env, secure)
+                            self.assertEqual("active-directory-ca" in volumes, secure)
+                            self.assertEqual("active-directory-ca" in mounts, secure)
+                            if secure:
+                                self.assertEqual(volumes["active-directory-ca"]["configMap"]["name"],
+                                                 "auth-keycloak-active-directory-ca")
+                                self.assertTrue(mounts["active-directory-ca"]["readOnly"])
+                            self.assertIn("postgres-ca", volumes)
+                            self.assertIn("postgres-ca", mounts)
+                            self.assertIn("sslmode=verify-full", env["KC_DB_URL"]["value"])
+                            self.assertEqual("client-brand" in volumes, branding)
+                            reloads = (["auth-keycloak-active-directory-ca"] if secure else [])
+                            reloads += ["keycloak-branding-logo"] if branding else []
+                            self.assertEqual(sts["metadata"].get("annotations", {}).get(
+                                "configmap.reloader.stakater.com/reload", ""), ",".join(reloads))
+                            policy = next(doc for doc in docs if doc["metadata"]["name"] ==
+                                          "auth-keycloak-keycloak-egress")
+                            external = [rule for rule in policy["spec"]["egress"]
+                                        if any("ipBlock" in peer for peer in rule["to"])]
+                            self.assertEqual(external, [{
+                                "to": [{"ipBlock": {"cidr": "192.0.2.1/32"}}],
+                                "ports": [{"port": 389 if plain else 636, "protocol": "TCP"}],
+                            }] if enabled else [])
+                        else:
+                            job = next(doc for doc in docs if doc["kind"] == "Job")
+                            container = job["spec"]["template"]["spec"]["containers"][0]
+                            env = {item["name"]: item for item in container["env"]}
+                            self.assertEqual(env["KC_ACTIVE_DIRECTORY_ENABLED"]["value"],
+                                             str(enabled).lower())
+                            self.assertEqual(any(doc["kind"] == "ExternalSecret" for doc in docs), enabled)
+                            if enabled:
+                                self.assertEqual(json.loads(env["KC_ACTIVE_DIRECTORY_GROUP_NAMES"]["value"]),
+                                                 [] if mapped else legacy)
+                                self.assertEqual(json.loads(env["KC_ACTIVE_DIRECTORY_GROUP_MAPPINGS"]["value"]),
+                                                 mappings if mapped else [])
+                                self.assertEqual(env["KC_ACTIVE_DIRECTORY_ALLOW_INSECURE_LDAP"]["value"],
+                                                 str(allow).lower())
+                                for suffix, key in (("DN", "activeDirectoryBindDn"),
+                                                    ("CREDENTIAL", "activeDirectoryBindCredential")):
+                                    self.assertEqual(env[f"KC_ACTIVE_DIRECTORY_BIND_{suffix}"]["valueFrom"], {
+                                        "secretKeyRef": {"name": "auth-keycloak-active-directory-secret",
+                                                         "key": key},
+                                    })
+                            else:
+                                self.assertEqual([name for name in env if name.startswith("KC_ACTIVE_DIRECTORY_")],
+                                                 ["KC_ACTIVE_DIRECTORY_ENABLED"])
+
+            mapped_ad = {**ad, "groupNames": [], "groupMappings": mappings}
+            for tooling in (None, image.replace("0.7.0", "0.6.2"),
+                            image.replace("0.7.0", "0.7"), image.replace("0.7.0", "latest"),
+                            image + "-rc.1", image + "@sha256:abc",
+                            "registry.example/tooling:0.7.0"):
+                for settings in (mapped_ad, {**ad, "connectionUrl": "ldap://ad.example:389",
+                                             "allowInsecureLdap": True}):
+                    with self.subTest(chart=chart, old_or_invalid_image=tooling, settings=settings):
+                        result = render(chart, settings, tooling)
+                        self.assertNotEqual(result.returncode, 0)
+                        self.assertIn("requires k8sTools.image", result.stderr)
+                        self.assertIn(">=0.7.0", result.stderr)
+            for version in ("0.7.1", "0.10.0", "1.0.0"):
+                with self.subTest(chart=chart, version=version):
+                    result = render(chart, mapped_ad, image.replace("0.7.0", version))
+                    self.assertEqual(result.returncode, 0, result.stderr)
+            for override, error in (
+                ({"groupNames": legacy}, "exactly one non-empty list"),
+                ({"groupMappings": []}, "exactly one non-empty list"),
+                ({"groupMappings": {}}, "must be lists"),
+                ({"groupMappings": ["AD_USERS"]}, "only sourceName and targetParent"),
+                ({"groupMappings": [{**mappings[0], "extra": True}]}, "only sourceName and targetParent"),
+                ({"groupMappings": [mappings[0], {**mappings[1], "sourceName": mappings[0]["sourceName"].lower()}]},
+                 "duplicate sourceName"),
+                ({"groupMappings": [mappings[0], {**mappings[1], "targetParent": mappings[0]["targetParent"]}]},
+                 "duplicate targetParent"),
+                *[({"groupMappings": [{**mappings[0], "sourceName": source}]}, "sourceName")
+                  for source in ("", " AD_USERS", "AD_USERS ", "AD\nUSERS", "AD\x00USERS",
+                                 "<group>", "${GROUP}", "{{group}}", "REPLACE_ME", "x" * 65, True)],
+                *[({"groupMappings": [{**mappings[0], "targetParent": target}]}, "canonical /access/")
+                  for target in ("/access", "/access/neurwerk-unknown", "/access/neurwerk-studio-users/child", True)],
+                ({"allowInsecureLdap": "true"}, "must be a boolean"),
+                *[({"connectionUrl": url}, "connectionUrl") for url in (
+                    "ldap://ad.example:389", "ldaps://ad.example:389", "ldaps://ad.example",
+                    "ldaps://ad.example:636/path", "ldaps://<host>:636",
+                )],
+                ({"connectionUrl": "ldap://ad.example:636", "allowInsecureLdap": True}, "connectionUrl"),
+                ({"caConfigMapName": ""}, "required for LDAPS"),
+                ({"caKey": ""}, "required for LDAPS"),
+            ):
+                with self.subTest(chart=chart, invalid=override):
+                    result = render(chart, {**mapped_ad, **override}, image)
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertIn(error, result.stderr)
+
     def test_compact_notes_preserve_only_selected_authored_body(self) -> None:
         body = (
             "- Fix LibreChat MCP authentication with internal routing.\n"

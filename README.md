@@ -151,6 +151,52 @@ certificates, OpenBao initialization, and published images matching the selected
 tag's `release/manifest.yaml`. The exact prerequisite versions and compatibility
 limits are release-specific; do not infer upgrade safety from SemVer alone.
 
+## Active Directory Mappings (Staged)
+
+The Keycloak server and Active Directory reconciliation charts expose
+`authKeycloak.activeDirectory.groupMappings`, default `[]`, alongside the legacy
+`groupNames: []`. Enabled federation requires exactly one non-empty list, never
+both. A mapping contains only `sourceName` and `targetParent`: for example,
+`{sourceName: APP_Users, targetParent: /access/neurwerk-studio-users}`. Source
+names contain 1-64 characters and preserve case, underscores, spaces and LDAP
+punctuation; Tooling owns DN and filter escaping. Empty names, controls, outer
+whitespace, placeholders, case-insensitive duplicate sources and duplicate
+targets are rejected. Helm checks lowercase source uniqueness; Tooling enforces
+full Unicode case-fold uniqueness before reconciliation. Targets
+are restricted to the 13 canonical `/access/neurwerk-` groups and the two optional
+Forgejo groups; the runtime must verify that the target already exists. Mapping
+imports a source-named child under that canonical parent, inheriting its existing
+permissions without changing platform roles or direct-membership policy.
+
+Verified `ldaps://host:636` remains the default. Plain `ldap://host:389` requires
+explicit `allowInsecureLdap: true` (default `false`); this sends credentials and
+directory data without TLS and must be a deliberate operator choice. There is
+no automatic downgrade, StartTLS mode, or certificate-verification bypass.
+Server egress uses only the selected directory port and configured `egressCidrs`.
+Only LDAPS requires the AD CA ConfigMap, mount, `KC_TRUSTSTORE_PATHS` and CA reload
+annotation; database CA trust and branding/logo reload handling stay independent.
+Both transports require the existing OpenBao-backed bind Secret.
+
+**This is staged chart support, not released runtime readiness.** Mapping or
+plaintext selection fails at render time unless both charts receive
+`k8sTools.image` in the exact format
+`ghcr.io/neurwerk/k8s-stack-tooling:X.Y.Z`, version `>=0.7.0`, optionally followed
+by `@sha256:<64 lowercase hex>`. Moving tags, prereleases, digest-only references
+and other image repositories cannot prove compatibility and are rejected for
+these new modes. This gate checks the declared version, not registry publication.
+Tooling `0.6.2` is published; `0.7.0` still needs separate authorized publication,
+verification and image-pin adoption before these modes can be used. Existing
+pins are intentionally unchanged; disabled and legacy LDAPS installs remain
+deployable, including consumers of `main`.
+
+The enabled Job exports `KC_ACTIVE_DIRECTORY_GROUP_MAPPINGS` as a JSON array,
+retains `KC_ACTIVE_DIRECTORY_GROUP_NAMES` as the original JSON array, and exports
+`KC_ACTIVE_DIRECTORY_ALLOW_INSECURE_LDAP` as `"true"` or `"false"`. Legacy mode
+sends empty mappings and keeps the original names, so older Tooling can ignore
+the new environment variables safely. Disabled Jobs omit directory inputs and
+bind credentials. Shared documentation, runtime implementation and later client
+adoption are coordinated separately under Base #180 (chart work: #181).
+
 ## Validation
 
 Run the complete local validation suite from the repository root:
