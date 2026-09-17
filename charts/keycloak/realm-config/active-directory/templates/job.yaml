@@ -61,6 +61,8 @@ spec:
             {{- if $ad.enabled }}
             - name: KC_ACTIVE_DIRECTORY_CONNECTION_URL
               value: {{ $ad.connectionUrl | quote }}
+            - name: KC_ACTIVE_DIRECTORY_ALLOW_INSECURE_LDAP
+              value: {{ $ad.allowInsecureLdap | quote }}
             - name: KC_ACTIVE_DIRECTORY_USERS_DN
               value: {{ $ad.usersDn | quote }}
             - name: KC_ACTIVE_DIRECTORY_GROUPS_DN
@@ -69,6 +71,8 @@ spec:
               value: {{ $ad.usernameAttribute | quote }}
             - name: KC_ACTIVE_DIRECTORY_GROUP_NAMES
               value: {{ $ad.groupNames | toJson | quote }}
+            - name: KC_ACTIVE_DIRECTORY_GROUP_MAPPINGS
+              value: {{ $ad.groupMappings | toJson | quote }}
             - name: KC_ACTIVE_DIRECTORY_BIND_DN
               valueFrom:
                 secretKeyRef:

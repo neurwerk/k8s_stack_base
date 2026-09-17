@@ -3,12 +3,17 @@
   {{- fail "authKeycloak.activeDirectory.enabled must be a boolean" -}}
 {{- end -}}
 {{- if $ad.enabled -}}
-  {{- $connectionUrl := required "authKeycloak.activeDirectory.connectionUrl is required when Active Directory is enabled" $ad.connectionUrl -}}
-  {{- if not (regexMatch "^ldaps://(\\[[0-9A-Fa-f:]+\\]|[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?):636$" $connectionUrl) -}}
-    {{- fail "authKeycloak.activeDirectory.connectionUrl must be an explicit ldaps://host:636 URL" -}}
+  {{- if not (kindIs "bool" $ad.allowInsecureLdap) -}}
+    {{- fail "authKeycloak.activeDirectory.allowInsecureLdap must be a boolean" -}}
   {{- end -}}
-  {{- if regexMatch "<[^>]+>" $connectionUrl -}}
-    {{- fail "authKeycloak.activeDirectory.connectionUrl must not contain a placeholder" -}}
+  {{- $connectionUrl := required "authKeycloak.activeDirectory.connectionUrl is required when Active Directory is enabled" $ad.connectionUrl -}}
+  {{- if not (kindIs "string" $connectionUrl) -}}
+    {{- fail "authKeycloak.activeDirectory.connectionUrl must be a string" -}}
+  {{- end -}}
+  {{- $ldaps := regexMatch "^ldaps://(\\[[0-9A-Fa-f:]+\\]|[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?):636$" $connectionUrl -}}
+  {{- $ldap := regexMatch "^ldap://(\\[[0-9A-Fa-f:]+\\]|[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?):389$" $connectionUrl -}}
+  {{- if not (or $ldaps (and $ad.allowInsecureLdap $ldap)) -}}
+    {{- fail "authKeycloak.activeDirectory.connectionUrl must be ldaps://host:636, or ldap://host:389 with allowInsecureLdap: true; no placeholders or TLS fallback" -}}
   {{- end -}}
 
   {{- range $name, $value := dict "usersDn" $ad.usersDn "groupsDn" $ad.groupsDn -}}
@@ -21,8 +26,26 @@
   {{- if not (has $ad.usernameAttribute (list "sAMAccountName" "userPrincipalName")) -}}
     {{- fail "authKeycloak.activeDirectory.usernameAttribute must be sAMAccountName or userPrincipalName" -}}
   {{- end -}}
-  {{- if or (not (kindIs "slice" $ad.groupNames)) (eq (len $ad.groupNames) 0) -}}
-    {{- fail "authKeycloak.activeDirectory.groupNames must be a non-empty list" -}}
+  {{- if or (not (kindIs "slice" $ad.groupNames)) (not (kindIs "slice" $ad.groupMappings)) -}}
+    {{- fail "authKeycloak.activeDirectory.groupNames and groupMappings must be lists" -}}
+  {{- end -}}
+  {{- if eq (empty $ad.groupNames) (empty $ad.groupMappings) -}}
+    {{- fail "authKeycloak.activeDirectory requires exactly one non-empty list: groupNames or groupMappings" -}}
+  {{- end -}}
+  {{- if or $ad.groupMappings $ldap -}}
+    {{- /* Staged contract: never let published older Tooling silently ignore new settings. */ -}}
+    {{- $image := .Values.k8sTools.image -}}
+    {{- $imageError := "Active Directory groupMappings or plaintext LDAP requires k8sTools.image ghcr.io/neurwerk/k8s-stack-tooling:X.Y.Z >=0.7.0 (optional @sha256:<64 lowercase hex>); publish and verify the runtime before adopting its pin" -}}
+    {{- if not (kindIs "string" $image) -}}
+      {{- fail $imageError -}}
+    {{- end -}}
+    {{- if not (regexMatch "^ghcr\\.io/neurwerk/k8s-stack-tooling:(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(@sha256:[0-9a-f]{64})?$" $image) -}}
+      {{- fail $imageError -}}
+    {{- end -}}
+    {{- $version := trimPrefix "ghcr.io/neurwerk/k8s-stack-tooling:" (first (splitList "@" $image)) -}}
+    {{- if not (semverCompare ">=0.7.0" $version) -}}
+      {{- fail $imageError -}}
+    {{- end -}}
   {{- end -}}
   {{- $seenGroups := dict -}}
   {{- range $groupName := $ad.groupNames -}}
@@ -38,30 +61,66 @@
     {{- $_ := set $seenGroups $groupName true -}}
   {{- end -}}
 
+  {{- $targets := list "api-key-admins" "dify-admins" "dify-users" "keycloak-admins" "langfuse-admins" "librechat-admins" "librechat-users" "opensearch-admins" "pii-admins" "platform-admins" "studio-users" "llm-all-users" "mcp-all-users" "forgejo-admins" "forgejo-users" -}}
+  {{- $seenTargets := dict -}}
+  {{- range $mapping := $ad.groupMappings -}}
+    {{- if not (kindIs "map" $mapping) -}}
+      {{- fail "authKeycloak.activeDirectory.groupMappings entries must contain only sourceName and targetParent" -}}
+    {{- end -}}
+    {{- if or (ne (len $mapping) 2) (not (hasKey $mapping "sourceName")) (not (hasKey $mapping "targetParent")) -}}
+      {{- fail "authKeycloak.activeDirectory.groupMappings entries must contain only sourceName and targetParent" -}}
+    {{- end -}}
+    {{- $source := $mapping.sourceName -}}
+    {{- if not (kindIs "string" $source) -}}
+      {{- fail "authKeycloak.activeDirectory.groupMappings sourceName must be a string" -}}
+    {{- end -}}
+    {{- if or (not (regexMatch "^.{1,64}$" $source)) (ne $source (trim $source)) (regexMatch "(?i)[\\p{Cc}<>]|replace|placeholder|changeme|\\$\\{|\\{\\{" $source) -}}
+      {{- fail "authKeycloak.activeDirectory.groupMappings sourceName must be 1-64 characters without controls, outer whitespace, or placeholders" -}}
+    {{- end -}}
+    {{- /* Tooling additionally enforces full Unicode casefold uniqueness before reconciliation. */ -}}
+    {{- if hasKey $seenGroups (lower $source) -}}
+      {{- fail "authKeycloak.activeDirectory.groupMappings contains a duplicate sourceName (case-insensitive)" -}}
+    {{- end -}}
+    {{- $_ := set $seenGroups (lower $source) true -}}
+    {{- $target := $mapping.targetParent -}}
+    {{- if not (kindIs "string" $target) -}}
+      {{- fail "authKeycloak.activeDirectory.groupMappings targetParent must be a canonical /access/neurwerk- group path" -}}
+    {{- end -}}
+    {{- if or (not (hasPrefix "/access/neurwerk-" $target)) (not (has (trimPrefix "/access/neurwerk-" $target) $targets)) -}}
+      {{- fail "authKeycloak.activeDirectory.groupMappings targetParent must be a canonical /access/neurwerk- group path" -}}
+    {{- end -}}
+    {{- if hasKey $seenTargets $target -}}
+      {{- fail "authKeycloak.activeDirectory.groupMappings contains a duplicate targetParent" -}}
+    {{- end -}}
+    {{- $_ := set $seenTargets $target true -}}
+  {{- end -}}
+
   {{- if not (kindIs "bool" $ad.emailVerified) -}}
     {{- fail "authKeycloak.activeDirectory.emailVerified must be true" -}}
   {{- end -}}
   {{- if not $ad.emailVerified -}}
     {{- fail "authKeycloak.activeDirectory.emailVerified must be true" -}}
   {{- end -}}
-  {{- $caConfigMapName := required "authKeycloak.activeDirectory.caConfigMapName is required when Active Directory is enabled" $ad.caConfigMapName -}}
-  {{- if not (kindIs "string" $caConfigMapName) -}}
-    {{- fail "authKeycloak.activeDirectory.caConfigMapName must be a valid DNS-1123 subdomain" -}}
-  {{- end -}}
-  {{- if or (gt (len $caConfigMapName) 253) (not (regexMatch "^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$" $caConfigMapName)) -}}
-    {{- fail "authKeycloak.activeDirectory.caConfigMapName must be a valid DNS-1123 subdomain" -}}
-  {{- end -}}
-  {{- range $label := splitList "." $caConfigMapName -}}
-    {{- if gt (len $label) 63 -}}
+  {{- if $ldaps -}}
+    {{- $caConfigMapName := required "authKeycloak.activeDirectory.caConfigMapName is required for LDAPS" $ad.caConfigMapName -}}
+    {{- if not (kindIs "string" $caConfigMapName) -}}
       {{- fail "authKeycloak.activeDirectory.caConfigMapName must be a valid DNS-1123 subdomain" -}}
     {{- end -}}
-  {{- end -}}
-  {{- $caKey := required "authKeycloak.activeDirectory.caKey is required when Active Directory is enabled" $ad.caKey -}}
-  {{- if not (kindIs "string" $caKey) -}}
-    {{- fail "authKeycloak.activeDirectory.caKey must be a valid ConfigMap key" -}}
-  {{- end -}}
-  {{- if or (gt (len $caKey) 253) (not (regexMatch "^[-._A-Za-z0-9]+$" $caKey)) -}}
-    {{- fail "authKeycloak.activeDirectory.caKey must be a valid ConfigMap key" -}}
+    {{- if or (gt (len $caConfigMapName) 253) (not (regexMatch "^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$" $caConfigMapName)) -}}
+      {{- fail "authKeycloak.activeDirectory.caConfigMapName must be a valid DNS-1123 subdomain" -}}
+    {{- end -}}
+    {{- range $label := splitList "." $caConfigMapName -}}
+      {{- if gt (len $label) 63 -}}
+        {{- fail "authKeycloak.activeDirectory.caConfigMapName must be a valid DNS-1123 subdomain" -}}
+      {{- end -}}
+    {{- end -}}
+    {{- $caKey := required "authKeycloak.activeDirectory.caKey is required for LDAPS" $ad.caKey -}}
+    {{- if not (kindIs "string" $caKey) -}}
+      {{- fail "authKeycloak.activeDirectory.caKey must be a valid ConfigMap key" -}}
+    {{- end -}}
+    {{- if or (gt (len $caKey) 253) (not (regexMatch "^[-._A-Za-z0-9]+$" $caKey)) -}}
+      {{- fail "authKeycloak.activeDirectory.caKey must be a valid ConfigMap key" -}}
+    {{- end -}}
   {{- end -}}
 
   {{- if or (not (kindIs "slice" $ad.egressCidrs)) (eq (len $ad.egressCidrs) 0) -}}

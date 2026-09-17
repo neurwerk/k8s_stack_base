@@ -37,12 +37,19 @@ authKeycloak:
     starttls: false
   activeDirectory:
     enabled: false
+    # Explicit plaintext opt-in; only ldap://host:389, never a TLS fallback.
+    allowInsecureLdap: false
     connectionUrl: "ldaps://<active-directory-host>:636"
     usersDn: "<users-dn>"
     groupsDn: "<groups-dn>"
     usernameAttribute: sAMAccountName
+    # When enabled, select exactly one non-empty list. Legacy same-name groups:
     groupNames: []
+    # Staged: {sourceName: AD_Group, targetParent: /access/neurwerk-studio-users}.
+    # Mappings or plaintext require published Tooling >=0.7.0; pins stay unchanged.
+    groupMappings: []
     emailVerified: true
+    # Required only for LDAPS; never used for plaintext LDAP.
     caConfigMapName: auth-keycloak-active-directory-ca
     caKey: ca.crt
     egressCidrs: []
