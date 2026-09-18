@@ -227,11 +227,21 @@ legacy metadata and text/PII/tracing behavior are unchanged, and no new image
 settings are emitted. Version 1 rejects explicit `process`, `imageForwarding` and
 `faceProtectionEnabled` settings rather than silently dropping them.
 
-**Do not enable version 2 with the pinned extProc `0.8.0`.** First publish and
-verify a compatible consumer, separately authorize its digest pin and deployment,
-and confirm all extProc replicas support version 2. Only then separately opt in
-to the gateway contract and client uploads. This source change does not publish,
-pin or deploy a new runtime, enable uploads, or change the standard Docling pipeline.
+Base now pins published, verified extProc `0.9.0` from source
+`4e7bc05719b4fbdb4b3220ed98854e0128ab0302` to digest
+`sha256:f9b98191a6cc96bf52651bdf1cdecb9eb81e36d6555a6fd2479c6456009cd960`
+in chart `1.3.1`. [Publication workflow 35347879238](https://github.com/neurwerk/k8s_stack_agentgateway_extproc/actions/runs/35347879238)
+passed, and independent registry verification confirmed `linux/amd64`, the source
+revision and version labels against the release. **Keep metadata version 1 until
+all extProc replicas run the compatible image after an authorized deployment.**
+Version-2 activation and client uploads need separate authorization; this pin
+change does not deploy a runtime, enable uploads or change the standard Docling pipeline.
+
+The global and three optional Docling prerequisites select workstation CLI
+`openbao-stack-setup` `0.2.17` from Tooling source
+`8f62f6e1b0ccf6b4d60f7cc66bc9a19f6fdc234b`, which supports both reader-name pairs.
+This CLI is not bundled in the Tooling container; all 13 Tooling image consumers
+remain pinned to `0.7.0` with the existing digest.
 
 Version 2 retains the `models` boolean map and sparse `attachment_modes` map and
 adds `image_forwarding`, `face_protection` and `local_models` as typed CEL JSON
@@ -275,9 +285,9 @@ Docling chart validates private-vlm HTTPS, separate credentials and RFC1918 egre
 the gateway's mode assertion does not inspect another release or prove it is
 running. Private VLM inference receives original images inside the trusted
 processing boundary before downstream checks. The extProc chart deliberately
-maps the new names back to `cpu` / `remote` environment values for the current
-image. No runtime face-model download or YuNet setting is added here; the new
-consumer owns its packaged, checksum-verified model.
+retains the mapping to `cpu` / `remote` environment values; extProc `0.9.0` accepts
+both reader-name pairs. No runtime face-model download or YuNet setting is added
+here; the consumer owns its packaged, checksum-verified model.
 
 For private VLM image reading, Docling supplies a separate administrator `images`
 preset (`scale: 1.0`, top-level `max_size: null`); existing document/PDF requests

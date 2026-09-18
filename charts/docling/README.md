@@ -8,7 +8,7 @@
 - CPU clients use `releases/docling/secret-sync/internal`; remote clients use `releases/docling/secret-sync`. Follow the package's pinned CLI prerequisite.
 - Shared `documentAttachments` defaults: 20 MiB/file, 40 MiB/request, 5 files and 200 pages. Override them in client-wide values; maxima are 40 MiB/file and total, 20 files and 1000 pages.
 - Only the trusted gateway may submit fixed conversion options. See the [architecture docs](https://github.com/neurwerk/documentation/blob/main/dev/architecture/docling.md) for setup, cleanup and limits.
-- Mode aliases do not enable the staged image pipeline. extProc still receives `cpu` / `remote` environment values for its pinned `0.8.0` runtime. Version-2 image metadata requires a separately published, verified and deployed consumer before changing the gateway rollout guard; see the root README.
+- Mode aliases do not enable the staged image pipeline. The published, verified extProc `0.9.0` pin retains `cpu` / `remote` environment values. Deploy it to all replicas before separately authorizing version-2 activation; see the root README.
 
 ## Private Image Preset
 
