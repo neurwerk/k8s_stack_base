@@ -30,6 +30,8 @@ spec:
           command: ["/bin/sh", "-ec"]
           args:
             - |
+               command -v jq >/dev/null
+{{ .Files.Get "files/health.sh" | indent 15 }}
                cleanup_smoke_test() {
                  kubectl -n "$POD_NAMESPACE" delete pod "$RBD_WRITER_POD" "$RBD_READER_POD" --ignore-not-found --wait=true --timeout=120s >/dev/null 2>&1 || true
                  kubectl -n "$POD_NAMESPACE" delete pvc "$RBD_SMOKE_PVC" --ignore-not-found --wait=true --timeout=120s >/dev/null 2>&1 || true
@@ -39,9 +41,8 @@ spec:
 
                ready=false
                for attempt in $(seq 1 120); do
-                 cluster_phase=$(kubectl -n "$POD_NAMESPACE" get cephcluster "$CEPH_CLUSTER" -o jsonpath='{.status.phase}' 2>/dev/null || true)
-                 cluster_health=$(kubectl -n "$POD_NAMESPACE" get cephcluster "$CEPH_CLUSTER" -o jsonpath='{.status.ceph.health}' 2>/dev/null || true)
-                 store_phase=$(kubectl -n "$POD_NAMESPACE" get cephobjectstore "$OBJECT_STORE" -o jsonpath='{.status.phase}' 2>/dev/null || true)
+                 ceph_ready=false
+                 if ceph_health_ready; then ceph_ready=true; fi
                  pool_phase=$(kubectl -n "$POD_NAMESPACE" get cephblockpool "$BLOCK_POOL" -o jsonpath='{.status.phase}' 2>/dev/null || true)
                  obc_phase=$(kubectl -n "$OBC_NAMESPACE" get objectbucketclaim "$PII_OBC" -o jsonpath='{.status.phase}' 2>/dev/null || true)
                  publisher_phase=$(kubectl -n "$POD_NAMESPACE" get cephobjectstoreuser "$PUBLISHER_USER" -o jsonpath='{.status.phase}' 2>/dev/null || true)
@@ -52,7 +53,7 @@ spec:
                  rook_ready=$(kubectl -n "$POD_NAMESPACE" get deployment rook-ceph-operator -o jsonpath='{.status.availableReplicas}' 2>/dev/null || true)
                  csi_ready=$(kubectl -n "$POD_NAMESPACE" get deployment ceph-csi-controller-manager -o jsonpath='{.status.availableReplicas}' 2>/dev/null || true)
                  rgw_ready=$(kubectl -n "$POD_NAMESPACE" get deployment "$RGW_DEPLOYMENT" -o jsonpath='{.status.availableReplicas}' 2>/dev/null || true)
-                 if [ "$cluster_phase" = "Ready" ] && [ "$cluster_health" = "HEALTH_OK" ] && [ "$store_phase" = "Ready" ] && [ "$pool_phase" = "Ready" ] && [ "$obc_phase" = "Bound" ] && [ "$publisher_phase" = "Ready" ] && [ "$model_sync_phase" = "Ready" ] && [ -n "$model_sync_access_key" ] && [ -n "$model_sync_secret_key" ] && [ -n "$model_sync_endpoint" ] && [ "$rook_ready" = "1" ] && [ "$csi_ready" = "1" ] && [ "$rgw_ready" = "1" ]; then
+                 if [ "$ceph_ready" = "true" ] && [ "$pool_phase" = "Ready" ] && [ "$obc_phase" = "Bound" ] && [ "$publisher_phase" = "Ready" ] && [ "$model_sync_phase" = "Ready" ] && [ -n "$model_sync_access_key" ] && [ -n "$model_sync_secret_key" ] && [ -n "$model_sync_endpoint" ] && [ "$rook_ready" = "1" ] && [ "$csi_ready" = "1" ] && [ "$rgw_ready" = "1" ]; then
                    rgw_status=$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' --connect-timeout 5 --max-time 10 "$RGW_ENDPOINT/" || true)
                    if [ "$rgw_status" = "200" ] || [ "$rgw_status" = "403" ]; then
                      echo "Rook, Ceph storage resources, PII object storage, and RGW are ready."
@@ -60,7 +61,7 @@ spec:
                      break
                    fi
                  fi
-                 echo "Attempt $attempt/120: cluster=$cluster_phase/$cluster_health store=$store_phase pool=$pool_phase obc=$obc_phase users=$publisher_phase/$model_sync_phase credentials=$([ -n "$model_sync_access_key" ] && [ -n "$model_sync_secret_key" ] && [ -n "$model_sync_endpoint" ] && echo ready || echo pending) rook=$rook_ready csi=$csi_ready rgw=$rgw_ready"
+                 echo "Attempt $attempt/120: ceph=$ceph_ready pool=$pool_phase obc=$obc_phase users=$publisher_phase/$model_sync_phase credentials=$([ -n "$model_sync_access_key" ] && [ -n "$model_sync_secret_key" ] && [ -n "$model_sync_endpoint" ] && echo ready || echo pending) rook=$rook_ready csi=$csi_ready rgw=$rgw_ready"
                  sleep 10
                done
                if [ "$ready" != "true" ]; then
@@ -185,6 +186,13 @@ spec:
                done
                [ "$reader_phase" = "Succeeded" ] || { echo "Timed out waiting for the RBD smoke reader."; exit 1; }
                echo "RBD dynamic provisioning and persisted write/read succeeded."
+               health_after=$(date +%s)
+               ceph_ready=false
+               for attempt in $(seq 1 18); do
+                 if ceph_health_ready; then ceph_ready=true; break; fi
+                 sleep 10
+               done
+               [ "$ceph_ready" = "true" ] || { echo "Ceph health did not pass after the RBD smoke test."; exit 1; }
           env:
             - name: POD_NAMESPACE
               valueFrom:
@@ -192,6 +200,10 @@ spec:
                   fieldPath: metadata.namespace
             - name: CEPH_CLUSTER
               value: {{ .Values.infraRookCeph.clusterName | quote }}
+            - name: CEPH_IMAGE
+              value: {{ .Values.infraRookCeph.cephImage | quote }}
+            - name: DAEMON_KEY_GENERATION
+              value: {{ printf "%.0f" (float64 .Values.infraRookCeph.daemonKeyGeneration) | quote }}
             - name: OBJECT_STORE
               value: {{ .Values.infraRookCeph.objectStore.name | quote }}
             - name: BLOCK_POOL
