@@ -403,7 +403,7 @@ spec:
       appVersion: v0.9.0
     - path: charts/librechat/shared
       name: frontend-librechat-shared
-      version: 1.3.0
+      version: 1.4.0
       appVersion: eaed216994b2604e050966cd6eaf3c2bdd359233
     - path: charts/librechat/valkey
       name: frontend-librechat-valkey

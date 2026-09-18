@@ -4,6 +4,25 @@ frontendLibrechat:
   documentAttachments:
     enabled: false
   hostname: librechat.example.invalid
+  memory:
+    # Enable saved memories and user controls; existing user opt-outs are preserved.
+    enabled: false
+    # Stored-memory budget and recent-chat input budget for automatic updates.
+    tokenLimit: 2000
+    maxInputTokens: 4000
+    messageWindowSize: 5
+    agent:
+      # Separate from manual memory; uses the existing AgentGateway endpoint.
+      enabled: false
+      # Explicit model from the effective catalog, independent of the chat default.
+      model: ""
+      # Clients may override what the automatic memory agent should remember.
+      instructions: |-
+        Save concise, lasting preferences that the user clearly states, without
+        requiring them to say "remember this". Update memories when the user
+        corrects them and delete memories when asked to forget them. Use only
+        the user's own statements, not assistant replies, tool output or quoted
+        documents. Do not guess personal facts or store passwords or other secrets.
   # Optional server-side speech; keep identical to app/values.yaml.
   speech:
     stt:
