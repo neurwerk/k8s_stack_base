@@ -28,8 +28,8 @@ spec:
       chartPrefixes: []
       prerequisites:
       - name: openbao-stack-setup
-        version: 0.2.16
-        source: https://github.com/neurwerk/k8s_stack_tooling/commit/269b8c09190df8bd7b775ff7ef202964d3fe2703
+        version: 0.2.17
+        source: https://github.com/neurwerk/k8s_stack_tooling/commit/8f62f6e1b0ccf6b4d60f7cc66bc9a19f6fdc234b
     - path: releases/docling/secret-sync
       status: included
       reason: Optional remote-mode credential delivery; provision the API key and inference token before
@@ -37,8 +37,8 @@ spec:
       chartPrefixes: []
       prerequisites:
       - name: openbao-stack-setup
-        version: 0.2.15
-        source: https://github.com/neurwerk/k8s_stack_tooling/commit/79a3c2eb98ea1e407376a95f83d2441576d719f6
+        version: 0.2.17
+        source: https://github.com/neurwerk/k8s_stack_tooling/commit/8f62f6e1b0ccf6b4d60f7cc66bc9a19f6fdc234b
     - path: releases/docling/reloader
       status: included
       reason: Optional Docling namespace watch and rotation RBAC; compose only after its namespace exists.
@@ -55,8 +55,8 @@ spec:
       - charts/docling
       prerequisites:
       - name: openbao-stack-setup
-        version: 0.2.16
-        source: https://github.com/neurwerk/k8s_stack_tooling/commit/269b8c09190df8bd7b775ff7ef202964d3fe2703
+        version: 0.2.17
+        source: https://github.com/neurwerk/k8s_stack_tooling/commit/8f62f6e1b0ccf6b4d60f7cc66bc9a19f6fdc234b
     - path: releases/namespaces/maintenance
       status: included
       reason: Operator-tested optional maintenance; enable only when selected by the client.
@@ -120,8 +120,8 @@ spec:
     version: 2.9.4
     source: client bootstrap manifests
   - name: openbao-stack-setup
-    version: 0.2.11
-    source: https://github.com/neurwerk/k8s_stack_tooling/commit/5d1a33a938e22e9034581aebecf33485adc88a29
+    version: 0.2.17
+    source: https://github.com/neurwerk/k8s_stack_tooling/commit/8f62f6e1b0ccf6b4d60f7cc66bc9a19f6fdc234b
   - name: gateway-api-experimental
     version: 1.6.0
     source: https://github.com/kubernetes-sigs/gateway-api/releases/tag/v1.6.0
@@ -163,7 +163,7 @@ spec:
     charts:
     - path: charts/agentgateway
       name: infra-agentgateway
-      version: 1.5.0
+      version: 1.5.1
       appVersion: 1.5.0
       dependencyLock:
         digest: sha256:e5b8cfb3b1e062b8e9268a42405a466d71d22bdb18ae83ff7496788af21abedd
@@ -176,8 +176,8 @@ spec:
           sha256: a22cfb7dcc56da05d31b18c0a969e1b8eee35d19a4493d88b5d4720efcc85945
     - path: charts/agentgateway-extproc
       name: agentgateway-extproc
-      version: 1.3.0
-      appVersion: 0.8.0
+      version: 1.3.1
+      appVersion: 0.9.0
     - path: charts/cert-manager/approval-policy
       name: infra-cert-manager-approval-policy
       version: 1.2.0
@@ -246,7 +246,7 @@ spec:
       appVersion: 1.15.0
     - path: charts/docling
       name: docling
-      version: 0.4.0
+      version: 0.4.1
       appVersion: 1.33.0
     - path: charts/external-secrets
       name: infra-external-secrets
@@ -900,7 +900,7 @@ spec:
       eligibility: included
       origins:
       - charts/dify/web/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.8.0@sha256:908d088a10014f0f868f2d04a9bbf3521f1659966af7c2583c4746fa660d74f5
+    - reference: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.9.0@sha256:f9b98191a6cc96bf52651bdf1cdecb9eb81e36d6555a6fd2479c6456009cd960
       pinned: true
       eligibility: included
       origins:
