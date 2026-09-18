@@ -3,6 +3,10 @@ frontendLibrechat:
   # Opt-in provider delivery only; does not activate model attachment modes.
   documentAttachments:
     enabled: false
+    # JPEG/PNG and browser-converted iPhone HEIC. Requires enabled above and
+    # attachmentPolicyVersion: 3 after compatible Engine/extProc deployment.
+    # This also selects PNG storage output, not upstream's possible WebP path.
+    imagesEnabled: false
   hostname: librechat.example.invalid
   # Optional server-side speech; keep identical to app/values.yaml.
   speech:
@@ -116,6 +120,7 @@ openrouterCatalog:
 
 guardrails:
   llmPolicyEngine:
+    attachmentPolicyVersion: 1
     models: []
 documentAttachments:
   fileBytes: 20971520

@@ -16,6 +16,14 @@ data:
     version: 1.3.14
     cache: true
     {{- if not (kindIs "bool" .Values.frontendLibrechat.documentAttachments.enabled) }}{{ fail "frontendLibrechat.documentAttachments.enabled must be boolean" }}{{ end }}
+    {{- $imagesEnabled := .Values.frontendLibrechat.documentAttachments.imagesEnabled }}
+    {{- if not (kindIs "bool" $imagesEnabled) }}{{ fail "frontendLibrechat.documentAttachments.imagesEnabled must be boolean" }}{{ end }}
+    {{- if $imagesEnabled }}
+    {{- if not (and .Values.frontendLibrechat.documentAttachments.enabled (eq (toJson .Values.guardrails.llmPolicyEngine.attachmentPolicyVersion) "3")) }}{{ fail "LibreChat image uploads require documentAttachments.enabled and attachmentPolicyVersion: 3 with compatible deployed services" }}{{ end }}
+    # The pinned browser converts HEIC to JPEG before upload. Store and deliver
+    # PNG, never WebP, for the gateway's bounded image-processing path.
+    imageOutputType: png
+    {{- end }}
     {{- if .Values.frontendLibrechat.documentAttachments.enabled }}
     {{- range $name := list "fileBytes" "totalBytes" "count" "pages" }}
     {{- $value := index $.Values.documentAttachments $name }}
@@ -36,6 +44,11 @@ data:
             - '^text/plain$'
             - '^text/markdown$'
             - '^text/csv$'
+            {{- if $imagesEnabled }}
+            - '^image/jpeg$'
+            - '^image/png$'
+            - '^image/heic$'
+            {{- end }}
           defaultLLMDeliveryPath:
             fallback: provider
     {{- end }}
