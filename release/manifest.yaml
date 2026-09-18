@@ -469,8 +469,8 @@ spec:
           sha256: 5389fb496a120d6aac8f2b33c54ba21ed59014131def14cfc78f9d4a9374d2b7
     - path: charts/rook-ceph
       name: rook-ceph
-      version: 1.0.0
-      appVersion: v1.20.3
+      version: 1.0.1
+      appVersion: v1.20.7
     - path: charts/studio/api
       name: studio-api
       version: 1.1.4
@@ -846,7 +846,7 @@ spec:
       eligibility: included
       origins:
       - charts/dify/redis/values.yaml
-    - reference: docker.io/rook/ceph:v1.20.3
+    - reference: docker.io/rook/ceph:v1.20.7
       pinned: true
       eligibility: included
       origins:

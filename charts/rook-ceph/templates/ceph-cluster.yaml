@@ -20,7 +20,7 @@ spec:
     allowMultiplePerNode: true
     modules:
       - name: rook
-        enabled: true
+        enabled: false
   dashboard:
     enabled: false
   crashCollector:
