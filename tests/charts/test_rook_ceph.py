@@ -1,6 +1,5 @@
 """Exercise the shipped shell/jq gate with synthetic Rook status snapshots."""
 
-import copy
 from datetime import datetime, timezone
 import json
 import os
@@ -13,8 +12,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
 CHART = ROOT / "charts/rook-ceph"
-IMAGE = "quay.io/ceph/ceph:v20.2.4"
-COMPONENTS = ("admin", "mon", "mgr", "osd", "crashCollector", "cephExporter")
+IMAGE = "quay.io/ceph/ceph:v20.2.2"
 WARNINGS = (
     "AUTH_INSECURE_ROTATING_SERVICE_KEY_TYPE", "AUTH_INSECURE_CLIENT_KEY_TYPE",
     "AUTH_INSECURE_KEYS_ALLOWED", "AUTH_INSECURE_KEYS_CREATABLE",
@@ -28,24 +26,18 @@ def timestamp(seconds):
 class HealthTests(unittest.TestCase):
     def setUp(self):
         self.now = int(time.time())
-        self.key = {"keyGeneration": 2, "keyCephVersion": "20.2.4-0"}
         self.cluster = {
             "metadata": {"uid": "cluster-fixture", "generation": 3},
-            "spec": {"cephVersion": {"image": IMAGE}, "security": {"cephx": {
-                "daemon": {"keyRotationPolicy": "KeyGeneration", "keyGeneration": 2},
-                "csi": {"keyType": "aes"},
-            }}},
+            "spec": {"cephVersion": {"image": IMAGE}},
             "status": {
                 "phase": "Ready", "observedGeneration": 3,
-                "version": {"image": IMAGE, "version": "20.2.4-0"},
-                "cephx": {name: copy.deepcopy(self.key) for name in COMPONENTS},
+                "version": {"image": IMAGE, "version": "20.2.2-0"},
                 "ceph": {"health": "HEALTH_OK", "lastChecked": timestamp(self.now - 1)},
             },
         }
         self.store = {
             "metadata": {"uid": "store-fixture", "generation": 1},
-            "status": {"phase": "Ready", "observedGeneration": 1,
-                       "cephx": {"daemon": copy.deepcopy(self.key)}},
+            "status": {"phase": "Ready", "observedGeneration": 1},
         }
 
     def run_gate(self, success=True, *, cluster=None, body=None, **env):
@@ -68,35 +60,25 @@ ceph_health_ready
         result = subprocess.run(
             ["/bin/sh", "-ec", script], capture_output=True, text=True, timeout=10,
             env={**os.environ, "POD_NAMESPACE": "fixture", "CEPH_CLUSTER": "fixture",
-                 "OBJECT_STORE": "fixture", "CEPH_IMAGE": IMAGE, "DAEMON_KEY_GENERATION": "2",
+                 "OBJECT_STORE": "fixture", "CEPH_IMAGE": IMAGE,
                  "CLUSTER_JSON": json.dumps(self.cluster) if cluster is None else cluster,
                  "STORE_JSON": json.dumps(self.store), "CLOCK": str(self.now - 2), **env},
         )
         self.assertEqual(result.returncode == 0, success, result.stdout + result.stderr)
         return result
 
-    def test_migrated_and_fresh_keys_without_key_type(self):
+    def test_ready_and_fresh_without_key_generation(self):
         self.run_gate()
-        for key in self.cluster["status"]["cephx"].values():
-            key["keyGeneration"] = 4
-        self.store["status"]["cephx"]["daemon"]["keyGeneration"] = 4
+        self.cluster["status"]["ceph"]["details"] = {}
         self.run_gate()
 
-    def test_future_patch_does_not_require_rotating_secure_keys(self):
-        image = "quay.io/ceph/ceph:v20.2.5"
-        self.cluster["spec"]["cephVersion"]["image"] = image
-        self.cluster["status"]["version"] = {"image": image, "version": "20.2.5-0"}
-        self.run_gate(CEPH_IMAGE=image)
-
-    def test_exact_warning_allowlist(self):
+    def test_all_warnings_rejected(self):
         health = self.cluster["status"]["ceph"]
         health["health"] = "HEALTH_WARN"
         for codes in [(code,) for code in WARNINGS] + [WARNINGS]:
             with self.subTest(codes=codes):
                 health["details"] = {code: {"severity": "HEALTH_WARN"} for code in codes}
-                result = self.run_gate()
-                for code in codes:
-                    self.assertIn(code, result.stdout)
+                self.run_gate(False)
         for code in ("OSD_DOWN", "BLUESTORE_SLOW_OP_ALERT", "AUTH_UNKNOWN",
                      "AUTH_INSECURE_SERVICE_KEY_TYPE", "AUTH_INSECURE_SERVICE_TICKETS"):
             with self.subTest(code=code):
@@ -117,20 +99,6 @@ ceph_health_ready
                 health.update(health=state, details=details)
                 self.run_gate(False)
 
-    def test_each_managed_key_and_rgw_must_be_migrated(self):
-        for keys, component in [(self.cluster["status"]["cephx"], c) for c in COMPONENTS] + [
-            (self.store["status"]["cephx"], "daemon")
-        ]:
-            for value in ({}, {**self.key, "keyGeneration": 1},
-                          {**self.key, "keyGeneration": "2"},
-                          {**self.key, "keyCephVersion": ""},
-                          {**self.key, "keyCephVersion": "Uninitialized"},
-                          {**self.key, "keyCephVersion": "20.2.2-0"}):
-                with self.subTest(component=component, value=value):
-                    keys[component] = value
-                    self.run_gate(False)
-            keys[component] = copy.deepcopy(self.key)
-
     def test_current_resources_target_and_read_failures(self):
         for resource in (self.cluster, self.store):
             resource["status"]["observedGeneration"] -= 1
@@ -139,6 +107,9 @@ ceph_health_ready
             resource["metadata"]["deletionTimestamp"] = timestamp(self.now)
             self.run_gate(False)
             del resource["metadata"]["deletionTimestamp"]
+            resource["status"]["phase"] = "Progressing"
+            self.run_gate(False)
+            resource["status"]["phase"] = "Ready"
         for field in ("image", "version"):
             previous = self.cluster["status"]["version"][field]
             self.cluster["status"]["version"][field] = "wrong"
@@ -146,9 +117,10 @@ ceph_health_ready
             self.cluster["status"]["version"][field] = previous
         for value in ("", "null", "{invalid", "{}"):
             self.run_gate(False, cluster=value)
+            self.run_gate(False, STORE_JSON=value)
         for resource in ("cephcluster", "cephobjectstore"):
             self.run_gate(False, READ_FAIL=resource)
-        self.cluster["spec"]["security"]["cephx"]["csi"]["keyType"] = "aes256k"
+        self.cluster["spec"]["cephVersion"]["image"] = "wrong"
         self.run_gate(False)
 
     def test_fresh_sample_barrier_and_post_smoke_recheck(self):
@@ -166,7 +138,7 @@ if ceph_health_ready; then exit 92; fi
             self.cluster["status"]["ceph"]["lastChecked"] = checked
             self.run_gate(False)
 
-    def test_migration_regression_resets_barrier(self):
+    def test_status_regression_resets_barrier(self):
         self.run_gate(body='''
 if ceph_health_ready; then exit 90; fi
 ceph_health_ready
@@ -179,26 +151,23 @@ ceph_health_ready
 
 
 class RenderTests(unittest.TestCase):
-    def render(self, generation):
+    def render(self):
         return subprocess.run(
             ["helm", "template", "rook-ceph", str(CHART), "--values",
-             str(ROOT / "tests/validation/helm-lint-values.yaml"),
-             "--set-json", "infraRookCeph.daemonKeyGeneration=" + json.dumps(generation)],
+             str(ROOT / "tests/validation/helm-lint-values.yaml")],
             text=True, capture_output=True, timeout=30,
         )
 
-    def test_generation_range_and_shipped_script(self):
-        for value in (1, 2, 4294967295):
-            result = self.render(value)
-            self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertIn(f"keyGeneration: {value}", result.stdout)
-        for value in (0, -1, 4294967296, 1.5, True, None, "two", "2", "02", "2.5", [], {}):
-            with self.subTest(value=value):
-                result = self.render(value)
-                self.assertNotEqual(result.returncode, 0)
-                self.assertIn("daemonKeyGeneration must be a positive integer", result.stderr)
-        result = self.render(2)
-        self.assertIn("csi:\n        keyType: aes", result.stdout)
+    def test_render_pins_and_shipped_script(self):
+        result = self.render()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("docker.io/rook/ceph:v1.20.3", result.stdout)
+        self.assertIn("- name: rook\n        enabled: true", result.stdout)
+        self.assertIn("allowUnsupported: false", result.stdout)
+        self.assertIn("skipUpgradeChecks: false", result.stdout)
+        self.assertNotIn("keyGeneration", result.stdout)
+        self.assertNotIn("DAEMON_KEY_GENERATION", result.stdout)
+        self.assertNotIn("cephx:", result.stdout)
         self.assertIn(IMAGE, result.stdout)
         self.assertIn("quay.io/cephcsi/cephcsi:v3.17.0", result.stdout)
         self.assertNotIn("muteHealthWarning", result.stdout)
