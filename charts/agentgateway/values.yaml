@@ -224,8 +224,8 @@ guardrails:
   # Concrete target models are visibility: Internal — not callable directly.
   llmPolicyEngine:
     enabled: false
-    # Rollout guard: integer 1 or 2. Keep 1 until a published, verified v2
-    # extProc consumer is pinned and deployed. The shipped 0.8.0 is v1 only.
+    # Rollout guard: integer 1 or 2. The pinned extProc 0.9.0 supports v2;
+    # keep 1 until all replicas are deployed and v2 activation is authorized.
     attachmentPolicyVersion: 1
 
     # extProc timeout — implemented via AgentgatewayBackend wrapper
@@ -279,7 +279,7 @@ guardrails:
     # block rejects typed attachments. extract converts supported documents to
     # text before optional PII processing; it does not provide native multimodal
     # input and never falls back to raw attachments if extraction fails.
-    # The shipped extProc 0.8.0 supports document extraction, not v2 images.
+    # The pinned extProc 0.9.0 supports v2 images; activation remains opt-in.
     # passthrough preserves native attachments for a capable upstream model,
     # without extraction or PII scanning, and requires piiEnabled: false.
     # block and extract allow either PII setting. Model capability alone never
