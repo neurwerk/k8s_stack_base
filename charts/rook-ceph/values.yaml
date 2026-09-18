@@ -2,7 +2,7 @@
 # Rook and Ceph images are pulled directly from their upstream registries.
 # Pinned here (chart defaults).
 # --- Rook Ceph ---
-# This chart vendors the Rook v1.20.3 CRDs and RBAC, while keeping the
+# This chart vendors the Rook v1.20.7 CRDs and RBAC, while keeping the
 # deployment-specific topology, image pins, and resource settings explicit.
 #
 # The storage node and raw device path are intentionally empty. They must be
@@ -14,7 +14,7 @@ infraRookCeph:
     nodeName: ""
     devicePath: ""
 
-  rookImage: docker.io/rook/ceph:v1.20.3
+  rookImage: docker.io/rook/ceph:v1.20.7
   cephImage: quay.io/ceph/ceph:v20.2.2
   csiOperatorImage: quay.io/cephcsi/ceph-csi-operator:v1.0.4
   csiPluginImage: quay.io/cephcsi/cephcsi:v3.17.0
