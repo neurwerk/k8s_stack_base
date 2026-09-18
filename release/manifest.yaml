@@ -1,11 +1,11 @@
 apiVersion: platform.neurwerk.com/v1alpha1
 kind: PlatformRelease
 metadata:
-  name: v0.3.8
+  name: v0.3.9
 spec:
-  version: 0.3.8
-  releaseDate: '2026-09-15'
-  summary: Make tested Forgejo, WireGuard and maintenance packages available for optional stable use.
+  version: 0.3.9
+  releaseDate: '2026-09-18'
+  summary: Add client LDAP group mappings, optional Docling extraction, and LibreChat voice settings.
   trust:
     signerIdentity: platform-release
     algorithm: ssh-ed25519
@@ -120,8 +120,8 @@ spec:
     version: 2.9.4
     source: client bootstrap manifests
   - name: openbao-stack-setup
-    version: 0.2.11
-    source: https://github.com/neurwerk/k8s_stack_tooling/commit/5d1a33a938e22e9034581aebecf33485adc88a29
+    version: 0.2.14
+    source: https://github.com/neurwerk/k8s_stack_tooling/commit/0c2e02ddf18776530c1b7cd735327bf27570721b
   - name: gateway-api-experimental
     version: 1.6.0
     source: https://github.com/kubernetes-sigs/gateway-api/releases/tag/v1.6.0
@@ -1132,9 +1132,15 @@ spec:
       uv: 0.11.21
       node: 24.20.0
   provenance:
-    previousTag: v0.3.7
-    includedThrough: ad3200bdf2c2e90af3a33a8aae98c6ea38011c90
+    previousTag: v0.3.8
+    includedThrough: 72d649d1aca557d8a9485c7581242ab92a5198f2
     commits:
-    - e59c3fa81cbf8d625c6d34409bb80ddcedef9f56
-    - ad3200bdf2c2e90af3a33a8aae98c6ea38011c90
-    compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.7...ad3200bdf2c2e90af3a33a8aae98c6ea38011c90
+    - 2682c828a8f0ceed58b3f4aaac2b04aaae2be4ed
+    - 974453ee2144875cb41caa5e89d473873101cd96
+    - 199a7614e7a78b2d95e29bc81418af45c1609f91
+    - 7e259aa248743b222658ba25ce8b777314156fb0
+    - 28af665bfcf1cf174f950a9ecf9e0b1a47310b64
+    - 06b2ecf01bfbb915b1d3711e6682a1d5858465c5
+    - 5c9e0c8c3e9a39cca8b9405c716d43bf805f80f4
+    - 72d649d1aca557d8a9485c7581242ab92a5198f2
+    compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.8...72d649d1aca557d8a9485c7581242ab92a5198f2
