@@ -1,4 +1,4 @@
-"""Version-gated image metadata and private Docling mode aliases (offline)."""
+"""Version-gated image metadata, local face routes and Docling aliases (offline)."""
 
 import json
 import re
@@ -9,11 +9,11 @@ from helm import env_value, render, resource, resources
 
 
 class PrivateImageTests(unittest.TestCase):
-    def values(self, **row):
+    def values(self, version=2, **row):
         model = {"name": "direct", "provider": "Custom", "model": "vision", **row}
         values = agent_values(catalog(), [model])
         values["authKeycloak"]["agentgatewayClientRoles"].append("model:direct:invoke")
-        values["guardrails"]["llmPolicyEngine"]["attachmentPolicyVersion"] = 2
+        values["guardrails"]["llmPolicyEngine"]["attachmentPolicyVersion"] = version
         return values
 
     def metadata(self, values):
@@ -21,7 +21,7 @@ class PrivateImageTests(unittest.TestCase):
         return {
             key: json.loads(json.loads(value))
             for key, value in re.findall(
-                r'(?m)^                (contract_version|models|attachment_modes|image_forwarding|face_protection|local_models): (".*")$',
+                r'(?m)^                (contract_version|models|attachment_modes|image_forwarding|face_protection|local_models|image_models|image_reroutes): (".*")$',
                 result.stdout,
             )
         }
@@ -42,6 +42,16 @@ class PrivateImageTests(unittest.TestCase):
                 self.assertNotEqual(result.returncode, 0)
                 self.assertIn("attachmentPolicyVersion: 2", result.stderr)
                 del source[field]
+        for version in (1, 2):
+            engine["attachmentPolicyVersion"] = version
+            for source in (engine["models"][0], values["openrouterCatalog"]["models"][0],
+                           engine["localTarget"]):
+                for capability in (True, False):
+                    source["supportsImages"] = capability
+                    result = render("agentgateway", values, check=False)
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertIn("requires attachmentPolicyVersion: 3", result.stderr)
+                del source["supportsImages"]
 
     def test_v2_defaults_sparse_modes_and_catalog_replacement(self):
         values = self.values(attachmentMode="process", local=True, contentTracingEnabled=False)
@@ -116,7 +126,7 @@ class PrivateImageTests(unittest.TestCase):
         self.assertNotEqual(render("agentgateway", values, check=False).returncode, 0)
 
     def test_strict_types(self):
-        for version in ("2", True, False, 0, 3, 1.5, None, [], {}):
+        for version in ("2", "3", True, False, 0, 4, 1.5, None, [], {}):
             values = self.values()
             values["guardrails"]["llmPolicyEngine"]["attachmentPolicyVersion"] = version
             self.assertNotEqual(render("agentgateway", values, check=False).returncode, 0)
@@ -129,6 +139,113 @@ class PrivateImageTests(unittest.TestCase):
             for value in invalid:
                 with self.subTest(field=field, value=value):
                     self.assertNotEqual(render("agentgateway", self.values(**{field: value}), check=False).returncode, 0)
+
+    def test_v3_capability_and_standard_reader_gate(self):
+        for mode in ("cpu", "internal-standard", "remote", "private-vlm"):
+            values = self.values(version=3, attachmentMode="process", local=True,
+                                 supportsImages=True, imageForwarding="pii-unchecked",
+                                 faceProtectionEnabled=False)
+            values["docling"] = {"enabled": True, "inference": {"mode": mode}}
+            metadata = self.metadata(values)
+            self.assertEqual(metadata["contract_version"], 3)
+            self.assertEqual(metadata["image_models"], {"direct": True, "remote/openrouter/acme/model": False})
+            self.assertEqual(metadata["image_reroutes"], {})
+        engine = values["guardrails"]["llmPolicyEngine"]
+        row = engine["models"][0]
+        for capability in (None, False, "true", 1):
+            row.pop("supportsImages", None)
+            if capability is not None:
+                row["supportsImages"] = capability
+            result = render("agentgateway", values, check=False)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("supportsImages", result.stderr)
+        row.update(imageForwarding="if-no-pii-detected", faceProtectionEnabled=True)
+        for source in (row, engine["localTarget"], values["openrouterCatalog"]["models"][0]):
+            row.pop("supportsImages", None)
+            source["supportsImages"] = "false"
+            self.assertIn("supportsImages must be a boolean", render("agentgateway", values, check=False).stderr)
+            del source["supportsImages"]
+        values["openrouterCatalog"]["models"][0]["supportsImages"] = True
+        row.update(local=False, supportsImages=True, baseURL="http://127.0.0.1:11434")
+        self.assertFalse(any(self.metadata(values)["image_models"].values()))
+        row["local"] = True
+        row["piiReroute"] = True
+        self.assertFalse(self.metadata(values)["image_models"]["direct"])
+        del row["piiReroute"]
+        values["docling"] = {"enabled": True, "inference": {"mode": "internal-standard"}}
+        self.assertTrue(self.metadata(values)["image_models"]["direct"])
+        values["docling"]["enabled"] = False
+        self.assertIn("requires enabled Docling", render("agentgateway", values, check=False).stderr)
+
+    def test_v3_face_routes_follow_actual_ordered_local_targets(self):
+        values = self.values(version=3, local=True, supportsImages=True,
+                             attachmentMode="process", imageForwarding="if-no-pii-detected")
+        engine = values["guardrails"]["llmPolicyEngine"]
+        source = values["openrouterCatalog"]["models"][0]
+        source.update(attachmentMode="process", imageForwarding="if-no-pii-detected")
+        policy = values["monitorPiiEngine"]["policy"]
+        policy["attachments"] = {"faces": {"action": "reroute"}}
+        policy["routing"].update(defaultTarget=source["name"], targets=[
+            {"name": source["name"], "classPrefix": "remote/"},
+            {"name": "direct", "classPrefix": "remote/openrouter/"},
+        ])
+        expected = {name: {source["name"]: "direct"} for name in ("direct", source["name"])}
+        self.assertEqual(self.metadata(values)["image_reroutes"], expected)
+        policy["attachments"]["faces"]["routeClass"] = "x" * 128
+        self.assertIn("x" * 128, self.metadata(values)["image_reroutes"]["direct"])
+        for settings, field in ((policy["attachments"]["faces"], "routeClass"),
+                                (policy["routing"], "defaultTarget")):
+            settings[field] = "x" * 129
+            result = render("agentgateway", values, check=False)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("1-128 character routeClass or routing.defaultTarget", result.stderr)
+            settings[field] = source["name"]
+            policy["attachments"]["faces"].pop("routeClass", None)
+        # Named routes retain their own permission; the source is not rewritten.
+        rendered = render("agentgateway", values)
+        named = resource(rendered, "AgentgatewayModel", "direct")["spec"]
+        self.assertIn("model:direct:invoke", str(named["policies"]["authorization"]))
+        virtual = resource(rendered, "AgentgatewayModel", "remote-openrouter-acme-model")["spec"]
+        self.assertIn('x-remote-allowed', virtual["virtualModel"]["conditional"]["targets"][0]["when"])
+        self.assertEqual(virtual["match"]["model"], source["name"])
+        # First matching local target blocks approval if incapable or ambiguous,
+        # even when a later target or the dedicated fallback supports images.
+        engine["localTarget"]["supportsImages"] = True
+        engine["models"].append({"name": "later", "local": True, "model": "vision", "supportsImages": True})
+        values["authKeycloak"]["agentgatewayClientRoles"].append("model:later:invoke")
+        policy["routing"]["targets"].append({"name": "later", "classPrefix": "remote/openrouter/acme/"})
+        for capability in (False, None):
+            engine["models"][0].pop("supportsImages", None)
+            if capability is not None:
+                engine["models"][0]["supportsImages"] = capability
+            self.assertEqual(self.metadata(values)["image_reroutes"], {})
+        engine["models"][0].update(supportsImages=True, piiReroute=True)
+        self.assertEqual(self.metadata(values)["image_reroutes"], {})
+        del engine["models"][0]["piiReroute"]
+        policy["attachments"]["faces"]["routeClass"] = "direct"
+        policy["routing"]["defaultTarget"] = "direct"
+        policy["routing"]["targets"] = [{"name": "direct"}]
+        self.assertEqual(self.metadata(values)["image_reroutes"][source["name"]], {"direct": "direct"})
+        policy["attachments"]["faces"]["routeClass"] = "unmatched"
+        self.assertEqual(self.metadata(values)["image_reroutes"][source["name"]], {
+            "unmatched": "remote-openrouter-acme-model-local",
+        })
+        fallback = resource(render("agentgateway", values), "AgentgatewayModel", "remote-openrouter-acme-model-local")["spec"]
+        self.assertIn(f'model:{source["name"]}:invoke', str(fallback["policies"]["authorization"]))
+        del engine["localTarget"]["supportsImages"]
+        self.assertNotIn(source["name"], self.metadata(values)["image_reroutes"])
+        engine["models"][0].update(local=False, baseURL="http://127.0.0.1:11434")
+        self.assertEqual(self.metadata(values)["image_reroutes"], {})
+        engine["models"][0]["local"] = True
+        for mode, forwarding in (("process", "none"), ("block", "none"), ("extract", "none")):
+            engine["models"][0].update(attachmentMode=mode, imageForwarding=forwarding)
+            self.assertEqual(self.metadata(values)["image_reroutes"], {})
+        engine["models"][0].update(attachmentMode="extract", imageForwarding="if-no-pii-detected")
+        for action in ("block", "text-only"):
+            policy["attachments"]["faces"] = {"action": action}
+            self.assertEqual(self.metadata(values)["image_reroutes"], {})
+            policy["attachments"]["faces"]["routeClass"] = "direct"
+            self.assertIn("only allowed with action reroute", render("agentgateway", values, check=False).stderr)
 
     def test_metadata_bounds_and_known_ids(self):
         values = self.values()
@@ -154,6 +271,16 @@ class PrivateImageTests(unittest.TestCase):
         result = render("agentgateway", values, check=False)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("image_forwarding destination metadata JSON exceeds", result.stderr)
+        # The new binding map has its own 16 KiB bound, not the sum of old maps.
+        values["guardrails"]["llmPolicyEngine"].update(attachmentPolicyVersion=3)
+        values["guardrails"]["llmPolicyEngine"]["localTarget"]["supportsImages"] = True
+        values["monitorPiiEngine"]["policy"].update(attachments={"faces": {"action": "reroute", "routeClass": "face"}})
+        values["openrouterCatalog"]["models"] = [
+            {"name": f"remote/{index:03d}/" + "x" * 25, "upstreamModel": f"acme/{index}",
+             "attachmentMode": "process", "imageForwarding": "if-no-pii-detected"}
+            for index in range(220)
+        ]
+        self.assertIn("image_reroutes destination metadata JSON exceeds", render("agentgateway", values, check=False).stderr)
 
     def test_docling_aliases_are_identical_and_private_scope_remains(self):
         for old, new in (("cpu", "internal-standard"), ("remote", "private-vlm")):

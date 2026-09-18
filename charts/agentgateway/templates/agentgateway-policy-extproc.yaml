@@ -48,10 +48,14 @@ spec:
                 {{- if $attachmentModes }}
                 attachment_modes: {{ $attachmentModes | toJson | quote }}
                 {{- end }}
-                {{- if eq (int .Values.guardrails.llmPolicyEngine.attachmentPolicyVersion) 2 }}
+                {{- if ge (int .Values.guardrails.llmPolicyEngine.attachmentPolicyVersion) 2 }}
                 image_forwarding: {{ $attachmentPolicy.image_forwarding | toJson | quote }}
                 face_protection: {{ $attachmentPolicy.face_protection | toJson | quote }}
                 local_models: {{ $attachmentPolicy.local_models | toJson | quote }}
+                {{- end }}
+                {{- if eq (int .Values.guardrails.llmPolicyEngine.attachmentPolicyVersion) 3 }}
+                image_models: {{ $attachmentPolicy.image_models | toJson | quote }}
+                image_reroutes: {{ $attachmentPolicy.image_reroutes | toJson | quote }}
                 {{- end }}
             processingOptions:
               requestBodyMode: Buffered

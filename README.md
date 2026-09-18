@@ -274,7 +274,7 @@ target host rather than a row's `baseURL`; the operator must own and trust that
 target. Private-looking IPs, model names, groups and route classes are not proof
 of locality. Virtual/rerouting destinations never qualify for unchecked images.
 Catalog overrides propagate the new settings; same-name direct replacements
-do not inherit them. The current catalog has no image-input capability metadata,
+do not inherit them. Versions 1 and 2 have no image-input capability metadata,
 so the operator must verify actual image support at the backend, including every
 possible target of a virtual route. These values grant no model access.
 
@@ -296,6 +296,84 @@ DPI-free images, after the preset is deployed. Internal-standard has no remote
 presets. A pinned-source reader-to-API-payload test verifies RGB pixel preservation
 with HTTP intercepted, not live inference or backend-internal preprocessing;
 see the [Docling chart notes](charts/docling/README.md#private-image-preset).
+
+### Staged Face Policy
+
+AgentGateway chart `1.6.0` adds opt-in `attachmentPolicyVersion: 3`, retaining
+default `1` and all v1/v2 routing and reader rules. **The pinned Engine `0.9.0`
+and extProc `0.9.0` are not compatible with this activation.** Deploy compatible
+services before choosing v3 or adding the central face policy. No image pin,
+client value, model deployment or runtime activation changes here.
+
+V3 permits processed JPEG/PNG/HEIC extraction through enabled Docling
+`internal-standard`/`cpu` as well as `private-vlm`/`remote`. V2 still requires the
+private reader for non-`none` image forwarding. V3 adds strict boolean
+`supportsImages` to model rows (including selected catalog rows) and
+`guardrails.llmPolicyEngine.localTarget`. Omission means false; v1/v2 reject even
+an explicit false rather than silently dropping the capability. A model name or
+private-looking URL does not establish either locality or image support.
+
+Only v3 emits these additional trusted maps, each bounded to 16,384 JSON bytes:
+
+- `image_models`: effective model ID to boolean; true requires explicit
+  `supportsImages: true` and the same concrete local-backend proof as routing.
+- `image_reroutes`: source model ID to `{exactRouteClass: actualDestination}`;
+  only processed sources with non-`none` forwarding are eligible. The map is empty
+  unless the configured face action is `reroute`.
+
+The central Engine policy accepts `action: block`, `text-only`, or `reroute`.
+`routeClass` is allowed only with `reroute`; omission uses `routing.defaultTarget`.
+This is an example only, deliberately absent from shipped values and shared
+defaults because the pinned Engine rejects the `faces` key:
+
+```yaml
+monitorPiiEngine:
+  policy:
+    attachments:
+      faces:
+        action: reroute
+        routeClass: faces/local
+```
+
+Approvals follow the existing route with remote forwarding disabled: a concrete
+local source stays on itself; a virtual source uses the first matching local
+exact/prefix target, otherwise its dedicated fallback. A matching local target
+without proven image support prevents approval; the producer never skips it for
+a more capable later target. Both `local: true` and `piiReroute: true` is ambiguous
+and cannot receive image approval. Named targets use their effective model ID and
+retain their own permission. Fallbacks use the actual generated
+`<source-resource-name>-local` identity and retain the source permission, not the
+otherwise unused `localTarget.name`. An approved route class is not a model rewrite
+request: extProc checks the exact reply `route_class` binding and leaves model
+selection and authorization to the existing gateway routes. Missing approval
+blocks image forwarding. V3 `pii-unchecked` additionally requires
+`image_models[source]` to be true.
+
+LibreChat shared chart `1.5.0` adds disabled-by-default
+`frontendLibrechat.documentAttachments.imagesEnabled`. It requires existing
+`documentAttachments.enabled` and metadata v3. The pinned source
+`eaed216994b2604e050966cd6eaf3c2bdd359233` validates selected HEIC files, converts
+them to JPEG in the browser (`client/src/hooks/Files/useFileHandling.ts` and
+`client/src/utils/heicConverter.ts`), then uploads them. The opt-in chart setting
+allows JPEG, PNG and HEIC selection and explicitly chooses `imageOutputType: png`
+for stored/provider image bytes. The server resizes images and encodes them as
+PNG before they reach the gateway; this preprocessing may flatten animation.
+Gateway checks apply to the delivered still pixels, not the original container,
+frame count or resolution, and do not establish that all original frames were
+checked. Original-animation rejection applies only to direct API submissions
+where the original bytes reach extProc without these LibreChat conversions; no
+LibreChat fork is introduced. Its local/S3 image delivery uses inline data
+(`api/server/services/Files/images/encode.js`); any URL fallback is still rejected
+by processed extProc handling. No upload allowlist or output-format change is
+rendered while the option is off. Raw HEIC through the model API is handled by
+the new extProc, not by this browser conversion. Live browser/storage delivery
+remains part of separately authorized activation, not proven by chart rendering.
+
+`Qwen3-VL-8B-Instruct` is a possible local vision-model example to qualify, not a
+deployed model, default override or substitute for explicit capability approval.
+The opt-in `destination_consumer.py` check now requires the compatible v3 consumer
+and checks seven rendered v1/v2/v3 catalogs, exact named/fallback bindings and
+rejection of new fields under old contract versions.
 
 ## Validation
 
