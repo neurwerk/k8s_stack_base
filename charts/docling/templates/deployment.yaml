@@ -1,5 +1,5 @@
 {{- if .Values.docling.enabled }}
-{{- $remote := eq .Values.docling.inference.mode "remote" }}
+{{- $remote := has .Values.docling.inference.mode (list "remote" "private-vlm") }}
 {{- $secrets := printf "docling-tls,%s" .Values.docling.apiKeySecretRef.name }}
 {{- if $remote }}
   {{- $secrets = printf "%s,%s" $secrets .Values.docling.inference.tokenSecretRef.name }}

@@ -84,6 +84,8 @@ monitorAgentgatewayExtproc:
 docling:
   enabled: false
   inference:
+    # Preferred names: internal-standard / private-vlm; cpu / remote are aliases.
+    # Templates emit cpu / remote for compatibility with the pinned 0.8.0 image.
     mode: remote
   documentTimeoutSeconds: 300
   # Whole document batch budget, not a separate timeout for every file.

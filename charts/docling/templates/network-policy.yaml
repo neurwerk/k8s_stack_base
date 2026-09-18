@@ -29,7 +29,7 @@ spec:
           podSelector:
             matchLabels: {k8s-app: kube-dns}
       ports: [{port: 53, protocol: UDP}, {port: 53, protocol: TCP}]
-    {{- if eq .Values.docling.inference.mode "remote" }}
+    {{- if has .Values.docling.inference.mode (list "remote" "private-vlm") }}
     - to:
         {{- range .Values.docling.inference.cidrs }}
         - ipBlock: {cidr: {{ . | quote }}}

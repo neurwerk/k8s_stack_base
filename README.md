@@ -219,6 +219,74 @@ This does not require a new test server or repeat feature qualification. See the
 [Docling architecture](https://github.com/neurwerk/documentation/blob/main/dev/architecture/docling.md)
 for the configuration, privacy limits and separately authorized activation steps.
 
+### Staged Private Images
+
+AgentGateway chart `1.5.0` adds the opt-in integer
+`guardrails.llmPolicyEngine.attachmentPolicyVersion: 2`. The default remains `1`:
+legacy metadata and text/PII/tracing behavior are unchanged, and no new image
+settings are emitted. Version 1 rejects explicit `process`, `imageForwarding` and
+`faceProtectionEnabled` settings rather than silently dropping them.
+
+**Do not enable version 2 with the pinned extProc `0.8.0`.** First publish and
+verify a compatible consumer, separately authorize its digest pin and deployment,
+and confirm all extProc replicas support version 2. Only then separately opt in
+to the gateway contract and client uploads. This source change does not publish,
+pin or deploy a new runtime, enable uploads, or change the standard Docling pipeline.
+
+Version 2 retains the `models` boolean map and sparse `attachment_modes` map and
+adds `image_forwarding`, `face_protection` and `local_models` as typed CEL JSON
+maps keyed only by effective model IDs. Each map is limited to 16,384 bytes and
+the catalog to 256 destinations. Omitted attachment modes remain `block`.
+`image_forwarding` omits passthrough IDs entirely; an explicit `none` entry for
+passthrough is invalid at the consumer. The other v2 maps retain those IDs.
+
+| Model value | Version-2 rule |
+| --- | --- |
+| `attachmentMode: process` | Alias of `extract`; neither may fall back to raw passthrough. |
+| `imageForwarding: none` | Default; no original image forwarding. |
+| `imageForwarding: if-no-pii-detected` | Requires process/extract, PII enabled, face protection and enabled Docling in private-vlm/remote mode. Detection is not proof that an image contains no personal data. |
+| `imageForwarding: pii-unchecked` | Requires process/extract, enabled Docling in private-vlm/remote mode, face protection disabled and a direct concrete `local: true` model with no `piiReroute`. Text PII settings remain independent. |
+| `faceProtectionEnabled` | Strict boolean; defaults true for process/extract and false otherwise. Has no effect in block mode. |
+| `attachmentMode: passthrough` | Requires PII disabled, face protection false and no explicit `imageForwarding` key, even `none`. |
+
+Neither non-none forwarding mode supports internal-standard/cpu. Ordinary
+document processing with process/extract and `imageForwarding: none` still does.
+The opt-in `tests/validation/destination_consumer.py` check accepts
+`--consumer-source` and `--consumer-python` paths to a prepared consumer checkout
+and its Python environment. It sends rendered mixed-model metadata through the
+actual protobuf consumer parser and verifies rejection of an explicit passthrough
+forwarding entry. Normal Base tests do not depend on a sibling checkout.
+
+Locality comes from the same effective catalog used to render routing. Only
+`local: true` with a concrete model and an enabled, configured trusted
+`infraAgentgatewayWrapper.llamacpp` target qualifies. That branch uses the trusted
+target host rather than a row's `baseURL`; the operator must own and trust that
+target. Private-looking IPs, model names, groups and route classes are not proof
+of locality. Virtual/rerouting destinations never qualify for unchecked images.
+Catalog overrides propagate the new settings; same-name direct replacements
+do not inherit them. The current catalog has no image-input capability metadata,
+so the operator must verify actual image support at the backend, including every
+possible target of a virtual route. These values grant no model access.
+
+Prefer Docling `internal-standard` and `private-vlm` in new configuration.
+`cpu` and `remote` remain exact aliases and the shipped defaults stay unchanged.
+Use one canonical client-wide mode across Docling, gateway and extProc. The
+Docling chart validates private-vlm HTTPS, separate credentials and RFC1918 egress;
+the gateway's mode assertion does not inspect another release or prove it is
+running. Private VLM inference receives original images inside the trusted
+processing boundary before downstream checks. The extProc chart deliberately
+maps the new names back to `cpu` / `remote` environment values for the current
+image. No runtime face-model download or YuNet setting is added here; the new
+consumer owns its packaged, checksum-verified model.
+
+For private VLM image reading, Docling supplies a separate administrator `images`
+preset (`scale: 1.0`, top-level `max_size: null`); existing document/PDF requests
+retain `default` at scale 2. The new consumer must select `images` for normalized,
+DPI-free images, after the preset is deployed. Internal-standard has no remote
+presets. A pinned-source reader-to-API-payload test verifies RGB pixel preservation
+with HTTP intercepted, not live inference or backend-internal preprocessing;
+see the [Docling chart notes](charts/docling/README.md#private-image-preset).
+
 ## Validation
 
 Run the complete local validation suite from the repository root:
