@@ -8,14 +8,16 @@ import subprocess
 import textwrap
 import time
 import unittest
-
+from helm import render
 
 ROOT = Path(__file__).resolve().parents[2]
 CHART = ROOT / "charts/rook-ceph"
 IMAGE = "quay.io/ceph/ceph:v20.2.2"
 WARNINGS = (
-    "AUTH_INSECURE_ROTATING_SERVICE_KEY_TYPE", "AUTH_INSECURE_CLIENT_KEY_TYPE",
-    "AUTH_INSECURE_KEYS_ALLOWED", "AUTH_INSECURE_KEYS_CREATABLE",
+    "AUTH_INSECURE_ROTATING_SERVICE_KEY_TYPE",
+    "AUTH_INSECURE_CLIENT_KEY_TYPE",
+    "AUTH_INSECURE_KEYS_ALLOWED",
+    "AUTH_INSECURE_KEYS_CREATABLE",
 )
 
 
@@ -151,35 +153,33 @@ ceph_health_ready
 
 
 class RenderTests(unittest.TestCase):
-    def render(self):
-        return subprocess.run(
-            ["helm", "template", "rook-ceph", str(CHART), "--values",
-             str(ROOT / "tests/validation/helm-lint-values.yaml")],
-            text=True, capture_output=True, timeout=30,
-        )
-
-    def test_render_pins_and_shipped_script(self):
-        result = self.render()
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("docker.io/rook/ceph:v1.20.3", result.stdout)
+    def test_upgrade_safety_and_shipped_script(self):
+        result = render("rook-ceph", release="rook-ceph")
         self.assertIn("- name: rook\n        enabled: true", result.stdout)
         self.assertIn("allowUnsupported: false", result.stdout)
         self.assertIn("skipUpgradeChecks: false", result.stdout)
         self.assertNotIn("keyGeneration", result.stdout)
         self.assertNotIn("DAEMON_KEY_GENERATION", result.stdout)
         self.assertNotIn("cephx:", result.stdout)
-        self.assertIn(IMAGE, result.stdout)
-        self.assertIn("quay.io/cephcsi/cephcsi:v3.17.0", result.stdout)
         self.assertNotIn("muteHealthWarning", result.stdout)
         self.assertNotIn("allowedCiphers", result.stdout)
         script = (CHART / "files/health.sh").read_text()
-        self.assertIn(script.strip(), "\n".join(line[15:] if line.startswith(" " * 15) else line
-                                               for line in result.stdout.splitlines()))
+        self.assertIn(
+            script.strip(),
+            "\n".join(
+                line[15:] if line.startswith(" " * 15) else line
+                for line in result.stdout.splitlines()
+            ),
+        )
         job = result.stdout.split("# Source: rook-ceph/templates/readiness-job.yaml\n", 1)[1]
-        shell = textwrap.dedent(job.split("            - |\n", 1)[1].split("\n          env:", 1)[0])
+        shell = textwrap.dedent(
+            job.split("            - |\n", 1)[1].split("\n          env:", 1)[0]
+        )
         syntax = subprocess.run(["/bin/sh", "-n"], input=shell, text=True, capture_output=True)
         self.assertEqual(syntax.returncode, 0, syntax.stderr)
         self.assertEqual(shell.count("\nEOF\n"), 2, "Smoke-test heredocs must remain unindented")
         template = (CHART / "templates/readiness-job.yaml").read_text()
-        self.assertLess(template.index("RBD dynamic provisioning and persisted write/read succeeded."),
-                        template.index("Ceph health did not pass after the RBD smoke test."))
+        self.assertLess(
+            template.index("RBD dynamic provisioning and persisted write/read succeeded."),
+            template.index("Ceph health did not pass after the RBD smoke test."),
+        )

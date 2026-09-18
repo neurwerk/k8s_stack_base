@@ -3,7 +3,7 @@
 import unittest
 import subprocess
 
-from test_openrouter_catalog import ROOT, render, resources
+from helm import ROOT, render, resources
 
 
 class WireguardTests(unittest.TestCase):

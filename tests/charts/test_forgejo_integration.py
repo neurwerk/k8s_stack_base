@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from test_openrouter_catalog import ROOT, env_value, render, resources
+from helm import ROOT, env_value, render, resources
 
 
 class ForgejoIntegrationTests(unittest.TestCase):

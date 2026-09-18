@@ -5,10 +5,8 @@ from __future__ import annotations
 import re
 import subprocess
 from pathlib import Path
+from helm import ROOT, LINT_VALUES, render
 
-
-ROOT = Path(__file__).resolve().parents[3]
-LINT_VALUES = ROOT / "tests/validation/helm-lint-values.yaml"
 RESOURCE_VALUES = ROOT / "releases/shared/resources.yaml"
 
 
@@ -23,27 +21,15 @@ def render_chart(
     check: bool = True,
 ) -> subprocess.CompletedProcess[str]:
     """Render one first-party LibreChat chart with deterministic values."""
-    command = [
-        "helm",
-        "template",
-        release_name or Path(chart).name,
-        str(ROOT / "charts/librechat" / chart),
-        "--namespace",
-        namespace,
-    ]
-    if platform_values:
-        for path in (LINT_VALUES, RESOURCE_VALUES):
-            command.extend(("--values", str(path)))
-    for path in values:
-        command.extend(("--values", str(path)))
-    command.extend(extra_args)
-
-    result = subprocess.run(command, capture_output=True, text=True, check=False)
-    if check and result.returncode != 0:
-        raise RuntimeError(
-            f"{' '.join(command)} failed:\n{result.stderr}{result.stdout}"
-        )
-    return result
+    files = ((LINT_VALUES, RESOURCE_VALUES) if platform_values else ()) + values
+    return render(
+        f"librechat/{chart}",
+        release=release_name or Path(chart).name,
+        namespace=namespace,
+        value_files=files,
+        extra_args=extra_args,
+        check=check,
+    )
 
 
 def documents(manifest: str) -> list[str]:
@@ -75,15 +61,6 @@ def resources_of_kind(manifest: str, kind: str) -> list[str]:
         for document in documents(manifest)
         if re.search(rf"(?m)^kind:\s*{re.escape(kind)}\s*$", document)
     ]
-
-
-def non_secret_documents(manifest: str) -> str:
-    """Join every rendered document except Kubernetes Secrets."""
-    return "\n---\n".join(
-        document
-        for document in documents(manifest)
-        if not re.search(r"(?m)^kind:\s*Secret\s*$", document)
-    )
 
 
 def secret_ref_names(document: str) -> set[str]:

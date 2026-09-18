@@ -87,7 +87,7 @@ def revisions(comp: Composition) -> dict[str, str]:
             selected.append(spec["ref"])
     if len(selected) != 1:
         raise PlanError("revision: exactly one selected platform source required")
-    ref = mapping(selected[0], "", "branch tag")
+    ref = mapping(selected[0], "", "branch tag commit")
     sha = platform.sha
     if platform.modified():
         raise PlanError("revision: supplied platform snapshot must be clean")
@@ -99,8 +99,12 @@ def revisions(comp: Composition) -> dict[str, str]:
         if platform.resolve("refs/heads/main") != sha:
             raise PlanError("revision: supplied platform HEAD does not match local main")
         selection = "main"
+    elif set(ref) == {"commit"} and type(ref["commit"]) is str and re.fullmatch(r"[0-9a-f]{40}", ref["commit"]):
+        if ref["commit"] != sha:
+            raise PlanError("revision: supplied platform HEAD does not match selected commit")
+        selection = ref["commit"]
     else:
-        raise PlanError("revision: only exact stable tags or main are supported")
+        raise PlanError("revision: only exact stable tags, main or full alpha commits are supported")
     client = GitSnapshot(comp.roots["flux-system"])
     checker = GitSnapshot(Path(__file__).resolve().parent.parent)
     return {"platform": sha, "selection": selection, "client": client.sha,

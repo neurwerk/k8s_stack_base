@@ -5,9 +5,8 @@ import json
 from pathlib import Path
 import re
 import subprocess
-import tempfile
 import unittest
-
+from helm import render as helm_render, resource
 
 ROOT = Path(__file__).resolve().parents[2]
 # Test-only artifact, never a release pin or a purported published image.
@@ -16,7 +15,9 @@ VALUES = {
     "maintenance": {
         "enabled": True,
         "image": IMAGE,
-        "products": {name: {"enabled": True} for name in ("studio", "dify", "librechat", "langfuse")},
+        "products": {
+            name: {"enabled": True} for name in ("studio", "dify", "librechat", "langfuse")
+        },
     },
     "authKeycloak": {
         "hostname": "identity.platform.test",
@@ -42,21 +43,20 @@ LABELS = {
 
 
 def render(values):
-    with tempfile.TemporaryDirectory() as directory:
-        path = Path(directory) / "values.json"
-        path.write_text(json.dumps(values))
-        return subprocess.run(
-            ["helm", "template", "maintenance", str(ROOT / "charts/maintenance"),
-             "--namespace", "maintenance", "--values", str(path)],
-            text=True, capture_output=True, check=False,
-        )
+    return helm_render(
+        "maintenance",
+        values,
+        release="maintenance",
+        namespace="maintenance",
+        value_files=(),
+        check=False,
+    )
 
 
 def contract(result):
     if result.returncode:
         raise AssertionError(result.stderr)
-    encoded = re.search(r"^  contract.json: (.*)$", result.stdout, re.MULTILINE)
-    return json.loads(json.loads(encoded.group(1)))
+    return json.loads(resource(result, "ConfigMap")["data"]["contract.json"])
 
 
 class MaintenanceTests(unittest.TestCase):

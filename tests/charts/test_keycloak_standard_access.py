@@ -5,8 +5,8 @@ from __future__ import annotations
 import json
 import unittest
 
-from test_openrouter_catalog import catalog, env_value, render
-
+from catalog import catalog
+from helm import env_value, render
 
 CHART = "keycloak/realm-config/realm-roles"
 LLM = "/access/neurwerk-llm-all-users"

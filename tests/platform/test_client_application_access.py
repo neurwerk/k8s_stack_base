@@ -611,13 +611,31 @@ class AdapterTest(unittest.TestCase):
         comp = composition.Composition(self.client, self.platform, "prod-eu-1")
         source = next(o for o in comp.objects.values() if o["kind"] == "GitRepository")
         sha = "a" * 40
-        for ref, match, dirty, succeeds in (({"branch": "main"}, True, False, True), ({"tag": "v1.2.3"}, True, False, True),
-                ({"tag": "v1.2.3"}, False, False, False), ({"branch": "main"}, False, False, False),
-                ({"tag": "v1.2.3"}, True, True, False), ({"branch": "candidate"}, True, False, False)):
+        for ref, match, dirty, succeeds in (
+            ({"branch": "main"}, True, False, True),
+            ({"tag": "v1.2.3"}, True, False, True),
+            ({"tag": "v1.2.3"}, False, False, False),
+            ({"branch": "main"}, False, False, False),
+            ({"tag": "v1.2.3"}, True, True, False),
+            ({"branch": "candidate"}, True, False, False),
+            ({"commit": sha}, True, False, True),
+            ({"commit": "b" * 40}, True, False, False),
+            ({"commit": sha}, True, True, False),
+            ({"commit": "abc123"}, True, False, False),
+            ({"commit": sha, "branch": "main"}, True, False, False),
+        ):
             source["spec"]["ref"] = ref
-            snapshot = SimpleNamespace(sha=sha, resolve=lambda ref: sha if match else "b" * 40, modified=lambda consumed=(): dirty)
+
+            def resolve(selected):
+                self.assertNotIn("commit", ref, "frozen selector needs no branch resolution")
+                return sha if match else "b" * 40
+
+            snapshot = SimpleNamespace(sha=sha, resolve=resolve, modified=lambda consumed=(): dirty)
             comp.platform_snapshot = snapshot
-            with self.subTest(ref=ref, match=match, dirty=dirty), patch.object(adapter, "GitSnapshot", return_value=snapshot):
+            with (
+                self.subTest(ref=ref, match=match, dirty=dirty),
+                patch.object(adapter, "GitSnapshot", return_value=snapshot),
+            ):
                 if succeeds:
                     self.assertEqual(adapter.revisions(comp)["platform"], sha)
                 else:
