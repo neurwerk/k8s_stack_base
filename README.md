@@ -151,7 +151,7 @@ certificates, OpenBao initialization, and published images matching the selected
 tag's `release/manifest.yaml`. The exact prerequisite versions and compatibility
 limits are release-specific; do not infer upgrade safety from SemVer alone.
 
-## Active Directory Mappings (Staged)
+## Active Directory Mappings
 
 The Keycloak server and Active Directory reconciliation charts expose
 `authKeycloak.activeDirectory.groupMappings`, default `[]`, alongside the legacy
@@ -177,25 +177,47 @@ Only LDAPS requires the AD CA ConfigMap, mount, `KC_TRUSTSTORE_PATHS` and CA rel
 annotation; database CA trust and branding/logo reload handling stay independent.
 Both transports require the existing OpenBao-backed bind Secret.
 
-**This is staged chart support, not released runtime readiness.** Mapping or
-plaintext selection fails at render time unless both charts receive
+Mapping or plaintext selection fails at render time unless both charts receive
 `k8sTools.image` in the exact format
 `ghcr.io/neurwerk/k8s-stack-tooling:X.Y.Z`, version `>=0.7.0`, optionally followed
 by `@sha256:<64 lowercase hex>`. Moving tags, prereleases, digest-only references
 and other image repositories cannot prove compatibility and are rejected for
 these new modes. This gate checks the declared version, not registry publication.
-Tooling `0.6.2` is published; `0.7.0` still needs separate authorized publication,
-verification and image-pin adoption before these modes can be used. Existing
-pins are intentionally unchanged; disabled and legacy LDAPS installs remain
-deployable, including consumers of `main`.
+Base source now pins published, verified Tooling `0.7.0` by digest in all 13
+consuming charts, so both modes pass the version gate with the default image.
+Federation remains disabled by default; legacy LDAPS remains supported. Stable platform
+publication and client activation are still pending and separately authorized.
 
 The enabled Job exports `KC_ACTIVE_DIRECTORY_GROUP_MAPPINGS` as a JSON array,
 retains `KC_ACTIVE_DIRECTORY_GROUP_NAMES` as the original JSON array, and exports
 `KC_ACTIVE_DIRECTORY_ALLOW_INSECURE_LDAP` as `"true"` or `"false"`. Legacy mode
 sends empty mappings and keeps the original names, so older Tooling can ignore
 the new environment variables safely. Disabled Jobs omit directory inputs and
-bind credentials. Shared documentation, runtime implementation and later client
-adoption are coordinated separately under Base #180 (chart work: #181).
+bind credentials. Base #183 tracks pin adoption and combined release preparation;
+later client adoption remains separate under Base #180 (chart work: #181).
+
+## Optional Docling Extraction
+
+Base source includes five optional Docling packages in `release/config.yaml`:
+`releases/namespaces/docling`, `releases/docling/reloader`,
+`releases/docling/app`, `releases/docling/secret-sync`, and
+`releases/docling/secret-sync/internal`. None is selected by the default stage
+composition. Docling and LibreChat uploads remain disabled by default; model
+attachment handling still defaults to `block`. Stable publication and client
+activation remain separate, pending operations under Base #170 and #183.
+
+Select either CPU-only credential delivery (`secret-sync/internal`) or remote-mode
+delivery (`secret-sync`), not both, and provision the selected operator credentials
+before startup. Optional remote mode requires a private, explicitly allowed
+inference endpoint, verified HTTPS and its own token; it has no automatic CPU
+fallback. Keep the exact package-specific CLI prerequisites in the release contract.
+
+Base #185 merged the wiring and published extProc `0.8.0` / PII Engine `0.9.0`
+CPU pins. Recorded CPU synthetic TXT/PDF conversion and PII analysis passed;
+end-to-end chat dispatch and remote vision inference are not yet verified.
+This does not require a new test server or repeat feature qualification. See the
+[Docling architecture](https://github.com/neurwerk/documentation/blob/main/dev/architecture/docling.md)
+for the configuration, privacy limits and separately authorized activation steps.
 
 ## Validation
 

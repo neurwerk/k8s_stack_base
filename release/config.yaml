@@ -17,32 +17,32 @@ packages:
   - releases/applications
   optional:
   - path: releases/docling/secret-sync/internal
-    status: excluded
-    reason: Optional CPU API-key delivery without an external inference token.
+    status: included
+    reason: Optional CPU API-key delivery; provision operator credentials before startup, without an external inference token.
     chartPrefixes: []
     prerequisites:
     - name: openbao-stack-setup
       version: 0.2.16
       source: https://github.com/neurwerk/k8s_stack_tooling/commit/269b8c09190df8bd7b775ff7ef202964d3fe2703
   - path: releases/docling/secret-sync
-    status: excluded
-    reason: Optional credential delivery; stage before operator setup without starting Docling.
+    status: included
+    reason: Optional remote-mode credential delivery; provision the API key and inference token before startup.
     chartPrefixes: []
     prerequisites:
     - name: openbao-stack-setup
       version: 0.2.15
       source: https://github.com/neurwerk/k8s_stack_tooling/commit/79a3c2eb98ea1e407376a95f83d2441576d719f6
   - path: releases/docling/reloader
-    status: excluded
+    status: included
     reason: Optional Docling namespace watch and rotation RBAC; compose only after its namespace exists.
     chartPrefixes: []
   - path: releases/namespaces/docling
-    status: excluded
-    reason: Disabled source addition; client composition and approved credential provisioning are pending.
+    status: included
+    reason: Optional Docling namespace; compose only when selected by the client.
     chartPrefixes: []
   - path: releases/docling/app
-    status: excluded
-    reason: Disabled source addition; trusted extProc admission and conversion integration are not yet deployed.
+    status: included
+    reason: Optional CPU or private remote extraction; disabled by default and requires client selection and operator credentials.
     chartPrefixes:
     - charts/docling
     prerequisites:

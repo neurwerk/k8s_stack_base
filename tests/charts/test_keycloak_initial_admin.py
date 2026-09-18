@@ -47,8 +47,8 @@ class KeycloakInitialAdminTests(unittest.TestCase):
         self.assertIn('"helm.sh/hook-weight": "0"', manifest)
         self.assertIn("- send-user-actions-email", manifest)
         self.assertIn(
-            'image: "ghcr.io/neurwerk/k8s-stack-tooling:0.6.1@sha256:'
-            '60829618924ae8121817a2039faecff2dbf881debef852f84bec7c1ceb03a805"',
+            'image: "ghcr.io/neurwerk/k8s-stack-tooling:0.7.0@sha256:'
+            'f744427df82f4a5b0a94f2f9fbf6c59ab98e1ec4f99963b6d836ea9d765e88bb"',
             manifest,
         )
         self.assertIn("value: \"https://lint.example\"", manifest)

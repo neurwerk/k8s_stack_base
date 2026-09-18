@@ -186,6 +186,9 @@ class ReleaseContractTest(unittest.TestCase):
                 (False, False, False, False, None),
                 (True, False, False, False, None),
                 (True, False, False, True, None),
+                (True, True, False, False, None),
+                (True, True, True, True, None),
+                (True, False, True, True, None),
                 (True, True, False, False, image),
                 (True, True, True, True, image + "@sha256:" + "a" * 64),
                 (True, False, True, True, image),
@@ -262,7 +265,8 @@ class ReleaseContractTest(unittest.TestCase):
                                                  ["KC_ACTIVE_DIRECTORY_ENABLED"])
 
             mapped_ad = {**ad, "groupNames": [], "groupMappings": mappings}
-            for tooling in (None, image.replace("0.7.0", "0.6.2"),
+            for tooling in (image.replace("0.7.0", "0.6.2"),
+                            image.replace("0.7.0", "0.6.2") + "@sha256:" + "a" * 64,
                             image.replace("0.7.0", "0.7"), image.replace("0.7.0", "latest"),
                             image + "-rc.1", image + "@sha256:abc",
                             "registry.example/tooling:0.7.0"):

@@ -1,7 +1,7 @@
 # Published server image; adoption and runtime acceptance remain separate gates.
 maintenance:
   enabled: false
-  image: ghcr.io/neurwerk/k8s-stack-tooling:0.6.2@sha256:299ded44d76d5a73e3c1045af09b02649b08a3b5f00d07a993e3be7c61a490fd
+  image: ghcr.io/neurwerk/k8s-stack-tooling:0.7.0@sha256:f744427df82f4a5b0a94f2f9fbf6c59ab98e1ec4f99963b6d836ea9d765e88bb
   # Approval scopes, not activation state. Only the operator creates runtime copies.
   # LibreChat covers both its canonical application and Admin Panel hostnames.
   products:
