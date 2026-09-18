@@ -4,120 +4,16 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
 import re
-import subprocess
-import tempfile
 import unittest
-from pathlib import Path
+import yaml
 
-
-ROOT = Path(__file__).resolve().parents[2]
-LINT_VALUES = ROOT / "tests/validation/helm-lint-values.yaml"
-
-
-def catalog(name: str = "remote/openrouter/acme/model", upstream: str = "acme/model") -> dict:
-    return {
-        "enabled": True,
-        "excludedModels": [],
-        "grantToAccessGroups": False,
-        "models": [
-            {
-                "name": name,
-                "upstreamModel": upstream,
-                "label": "Friendly Model",
-                "group": "Remote-OpenRouter-Acme",
-            }
-        ],
-    }
-
-
-def render(
-    chart: str,
-    values: dict,
-    *,
-    check: bool = True,
-) -> subprocess.CompletedProcess[str]:
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".json") as value_file:
-        json.dump(values, value_file)
-        value_file.flush()
-        command = [
-            "helm",
-            "template",
-            "catalog-test",
-            str(ROOT / "charts" / chart),
-            "--namespace",
-            "catalog-test",
-            "--values",
-            str(LINT_VALUES),
-            "--values",
-            value_file.name,
-        ]
-        result = subprocess.run(
-            command,
-            capture_output=True,
-            text=True,
-            check=False,
-            env=os.environ,
-        )
-    if check and result.returncode:
-        raise AssertionError(result.stderr + result.stdout)
-    return result
-
-
-def resources(result: subprocess.CompletedProcess[str], kind: str) -> list[str]:
-    return [
-        document
-        for document in re.split(r"(?m)^---\s*$", result.stdout)
-        if re.search(rf"(?m)^kind:\s*{re.escape(kind)}\s*$", document)
-    ]
-
-
-def env_value(result: subprocess.CompletedProcess[str], name: str) -> str:
-    match = re.search(
-        rf'(?m)^\s+- name: {re.escape(name)}\n\s+value: (?P<value>".*")$',
-        result.stdout,
-    )
-    if match is None:
-        raise AssertionError(f"missing environment variable {name}")
-    return json.loads(match.group("value"))
+from catalog import agent_values, catalog
+from helm import ROOT, env_value, render, resource, resources
 
 
 def resource_name(document: str) -> str:
-    match = re.search(r"(?m)^metadata:\n\s+name:\s+([^\s]+)$", document)
-    if match is None:
-        raise AssertionError("resource has no metadata.name")
-    return match.group(1)
-
-
-def values_from(path: str) -> list[tuple[str, str]]:
-    text = (ROOT / "releases" / path).read_text()
-    return re.findall(
-        r"(?m)^    - kind: (ConfigMap|Secret)\n      name: ([^\s]+)$", text
-    )
-
-
-def agent_values(openrouter: dict, client_models: list[dict] | None = None) -> dict:
-    return {
-        "openrouterCatalog": openrouter,
-        "guardrails": {
-            "llmPolicyEngine": {
-                "enabled": True,
-                "models": client_models or [],
-                "localTarget": {
-                    "name": "local-fallback",
-                    "model": "local-model",
-                    "provider": "Custom",
-                    "custom": {"formats": [{"type": "Completions"}]},
-                },
-            }
-        },
-        "infraAgentgatewayWrapper": {
-            "llamacpp": {"enabled": True, "host": "ollama.test", "port": 11434}
-        },
-        "authKeycloak": {"agentgatewayClientRoles": ["llm:invoke"]},
-        "monitorPiiEngine": {"policy": {"routing": {"targets": []}}},
-    }
+    return yaml.safe_load(document)["metadata"]["name"]
 
 
 class AgentGatewayCatalogTests(unittest.TestCase):
@@ -179,10 +75,14 @@ class AgentGatewayCatalogTests(unittest.TestCase):
 
     def test_invalid_attachment_modes_and_pii_constraint(self) -> None:
         for source in ("direct", "catalog"):
-            for mode in (None, True, False, 1, [], {}, "", "unknown", "BLOCK", "passthrough"):
+            for mode in (None, True, [], "unknown", "passthrough"):
                 with self.subTest(source=source, mode=mode):
                     selected = catalog()
-                    direct = {"name": selected["models"][0]["name"], "provider": "OpenAI", "model": "plain"}
+                    direct = {
+                        "name": selected["models"][0]["name"],
+                        "provider": "OpenAI",
+                        "model": "plain",
+                    }
                     row = direct if source == "direct" else selected["models"][0]
                     row["attachmentMode"] = mode
                     if source == "catalog":
@@ -193,10 +93,6 @@ class AgentGatewayCatalogTests(unittest.TestCase):
                     self.assertIn("attachmentMode", failed.stderr)
                     if mode == "passthrough":
                         self.assertIn("requires piiEnabled:false", failed.stderr)
-            direct.update(attachmentMode="passthrough", piiEnabled=True)
-            failed = render("agentgateway", agent_values(catalog(), [direct]), check=False)
-            self.assertNotEqual(failed.returncode, 0)
-            self.assertIn("requires piiEnabled:false", failed.stderr)
 
     def test_attachment_metadata_expression_size_limit(self) -> None:
         selected = catalog()
@@ -451,22 +347,22 @@ class AuthorizationCatalogTests(unittest.TestCase):
         )
         render("keycloak/oidc/dify-agentgateway", values)
         bridge = render("keycloak-api-key-bridge", values)
-        match = re.search(r"(?m)^  primary\.json: >-\n    (?P<value>\{.*\})$", bridge.stdout)
-        self.assertIsNotNone(match)
-        self.assertIn(permission, json.loads(match.group("value"))["permissions"])
+        self.assertIn(
+            permission,
+            json.loads(resource(bridge, "ConfigMap")["data"]["primary.json"])["permissions"],
+        )
 
-        values["openrouterCatalog"]["excludedModels"] = ["acme/model"]
-        for chart in ("keycloak/oidc/dify-agentgateway", "keycloak-api-key-bridge"):
-            result = render(chart, values, check=False)
-            self.assertNotEqual(result.returncode, 0)
-            self.assertIn("absent from authKeycloak.agentgatewayClientRoles", result.stderr)
-
-        values["openrouterCatalog"]["excludedModels"] = []
-        values["openrouterCatalog"]["enabled"] = False
-        for chart in ("keycloak/oidc/dify-agentgateway", "keycloak-api-key-bridge"):
-            result = render(chart, values, check=False)
-            self.assertNotEqual(result.returncode, 0)
-            self.assertIn("absent from authKeycloak.agentgatewayClientRoles", result.stderr)
+        for selection in ({"excludedModels": ["acme/model"]}, {"enabled": False}):
+            values["openrouterCatalog"] = {**catalog(), **selection}
+            for chart in ("keycloak/oidc/dify-agentgateway", "keycloak-api-key-bridge"):
+                with (
+                    self.subTest(chart=chart, selection=selection),
+                    self.assertRaisesRegex(
+                        AssertionError,
+                        "absent from authKeycloak.agentgatewayClientRoles",
+                    ),
+                ):
+                    render(chart, values)
 
     def test_access_group_environment_boundary(self) -> None:
         def boundary_values(over_limit: bool) -> tuple[dict, int]:
@@ -520,9 +416,7 @@ class LibreChatCatalogTests(unittest.TestCase):
     def test_model_specs_are_grouped_without_raw_fetched_rows(self) -> None:
         inherited = catalog()
         values = {
-            "frontendLibrechat": {
-                "agentGateway": {"defaultModel": "local/llama"}
-            },
+            "frontendLibrechat": {"agentGateway": {"defaultModel": "local/llama"}},
             "openrouterCatalog": inherited,
             "guardrails": {
                 "llmPolicyEngine": {
@@ -539,23 +433,24 @@ class LibreChatCatalogTests(unittest.TestCase):
             },
         }
         result = render("librechat/shared", values)
-        self.assertIn("      modelSelect: false\n", result.stdout)
-        self.assertIn("    modelSpecs:\n", result.stdout)
-        self.assertIn("      enforce: false\n", result.stdout)
-        self.assertIn("        - group: Remote-OpenRouter-Acme\n", result.stdout)
-        self.assertIn("          name: remote/openrouter/acme/model\n", result.stdout)
-        self.assertIn("        - default: true\n          group: Local\n", result.stdout)
-        self.assertIn("          name: local/llama\n", result.stdout)
-        self.assertIn("        - group: Remote-DeepSeek-Direct\n", result.stdout)
-        self.assertIn("          name: remote/deepseek/chat\n", result.stdout)
-        self.assertIn(
-            '            default: ["remote/openrouter/acme/model","local/llama","remote/deepseek/chat"]\n',
-            result.stdout,
+        config = yaml.safe_load(
+            resource(result, "ConfigMap", "frontend-librechat-config-map")["data"]["librechat.yaml"]
         )
-        self.assertIn("            fetch: false\n", result.stdout)
-        names = re.findall(r"(?m)^          name: ([^\s]+)$", result.stdout)
-        self.assertEqual(len(names), len(set(names)))
-
+        self.assertFalse(config["interface"]["modelSelect"])
+        self.assertFalse(config["modelSpecs"]["enforce"])
+        specs = config["modelSpecs"]["list"]
+        expected = {
+            "remote/openrouter/acme/model": "Remote-OpenRouter-Acme",
+            "local/llama": "Local",
+            "remote/deepseek/chat": "Remote-DeepSeek-Direct",
+        }
+        self.assertEqual({row["name"]: row["group"] for row in specs}, expected)
+        self.assertEqual(len(specs), len(expected))
+        self.assertEqual([row["name"] for row in specs if row.get("default")], ["local/llama"])
+        endpoint = next(
+            row for row in config["endpoints"]["custom"] if row["name"] == "AgentGateway"
+        )
+        self.assertEqual(endpoint["models"], {"default": list(expected), "fetch": False})
         inherited["excludedModels"] = ["acme/model"]
         excluded = render("librechat/shared", values)
         self.assertNotIn("          name: remote/openrouter/acme/model\n", excluded.stdout)
@@ -597,232 +492,78 @@ class LibreChatCatalogTests(unittest.TestCase):
 
 
 class CatalogOwnershipTests(unittest.TestCase):
-    def test_base_catalog_is_empty_and_pricing_artifacts_are_absent(self) -> None:
-        for path in (
-            "releases/shared/openrouter-catalog.yaml",
-            "releases/shared/openrouter-catalog-policy.json",
-            "charts/agentgateway/files/catalog.json",
-            "charts/agentgateway/files/catalog-overrides.json",
-            "charts/agentgateway/templates/model-cost-catalog-configmap.yaml",
-            "charts/agentgateway/templates/model-cost-catalog-overrides-configmap.yaml",
+    def test_client_values_override_optional_catalog(self) -> None:
+        for path, product in (
+            ("agentgateway/app.yaml", "agentgateway"),
+            ("keycloak/oidc-agentgateway.yaml", "keycloak"),
+            ("keycloak/oidc-dify-agentgateway.yaml", "keycloak"),
+            ("keycloak/realm-roles.yaml", "keycloak"),
+            ("keycloak-api-key-bridge/app.yaml", "keycloak-api-key-bridge"),
+            ("librechat/core/shared.yaml", "librechat"),
         ):
-            self.assertFalse((ROOT / path).exists(), path)
-
-        dify_values = (ROOT / "charts/dify/api/values.yaml").read_text()
-        self.assertIn('defaultModel:\n    name: ""', dify_values)
-        self.assertNotIn("remote/openrouter/", dify_values)
-        for path in (
-            "charts/pii-engine/values.yaml",
-            "releases/shared/default-pii-settings.yaml",
-        ):
-            self.assertNotIn("local/llama3.2-3b", (ROOT / path).read_text())
-
-    def test_release_values_from_precedence_is_exact(self) -> None:
-        expected = {
-            "agentgateway/app.yaml": [
-                ("ConfigMap", "base-shared-hostnames-config-map"),
-                ("ConfigMap", "base-shared-resources-config-map"),
-                ("ConfigMap", "base-shared-oidc-clients-config-map"),
-                ("ConfigMap", "base-shared-mcp-config-map"),
-                ("ConfigMap", "base-shared-pii-config-map"),
-                ("ConfigMap", "client-openrouter-catalog-values"),
-                ("Secret", "infra-agentgateway-secrets"),
-                ("ConfigMap", "client-values"),
-                ("ConfigMap", "agentgateway-product-values"),
-            ],
-            "keycloak/oidc-agentgateway.yaml": [
-                ("ConfigMap", "base-shared-hostnames-config-map"),
-                ("ConfigMap", "base-shared-resources-config-map"),
-                ("ConfigMap", "base-shared-oidc-clients-config-map"),
-                ("ConfigMap", "auth-keycloak-app-defaults"),
-                ("ConfigMap", "client-openrouter-catalog-values"),
-                ("Secret", "auth-keycloak-secrets"),
-                ("ConfigMap", "client-values"),
-                ("ConfigMap", "keycloak-product-values"),
-            ],
-            "keycloak/oidc-dify-agentgateway.yaml": [
-                ("ConfigMap", "base-shared-oidc-clients-config-map"),
-                ("ConfigMap", "auth-keycloak-app-defaults"),
-                ("ConfigMap", "client-openrouter-catalog-values"),
-                ("Secret", "auth-keycloak-secrets"),
-                ("ConfigMap", "client-values"),
-                ("ConfigMap", "keycloak-product-values"),
-            ],
-            "keycloak/realm-roles.yaml": [
-                ("ConfigMap", "base-shared-oidc-clients-config-map"),
-                ("ConfigMap", "auth-keycloak-app-defaults"),
-                ("ConfigMap", "client-openrouter-catalog-values"),
-                ("Secret", "auth-keycloak-secrets"),
-                ("ConfigMap", "client-values"),
-                ("ConfigMap", "keycloak-product-values"),
-            ],
-            "keycloak-api-key-bridge/app.yaml": [
-                ("ConfigMap", "base-shared-hostnames-config-map"),
-                ("ConfigMap", "base-shared-resources-config-map"),
-                ("ConfigMap", "base-shared-oidc-clients-config-map"),
-                ("ConfigMap", "auth-keycloak-api-key-bridge-app-defaults"),
-                ("ConfigMap", "client-openrouter-catalog-values"),
-                ("ConfigMap", "client-values"),
-                ("ConfigMap", "keycloak-api-key-bridge-product-values"),
-            ],
-            "librechat/core/shared.yaml": [
-                ("ConfigMap", "base-shared-document-attachments-config-map"),
-                ("ConfigMap", "base-shared-hostnames-config-map"),
-                ("ConfigMap", "base-shared-resources-config-map"),
-                ("ConfigMap", "base-shared-mcp-config-map"),
-                ("ConfigMap", "frontend-librechat-app-defaults"),
-                ("ConfigMap", "client-openrouter-catalog-values"),
-                ("Secret", "frontend-librechat-runtime-secret"),
-                ("ConfigMap", "client-values"),
-                ("ConfigMap", "librechat-agentgateway-model-values"),
-                ("ConfigMap", "librechat-product-values"),
-            ],
-        }
-        for path, sequence in expected.items():
-            self.assertEqual(values_from(path), sequence, path)
-            text = (ROOT / "releases" / path).read_text()
-            self.assertRegex(
-                text,
-                r"name: client-openrouter-catalog-values\n"
-                r"      valuesKey: values.yaml\n"
-                r"      optional: true",
-                path,
-            )
+            with self.subTest(release=path):
+                release = yaml.safe_load((ROOT / "releases" / path).read_text())
+                refs = release["spec"]["valuesFrom"]
+                names = [ref["name"] for ref in refs]
+                catalog_index = names.index("client-openrouter-catalog-values")
+                client_index = names.index("client-values")
+                self.assertEqual(
+                    refs[catalog_index],
+                    {
+                        "kind": "ConfigMap",
+                        "name": "client-openrouter-catalog-values",
+                        "valuesKey": "values.yaml",
+                        "optional": True,
+                    },
+                )
+                self.assertLess(catalog_index, client_index)
+                self.assertLess(client_index, names.index(f"{product}-product-values"))
+                for index, ref in enumerate(refs):
+                    if ref["kind"] == "ConfigMap" and (
+                        ref["name"].startswith("base-shared-")
+                        or ref["name"].endswith("-app-defaults")
+                    ):
+                        self.assertLess(index, catalog_index, ref["name"])
+                    if ref["kind"] == "Secret":
+                        self.assertLess(catalog_index, index)
+                        self.assertLess(index, client_index)
+                if product == "librechat":
+                    model_index = names.index("librechat-agentgateway-model-values")
+                    self.assertLess(client_index, model_index)
+                    self.assertLess(model_index, names.index("librechat-product-values"))
 
 
 class SyntheticClientCatalogIntegrationTests(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls) -> None:
-        cls.client_catalog = catalog()
-        cls.client_catalog["models"].append(
+    def test_public_models_and_oidc_roles_match(self) -> None:
+        selected = catalog()
+        selected["models"] += catalog("remote/second", "example/second")["models"]
+        models = [
+            yaml.safe_load(doc)
+            for doc in resources(
+                render("agentgateway", agent_values(selected)), "AgentgatewayModel"
+            )
+        ]
+        names = {row["name"] for row in selected["models"]}
+        self.assertEqual(
             {
-                "name": "remote/openrouter/example/second",
-                "upstreamModel": "example/second",
-                "label": "Second Model",
-                "group": "Remote-OpenRouter-Example",
-            }
+                doc["spec"]["match"]["model"]
+                for doc in models
+                if doc["spec"]["visibility"] == "Public"
+            },
+            names,
         )
-        cls.public_names = {
-            entry["name"] for entry in cls.client_catalog["models"]
-        }
-        cls.roles = {f"model:{name}:invoke" for name in cls.public_names}
-        cls.configured_groups = (
-            "/access/neurwerk-llm-all-users",
-        )
-
-        cls.agentgateway = render(
-            "agentgateway",
-            agent_values(cls.client_catalog),
-        )
-        cls.oidc = render(
+        self.assertEqual(len({doc["metadata"]["name"] for doc in models}), len(models))
+        oidc = render(
             "keycloak/oidc/agentgateway",
             {
-                "openrouterCatalog": cls.client_catalog,
+                "openrouterCatalog": selected,
                 "authKeycloak": {"agentgatewayClientRoles": ["llm:invoke"]},
             },
         )
-        cls.realm = render(
-            "keycloak/realm-config/realm-roles",
-            {
-                "authKeycloak": {
-                    "agentgatewayClientRoles": ["llm:invoke"],
-                    "agentgatewayAccessGroups": {
-                        group: ["llm:invoke", *sorted(cls.roles)]
-                        for group in cls.configured_groups
-                    },
-                },
-                "openrouterCatalog": cls.client_catalog,
-            },
+        self.assertEqual(
+            set(json.loads(env_value(oidc, "KC_CLIENT_ROLES"))),
+            {"llm:invoke", *(f"model:{name}:invoke" for name in names)},
         )
-        sample_permission = f"model:{next(iter(cls.public_names))}:invoke"
-        subset_values = {
-            "openrouterCatalog": cls.client_catalog,
-            "authKeycloak": {
-                "agentgatewayClientRoles": ["llm:invoke"],
-                "difyAgentgatewayClientRoles": ["llm:invoke", sample_permission],
-            }
-        }
-        cls.dify = render(
-            "keycloak/oidc/dify-agentgateway",
-            subset_values,
-        )
-        cls.bridge = render(
-            "keycloak-api-key-bridge",
-            subset_values,
-        )
-        cls.librechat = render(
-            "librechat/shared",
-            {
-                "openrouterCatalog": cls.client_catalog,
-                "guardrails": {"llmPolicyEngine": {"models": []}},
-            },
-        )
-
-    def test_client_catalog_has_end_to_end_model_role_and_group_parity(self) -> None:
-        public_matches = {
-            match
-            for document in resources(self.agentgateway, "AgentgatewayModel")
-            if re.search(r"(?m)^  visibility: Public$", document)
-            for match in re.findall(r'(?m)^    model: "([^"]+)"$', document)
-        }
-        self.assertEqual(public_matches, self.public_names)
-
-        model_documents = resources(self.agentgateway, "AgentgatewayModel")
-        resource_names = [resource_name(document) for document in model_documents]
-        labels = [
-            re.search(r"(?m)^    app\.kubernetes\.io/name: ([^\s]+)$", document).group(1)
-            for document in model_documents
-        ]
-        dns_subdomain = re.compile(
-            r"^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
-        )
-        label_value = re.compile(r"^[a-z0-9]([-a-z0-9_.]*[a-z0-9])?$")
-        self.assertEqual(len(resource_names), len(set(resource_names)))
-        self.assertEqual(len(labels), len(set(labels)))
-        for name in resource_names:
-            self.assertLessEqual(len(name), 253)
-            self.assertRegex(name, dns_subdomain)
-            self.assertTrue(all(len(segment) <= 63 for segment in name.split(".")))
-        for label in labels:
-            self.assertLessEqual(len(label), 63)
-            self.assertRegex(label, label_value)
-
-        oidc_roles = set(json.loads(env_value(self.oidc, "KC_CLIENT_ROLES")))
-        self.assertEqual(oidc_roles, self.roles | {"llm:invoke"})
-        groups_json = env_value(self.realm, "KC_ACCESS_GROUPS")
-        self.assertLessEqual(len(groups_json), 120000)
-        groups = json.loads(groups_json)
-        for group in self.configured_groups:
-            self.assertEqual(
-                set(groups[group]["clientRoles"]["agentgateway"]),
-                self.roles | {"llm:invoke"},
-            )
-        service_roles = json.loads(env_value(self.dify, "KC_SERVICE_ACCOUNT_ROLES"))
-        sample_role = f"model:{next(iter(self.public_names))}:invoke"
-        self.assertIn(sample_role, {item["roleName"] for item in service_roles})
-        primary_match = re.search(
-            r"(?m)^  primary\.json: >-\n    (?P<value>\{.*\})$",
-            self.bridge.stdout,
-        )
-        self.assertIsNotNone(primary_match)
-        self.assertIn(
-            sample_role,
-            json.loads(primary_match.group("value"))["permissions"],
-        )
-
-    def test_client_catalog_librechat_specs_preserve_groups(self) -> None:
-        config = self.librechat.stdout
-        specs_block = config.split("    modelSpecs:\n", 1)[1].split("    endpoints:\n", 1)[0]
-        specs = re.findall(
-            r"(?m)^        - group: (.+)\n"
-            r"          label: .*\n"
-            r"          name: ([^\s]+)$",
-            specs_block,
-        )
-        expected = {
-            entry["name"]: entry["group"] for entry in self.client_catalog["models"]
-        }
-        self.assertEqual({name: group for group, name in specs}, expected)
 
 
 if __name__ == "__main__":

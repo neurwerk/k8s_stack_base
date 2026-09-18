@@ -6,6 +6,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from helm import render as helm_render
 
 ROOT = Path(__file__).resolve().parents[3]
 CHART = ROOT / "charts/forgejo"
@@ -13,14 +14,19 @@ FIXTURE = Path(__file__).with_name("enabled.yaml")
 
 
 def render(*overrides, enabled=True, success=True, json_overrides=()):
-    command = ["helm", "template", "forgejo", str(CHART), "--namespace", "forgejo"]
-    if enabled:
-        command += ["--values", str(FIXTURE)]
+    args = []
     for override in overrides:
-        command += ["--set", override]
+        args += ["--set", override]
     for override in json_overrides:
-        command += ["--set-json", override]
-    result = subprocess.run(command, capture_output=True, text=True, check=False)
+        args += ["--set-json", override]
+    result = helm_render(
+        "forgejo",
+        release="forgejo",
+        namespace="forgejo",
+        value_files=(FIXTURE,) if enabled else (),
+        extra_args=args,
+        check=False,
+    )
     if not success:
         assert result.returncode != 0, result.stdout
         return result.stderr
@@ -43,14 +49,28 @@ class RenderTests(unittest.TestCase):
         self.assertNotIn(("Gateway", "forgejo-gateway"), docs)
         self.assertFalse({"Secret", "Namespace", "ExternalSecret"} & {k[0] for k in docs})
         cert = docs["Certificate", "forgejo-tls"]
-        for field in ['dnsNames: ["forgejo.example.com"]', "algorithm: RSA", "size: 2048", "rotationPolicy: Always", "duration: 2160h", "name: letsencrypt-staging-cluster-issuer"]:
+        for field in [
+            'dnsNames: ["forgejo.example.com"]',
+            "algorithm: RSA",
+            "size: 2048",
+            "rotationPolicy: Always",
+            "duration: 2160h",
+            "name: letsencrypt-staging-cluster-issuer",
+        ]:
             self.assertIn(field, cert)
         deploy = docs["Deployment", "forgejo"]
         images = re.findall(r"(?m)^\s+image: (\S+)$", deploy)
         self.assertEqual(len(images), 2)
         self.assertEqual(images[0], images[1])
-        self.assertIn("15.0.8-rootless@sha256:", images[0])
-        for field in ["replicas: 1", "type: Recreate", '"/usr/bin/timeout", "-k", "10", "290"', "automountServiceAccountToken: false", 'hostnames: ["forgejo.example.com"]', "readOnlyRootFilesystem: true", "scheme: HTTPS"]:
+        for field in [
+            "replicas: 1",
+            "type: Recreate",
+            '"/usr/bin/timeout", "-k", "10", "290"',
+            "automountServiceAccountToken: false",
+            'hostnames: ["forgejo.example.com"]',
+            "readOnlyRootFilesystem: true",
+            "scheme: HTTPS",
+        ]:
             self.assertIn(field, deploy)
         self.assertRegex(deploy, r"livenessProbe:\s+tcpSocket:\s+port: web")
         init, app = deploy.split("      containers:\n", 1)
@@ -69,8 +89,12 @@ class RenderTests(unittest.TestCase):
             'FORGEJO__SECURITY__REVERSE_PROXY_TRUSTED_PROXIES: "127.0.0.0/8,::1/128"',
         ]:
             self.assertIn(field, cfg)
-        self.assertIn("helm.sh/resource-policy: keep", docs["PersistentVolumeClaim", "forgejo-data"])
-        self.assertIn('storageClassName: "infra-rook-ceph-rbd"', docs["PersistentVolumeClaim", "forgejo-data"])
+        self.assertIn(
+            "helm.sh/resource-policy: keep", docs["PersistentVolumeClaim", "forgejo-data"]
+        )
+        self.assertIn(
+            'storageClassName: "infra-rook-ceph-rbd"', docs["PersistentVolumeClaim", "forgejo-data"]
+        )
         policy = docs["NetworkPolicy", "forgejo"]
         self.assertIn("ingress: []", policy)
         self.assertNotIn("ipBlock", policy)

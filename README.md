@@ -299,43 +299,27 @@ see the [Docling chart notes](charts/docling/README.md#private-image-preset).
 
 ## Validation
 
-Run the complete local validation suite from the repository root:
+Run from the repository root:
 
 ```bash
-uv sync --frozen
-make check
-pre-commit run --all-files
+mise exec -- make check
 ```
 
-`make check` verifies tool availability and Helm dependency locks, lints and
-renders every chart, validates the root Kustomizations with kubeconform, runs
-kube-linter, and executes chart, static security, and platform contract tests.
-It does not contact or mutate a cluster.
+This checks charts, schemas, lint, release contracts and offline safety tests;
+it never contacts a cluster. `mise exec -- pre-commit run --all-files` includes
+the same full check, so running both is unnecessary. See `make help` for focused
+targets; release verification uses `make check release-check TAG=vX.Y.Z`.
+`helm-validate` and `kube-linter` share one render per chart and run both checks.
+Live acceptance is opt-in with explicit context and credentials, never part of
+`make check`; see [AgentGateway setup](tests/live/agentgateway/README.md).
 
-Focused read-only checks are:
-
-```bash
-make deps-verify
-make helm-lint
-make helm-validate
-make kustomize-validate
-make kube-linter
-make chart-check
-make security-check
-make platform-check
-make release-check
-```
-
-`make helm-deps` and `make release-manifest` modify committed artifacts and are
-not validation-only commands. Live acceptance targets are explicitly opted in
-and are not part of `make check`.
-
-The optional `make streaming-acceptance` regression uses an explicitly supplied,
-checksum-verified AgentGateway binary and synthetic local servers. See
-[streaming test setup](tests/live/agentgateway/README.md) for installation and
-execution. The binary is not required by `make check`.
-The separate [workaround note](https://github.com/neurwerk/documentation/blob/main/dev/operations/agentgateway-streaming-workaround.md)
-explains the auth-header change, upstream issues, and adoption gates.
+Shared client checks live in `scripts/`: `check_platform_compatibility.py`
+requires `--root`, defaults to stable-only, and accepts explicit `--allow-alpha`;
+`application_access_inputs.py --client-root PATH --field platform_ref` reads the
+runtime selector; `publish_platform_status.py` targets the calling client.
+Clients pin a merged Base commit in `config/validation-revision`, independently
+of their runtime selection. Protected jobs use only the trusted client base's
+pin; local `VALIDATION_WORKTREE` overrides never apply there.
 
 ## Application Access Plans
 
@@ -582,9 +566,9 @@ supported subset deliberately rejects unresolved or unclassified inputs instead
 of treating them as absent or safe. No runtime edit follows from a failure.
 
 The selected platform `GitRepository/flux-system/k8s-stack` must use exactly
-`https://github.com/neurwerk/k8s_stack_base.git` and name local `main` or an exact
-stable `vX.Y.Z` tag. HEAD must equal the selected local branch/tag's resolved
-commit. Tags are never reinterpreted as candidate inputs. There is no fetch,
+`https://github.com/neurwerk/k8s_stack_base.git` and select local `main`, an exact
+stable `vX.Y.Z` tag, or a full frozen-alpha commit. HEAD must equal the selected
+revision. Tags are never reinterpreted as candidate inputs. There is no fetch,
 remote-freshness claim, or signature check.
 
 Git inspection uses only `rev-parse`, `ls-tree`, and names-only `ls-files`.

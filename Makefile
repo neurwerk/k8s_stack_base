@@ -29,7 +29,7 @@ YELLOW := \033[33m
 CYAN   := \033[36m
 RESET  := \033[0m
 
-.PHONY: help tools helm-lint helm-lint-only helm-validate kustomize-validate kube-linter chart-check security-check platform-check release-manifest release-check release-notes check streaming-acceptance live-acceptance live-postgres-acceptance pre-commit-install helm-deps deps-verify
+.PHONY: help tools helm-lint helm-lint-only helm-validate rendered-check kustomize-validate kube-linter chart-check security-check platform-check release-manifest release-check release-notes check streaming-acceptance live-acceptance live-postgres-acceptance pre-commit-install helm-deps deps-verify
 
 help: ## Show this help
 	@printf "$(CYAN)Available targets:$(RESET)\n"
@@ -86,8 +86,12 @@ helm-lint-only: ## Lint all charts (without updating deps)
 	fi; \
 	printf "$(GREEN)All charts passed linting.$(RESET)\n"
 
-helm-validate: deps-verify ## Render & validate all charts against Kubernetes schema
-	@printf "$(CYAN)Rendering and validating all charts...$(RESET)\n"
+helm-validate: rendered-check ## Validate schemas and lint rendered charts
+
+kube-linter: rendered-check ## Validate schemas and lint rendered charts
+
+rendered-check: deps-verify
+	@printf "$(CYAN)Rendering charts for schema validation and kube-linter...$(RESET)\n"
 	@tmpdir=$$(mktemp -d); \
 	trap 'rm -rf "$$tmpdir"' EXIT; \
 	errors=0; \
@@ -99,15 +103,13 @@ helm-validate: deps-verify ## Render & validate all charts against Kubernetes sc
 		elif ! grep -Eq '^kind:[[:space:]]+' "$$tmpfile"; then \
 			printf "  $(RED)✗$(RESET) %s — rendered zero resources\n" "$$dir"; \
 			errors=$$((errors + 1)); \
-		elif $(KUBECONFORM) -strict -summary -ignore-missing-schemas "$$tmpfile"; then \
-			printf "  $(GREEN)✓$(RESET) %s — valid\n" "$$dir"; \
 		else \
-			printf "  $(RED)✗$(RESET) %s — schema validation failed\n" "$$dir"; \
-			errors=$$((errors + 1)); \
+			$(KUBECONFORM) -strict -summary -ignore-missing-schemas "$$tmpfile" || errors=$$((errors + 1)); \
+			$(KUBELINTER) lint --config "$(CURDIR)/.kube-linter.yaml" "$$tmpfile" || errors=$$((errors + 1)); \
 		fi; \
 	done; \
 	if [ "$$errors" -gt 0 ]; then \
-		printf "\n$(RED)❌ $$errors chart(s) failed schema validation.$(RESET)\n"; \
+		printf "\n$(RED)❌ $$errors render, schema or lint check(s) failed.$(RESET)\n"; \
 		exit 1; \
 	fi; \
 	printf "$(GREEN)All charts passed validation.$(RESET)\n"
@@ -119,34 +121,6 @@ kustomize-validate: deps-verify ## Build and validate root Kustomizations
 		$(KUSTOMIZE) build --load-restrictor LoadRestrictionsNone "$(CURDIR)/$$dir" | $(KUBECONFORM) -strict -summary -ignore-missing-schemas; \
 	done
 
-kube-linter: deps-verify ## Lint rendered charts with kube-linter (best practices)
-	@printf "$(CYAN)Running kube-linter on all charts...$(RESET)\n"
-	@if [ -z "$(KUBELINTER)" ]; then printf "$(RED)kube-linter is required$(RESET)\n"; exit 1; fi; \
-	if [ ! -f "$(CURDIR)/.kube-linter.yaml" ]; then \
-		printf "$(RED).kube-linter.yaml not found — skipping.$(RESET)\n"; \
-		exit 0; \
-	fi; \
-	tmpdir=$$(mktemp -d); \
-	trap 'rm -rf "$$tmpdir"' EXIT; \
-	errors=0; \
-	for dir in $(CHART_DIRS); do \
-		tmpfile="$$tmpdir/rendered.yaml"; \
-		if ! $(HELM) template "$$(basename "$$dir")" "$(CURDIR)/$$dir" --skip-tests --values "$(HELM_LINT_VALUES)" > "$$tmpfile"; then \
-			printf "  $(RED)✗$(RESET) %s — render failed\n" "$$dir"; \
-			errors=$$((errors + 1)); \
-		elif ! grep -Eq '^kind:[[:space:]]+' "$$tmpfile"; then \
-			printf "  $(RED)✗$(RESET) %s — rendered zero resources\n" "$$dir"; \
-			errors=$$((errors + 1)); \
-		elif $(KUBELINTER) lint --config "$(CURDIR)/.kube-linter.yaml" "$$tmpfile"; then \
-			printf "  $(GREEN)✓$(RESET) %s — no issues\n" "$$dir"; \
-		else \
-			printf "  $(RED)✗$(RESET) %s — issues found\n" "$$dir"; \
-			errors=$$((errors + 1)); \
-		fi; \
-	done; \
-	if [ "$$errors" -gt 0 ]; then exit 1; fi
-	@printf "$(GREEN)kube-linter finished.$(RESET)\n"
-
 deps-verify: ## Verify committed dependency archives without changing them
 	@for dir in $(HAS_DEPS); do \
 		if ! $(HELM) dependency list "$(CURDIR)/$$dir" >/dev/null; then \
@@ -154,7 +128,7 @@ deps-verify: ## Verify committed dependency archives without changing them
 		fi; \
 	done
 
-security-check: ## Run offline MCP security policy tests
+security-check: ## Run offline acceptance-runner safety tests
 	@if [ -z "$(PYTHON3)" ]; then \
 		printf "$(RED)python3 not found. Install it before running security checks.$(RESET)\n"; \
 		exit 1; \
@@ -162,11 +136,7 @@ security-check: ## Run offline MCP security policy tests
 	@$(PYTHON3) -m unittest discover -s tests/security/static -p 'test_*.py' -v
 
 chart-check: ## Run chart-specific rendered contract tests
-	@if [ -z "$(PYTHON3)" ]; then \
-		printf "$(RED)python3 not found. Install it before running chart checks.$(RESET)\n"; \
-		exit 1; \
-	fi
-	@$(PYTHON3) -m unittest discover -s tests/charts -p 'test_*.py' -v
+	@$(UV) run --frozen python -m unittest discover -s tests/charts -p 'test_*.py' -v
 
 platform-check: ## Verify the generated platform release contract
 	@if [ -z "$(UV)" ]; then printf "$(RED)uv is required$(RESET)\n"; exit 1; fi

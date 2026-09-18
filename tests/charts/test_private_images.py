@@ -4,8 +4,8 @@ import json
 import re
 import unittest
 
-from test_openrouter_catalog import agent_values, catalog, env_value, render, resources
-import test_docling
+from catalog import agent_values, catalog
+from helm import env_value, render, resource, resources
 
 
 class PrivateImageTests(unittest.TestCase):
@@ -162,7 +162,9 @@ class PrivateImageTests(unittest.TestCase):
                 new_result = render(chart, {"docling": {"inference": {"mode": new}}})
                 self.assertEqual(old_result.stdout, new_result.stdout)
                 if chart == "docling":
-                    settings = test_docling.DoclingTests.settings(new_result)
+                    settings = json.loads(
+                        resource(new_result, "ConfigMap")["data"]["settings.json"]
+                    )
                     if old == "remote":
                         self.assertEqual(settings["allowed_vlm_presets"], ["images"])
                         self.assertEqual(set(settings["custom_vlm_presets"]), {"default", "images"})
@@ -174,11 +176,23 @@ class PrivateImageTests(unittest.TestCase):
                         self.assertEqual(settings["allowed_vlm_presets"], [])
                         self.assertFalse(settings["enable_remote_services"])
                         for text in ("DOCLING_INFERENCE_TOKEN", "REQUESTS_CA_BUNDLE", "ipBlock:"):
-                            self.assertNotIn(text, "\n".join(
-                                resources(new_result, "Deployment") + resources(new_result, "NetworkPolicy")))
+                            self.assertNotIn(
+                                text,
+                                "\n".join(
+                                    resources(new_result, "Deployment")
+                                    + resources(new_result, "NetworkPolicy")
+                                ),
+                            )
                 if chart == "agentgateway-extproc":
                     self.assertEqual(env_value(new_result, "EXTPROC_DOCLING__INFERENCE_MODE"), old)
-        for inference in ({"cidrs": ["0.0.0.0/0"]}, {"url": "http://inference.test/v1/chat/completions"},
-                          {"tokenSecretRef": {"name": "docling-api", "key": "api-key"}}):
-            result = render("docling", {"docling": {"inference": {"mode": "private-vlm", **inference}}}, check=False)
+        for inference in (
+            {"cidrs": ["0.0.0.0/0"]},
+            {"url": "http://inference.test/v1/chat/completions"},
+            {"tokenSecretRef": {"name": "docling-api", "key": "api-key"}},
+        ):
+            result = render(
+                "docling",
+                {"docling": {"inference": {"mode": "private-vlm", **inference}}},
+                check=False,
+            )
             self.assertNotEqual(result.returncode, 0)

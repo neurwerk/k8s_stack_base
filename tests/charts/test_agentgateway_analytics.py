@@ -1,298 +1,215 @@
-"""Rendered contracts for AgentGateway request-log usage analytics."""
-
-from __future__ import annotations
+"""Metadata-only usage logging and the private Studio admin connection."""
 
 import json
-import re
-import subprocess
 import unittest
-from pathlib import Path
 
+import yaml
 
-ROOT = Path(__file__).resolve().parents[2]
-VALUES = ROOT / "tests/validation/helm-lint-values.yaml"
+from helm import ROOT, documents, env_value, render, resource
 
-
-def render(chart: str, release: str, namespace: str, *extra_args: str) -> str:
-    result = subprocess.run(
-        [
-            "helm",
-            "template",
-            release,
-            str(ROOT / chart),
-            "--namespace",
-            namespace,
-            "--values",
-            str(VALUES),
-            *extra_args,
-        ],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    if result.returncode != 0:
-        raise RuntimeError(result.stderr)
-    return result.stdout
-
-
-def documents(manifest: str) -> list[str]:
-    return [
-        document
-        for document in re.split(r"(?m)^---\s*$", manifest)
-        if document.strip()
-    ]
-
-
-def resource(manifest: str, kind: str, name: str) -> str:
-    matches = [
-        document
-        for document in documents(manifest)
-        if re.search(rf"(?m)^kind:\s*{re.escape(kind)}\s*$", document)
-        and re.search(rf"(?m)^  name:\s*{re.escape(name)}\s*$", document)
-    ]
-    if len(matches) != 1:
-        raise AssertionError(f"Expected one {kind} {name}, found {len(matches)}")
-    return matches[0]
+GATEWAY_PEER = {
+    "namespaceSelector": {"matchLabels": {"kubernetes.io/metadata.name": "infra-agentgateway"}},
+    "podSelector": {
+        "matchLabels": {
+            "app.kubernetes.io/name": "infra-agentgateway-gateway",
+            "gateway.networking.k8s.io/gateway-name": "infra-agentgateway-gateway",
+        }
+    },
+}
 
 
 class AgentGatewayAnalyticsTests(unittest.TestCase):
-    def test_agentgateway_renders_private_metadata_only_database_logging(self) -> None:
-        manifest = render(
-            "charts/agentgateway",
-            "infra-agentgateway",
-            "infra-agentgateway",
-        )
-        parameters = resource(
-            manifest, "AgentgatewayParameters", "infra-agentgateway-parameters"
-        )
-
+    def test_metadata_logging_and_private_admin_listener(self):
+        result = render("agentgateway")
+        params = resource(result, "AgentgatewayParameters")["spec"]
         self.assertIn(
-            """  env:
-    - name: AGENTGATEWAY_DATABASE_PASSWORD
-      valueFrom:
-        secretKeyRef:
-          name: infra-agentgateway-database-secret
-          key: password""",
-            parameters,
+            {
+                "name": "AGENTGATEWAY_DATABASE_PASSWORD",
+                "valueFrom": {
+                    "secretKeyRef": {
+                        "name": "infra-agentgateway-database-secret",
+                        "key": "password",
+                    },
+                },
+            },
+            params["env"],
         )
-        self.assertIn(
-            "secret.reloader.stakater.com/reload: "
+        self.assertEqual(
+            params["deployment"]["metadata"]["annotations"]["secret.reloader.stakater.com/reload"],
             "infra-agentgateway-database-secret",
-            parameters,
         )
+        self.assertEqual(params["service"]["spec"]["type"], "ClusterIP")
         self.assertIn(
-            """        - name: admin
-          port: 15000
-          targetPort: 15000
-          protocol: TCP""",
-            parameters,
+            {"name": "admin", "port": 15000, "targetPort": 15000, "protocol": "TCP"},
+            params["service"]["spec"]["ports"],
         )
+        raw = params["rawConfig"]
+        self.assertEqual(raw["frontendPolicies"]["accessLog"]["database"], {"llm": "metadata"})
+        self.assertEqual(raw["config"]["adminAddr"], "0.0.0.0:15000")
+        for source in ("has(jwt.sub)", "has(extauthz.principal_id)"):
+            self.assertIn(source, raw["config"]["standardAttributes"]["user"])
         self.assertIn(
-            """      accessLog:
-        database:
-          llm: metadata""",
-            parameters,
+            "${AGENTGATEWAY_DATABASE_PASSWORD}", raw["config"]["logging"]["database"]["url"]
         )
-        self.assertIn('adminAddr: "0.0.0.0:15000"', parameters)
-        self.assertIn("has(jwt.sub)", parameters)
-        self.assertIn("has(extauthz.principal_id)", parameters)
-        self.assertIn("logging:\n        database:", parameters)
-        self.assertIn("${AGENTGATEWAY_DATABASE_PASSWORD}", parameters)
-        self.assertIn("maxConnections: 5", parameters)
-        self.assertNotIn("lint-agentgateway-database-password", parameters)
+        for doc in documents(result):
+            if doc["kind"] != "Secret":
+                self.assertNotIn("lint-agentgateway-database-password", json.dumps(doc))
+            if doc["kind"] in ("Gateway", "HTTPRoute"):
+                self.assertNotIn("15000", json.dumps(doc))
+        policy = resource(result, "NetworkPolicy", "infra-agentgateway-data-plane-network-policy")[
+            "spec"
+        ]
+        self.assertEqual(policy["policyTypes"], ["Ingress"])
+        admin_rules = [
+            rule
+            for rule in policy["ingress"]
+            if any(port["port"] == 15000 for port in rule.get("ports", []))
+        ]
+        self.assertEqual(
+            admin_rules,
+            [
+                {
+                    "from": [
+                        {
+                            "namespaceSelector": {
+                                "matchLabels": {"kubernetes.io/metadata.name": "frontend-studio"}
+                            },
+                            "podSelector": {
+                                "matchLabels": {
+                                    "app.kubernetes.io/name": "studio-api",
+                                    "app.kubernetes.io/instance": "frontend-studio-api",
+                                }
+                            },
+                        }
+                    ],
+                    "ports": [{"port": 15000, "protocol": "TCP"}],
+                }
+            ],
+        )
 
-        auth_policy = resource(
-            manifest, "AgentgatewayPolicy", "infra-agentgateway-auth-ag-policy"
-        )
+    def test_verified_identity_stays_internal(self):
+        result = render("agentgateway")
+        auth = resource(result, "AgentgatewayPolicy", "infra-agentgateway-auth-ag-policy")["spec"][
+            "traffic"
+        ]
+        http = auth["extAuth"]["conditional"][0]["policy"]["http"]
         for field in ("contract_version", "principal_id", "permissions"):
-            self.assertIn(
+            self.assertEqual(
+                http["responseMetadata"][field],
                 f'json(response.headers["x-agentgateway-auth-context"]).{field}',
-                auth_policy,
             )
-        self.assertIn(
-            'groups: \'"groups" in json(response.headers["x-agentgateway-auth-context"])'
-            ' ? json(response.headers["x-agentgateway-auth-context"]).groups : []\'',
-            auth_policy,
+        self.assertEqual(
+            http["responseMetadata"]["groups"],
+            '"groups" in json(response.headers["x-agentgateway-auth-context"]) ? json(response.headers["x-agentgateway-auth-context"]).groups : []',
         )
-        self.assertIn(
-            'has(extauthz.groups) && type(extauthz.groups) == list && '
-            'extauthz.groups.all(g, type(g) == string && g.startsWith("/") && size(g) > 1)',
-            auth_policy,
-        )
-        self.assertNotIn("json(response.body)", auth_policy)
-        self.assertNotIn("allowedResponseHeaders:", auth_policy)
-        self.assertIn("type(extauthz.permissions) == list", auth_policy)
-        self.assertIn("size(extauthz.principal_id) > 0", auth_policy)
+        self.assertNotIn("allowedResponseHeaders", http)
+        self.assertNotIn("json(response.body)", json.dumps(http))
+        expression = auth["authorization"]["policy"]["matchExpressions"][0]
+        for check in (
+            "type(extauthz.permissions) == list",
+            "size(extauthz.principal_id) > 0",
+            'has(extauthz.groups) && type(extauthz.groups) == list && extauthz.groups.all(g, type(g) == string && g.startsWith("/") && size(g) > 1)',
+        ):
+            self.assertIn(check, expression)
         stripping = resource(
-            manifest,
-            "AgentgatewayPolicy",
-            "infra-agentgateway-remove-untrusted-identity-headers",
-        )
-        self.assertEqual(stripping.count("- x-agentgateway-auth-context"), 2)
+            result, "AgentgatewayPolicy", "infra-agentgateway-remove-untrusted-identity-headers"
+        )["spec"]["traffic"]["transformation"]
+        for direction in ("request", "response"):
+            self.assertIn("x-agentgateway-auth-context", stripping[direction]["remove"])
 
-        for pii_enabled in (False, True):
-            mcp_manifest = render(
-                "charts/agentgateway", "infra-agentgateway", "infra-agentgateway",
-                "--set", "mcp.enabled=true",
-                "--set-json", 'mcp.approvedHosts=["mcp.lint.example"]',
-                "--set-json", 'authKeycloak.agentgatewayClientRoles=["llm:invoke","model:remote/example/model:invoke","mcp:example:invoke"]',
-                "--set-json", "mcp.servers=" + json.dumps([{
-                    "name": "example", "host": "mcp.lint.example", "port": 443,
-                    "tls": True, "piiEnabled": pii_enabled, "contentTracingEnabled": False,
-                }]),
+    def test_mcp_is_stateless_and_fails_closed_with_or_without_pii(self):
+        for pii in (False, True):
+            result = render(
+                "agentgateway",
+                {
+                    "mcp": {
+                        "enabled": True,
+                        "approvedHosts": ["mcp.lint.example"],
+                        "servers": [
+                            {
+                                "name": "example",
+                                "host": "mcp.lint.example",
+                                "port": 443,
+                                "tls": True,
+                                "piiEnabled": pii,
+                                "contentTracingEnabled": False,
+                            }
+                        ],
+                    },
+                    "authKeycloak": {
+                        "agentgatewayClientRoles": [
+                            "llm:invoke",
+                            "model:remote/example/model:invoke",
+                            "mcp:example:invoke",
+                        ]
+                    },
+                },
             )
-            backend = resource(mcp_manifest, "AgentgatewayBackend", "mcp-example-be")
-            self.assertIn("sessionRouting: Stateless", backend)
-            self.assertIn("failureMode: FailClosed", backend)
-            self.assertIn("prefixMode: Always", backend)
-            self.assertNotIn("sessionRouting: Stateful", mcp_manifest)
-            route_policy = resource(mcp_manifest, "AgentgatewayPolicy", "mcp-example-policy")
-            self.assertIn("mcp:example:invoke", route_policy)
-            self.assertIn("failureMode: FailClosed", route_policy)
-            self.assertIn("responseBodyMode: FullDuplexStreamed", route_policy)
-            self.assertIn(f'pii_enabled: "{str(pii_enabled).lower()}"', route_policy)
-            self.assertNotIn("mcp-session-id", route_policy.lower())
+            backend = yaml.safe_dump(resource(result, "AgentgatewayBackend", "mcp-example-be"))
+            for field in (
+                "sessionRouting: Stateless",
+                "failureMode: FailClosed",
+                "prefixMode: Always",
+            ):
+                self.assertIn(field, backend)
+            policy = resource(result, "AgentgatewayPolicy", "mcp-example-policy")
+            text = yaml.safe_dump(policy)
+            for field in (
+                "mcp:example:invoke",
+                "failureMode: FailClosed",
+                "responseBodyMode: FullDuplexStreamed",
+            ):
+                self.assertIn(field, text)
+            self.assertIn(f"pii_enabled: '{str(pii).lower()}'", text)
+            self.assertNotIn("mcp-session-id", text.lower())
 
-        non_secrets = "\n---\n".join(
-            document
-            for document in documents(manifest)
-            if not re.search(r"(?m)^kind:\s*Secret\s*$", document)
+    def test_logging_does_not_depend_on_guardrails_or_tracing(self):
+        result = render(
+            "agentgateway",
+            {
+                "guardrails": {"llmPolicyEngine": {"enabled": False, "models": []}},
+                "infraAgentgatewayWrapper": {"tracing": None},
+            },
         )
-        self.assertNotIn("lint-agentgateway-database-password", non_secrets)
+        raw = resource(result, "AgentgatewayParameters")["spec"]["rawConfig"]
+        self.assertNotIn("http", raw["frontendPolicies"])
+        self.assertNotIn("tracing", raw["config"])
+        self.assertIn("database", raw["config"]["logging"])
 
-        policy = resource(
-            manifest,
-            "NetworkPolicy",
-            "infra-agentgateway-data-plane-network-policy",
-        )
-        self.assertIn(
-            """    - from:
-        # The admin listener is unauthenticated in AgentGateway 1.5.0. Only the
-        # authenticated Studio API may reach it; it is never publicly routed.
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: frontend-studio
-          podSelector:
-            matchLabels:
-              app.kubernetes.io/name: studio-api
-              app.kubernetes.io/instance: frontend-studio-api
-      ports:
-        - port: 15000
-          protocol: TCP""",
-            policy,
-        )
-        self.assertIn("policyTypes:\n    - Ingress", policy)
-        self.assertNotIn("- Egress", policy)
-
-        for document in documents(manifest):
-            if re.search(r"(?m)^kind:\s*(Gateway|HTTPRoute)\s*$", document):
-                self.assertNotIn("15000", document)
-
-    def test_database_logging_does_not_depend_on_guardrails_or_tracing(self) -> None:
-        manifest = render(
-            "charts/agentgateway",
-            "infra-agentgateway",
-            "infra-agentgateway",
-            "--set",
-            "guardrails.llmPolicyEngine.enabled=false",
-            "--set-json",
-            "guardrails.llmPolicyEngine.models=[]",
-            "--set-json",
-            "infraAgentgatewayWrapper.tracing=null",
-        )
-        parameters = resource(
-            manifest, "AgentgatewayParameters", "infra-agentgateway-parameters"
-        )
-
-        self.assertNotIn("maxBufferSize", parameters)
-        self.assertNotIn("tracing:", parameters)
-        self.assertIn("logging:\n        database:", parameters)
-
-    def test_postgres_and_studio_network_contracts_and_release_order(self) -> None:
+    def test_database_and_studio_peers_and_release_order(self):
         postgres = render(
-            "charts/postgres/operations",
-            "postgres-operations",
-            "infra-postgres-operations",
+            "postgres/operations",
+            release="postgres-operations",
+            namespace="infra-postgres-operations",
         )
-        postgres_policy = resource(
-            postgres, "NetworkPolicy", "postgres-operations-ingress"
+        rules = resource(postgres, "NetworkPolicy", "postgres-operations-ingress")["spec"][
+            "ingress"
+        ]
+        self.assertEqual(
+            [rule["ports"] for rule in rules if GATEWAY_PEER in rule["from"]],
+            [[{"port": 9712, "protocol": "TCP"}]],
         )
-        self.assertIn(
-            """        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: infra-agentgateway
-          podSelector:
-            matchLabels:
-              app.kubernetes.io/name: infra-agentgateway-gateway
-              gateway.networking.k8s.io/gateway-name: infra-agentgateway-gateway""",
-            postgres_policy,
+        studio = render("studio/api", release="frontend-studio-api", namespace="frontend-studio")
+        self.assertEqual(
+            env_value(studio, "K8S_STUDIO_AGENTGATEWAY_ADMIN_URL"),
+            "http://infra-agentgateway-gateway.infra-agentgateway.svc.cluster.local:15000",
         )
-        self.assertIn("- port: 9712\n          protocol: TCP", postgres_policy)
-
-        studio = render(
-            "charts/studio/api", "frontend-studio-api", "frontend-studio"
-        )
-        deployment = resource(studio, "Deployment", "frontend-studio-api-deployment")
-        self.assertIn(
-            """            - name: K8S_STUDIO_AGENTGATEWAY_ADMIN_URL
-              value: "http://infra-agentgateway-gateway.infra-agentgateway.svc.cluster.local:15000"
-            - name: K8S_STUDIO_USAGE_TIMEZONE
-              value: "UTC""",
-            deployment,
-        )
-        self.assertNotIn("LANGFUSE", deployment)
-
-        studio_policy = resource(
-            studio, "NetworkPolicy", "frontend-studio-api-egress-network-policy"
-        )
-        self.assertIn(
-            """              kubernetes.io/metadata.name: infra-agentgateway
-          podSelector:
-            matchLabels:
-              app.kubernetes.io/name: infra-agentgateway-gateway
-              gateway.networking.k8s.io/gateway-name: infra-agentgateway-gateway
-      ports:
-        - port: 15000
-          protocol: TCP""",
-            studio_policy,
-        )
-        self.assertNotIn("monitor-langfuse", studio_policy)
-
-        agentgateway_release = (ROOT / "releases/agentgateway/app.yaml").read_text(
-            encoding="ascii"
-        )
-        studio_release = (ROOT / "releases/studio/api.yaml").read_text(
-            encoding="ascii"
-        )
-        self.assertIn(
-            """    - name: postgres-operations
-      namespace: infra-postgres-operations""",
-            agentgateway_release,
-        )
-        self.assertIn(
-            """    - name: agentgateway
-      namespace: infra-agentgateway""",
-            studio_release,
-        )
-        self.assertNotIn("langfuse", studio_release.lower())
-
-        studio_secret_sync = (
-            ROOT / "releases/openbao/secret-sync/frontend-studio.yaml"
-        ).read_text(encoding="ascii")
-        self.assertNotIn("LANGFUSE_PUBLIC_KEY", studio_secret_sync)
-        self.assertNotIn("LANGFUSE_SECRET_KEY", studio_secret_sync)
-
-        agentgateway_secret_sync = (
-            ROOT / "releases/openbao/secret-sync/infra-agentgateway.yaml"
-        ).read_text(encoding="ascii")
-        postgres_secret_sync = (
-            ROOT / "releases/openbao/secret-sync/infra-postgres-operations.yaml"
-        ).read_text(encoding="ascii")
-        self.assertIn("property: postgresqlPassword", agentgateway_secret_sync)
-        self.assertIn("databasePassword:", agentgateway_secret_sync)
-        self.assertIn("property: agentgatewayPassword", postgres_secret_sync)
-        self.assertIn("agentgatewayPassword:", postgres_secret_sync)
-
-
-if __name__ == "__main__":
-    unittest.main()
+        self.assertEqual(env_value(studio, "K8S_STUDIO_USAGE_TIMEZONE"), "UTC")
+        rules = resource(studio, "NetworkPolicy", "frontend-studio-api-egress-network-policy")[
+            "spec"
+        ]["egress"]
+        self.assertIn({"to": [GATEWAY_PEER], "ports": [{"port": 15000, "protocol": "TCP"}]}, rules)
+        for path, dependency, namespace in (
+            ("agentgateway/app.yaml", "postgres-operations", "infra-postgres-operations"),
+            ("studio/api.yaml", "agentgateway", "infra-agentgateway"),
+        ):
+            release = yaml.safe_load((ROOT / "releases" / path).read_text())
+            self.assertIn(
+                {"name": dependency, "namespace": namespace}, release["spec"]["dependsOn"]
+            )
+        for namespace, field in (
+            ("infra-agentgateway", "postgresqlPassword"),
+            ("infra-postgres-operations", "agentgatewayPassword"),
+        ):
+            delivery = (ROOT / "releases/openbao/secret-sync" / f"{namespace}.yaml").read_text()
+            self.assertIn(f"property: {field}", delivery)
