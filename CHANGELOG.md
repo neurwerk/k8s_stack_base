@@ -9,6 +9,55 @@ upgrade path.
 
 ## [Unreleased]
 
+## [0.3.9] - 2026-09-18
+
+- Map client AD group names to children of existing Keycloak access groups using
+  built-in LDAP mappers and inherited roles, without an extension.
+- Add explicit plaintext LDAP opt-in on port 389; verified LDAPS on port 636
+  remains the default. Adopt published Tooling `0.7.0` by digest in all 13 consumers.
+- Include optional Docling CPU or private remote document extraction, its credential
+  delivery, and the published extProc `0.8.0` / PII Engine `0.9.0-cpu` integration.
+- Add per-model `block`, `extract`, and `passthrough` attachment modes independently
+  of PII settings; passthrough requires PII disabled.
+- Add optional local speech-to-text and separately configured text-to-speech in
+  LibreChat, with scoped destinations and credentials; both stay off by default.
+
+### Upgrade Notes
+
+- New features remain opt-in; publication does not enable LDAP, Docling, or uploads.
+  Preserve existing local administrator access, memberships, and persistent data.
+- For LDAP, select exactly one of legacy `groupNames` or `groupMappings`, provide
+  bind credentials through OpenBao, and allow only the selected directory port.
+  Mapped reconciliation temporarily disables federation until validation succeeds;
+  failed transitions remain disabled for retry. Plain LDAP sends passwords without TLS.
+- For Docling, follow the exact package-specific setup CLI prerequisites in the
+  manifest and provision credentials before startup. Select CPU or remote inference
+  explicitly, then enable uploads and model extraction through client configuration.
+  Remote mode needs its own approved inference endpoint and token; there is no fallback.
+- The baseline OpenBao setup CLI advances to `0.2.14` at Tooling commit
+  `0c2e02ddf18776530c1b7cd735327bf27570721b`; optional packages retain their
+  separately declared prerequisites. Before enabling authenticated speech, stage
+  its selected values and secret delivery, run approved `stack-setup reconcile`
+  to update existing OpenBao permissions, then use
+  `stack-setup secret set librechat-stt` and/or `stack-setup secret set librechat-tts`
+  for the selected directions. Do not start the authenticated speech consumer before its required
+  Secrets exist. Speech-disabled clients need no speech credentials or speech-specific
+  reconciliation solely for this upgrade; existing credentials must be preserved.
+- Back up affected persistent data before adoption and inspect application health
+  afterward. Downgrades remain unsupported; recovery is forward-fix.
+
+### Known Limitations
+
+- Recorded CPU TXT/PDF conversion and PII checks passed; full chat dispatch and
+  remote vision inference remain unverified. An existing storage-health issue holds
+  the final client upload activation; no repeated server rehearsal is required.
+- PII reconstruction across split lines or table cells is not implemented, and
+  the pinned LibreChat can skip Office files for Claude-named models before dispatch.
+- LibreChat RAG and Code Interpreter remain excluded. The existing LibreChat image
+  exception expires on `2026-09-30`; replace it with a reviewed release before expiry.
+- The existing partial-stream completion limitation (#108) remains accepted for
+  interactive chat, not unattended actions.
+
 ## [0.3.8] - 2026-09-15
 
 - Make Forgejo, the one-device WireGuard pilot, and maintenance pages available

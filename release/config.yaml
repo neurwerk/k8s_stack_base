@@ -1,6 +1,6 @@
-version: 0.3.8
-releaseDate: '2026-09-15'
-summary: Make tested Forgejo, WireGuard and maintenance packages available for optional stable use.
+version: 0.3.9
+releaseDate: '2026-09-18'
+summary: Add client LDAP group mappings, optional Docling extraction, and LibreChat voice settings.
 trust:
   signerIdentity: platform-release
   algorithm: ssh-ed25519
@@ -18,7 +18,8 @@ packages:
   optional:
   - path: releases/docling/secret-sync/internal
     status: included
-    reason: Optional CPU API-key delivery; provision operator credentials before startup, without an external inference token.
+    reason: Optional CPU API-key delivery; provision operator credentials before startup, without an external
+      inference token.
     chartPrefixes: []
     prerequisites:
     - name: openbao-stack-setup
@@ -26,7 +27,8 @@ packages:
       source: https://github.com/neurwerk/k8s_stack_tooling/commit/269b8c09190df8bd7b775ff7ef202964d3fe2703
   - path: releases/docling/secret-sync
     status: included
-    reason: Optional remote-mode credential delivery; provision the API key and inference token before startup.
+    reason: Optional remote-mode credential delivery; provision the API key and inference token before
+      startup.
     chartPrefixes: []
     prerequisites:
     - name: openbao-stack-setup
@@ -42,7 +44,8 @@ packages:
     chartPrefixes: []
   - path: releases/docling/app
     status: included
-    reason: Optional CPU or private remote extraction; disabled by default and requires client selection and operator credentials.
+    reason: Optional CPU or private remote extraction; disabled by default and requires client selection
+      and operator credentials.
     chartPrefixes:
     - charts/docling
     prerequisites:
@@ -112,8 +115,8 @@ prerequisites:
   version: 2.9.4
   source: client bootstrap manifests
 - name: openbao-stack-setup
-  version: 0.2.11
-  source: https://github.com/neurwerk/k8s_stack_tooling/commit/5d1a33a938e22e9034581aebecf33485adc88a29
+  version: 0.2.14
+  source: https://github.com/neurwerk/k8s_stack_tooling/commit/0c2e02ddf18776530c1b7cd735327bf27570721b
 - name: gateway-api-experimental
   version: 1.6.0
   source: https://github.com/kubernetes-sigs/gateway-api/releases/tag/v1.6.0
@@ -152,9 +155,15 @@ exceptions:
   reason: The reviewed upstream DocumentDB local image requires passwordless sudo to prepare runtime directories
     before dropping back to UID 1000.
 provenance:
-  previousTag: v0.3.7
-  includedThrough: ad3200bdf2c2e90af3a33a8aae98c6ea38011c90
+  previousTag: v0.3.8
+  includedThrough: 72d649d1aca557d8a9485c7581242ab92a5198f2
   commits:
-  - e59c3fa81cbf8d625c6d34409bb80ddcedef9f56
-  - ad3200bdf2c2e90af3a33a8aae98c6ea38011c90
-  compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.7...ad3200bdf2c2e90af3a33a8aae98c6ea38011c90
+  - 2682c828a8f0ceed58b3f4aaac2b04aaae2be4ed
+  - 974453ee2144875cb41caa5e89d473873101cd96
+  - 199a7614e7a78b2d95e29bc81418af45c1609f91
+  - 7e259aa248743b222658ba25ce8b777314156fb0
+  - 28af665bfcf1cf174f950a9ecf9e0b1a47310b64
+  - 06b2ecf01bfbb915b1d3711e6682a1d5858465c5
+  - 5c9e0c8c3e9a39cca8b9405c716d43bf805f80f4
+  - 72d649d1aca557d8a9485c7581242ab92a5198f2
+  compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.8...72d649d1aca557d8a9485c7581242ab92a5198f2
