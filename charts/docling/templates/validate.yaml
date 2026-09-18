@@ -4,10 +4,10 @@
 {{- end -}}
 
 {{- $inference := $docling.inference -}}
-{{- if not (and (kindIs "string" $inference.mode) (has $inference.mode (list "cpu" "remote"))) -}}
-  {{- fail "docling.inference.mode must be cpu or remote" -}}
+{{- if not (and (kindIs "string" $inference.mode) (has $inference.mode (list "cpu" "remote" "internal-standard" "private-vlm"))) -}}
+  {{- fail "docling.inference.mode must be internal-standard or private-vlm (aliases: cpu or remote)" -}}
 {{- end -}}
-{{- $remote := eq $inference.mode "remote" -}}
+{{- $remote := has $inference.mode (list "remote" "private-vlm") -}}
 {{- if $docling.enabled -}}
 {{- $attachments := .Values.documentAttachments -}}
 

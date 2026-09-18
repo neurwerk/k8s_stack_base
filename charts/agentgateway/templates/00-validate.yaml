@@ -1,4 +1,5 @@
 {{- $engine := .Values.guardrails.llmPolicyEngine -}}
+{{- $_ := include "infra-agentgateway.attachmentPolicy" . -}}
 {{- if not (kindIs "bool" .Values.docling.enabled) -}}
   {{- fail "docling.enabled must be boolean" -}}
 {{- end -}}
@@ -39,8 +40,8 @@
 {{-     if not (kindIs "string" $model.attachmentMode) -}}
 {{-       fail (printf "model %q attachmentMode must be a string: block, extract, or passthrough" $modelName) -}}
 {{-     end -}}
-{{-     if not (has $model.attachmentMode (list "block" "extract" "passthrough")) -}}
-{{-       fail (printf "model %q attachmentMode must be block, extract, or passthrough" $modelName) -}}
+{{-     if not (has $model.attachmentMode (list "block" "extract" "process" "passthrough")) -}}
+{{-       fail (printf "model %q attachmentMode must be block, extract, process, or passthrough" $modelName) -}}
 {{-     end -}}
 {{-     if and (eq $model.attachmentMode "passthrough") $piiEnabled -}}
 {{-       fail (printf "model %q attachmentMode passthrough requires piiEnabled:false" $modelName) -}}

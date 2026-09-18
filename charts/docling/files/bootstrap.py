@@ -21,9 +21,10 @@ def main():
                 raise ValueError("invalid credential")
         if settings["enable_remote_services"]:
             presets = settings["custom_vlm_presets"]
-            presets["default"]["engine_options"]["headers"] = {
-                "Authorization": "Bearer " + token
-            }
+            for name in ("default", "images"):
+                presets[name]["engine_options"]["headers"] = {
+                    "Authorization": "Bearer " + token
+                }
             os.environ["DOCLING_SERVE_CUSTOM_VLM_PRESETS"] = json.dumps(presets)
 
         from docling_serve.app import create_app

@@ -2,8 +2,8 @@
 {{- if not (kindIs "bool" $docling.enabled) -}}
   {{- fail "docling.enabled must be boolean" -}}
 {{- end -}}
-{{- if not (and (kindIs "string" $docling.inference.mode) (has $docling.inference.mode (list "cpu" "remote"))) -}}
-  {{- fail "docling.inference.mode must be cpu or remote" -}}
+{{- if not (and (kindIs "string" $docling.inference.mode) (has $docling.inference.mode (list "cpu" "remote" "internal-standard" "private-vlm"))) -}}
+  {{- fail "docling.inference.mode must be internal-standard or private-vlm (aliases: cpu or remote)" -}}
 {{- end -}}
 {{- $rpcs := .Values.monitorAgentgatewayExtproc.grpcMaximumConcurrentRpcs -}}
 {{- if or (not (regexMatch `^[1-9][0-9]*$` (toJson $rpcs))) (gt (float64 $rpcs) 16.0) -}}

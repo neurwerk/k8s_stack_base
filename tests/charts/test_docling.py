@@ -50,13 +50,17 @@ class DoclingTests(unittest.TestCase):
         self.assertEqual(preset["model_spec"]["response_format"], "doctags")
         self.assertEqual(preset["model_spec"]["max_new_tokens"], 8192)
         self.assertEqual(preset["scale"], 2)
+        self.assertNotIn("max_size", preset)
+        self.assertEqual(settings["custom_vlm_presets"]["images"], {
+            **preset, "scale": 1.0, "max_size": None,
+        })
         for name, value in {
             "max_file_size": 20971520, "max_num_pages": 200, "max_sources_per_request": 1,
             "max_document_timeout": 300, "max_sync_wait": 360, "eng_loc_num_workers": 1,
             "eng_loc_share_models": False, "load_models_at_boot": False,
             "enable_ui": False, "enable_management_endpoints": False, "show_version_info": False,
             "debug_error_details": False, "allow_custom_vlm_config": False,
-            "enable_remote_services": True, "allowed_vlm_presets": [], "allowed_vlm_engines": ["api"],
+            "enable_remote_services": True, "allowed_vlm_presets": ["images"], "allowed_vlm_engines": ["api"],
             "allowed_source_types": ["file"], "allowed_target_types": ["inbody"],
             "allowed_image_export_modes": ["placeholder"], "artifact_storage_enabled": False,
             "single_use_results": True, "result_removal_delay": 60, "scratch_path": "/scratch",
@@ -213,6 +217,11 @@ class DoclingTests(unittest.TestCase):
                 presets = json.loads(os.environ["DOCLING_SERVE_CUSTOM_VLM_PRESETS"])
                 self.assertEqual(presets["default"]["engine_options"]["headers"],
                                  {"Authorization": "Bearer test-upstream-token"})
+                self.assertEqual(presets["images"]["engine_options"]["headers"],
+                                 {"Authorization": "Bearer test-upstream-token"})
+                self.assertEqual(presets["images"]["scale"], 1.0)
+                self.assertIsNone(presets["images"]["max_size"])
+                self.assertEqual(presets["default"]["scale"], 2.0)
             return real_import(name, *args, **kwargs)
 
         previous_disable = logging.root.manager.disable
