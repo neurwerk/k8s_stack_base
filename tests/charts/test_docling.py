@@ -343,8 +343,8 @@ class DoclingTests(unittest.TestCase):
         for source in ("release/config.yaml", "release/manifest.yaml"):
             text = (ROOT / source).read_text()
             for path in ("releases/docling/app", "releases/namespaces/docling", "releases/docling/reloader",
-                         "releases/docling/secret-sync"):
-                self.assertRegex(text, re.escape(path) + r"\n\s+status: excluded")
+                         "releases/docling/secret-sync", "releases/docling/secret-sync/internal"):
+                self.assertRegex(text, re.escape(path) + r"\n\s+status: included")
 
         delivery = subprocess.run(["kustomize", "build", str(ROOT / "releases/docling/secret-sync")],
                                   text=True, capture_output=True, check=True)

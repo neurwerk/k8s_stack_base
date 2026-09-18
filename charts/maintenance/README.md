@@ -12,10 +12,10 @@ certificate, or activation state managed by Helm.
 be a verified published `ghcr.io/neurwerk/k8s-stack-tooling:X.Y.Z@sha256:<64 lowercase hex digits>` image
 providing `maintenance-server`. Each version component is a nonnegative integer
 without leading zeros; prerelease/build suffixes and other repositories or mirrors
-are unsupported. The default pins published, verified Tooling `0.6.2` for
-`linux/amd64`, from source revision `03f5767f6716da1838b8d248317ae4d7b96a3953`.
-See the [Tooling release](https://github.com/neurwerk/k8s_stack_tooling/releases/tag/v0.6.2)
-and [successful publication run](https://github.com/neurwerk/k8s_stack_tooling/actions/runs/34959505870).
+are unsupported. The default pins published, verified Tooling `0.7.0` for
+`linux/amd64`, from source revision `7d2f9475db90ecf6d8804a688ef4b7809fa8af26`.
+See the [Tooling release](https://github.com/neurwerk/k8s_stack_tooling/releases/tag/v0.7.0)
+and [successful publication run](https://github.com/neurwerk/k8s_stack_tooling/actions/runs/35313889657).
 Explicit adoption and runtime acceptance remain required.
 
 `maintenance.products.<product>.enabled` is an approval scope, not runtime
