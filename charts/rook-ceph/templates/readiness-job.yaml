@@ -202,8 +202,6 @@ spec:
               value: {{ .Values.infraRookCeph.clusterName | quote }}
             - name: CEPH_IMAGE
               value: {{ .Values.infraRookCeph.cephImage | quote }}
-            - name: DAEMON_KEY_GENERATION
-              value: {{ printf "%.0f" (float64 .Values.infraRookCeph.daemonKeyGeneration) | quote }}
             - name: OBJECT_STORE
               value: {{ .Values.infraRookCeph.objectStore.name | quote }}
             - name: BLOCK_POOL
