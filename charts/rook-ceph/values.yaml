@@ -15,7 +15,10 @@ infraRookCeph:
     devicePath: ""
 
   rookImage: docker.io/rook/ceph:v1.20.7
-  cephImage: quay.io/ceph/ceph:v20.2.2
+  cephImage: quay.io/ceph/ceph:v20.2.4
+  # Before adoption, choose a generation higher than existing daemon/RGW key
+  # statuses and never lower the persisted spec generation. Retain it on retries.
+  daemonKeyGeneration: 2
   csiOperatorImage: quay.io/cephcsi/ceph-csi-operator:v1.0.4
   csiPluginImage: quay.io/cephcsi/cephcsi:v3.17.0
   csiProvisionerImage: registry.k8s.io/sig-storage/csi-provisioner:v6.2.0

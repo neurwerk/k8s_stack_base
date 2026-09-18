@@ -1,5 +1,9 @@
 {{- $nodeName := required "infraRookCeph.storage.nodeName must name the approved Kubernetes node" .Values.infraRookCeph.storage.nodeName -}}
 {{- $devicePath := required "infraRookCeph.storage.devicePath must name the approved raw udev device" .Values.infraRookCeph.storage.devicePath -}}
+{{- $generation := .Values.infraRookCeph.daemonKeyGeneration -}}
+{{- if or (not (regexMatch "^[0-9]+$" (toJson $generation))) (lt (float64 $generation) 1.0) (gt (float64 $generation) 4294967295.0) -}}
+{{- fail "infraRookCeph.daemonKeyGeneration must be a positive integer no greater than 4294967295" -}}
+{{- end -}}
 apiVersion: ceph.rook.io/v1
 kind: CephCluster
 metadata:
@@ -9,6 +13,13 @@ metadata:
     {{- include "infra-rook-ceph.labels" . | nindent 4 }}
 spec:
   dataDirHostPath: /var/lib/rook
+  security:
+    cephx:
+      daemon:
+        keyRotationPolicy: KeyGeneration
+        keyGeneration: {{ printf "%.0f" (float64 $generation) }}
+      csi:
+        keyType: aes
   cephVersion:
     image: {{ .Values.infraRookCeph.cephImage | quote }}
     allowUnsupported: false
