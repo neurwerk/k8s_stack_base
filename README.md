@@ -227,7 +227,7 @@ legacy metadata and text/PII/tracing behavior are unchanged, and no new image
 settings are emitted. Version 1 rejects explicit `process`, `imageForwarding` and
 `faceProtectionEnabled` settings rather than silently dropping them.
 
-Base now pins published, verified extProc `0.9.0` from source
+Base first adopted published, verified extProc `0.9.0` from source
 `4e7bc05719b4fbdb4b3220ed98854e0128ab0302` to digest
 `sha256:f9b98191a6cc96bf52651bdf1cdecb9eb81e36d6555a6fd2479c6456009cd960`
 in chart `1.3.1`. [Publication workflow 35347879238](https://github.com/neurwerk/k8s_stack_agentgateway_extproc/actions/runs/35347879238)
@@ -297,13 +297,26 @@ presets. A pinned-source reader-to-API-payload test verifies RGB pixel preservat
 with HTTP intercepted, not live inference or backend-internal preprocessing;
 see the [Docling chart notes](charts/docling/README.md#private-image-preset).
 
-### Staged Face Policy
+### Face Policy Runtime
 
 AgentGateway chart `1.6.0` adds opt-in `attachmentPolicyVersion: 3`, retaining
-default `1` and all v1/v2 routing and reader rules. **The pinned Engine `0.9.0`
-and extProc `0.9.0` are not compatible with this activation.** Deploy compatible
-services before choosing v3 or adding the central face policy. No image pin,
-client value, model deployment or runtime activation changes here.
+default `1` and all v1/v2 routing and reader rules. Base now pins verified
+PII Engine `0.10.0-cpu` and extProc `0.10.0`, which support this contract.
+Deploy both compatible services before choosing v3 or adding the central face
+policy; image pins alone do not enable uploads or deploy a vision model.
+
+On 2026-09-19 the operator authorized CPU-only PII publication/adoption without
+waiting for NVIDIA or the combined GitHub Release. The successful
+[CPU job](https://github.com/neurwerk/k8s_stack_pii_engine/actions/runs/35427564628/job/105856180059)
+and its digest artifact identify source `dbef8e841b704fe31abafce6b3ea72a9081644ed`
+and digest `sha256:ee535afd041a1857dbc7aadcab0ff87c68c4a1bf7771c70f03136c5c96d6dba4`.
+ExtProc's [release](https://github.com/neurwerk/k8s_stack_agentgateway_extproc/releases/tag/v0.10.0)
+and successful [workflow](https://github.com/neurwerk/k8s_stack_agentgateway_extproc/actions/runs/35427564491)
+identify source `8eac7c2fd9c88283fe40e1a75276ddfdeb7d0cf7` and digest
+`sha256:f8d3e7a204588c00e170574ef091123109f01a23c055e2161cbed383452a0b14`.
+Independent registry checks matched both digests, source/version labels and
+`linux/amd64` manifests. Engine/model-sync charts are `1.0.5`/`1.0.4`, extProc is
+`1.3.2`, and Docling's documentation-only chart update is `0.4.2`.
 
 V3 permits processed JPEG/PNG/HEIC extraction through enabled Docling
 `internal-standard`/`cpu` as well as `private-vlm`/`remote`. V2 still requires the
@@ -323,8 +336,8 @@ Only v3 emits these additional trusted maps, each bounded to 16,384 JSON bytes:
 
 The central Engine policy accepts `action: block`, `text-only`, or `reroute`.
 `routeClass` is allowed only with `reroute`; omission uses `routing.defaultTarget`.
-This is an example only, deliberately absent from shipped values and shared
-defaults because the pinned Engine rejects the `faces` key:
+This remains an example only, absent from shipped values and shared defaults so
+older deployed Engine replicas are not sent the new `faces` key before activation:
 
 ```yaml
 monitorPiiEngine:
