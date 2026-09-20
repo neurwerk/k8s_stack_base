@@ -1,11 +1,11 @@
 apiVersion: platform.neurwerk.com/v1alpha1
 kind: PlatformRelease
 metadata:
-  name: v0.3.8
+  name: v0.3.9
 spec:
-  version: 0.3.8
-  releaseDate: '2026-09-15'
-  summary: Make tested Forgejo, WireGuard and maintenance packages available for optional stable use.
+  version: 0.3.9
+  releaseDate: '2026-09-20'
+  summary: Add LDAP mappings, document and photo processing, face policies, chat memory, and voice settings.
   trust:
     signerIdentity: platform-release
     algorithm: ssh-ed25519
@@ -1132,9 +1132,25 @@ spec:
       uv: 0.11.21
       node: 24.20.0
   provenance:
-    previousTag: v0.3.7
-    includedThrough: ad3200bdf2c2e90af3a33a8aae98c6ea38011c90
+    previousTag: v0.3.8
+    includedThrough: 1a71c31393ab286b1a7b7a8801d8c6966d1d9d3c
     commits:
-    - e59c3fa81cbf8d625c6d34409bb80ddcedef9f56
-    - ad3200bdf2c2e90af3a33a8aae98c6ea38011c90
-    compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.7...ad3200bdf2c2e90af3a33a8aae98c6ea38011c90
+    - 2682c828a8f0ceed58b3f4aaac2b04aaae2be4ed
+    - 974453ee2144875cb41caa5e89d473873101cd96
+    - 199a7614e7a78b2d95e29bc81418af45c1609f91
+    - 7e259aa248743b222658ba25ce8b777314156fb0
+    - 28af665bfcf1cf174f950a9ecf9e0b1a47310b64
+    - 06b2ecf01bfbb915b1d3711e6682a1d5858465c5
+    - 5c9e0c8c3e9a39cca8b9405c716d43bf805f80f4
+    - 72d649d1aca557d8a9485c7581242ab92a5198f2
+    - cb9e3103dbf8cd25b52007d3d929dfbe06b89334
+    - 9de840845fb321cb67439c96d0b961a0854b5f9d
+    - f489338f12778ba5c34b928478a99a075dcbaf09
+    - 3a4a0a698522889ca96ca5082e2c900df8e685bc
+    - bb85bed12bc82d1b3f12cdde7f226c7f798686f7
+    - 11fe32d09ee51c33db2453616b01a041a5f14e94
+    - 3e061fe44900cfe1e3f50d6a2a545ed00961c21b
+    - 6d06a97ab8467b8002d84c6372f3dd26ab074cb7
+    - 8c19f049a86317b1d4d7e365b0f02f156f18d6dd
+    - 1a71c31393ab286b1a7b7a8801d8c6966d1d9d3c
+    compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.8...1a71c31393ab286b1a7b7a8801d8c6966d1d9d3c
