@@ -1,6 +1,6 @@
-version: 0.3.10
+version: 0.3.11
 releaseDate: '2026-09-20'
-summary: Allow Ceph health warnings through readiness while retaining storage checks.
+summary: Fix LDAP provisioning and allow client-configured connection/read timeouts with Tooling 0.7.1.
 trust:
   signerIdentity: platform-release
   algorithm: ssh-ed25519
@@ -155,8 +155,8 @@ exceptions:
   reason: The reviewed upstream DocumentDB local image requires passwordless sudo to prepare runtime directories
     before dropping back to UID 1000.
 provenance:
-  previousTag: v0.3.9
-  includedThrough: 5257daae392a62be7130c509524782111d774b3d
+  previousTag: v0.3.10
+  includedThrough: bb7f87a33eb72739766ab6776cd7a209debc8eb6
   commits:
-  - 5257daae392a62be7130c509524782111d774b3d
-  compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.9...5257daae392a62be7130c509524782111d774b3d
+  - bb7f87a33eb72739766ab6776cd7a209debc8eb6
+  compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.10...bb7f87a33eb72739766ab6776cd7a209debc8eb6
