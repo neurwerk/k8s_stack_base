@@ -3,6 +3,11 @@
   {{- fail "authKeycloak.activeDirectory.enabled must be a boolean" -}}
 {{- end -}}
 {{- if $ad.enabled -}}
+  {{- range $name, $value := dict "connectionTimeoutMs" $ad.connectionTimeoutMs "readTimeoutMs" $ad.readTimeoutMs -}}
+    {{- if or (not (regexMatch "^[0-9]+$" (toString $value))) (lt (int $value) 1) (gt (int $value) 10000) -}}
+      {{- fail (printf "authKeycloak.activeDirectory.%s must be an integer from 1 to 10000 milliseconds" $name) -}}
+    {{- end -}}
+  {{- end -}}
   {{- if not (kindIs "bool" $ad.allowInsecureLdap) -}}
     {{- fail "authKeycloak.activeDirectory.allowInsecureLdap must be a boolean" -}}
   {{- end -}}

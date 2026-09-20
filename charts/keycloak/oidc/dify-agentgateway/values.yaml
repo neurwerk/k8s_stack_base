@@ -12,4 +12,4 @@ openrouterCatalog:
   models: []
 
 k8sTools:
-  image: ghcr.io/neurwerk/k8s-stack-tooling:0.7.0@sha256:f744427df82f4a5b0a94f2f9fbf6c59ab98e1ec4f99963b6d836ea9d765e88bb
+  image: ghcr.io/neurwerk/k8s-stack-tooling:0.7.1@sha256:5d0472c4995d9d3da8115e4080d1f0b36bf34d8ab67aa6eefa91cee8eca2b5fc

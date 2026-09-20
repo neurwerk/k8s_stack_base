@@ -9,6 +9,8 @@ upgrade path.
 
 ## [Unreleased]
 
+- Fix LDAP provisioning and allow client-configured connection/read timeouts with Tooling 0.7.1.
+
 ## [0.3.10] - 2026-09-20
 
 - Allow Ceph health warnings through readiness while retaining storage checks.

@@ -22,6 +22,8 @@ PLAIN = {
     **AD,
     "connectionUrl": "ldap://ad.example:389",
     "allowInsecureLdap": True,
+    "connectionTimeoutMs": 2000,
+    "readTimeoutMs": 3000,
     "caConfigMapName": "",
     "caKey": "",
 }
@@ -110,6 +112,8 @@ class KeycloakDirectoryTests(unittest.TestCase):
                 for suffix, expected in (
                     ("GROUP_NAMES", settings["groupNames"]),
                     ("GROUP_MAPPINGS", settings.get("groupMappings", [])),
+                    ("CONNECTION_TIMEOUT_MS", settings.get("connectionTimeoutMs", 5000)),
+                    ("READ_TIMEOUT_MS", settings.get("readTimeoutMs", 10000)),
                 ):
                     self.assertEqual(
                         json.loads(env[f"KC_ACTIVE_DIRECTORY_{suffix}"]["value"]), expected

@@ -61,6 +61,10 @@ spec:
             {{- if $ad.enabled }}
             - name: KC_ACTIVE_DIRECTORY_CONNECTION_URL
               value: {{ $ad.connectionUrl | quote }}
+            - name: KC_ACTIVE_DIRECTORY_CONNECTION_TIMEOUT_MS
+              value: {{ $ad.connectionTimeoutMs | quote }}
+            - name: KC_ACTIVE_DIRECTORY_READ_TIMEOUT_MS
+              value: {{ $ad.readTimeoutMs | quote }}
             - name: KC_ACTIVE_DIRECTORY_ALLOW_INSECURE_LDAP
               value: {{ $ad.allowInsecureLdap | quote }}
             - name: KC_ACTIVE_DIRECTORY_USERS_DN
