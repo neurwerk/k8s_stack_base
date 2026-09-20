@@ -42,8 +42,10 @@
 {{- range $entry := $catalog -}}
 {{- if and (not (has $entry.upstreamModel $exclusions)) (not (hasKey $clientNames $entry.name)) -}}
 {{- $model := dict "name" $entry.name "provider" "Openrouter" "model" $entry.upstreamModel "baseURL" "https://openrouter.ai/api/v1" "authSecret" "infra-agentgateway-secret" "piiEnabled" true "contentTracingEnabled" true "piiReroute" true -}}
-{{- if hasKey $entry "attachmentMode" -}}
-{{- $_ := set $model "attachmentMode" $entry.attachmentMode -}}
+{{- range $field := list "attachmentMode" "imageForwarding" "faceProtectionEnabled" "supportsImages" -}}
+{{- if hasKey $entry $field -}}
+{{- $_ := set $model $field (get $entry $field) -}}
+{{- end -}}
 {{- end -}}
 {{- $effective = append $effective $model -}}
 {{- end -}}

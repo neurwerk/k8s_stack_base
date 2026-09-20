@@ -219,45 +219,207 @@ This does not require a new test server or repeat feature qualification. See the
 [Docling architecture](https://github.com/neurwerk/documentation/blob/main/dev/architecture/docling.md)
 for the configuration, privacy limits and separately authorized activation steps.
 
+### Staged Private Images
+
+AgentGateway chart `1.5.0` adds the opt-in integer
+`guardrails.llmPolicyEngine.attachmentPolicyVersion: 2`. The default remains `1`:
+legacy metadata and text/PII/tracing behavior are unchanged, and no new image
+settings are emitted. Version 1 rejects explicit `process`, `imageForwarding` and
+`faceProtectionEnabled` settings rather than silently dropping them.
+
+Base first adopted published, verified extProc `0.9.0` from source
+`4e7bc05719b4fbdb4b3220ed98854e0128ab0302` to digest
+`sha256:f9b98191a6cc96bf52651bdf1cdecb9eb81e36d6555a6fd2479c6456009cd960`
+in chart `1.3.1`. [Publication workflow 35347879238](https://github.com/neurwerk/k8s_stack_agentgateway_extproc/actions/runs/35347879238)
+passed, and independent registry verification confirmed `linux/amd64`, the source
+revision and version labels against the release. **Keep metadata version 1 until
+all extProc replicas run the compatible image after an authorized deployment.**
+Version-2 activation and client uploads need separate authorization; this pin
+change does not deploy a runtime, enable uploads or change the standard Docling pipeline.
+
+The global and three optional Docling prerequisites select workstation CLI
+`openbao-stack-setup` `0.2.17` from Tooling source
+`8f62f6e1b0ccf6b4d60f7cc66bc9a19f6fdc234b`, which supports both reader-name pairs.
+This CLI is not bundled in the Tooling container; all 13 Tooling image consumers
+remain pinned to `0.7.0` with the existing digest.
+
+Version 2 retains the `models` boolean map and sparse `attachment_modes` map and
+adds `image_forwarding`, `face_protection` and `local_models` as typed CEL JSON
+maps keyed only by effective model IDs. Each map is limited to 16,384 bytes and
+the catalog to 256 destinations. Omitted attachment modes remain `block`.
+`image_forwarding` omits passthrough IDs entirely; an explicit `none` entry for
+passthrough is invalid at the consumer. The other v2 maps retain those IDs.
+
+| Model value | Version-2 rule |
+| --- | --- |
+| `attachmentMode: process` | Alias of `extract`; neither may fall back to raw passthrough. |
+| `imageForwarding: none` | Default; no original image forwarding. |
+| `imageForwarding: if-no-pii-detected` | Requires process/extract, PII enabled, face protection and enabled Docling in private-vlm/remote mode. Detection is not proof that an image contains no personal data. |
+| `imageForwarding: pii-unchecked` | Requires process/extract, enabled Docling in private-vlm/remote mode, face protection disabled and a direct concrete `local: true` model with no `piiReroute`. Text PII settings remain independent. |
+| `faceProtectionEnabled` | Strict boolean; defaults true for process/extract and false otherwise. Has no effect in block mode. |
+| `attachmentMode: passthrough` | Requires PII disabled, face protection false and no explicit `imageForwarding` key, even `none`. |
+
+Neither non-none forwarding mode supports internal-standard/cpu. Ordinary
+document processing with process/extract and `imageForwarding: none` still does.
+The opt-in `tests/validation/destination_consumer.py` check accepts
+`--consumer-source` and `--consumer-python` paths to a prepared consumer checkout
+and its Python environment. It sends rendered mixed-model metadata through the
+actual protobuf consumer parser and verifies rejection of an explicit passthrough
+forwarding entry. Normal Base tests do not depend on a sibling checkout.
+
+Locality comes from the same effective catalog used to render routing. Only
+`local: true` with a concrete model and an enabled, configured trusted
+`infraAgentgatewayWrapper.llamacpp` target qualifies. That branch uses the trusted
+target host rather than a row's `baseURL`; the operator must own and trust that
+target. Private-looking IPs, model names, groups and route classes are not proof
+of locality. Virtual/rerouting destinations never qualify for unchecked images.
+Catalog overrides propagate the new settings; same-name direct replacements
+do not inherit them. Versions 1 and 2 have no image-input capability metadata,
+so the operator must verify actual image support at the backend, including every
+possible target of a virtual route. These values grant no model access.
+
+Prefer Docling `internal-standard` and `private-vlm` in new configuration.
+`cpu` and `remote` remain exact aliases and the shipped defaults stay unchanged.
+Use one canonical client-wide mode across Docling, gateway and extProc. The
+Docling chart validates private-vlm HTTPS, separate credentials and RFC1918 egress;
+the gateway's mode assertion does not inspect another release or prove it is
+running. Private VLM inference receives original images inside the trusted
+processing boundary before downstream checks. The extProc chart deliberately
+retains the mapping to `cpu` / `remote` environment values; extProc `0.9.0` accepts
+both reader-name pairs. No runtime face-model download or YuNet setting is added
+here; the consumer owns its packaged, checksum-verified model.
+
+For private VLM image reading, Docling supplies a separate administrator `images`
+preset (`scale: 1.0`, top-level `max_size: null`); existing document/PDF requests
+retain `default` at scale 2. The new consumer must select `images` for normalized,
+DPI-free images, after the preset is deployed. Internal-standard has no remote
+presets. A pinned-source reader-to-API-payload test verifies RGB pixel preservation
+with HTTP intercepted, not live inference or backend-internal preprocessing;
+see the [Docling chart notes](charts/docling/README.md#private-image-preset).
+
+### Face Policy Runtime
+
+AgentGateway chart `1.6.0` adds opt-in `attachmentPolicyVersion: 3`, retaining
+default `1` and all v1/v2 routing and reader rules. Base now pins verified
+PII Engine `0.10.0-cpu` and extProc `0.10.1`, which support this contract.
+Deploy both compatible services before choosing v3 or adding the central face
+policy; image pins alone do not enable uploads or deploy a vision model.
+
+On 2026-09-19 the operator authorized CPU-only PII publication/adoption without
+waiting for NVIDIA or the combined GitHub Release. The successful
+[CPU job](https://github.com/neurwerk/k8s_stack_pii_engine/actions/runs/35427564628/job/105856180059)
+and its digest artifact identify source `dbef8e841b704fe31abafce6b3ea72a9081644ed`
+and digest `sha256:ee535afd041a1857dbc7aadcab0ff87c68c4a1bf7771c70f03136c5c96d6dba4`.
+ExtProc's initial [release](https://github.com/neurwerk/k8s_stack_agentgateway_extproc/releases/tag/v0.10.0)
+and successful [workflow](https://github.com/neurwerk/k8s_stack_agentgateway_extproc/actions/runs/35427564491)
+identify source `8eac7c2fd9c88283fe40e1a75276ddfdeb7d0cf7` and digest
+`sha256:f8d3e7a204588c00e170574ef091123109f01a23c055e2161cbed383452a0b14`.
+Independent registry checks matched both digests, source/version labels and
+`linux/amd64` manifests. Engine/model-sync charts are `1.0.5`/`1.0.4`, and Docling's
+documentation-only chart update is `0.4.2`.
+
+ExtProc chart `1.3.3` now pins the verified
+[`0.10.1` patch](https://github.com/neurwerk/k8s_stack_agentgateway_extproc/releases/tag/v0.10.1)
+from source `162270eb659c859020c48fe127c6c2861397a113`, digest
+`sha256:5f56d548dff55bc3a25a1fde84b91f4164360541d2008a1c972d65e274c8b0b6`.
+Faces with no readable text under `text-only` still reject with 403, but show a
+short explanation without the Markdown table; the detailed report retains
+`text-only` and records `no_readable_text` separately. Image permissions and
+PII Engine are unchanged.
+
+V3 permits processed JPEG/PNG/HEIC extraction through enabled Docling
+`internal-standard`/`cpu` as well as `private-vlm`/`remote`. V2 still requires the
+private reader for non-`none` image forwarding. V3 adds strict boolean
+`supportsImages` to model rows (including selected catalog rows) and
+`guardrails.llmPolicyEngine.localTarget`. Omission means false; v1/v2 reject even
+an explicit false rather than silently dropping the capability. A model name or
+private-looking URL does not establish either locality or image support.
+
+Only v3 emits these additional trusted maps, each bounded to 16,384 JSON bytes:
+
+- `image_models`: effective model ID to boolean; true requires explicit
+  `supportsImages: true` and the same concrete local-backend proof as routing.
+- `image_reroutes`: source model ID to `{exactRouteClass: actualDestination}`;
+  only processed sources with non-`none` forwarding are eligible. The map is empty
+  unless the configured face action is `reroute`.
+
+The central Engine policy accepts `action: block`, `text-only`, or `reroute`.
+`routeClass` is allowed only with `reroute`; omission uses `routing.defaultTarget`.
+This remains an example only, absent from shipped values and shared defaults so
+older deployed Engine replicas are not sent the new `faces` key before activation:
+
+```yaml
+monitorPiiEngine:
+  policy:
+    attachments:
+      faces:
+        action: reroute
+        routeClass: faces/local
+```
+
+Approvals follow the existing route with remote forwarding disabled: a concrete
+local source stays on itself; a virtual source uses the first matching local
+exact/prefix target, otherwise its dedicated fallback. A matching local target
+without proven image support prevents approval; the producer never skips it for
+a more capable later target. Both `local: true` and `piiReroute: true` is ambiguous
+and cannot receive image approval. Named targets use their effective model ID and
+retain their own permission. Fallbacks use the actual generated
+`<source-resource-name>-local` identity and retain the source permission, not the
+otherwise unused `localTarget.name`. An approved route class is not a model rewrite
+request: extProc checks the exact reply `route_class` binding and leaves model
+selection and authorization to the existing gateway routes. Missing approval
+blocks image forwarding. V3 `pii-unchecked` additionally requires
+`image_models[source]` to be true.
+
+LibreChat shared chart `1.5.0` adds disabled-by-default
+`frontendLibrechat.documentAttachments.imagesEnabled`. It requires existing
+`documentAttachments.enabled` and metadata v3. The pinned source
+`eaed216994b2604e050966cd6eaf3c2bdd359233` validates selected HEIC files, converts
+them to JPEG in the browser (`client/src/hooks/Files/useFileHandling.ts` and
+`client/src/utils/heicConverter.ts`), then uploads them. The opt-in chart setting
+allows JPEG, PNG and HEIC selection and explicitly chooses `imageOutputType: png`
+for stored/provider image bytes. The server resizes images and encodes them as
+PNG before they reach the gateway; this preprocessing may flatten animation.
+Gateway checks apply to the delivered still pixels, not the original container,
+frame count or resolution, and do not establish that all original frames were
+checked. Original-animation rejection applies only to direct API submissions
+where the original bytes reach extProc without these LibreChat conversions; no
+LibreChat fork is introduced. Its local/S3 image delivery uses inline data
+(`api/server/services/Files/images/encode.js`); any URL fallback is still rejected
+by processed extProc handling. No upload allowlist or output-format change is
+rendered while the option is off. Raw HEIC through the model API is handled by
+the new extProc, not by this browser conversion. Live browser/storage delivery
+remains part of separately authorized activation, not proven by chart rendering.
+
+`Qwen3-VL-8B-Instruct` is a possible local vision-model example to qualify, not a
+deployed model, default override or substitute for explicit capability approval.
+The opt-in `destination_consumer.py` check now requires the compatible v3 consumer
+and checks seven rendered v1/v2/v3 catalogs, exact named/fallback bindings and
+rejection of new fields under old contract versions.
+
 ## Validation
 
-Run the complete local validation suite from the repository root:
+Run from the repository root:
 
 ```bash
-uv sync --frozen
-make check
-pre-commit run --all-files
+mise exec -- make check
 ```
 
-`make check` verifies tool availability and Helm dependency locks, lints and
-renders every chart, validates the root Kustomizations with kubeconform, runs
-kube-linter, and executes chart, static security, and platform contract tests.
-It does not contact or mutate a cluster.
+This checks charts, schemas, lint, release contracts and offline safety tests;
+it never contacts a cluster. `mise exec -- pre-commit run --all-files` includes
+the same full check, so running both is unnecessary. See `make help` for focused
+targets; release verification uses `make check release-check TAG=vX.Y.Z`.
+`helm-validate` and `kube-linter` share one render per chart and run both checks.
+Live acceptance is opt-in with explicit context and credentials, never part of
+`make check`; see [AgentGateway setup](tests/live/agentgateway/README.md).
 
-Focused read-only checks are:
-
-```bash
-make deps-verify
-make helm-lint
-make helm-validate
-make kustomize-validate
-make kube-linter
-make chart-check
-make security-check
-make platform-check
-make release-check
-```
-
-`make helm-deps` and `make release-manifest` modify committed artifacts and are
-not validation-only commands. Live acceptance targets are explicitly opted in
-and are not part of `make check`.
-
-The optional `make streaming-acceptance` regression uses an explicitly supplied,
-checksum-verified AgentGateway binary and synthetic local servers. See
-[streaming test setup](tests/live/agentgateway/README.md) for installation and
-execution. The binary is not required by `make check`.
-The separate [workaround note](https://github.com/neurwerk/documentation/blob/main/dev/operations/agentgateway-streaming-workaround.md)
-explains the auth-header change, upstream issues, and adoption gates.
+Shared client checks live in `scripts/`: `check_platform_compatibility.py`
+requires `--root`, defaults to stable-only, and accepts explicit `--allow-alpha`;
+`application_access_inputs.py --client-root PATH --field platform_ref` reads the
+runtime selector; `publish_platform_status.py` targets the calling client.
+Clients pin a merged Base commit in `config/validation-revision`, independently
+of their runtime selection. Protected jobs use only the trusted client base's
+pin; local `VALIDATION_WORKTREE` overrides never apply there.
 
 ## Application Access Plans
 
@@ -504,9 +666,9 @@ supported subset deliberately rejects unresolved or unclassified inputs instead
 of treating them as absent or safe. No runtime edit follows from a failure.
 
 The selected platform `GitRepository/flux-system/k8s-stack` must use exactly
-`https://github.com/neurwerk/k8s_stack_base.git` and name local `main` or an exact
-stable `vX.Y.Z` tag. HEAD must equal the selected local branch/tag's resolved
-commit. Tags are never reinterpreted as candidate inputs. There is no fetch,
+`https://github.com/neurwerk/k8s_stack_base.git` and select local `main`, an exact
+stable `vX.Y.Z` tag, or a full frozen-alpha commit. HEAD must equal the selected
+revision. Tags are never reinterpreted as candidate inputs. There is no fetch,
 remote-freshness claim, or signature check.
 
 Git inspection uses only `rev-parse`, `ls-tree`, and names-only `ls-files`.

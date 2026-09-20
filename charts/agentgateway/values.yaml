@@ -208,6 +208,9 @@ mcp:
 docling:
   enabled: false
   syncWaitSeconds: 360
+  inference:
+    # Shared with Docling: internal-standard (cpu) or private-vlm (remote).
+    mode: remote
 
 # ── Guardrails ────────────────────────────────────────────────────────────────
 # All guardrails are handled by the extProc LLM Policy Engine
@@ -221,6 +224,9 @@ guardrails:
   # Concrete target models are visibility: Internal — not callable directly.
   llmPolicyEngine:
     enabled: false
+    # Rollout guard: integer 1, 2, or 3. The pinned extProc 0.9.0 supports v2,
+    # NOT v3. Keep 1 until compatible services and activation are authorized.
+    attachmentPolicyVersion: 1
 
     # extProc timeout — implemented via AgentgatewayBackend wrapper
     # (extProc CRD field has no native timeout; same pattern as extAuth).
@@ -241,6 +247,9 @@ guardrails:
       model: ""
       provider: ""
       custom: {}
+      # V3-only explicit boolean; omission is false. Set only for a verified
+      # image-capable local backend. V1/v2 reject even an explicit false.
+      # supportsImages: false
 
     # ── User-facing models (model-centric serving) ───────────────────────
     # Client-owned custom/local entries are appended to the client OpenRouter
@@ -257,19 +266,43 @@ guardrails:
     # preserving the caller-facing model ID.
     #
     # Optional attachmentMode: block (default), extract, or passthrough.
+    # Versions 2 and 3 also accept process (alias of extract), imageForwarding:
+    # none (default), if-no-pii-detected, or pii-unchecked, and boolean
+    # faceProtectionEnabled (default true for process/extract, false otherwise).
+    # Version 1 rejects these new keys and process rather than dropping them.
+    # Non-none forwarding requires process/extract and enabled Docling in
+    # private-vlm/remote mode for v2; v3 also allows internal-standard/cpu.
+    # V3 adds supportsImages (strict boolean, omitted=false) on model rows and
+    # localTarget. V1/v2 reject this field. image_models approves only explicit
+    # true AND concrete local backend proof; v3 pii-unchecked requires both.
+    # V3 image_reroutes binds the configured face route class to the actual local
+    # target selected by existing ordered routing, not simply defaultTarget.
+    # Named targets keep their own permission; dedicated fallbacks keep the
+    # source permission. Missing approval blocks rather than rewriting a model.
+    # Central monitorPiiEngine.policy.attachments.faces is opt-in only after a
+    # compatible Engine/extProc rollout; the pinned Engine rejects that key.
+    # It accepts action: block|text-only|reroute, and routeClass only for reroute.
+    # Reroute without routeClass uses routing.defaultTarget. Shipped policies
+    # omit faces. if-no-pii-detected requires PII and face protection;
+    # pii-unchecked requires
+    # face protection false and a concrete local:true target (never piiReroute).
+    # local:true binds to the trusted configured llamacpp host, not a row URL.
+    # passthrough requires PII/face protection false and NO imageForwarding key.
+    # Passthrough IDs are omitted from the trusted image_forwarding map entirely.
+    # process/extract with imageForwarding:none still supports CPU documents.
+    # block ignores face protection; ordinary text/PII/tracing are unchanged.
     # block rejects typed attachments. extract converts supported documents to
     # text before optional PII processing; it does not provide native multimodal
     # input and never falls back to raw attachments if extraction fails.
-    # Extraction is not implemented by the first mode-aware extProc consumer:
-    # it rejects file parts with 503 until the Docling integration is ready.
+    # The pinned extProc 0.9.0 supports v2 images; activation remains opt-in.
     # passthrough preserves native attachments for a capable upstream model,
     # without extraction or PII scanning, and requires piiEnabled: false.
     # block and extract allow either PII setting. Model capability alone never
     # enables attachments. Missing modes are treated as block by the new consumer.
     # Deploy an extProc consumer supporting attachment_modes BEFORE setting ANY
-    # explicit mode (even block): the shipped consumer rejects unknown metadata.
-    # With no explicit effective modes, the chart omits attachment_modes entirely
-    # and preserves contract_version=1 and the existing models ID-to-bool map.
+    # explicit mode (even block): older consumers reject unknown metadata.
+    # With no explicit effective modes, the chart omits attachment_modes entirely.
+    # The default version keeps contract_version=1 and the models ID-to-bool map.
     # Set direct model values here; Helm list overrides replace the whole list.
     #
     # Entry shapes:
@@ -310,7 +343,8 @@ openrouterCatalog:
   enabled: false
   excludedModels: []
   grantToAccessGroups: false
-  # Rows may explicitly set attachmentMode using the same contract above.
+  # Rows may set attachmentMode, imageForwarding, faceProtectionEnabled and
+  # v3-only supportsImages using the same version-gated contract above.
   # No mode is inserted by default. Derived rows keep piiEnabled: true, so
   # passthrough requires a same-name direct model replacement with PII disabled;
   # catalog rows cannot override piiEnabled. Replacement does not inherit modes.

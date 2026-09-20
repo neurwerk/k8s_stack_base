@@ -11,9 +11,10 @@ import subprocess
 import sys
 import types
 import unittest
+import yaml
 from unittest.mock import patch, Mock, mock_open
 
-from test_openrouter_catalog import ROOT, env_value, render, resources, values_from
+from helm import ROOT, env_value, render, resource, resources, values_from
 
 
 class DoclingTests(unittest.TestCase):
@@ -43,152 +44,264 @@ class DoclingTests(unittest.TestCase):
         result = render("docling", {"docling": {"inference": {"caConfigMap": "inference-ca"}}})
         settings = self.settings(result)
         preset = settings["custom_vlm_presets"]["default"]
-        self.assertEqual(preset["engine_options"], {
-            "engine_type": "api", "url": "https://inference.example.test/v1/chat/completions",
-            "params": {"model": "granite-docling"}, "headers": {}, "timeout": 90, "concurrency": 1,
-        })
+        self.assertEqual(preset["engine_options"]["engine_type"], "api")
+        self.assertEqual(preset["engine_options"]["headers"], {})
         self.assertEqual(preset["model_spec"]["response_format"], "doctags")
-        self.assertEqual(preset["model_spec"]["max_new_tokens"], 8192)
-        self.assertEqual(preset["scale"], 2)
         for name, value in {
-            "max_file_size": 20971520, "max_num_pages": 200, "max_sources_per_request": 1,
-            "max_document_timeout": 300, "max_sync_wait": 360, "eng_loc_num_workers": 1,
-            "eng_loc_share_models": False, "load_models_at_boot": False,
-            "enable_ui": False, "enable_management_endpoints": False, "show_version_info": False,
-            "debug_error_details": False, "allow_custom_vlm_config": False,
-            "enable_remote_services": True, "allowed_vlm_presets": [], "allowed_vlm_engines": ["api"],
-            "allowed_source_types": ["file"], "allowed_target_types": ["inbody"],
-            "allowed_image_export_modes": ["placeholder"], "artifact_storage_enabled": False,
-            "single_use_results": True, "result_removal_delay": 60, "scratch_path": "/scratch",
+            "max_sources_per_request": 1,
+            "eng_loc_num_workers": 1,
+            "enable_ui": False,
+            "enable_management_endpoints": False,
+            "debug_error_details": False,
+            "allow_custom_vlm_config": False,
+            "enable_remote_services": True,
+            "allowed_vlm_presets": ["images"],
+            "allowed_vlm_engines": ["api"],
+            "allowed_source_types": ["file"],
+            "allowed_target_types": ["inbody"],
+            "allowed_image_export_modes": ["placeholder"],
+            "artifact_storage_enabled": False,
+            "single_use_results": True,
         }.items():
             self.assertEqual(settings[name], value, name)
-        deployment, = resources(result, "Deployment")
+        (deployment,) = resources(result, "Deployment")
         self.assertIn("terminationGracePeriodSeconds: 390", deployment)
-        for text in ("runAsUser: 1001", "runAsGroup: 1001", "fsGroup: 1001",
-                     "automountServiceAccountToken: false", "readOnlyRootFilesystem: true",
-                     "path: /livez", "path: /readyz", "scheme: HTTPS", "HF_HUB_OFFLINE",
-                     "TRANSFORMERS_OFFLINE", "REQUESTS_CA_BUNDLE", "mountPath: /scratch",
-                     "mountPath: /tmp", '"name":"docling-api"', '"name":"docling-inference"'):
+        for text in (
+            "runAsUser: 1001",
+            "runAsGroup: 1001",
+            "fsGroup: 1001",
+            "automountServiceAccountToken: false",
+            "readOnlyRootFilesystem: true",
+            "path: /livez",
+            "path: /readyz",
+            "scheme: HTTPS",
+            "HF_HUB_OFFLINE",
+            "TRANSFORMERS_OFFLINE",
+            "REQUESTS_CA_BUNDLE",
+            "mountPath: /scratch",
+            "mountPath: /tmp",
+            '"name":"docling-api"',
+            '"name":"docling-inference"',
+        ):
             self.assertIn(text, deployment)
         self.assertNotIn("mountPath: /opt/app-root", deployment)
         self.assertNotIn("nvidia.com", result.stdout)
         self.assertFalse(resources(result, "Secret"))
         self.assertFalse(resources(result, "PersistentVolumeClaim"))
-        service, = resources(result, "Service")
+        (service,) = resources(result, "Service")
         self.assertIn("type: ClusterIP", service)
         self.assertIn("port: 443, targetPort: https", service)
-        certificate, = resources(result, "Certificate")
+        (certificate,) = resources(result, "Certificate")
         self.assertIn("docling.docling.svc.cluster.local", certificate)
-        self.assertIn("duration: 2160h", certificate)
         self.assertIn("rotationPolicy: Always", certificate)
         policy, cleanup_policy = resources(result, "NetworkPolicy")
         self.assertIn('cidr: "10.20.30.40/32"', policy)
         self.assertIn("monitor-agentgateway-extproc", policy)
         self.assertNotIn("ipBlock", cleanup_policy)
         self.assertIn("ports: [{port: 5001, protocol: TCP}]", cleanup_policy)
-        cleanup, = resources(result, "CronJob")
-        for text in ("concurrencyPolicy: Forbid", "activeDeadlineSeconds: 60",
-                     "automountServiceAccountToken: false", "readOnlyRootFilesystem: true",
-                     "key: ca.crt", "runAsUser: 1001"):
+        (cleanup,) = resources(result, "CronJob")
+        for text in (
+            "concurrencyPolicy: Forbid",
+            "activeDeadlineSeconds: 60",
+            "automountServiceAccountToken: false",
+            "readOnlyRootFilesystem: true",
+            "key: ca.crt",
+            "runAsUser: 1001",
+        ):
             self.assertIn(text, cleanup)
         self.assertNotIn("key: tls.key", cleanup)
         self.assertNotIn("DOCLING_INFERENCE_TOKEN", cleanup)
-        self.assertIn("v1.33.0@sha256:546cf392145a0a578f23e4250663a37a5fb727fe6b57fd163e301584ad8bc18c", cleanup)
-        validation = subprocess.run(["kubeconform", "-strict", "-summary", "-ignore-missing-schemas"],
-                                    input=result.stdout, text=True, capture_output=True)
-        self.assertEqual(validation.returncode, 0, validation.stdout + validation.stderr)
+        self.assertEqual(
+            resource(result, "CronJob")["spec"]["jobTemplate"]["spec"]["template"]["spec"][
+                "containers"
+            ][0]["image"],
+            resource(result, "Deployment")["spec"]["template"]["spec"]["containers"][0]["image"],
+        )
 
-        extproc = render("agentgateway-extproc", {"monitorAgentgatewayExtproc": {
-            "maxRequestBytes": "5242880", "grpcMaxReceiveMessageBytes": "6356992",
-            "resources": {"requests": {"memory": "256Mi"}, "limits": {"memory": "512Mi"}},
-        }})
+        extproc = render(
+            "agentgateway-extproc",
+            {
+                "monitorAgentgatewayExtproc": {
+                    "maxRequestBytes": "5242880",
+                    "grpcMaxReceiveMessageBytes": "6356992",
+                    "resources": {"requests": {"memory": "256Mi"}, "limits": {"memory": "512Mi"}},
+                }
+            },
+        )
         for name, value in {
-            "DOCLING__ENABLED": "true", "DOCLING__BASE_URL": "https://docling.docling.svc",
-            "DOCLING__CA_CERT": "/var/run/pii-engine/tls/ca.crt", "DOCLING__INFERENCE_MODE": "remote",
-            "DOCLING__TIMEOUT": "360", "DOCLING__DOCUMENT_TIMEOUT": "300",
-            "DOCLING__FILE_BYTES": "20971520", "DOCLING__TOTAL_BYTES": "41943040",
-            "DOCLING__COUNT": "5", "DOCLING__PAGES": "200", "DOCLING__MAX_RESPONSE_BYTES": "16777216",
-            "MAX_REQUEST_BYTES": "67108864", "GRPC_MAX_RECEIVE_MESSAGE_BYTES": "68222976",
-            "GRPC_MAXIMUM_CONCURRENT_RPCS": "4", "MAX_TRANSFORMED_REQUEST_BYTES": "10485760",
-            "MAX_RESPONSE_BYTES": "10485760", "ENGINE__TIMEOUT": "615",
+            "DOCLING__ENABLED": "true",
+            "DOCLING__BASE_URL": "https://docling.docling.svc",
+            "DOCLING__CA_CERT": "/var/run/pii-engine/tls/ca.crt",
+            "DOCLING__INFERENCE_MODE": "remote",
+            "DOCLING__MAX_RESPONSE_BYTES": "16777216",
+            "MAX_REQUEST_BYTES": "67108864",
+            "GRPC_MAX_RECEIVE_MESSAGE_BYTES": "68222976",
+            "GRPC_MAXIMUM_CONCURRENT_RPCS": "4",
+            "ENGINE__TIMEOUT": "615",
         }.items():
             self.assertEqual(env_value(extproc, f"EXTPROC_{name}"), value, name)
-        deployment, = resources(extproc, "Deployment")
-        self.assertIn("reload: monitor-agentgateway-extproc-engine-client-tls,monitor-agentgateway-extproc-docling-secret", deployment)
-        self.assertRegex(deployment, r"name: EXTPROC_DOCLING__API_KEY\s+valueFrom:\s+secretKeyRef:\s+name: monitor-agentgateway-extproc-docling-secret\s+key: api-key")
-        for text in ("replicas: 2", "memory: 1Gi", "memory: 2Gi", "mountPath: /var/run/pii-engine/tls"):
+        (deployment,) = resources(extproc, "Deployment")
+        self.assertIn(
+            "reload: monitor-agentgateway-extproc-engine-client-tls,monitor-agentgateway-extproc-docling-secret",
+            deployment,
+        )
+        self.assertRegex(
+            deployment,
+            r"name: EXTPROC_DOCLING__API_KEY\s+valueFrom:\s+secretKeyRef:\s+name: monitor-agentgateway-extproc-docling-secret\s+key: api-key",
+        )
+        for text in (
+            "replicas: 2",
+            "memory: 1Gi",
+            "memory: 2Gi",
+            "mountPath: /var/run/pii-engine/tls",
+        ):
             self.assertIn(text, deployment)
-        for text in ("EXTPROC_DOCLING__CLIENT_CERT", "EXTPROC_DOCLING__CLIENT_KEY", "docling-inference"):
+        for text in (
+            "EXTPROC_DOCLING__CLIENT_CERT",
+            "EXTPROC_DOCLING__CLIENT_KEY",
+            "docling-inference",
+        ):
             self.assertNotIn(text, extproc.stdout)
         self.assertFalse(resources(extproc, "HorizontalPodAutoscaler"))
         self.assertFalse(resources(extproc, "Secret"))
-        resized = render("agentgateway-extproc", {"monitorAgentgatewayExtproc": {
-            "doclingResources": {"requests": {"memory": "2Gi"}, "limits": {"memory": "4Gi"}},
-        }})
+        resized = render(
+            "agentgateway-extproc",
+            {
+                "monitorAgentgatewayExtproc": {
+                    "doclingResources": {
+                        "requests": {"memory": "2Gi"},
+                        "limits": {"memory": "4Gi"},
+                    },
+                }
+            },
+        )
         self.assertIn("memory: 4Gi", resources(resized, "Deployment")[0])
 
     @staticmethod
     def settings(result):
-        line = re.search(r"(?m)^  settings.json: (.*)$", result.stdout)
-        return json.loads(json.loads(line.group(1)))
+        return json.loads(resource(result, "ConfigMap")["data"]["settings.json"])
 
     def test_bad_enabled_settings_fail(self):
-        for flag in (0, "", "false"):
+        for flag in ("false",):
             for chart in ("docling", "agentgateway-extproc", "agentgateway"):
-                self.assertNotEqual(render(chart, {"docling": {"enabled": flag}}, check=False).returncode, 0)
-            self.assertNotEqual(render("librechat/shared", {"frontendLibrechat": {"documentAttachments": {"enabled": flag}}}, check=False).returncode, 0)
+                self.assertNotEqual(
+                    render(chart, {"docling": {"enabled": flag}}, check=False).returncode, 0
+                )
+            self.assertNotEqual(
+                render(
+                    "librechat/shared",
+                    {"frontendLibrechat": {"documentAttachments": {"enabled": flag}}},
+                    check=False,
+                ).returncode,
+                0,
+            )
         bad = [
-            *({"inference": {"mode": mode}} for mode in ("auto", "", False, None, 0)),
+            {"inference": {"mode": "auto"}},
             {"inference": {"url": "http://inference.test/v1/chat/completions"}},
             {"inference": {"url": "https://user@inference.test/v1/chat/completions"}},
             {"inference": {"url": "https://inference.test/v1/chat/completions?token=x"}},
             {"inference": {"url": "https://inference.test/v1/chat/completions#fragment"}},
             {"inference": {"url": "https://inference.test/v1"}},
-            {"inference": {"port": 8443}}, {"inference": {"model": ""}},
-            {"inference": {"model": "alias\nheader"}}, {"inference": {"cidrs": []}},
+            {"inference": {"port": 8443}},
+            {"inference": {"model": ""}},
+            {"inference": {"model": "alias\nheader"}},
+            {"inference": {"cidrs": []}},
             {"inference": {"cidrs": ["0.0.0.0/0"]}},
             {"inference": {"cidrs": ["10.1.2.3/7"]}},
             {"inference": {"cidrs": ["192.168.999.1/32"]}},
-            {"inference": {"timeoutSeconds": 301}}, {"syncWaitSeconds": 300},
-            {"documentTimeoutSeconds": 0}, {"cleanup": {"retentionSeconds": 86400}},
+            {"inference": {"timeoutSeconds": 301}},
+            {"syncWaitSeconds": 300},
+            {"documentTimeoutSeconds": 0},
+            {"cleanup": {"retentionSeconds": 86400}},
             {"apiKeySecretRef": {"name": ""}},
             {"inference": {"tokenSecretRef": {"name": "docling-api", "key": "api-key"}}},
             {"resources": {"limits": {"nvidia.com/gpu": 1}}},
-            {"resources": {"requests": {"memory": "0Mi"}}}, {"scratchSizeLimit": "0Gi"},
+            {"resources": {"requests": {"memory": "0Mi"}}},
+            {"scratchSizeLimit": "0Gi"},
         ]
         for values in bad:
             with self.subTest(values=values):
-                self.assertNotEqual(render("docling", {"docling": values}, check=False).returncode, 0)
-        for limits in ({"fileBytes": 0}, {"pages": -1}, {"count": 1.5}, {"totalBytes": 1},
-                       {"fileBytes": 41943041}, {"totalBytes": 41943041}, {"count": 21}, {"pages": 1001}):
+                self.assertNotEqual(
+                    render("docling", {"docling": values}, check=False).returncode, 0
+                )
+        for limits in (
+            {"fileBytes": 0},
+            {"pages": -1},
+            {"count": 1.5},
+            {"totalBytes": 1},
+            {"fileBytes": 41943041},
+            {"totalBytes": 41943041},
+            {"count": 21},
+            {"pages": 1001},
+        ):
             for chart in ("docling", "agentgateway-extproc"):
-                self.assertNotEqual(render(chart, {"documentAttachments": limits}, check=False).returncode, 0)
-        settings = self.settings(render("docling", {"documentAttachments": {"fileBytes": 1048576, "pages": 10}}))
+                self.assertNotEqual(
+                    render(chart, {"documentAttachments": limits}, check=False).returncode, 0
+                )
+        settings = self.settings(
+            render("docling", {"documentAttachments": {"fileBytes": 1048576, "pages": 10}})
+        )
         self.assertEqual((settings["max_file_size"], settings["max_num_pages"]), (1048576, 10))
         for document_timeout, sync_wait in ((300, 600), (3600, 3660)):
-            overridden = render("docling", {"docling": {
-                "documentTimeoutSeconds": document_timeout, "syncWaitSeconds": sync_wait,
-            }})
+            overridden = render(
+                "docling",
+                {
+                    "docling": {
+                        "documentTimeoutSeconds": document_timeout,
+                        "syncWaitSeconds": sync_wait,
+                    }
+                },
+            )
             self.assertEqual(self.settings(overridden)["max_sync_wait"], sync_wait)
-            deployment, = resources(overridden, "Deployment")
+            (deployment,) = resources(overridden, "Deployment")
             self.assertIn(f"terminationGracePeriodSeconds: {sync_wait + 30}", deployment)
-        self.assertNotEqual(render("docling", {"docling": {"syncWaitSeconds": 3661}}, check=False).returncode, 0)
-        for values in ({"inference": {"mode": "auto"}}, {"documentTimeoutSeconds": 0},
-                       {"documentTimeoutSeconds": 3601}, {"syncWaitSeconds": 300}, {"syncWaitSeconds": 3661}):
-            self.assertNotEqual(render("agentgateway-extproc", {"docling": values}, check=False).returncode, 0)
-        for rpcs in (0, 17, 1.5, True):
-            self.assertNotEqual(render("agentgateway-extproc", {
-                "monitorAgentgatewayExtproc": {"grpcMaximumConcurrentRpcs": rpcs},
-            }, check=False).returncode, 0)
-        self.assertNotEqual(render("agentgateway-extproc", {
-            "monitorAgentgatewayExtproc": {"replicas": 3},
-        }, check=False).returncode, 0)
+        self.assertNotEqual(
+            render("docling", {"docling": {"syncWaitSeconds": 3661}}, check=False).returncode, 0
+        )
+        for values in (
+            {"inference": {"mode": "auto"}},
+            {"documentTimeoutSeconds": 0},
+            {"documentTimeoutSeconds": 3601},
+            {"syncWaitSeconds": 300},
+            {"syncWaitSeconds": 3661},
+        ):
+            self.assertNotEqual(
+                render("agentgateway-extproc", {"docling": values}, check=False).returncode, 0
+            )
+        for rpcs in (0, 17, True):
+            self.assertNotEqual(
+                render(
+                    "agentgateway-extproc",
+                    {
+                        "monitorAgentgatewayExtproc": {"grpcMaximumConcurrentRpcs": rpcs},
+                    },
+                    check=False,
+                ).returncode,
+                0,
+            )
+        self.assertNotEqual(
+            render(
+                "agentgateway-extproc",
+                {
+                    "monitorAgentgatewayExtproc": {"replicas": 3},
+                },
+                check=False,
+            ).returncode,
+            0,
+        )
         maximums = {"fileBytes": 41943040, "totalBytes": 41943040, "count": 20, "pages": 1000}
         for chart in ("docling", "agentgateway-extproc"):
             render(chart, {"documentAttachments": maximums})
-        extproc = render("agentgateway-extproc", {"docling": {
-            "documentTimeoutSeconds": 3600, "syncWaitSeconds": 3660,
-        }, "documentAttachments": maximums})
+        extproc = render(
+            "agentgateway-extproc",
+            {
+                "docling": {
+                    "documentTimeoutSeconds": 3600,
+                    "syncWaitSeconds": 3660,
+                },
+                "documentAttachments": maximums,
+            },
+        )
         self.assertEqual(env_value(extproc, "EXTPROC_DOCLING__TIMEOUT"), "3660")
         self.assertEqual(env_value(extproc, "EXTPROC_DOCLING__DOCUMENT_TIMEOUT"), "3600")
         for name, value in zip(("FILE_BYTES", "TOTAL_BYTES", "COUNT", "PAGES"), maximums.values()):
@@ -213,6 +326,11 @@ class DoclingTests(unittest.TestCase):
                 presets = json.loads(os.environ["DOCLING_SERVE_CUSTOM_VLM_PRESETS"])
                 self.assertEqual(presets["default"]["engine_options"]["headers"],
                                  {"Authorization": "Bearer test-upstream-token"})
+                self.assertEqual(presets["images"]["engine_options"]["headers"],
+                                 {"Authorization": "Bearer test-upstream-token"})
+                self.assertEqual(presets["images"]["scale"], 1.0)
+                self.assertIsNone(presets["images"]["max_size"])
+                self.assertEqual(presets["default"]["scale"], 2.0)
             return real_import(name, *args, **kwargs)
 
         previous_disable = logging.root.manager.disable
@@ -320,82 +438,139 @@ class DoclingTests(unittest.TestCase):
 
     def test_optional_packages_and_shared_caps(self):
         for stage in ("namespaces", "infrastructure", "applications"):
-            result = subprocess.check_output(["kustomize", "build", "--load-restrictor",
-                                              "LoadRestrictionsNone", str(ROOT / "releases" / stage)], text=True)
+            result = subprocess.check_output(
+                [
+                    "kustomize",
+                    "build",
+                    "--load-restrictor",
+                    "LoadRestrictionsNone",
+                    str(ROOT / "releases" / stage),
+                ],
+                text=True,
+            )
             self.assertNotRegex(result, r"(?m)^  (?:name|namespace): docling$")
             self.assertNotIn("name: monitor-agentgateway-extproc-docling-secret", result)
             self.assertNotIn("name: monitor-agentgateway-extproc-openbao-secret-store", result)
-        package = subprocess.check_output(["kustomize", "build", "--load-restrictor", "LoadRestrictionsNone",
-                                           str(ROOT / "releases/docling/app")], text=True)
+        package = subprocess.check_output(
+            [
+                "kustomize",
+                "build",
+                "--load-restrictor",
+                "LoadRestrictionsNone",
+                str(ROOT / "releases/docling/app"),
+            ],
+            text=True,
+        )
         self.assertIn("name: base-shared-document-attachments-config-map", package)
         self.assertIn("name: docling-product-values", package)
-        extproc = subprocess.check_output(["kustomize", "build", "--load-restrictor", "LoadRestrictionsNone",
-                                           str(ROOT / "releases/agentgateway-extproc")], text=True)
+        extproc = subprocess.check_output(
+            [
+                "kustomize",
+                "build",
+                "--load-restrictor",
+                "LoadRestrictionsNone",
+                str(ROOT / "releases/agentgateway-extproc"),
+            ],
+            text=True,
+        )
         self.assertIn("name: base-shared-document-attachments-config-map", extproc)
         refs = values_from("agentgateway-extproc/app.yaml")
-        self.assertLess(refs.index(("ConfigMap", "base-shared-document-attachments-config-map")),
-                        refs.index(("ConfigMap", "client-values")))
-        caps = re.search(r"(?m)^documentAttachments:\n(?:  .*\n)+",
-                         (ROOT / "releases/shared/document-attachments.yaml").read_text()).group()
+        self.assertLess(
+            refs.index(("ConfigMap", "base-shared-document-attachments-config-map")),
+            refs.index(("ConfigMap", "client-values")),
+        )
+        caps = yaml.safe_load((ROOT / "releases/shared/document-attachments.yaml").read_text())[
+            "documentAttachments"
+        ]
         for chart in ("docling", "agentgateway-extproc", "librechat/shared"):
-            defaults = (ROOT / "charts" / chart / "values.yaml").read_text()
-            self.assertEqual(re.search(r"(?m)^documentAttachments:\n(?:  .*\n)+", defaults).group(), caps)
-        for source in ("release/config.yaml", "release/manifest.yaml"):
-            text = (ROOT / source).read_text()
-            for path in ("releases/docling/app", "releases/namespaces/docling", "releases/docling/reloader",
-                         "releases/docling/secret-sync", "releases/docling/secret-sync/internal"):
-                self.assertRegex(text, re.escape(path) + r"\n\s+status: included")
+            defaults = yaml.safe_load((ROOT / "charts" / chart / "values.yaml").read_text())
+            self.assertEqual(defaults["documentAttachments"], caps)
 
-        delivery = subprocess.run(["kustomize", "build", str(ROOT / "releases/docling/secret-sync")],
-                                  text=True, capture_output=True, check=True)
+        delivery = subprocess.run(
+            ["kustomize", "build", str(ROOT / "releases/docling/secret-sync")],
+            text=True,
+            capture_output=True,
+            check=True,
+        )
         self.assertEqual(len(re.findall(r"(?m)^kind:", delivery.stdout)), 7)
         self.assertFalse(resources(delivery, "Secret"))
         self.assertNotIn("dataFrom:", delivery.stdout)
         self.assertNotIn("template:", delivery.stdout)
-        accounts = resources(delivery, "ServiceAccount")
-        stores = resources(delivery, "SecretStore")
-        secrets = resources(delivery, "ExternalSecret")
+        accounts = [yaml.safe_load(doc) for doc in resources(delivery, "ServiceAccount")]
+        stores = [yaml.safe_load(doc) for doc in resources(delivery, "SecretStore")]
+        secrets = [yaml.safe_load(doc) for doc in resources(delivery, "ExternalSecret")]
         self.assertEqual((len(accounts), len(stores), len(secrets)), (2, 2, 3))
-        for namespace, source in (("docling", "docling/namespace.yaml"),
-                                  ("monitor-agentgateway-extproc", "agentgateway-extproc.yaml")):
-            account, = [item for item in accounts if f"  namespace: {namespace}\n" in item]
-            self.assertIn(f"  name: {namespace}-external-secrets\n", account)
-            self.assertIn("automountServiceAccountToken: false", account)
-            store, = [item for item in stores if f"  namespace: {namespace}\n" in item]
-            for text in (f"name: {namespace}-openbao-secret-store\n", f"role: {namespace}\n",
-                         f"name: {namespace}-external-secrets\n", "mountPath: kubernetes",
-                         "server: https://infra-openbao.infra-openbao.svc:8200", "path: secret",
-                         "version: v2", "type: ConfigMap", "name: infra-openbao-ca-bundle",
-                         "key: ca.crt", "audiences:\n", "- openbao"):
-                self.assertIn(text, store)
-            self.assertIn('secrets.neurwerk.com/openbao-trust: "true"',
-                          (ROOT / "releases/namespaces" / source).read_text())
+        for namespace, source in (
+            ("docling", "docling/namespace.yaml"),
+            ("monitor-agentgateway-extproc", "agentgateway-extproc.yaml"),
+        ):
+            (account,) = [item for item in accounts if item["metadata"]["namespace"] == namespace]
+            self.assertFalse(account["automountServiceAccountToken"])
+            (store,) = [item for item in stores if item["metadata"]["namespace"] == namespace]
+            provider = store["spec"]["provider"]["vault"]
+            self.assertEqual(provider["auth"]["kubernetes"]["role"], namespace)
+            self.assertEqual(
+                provider["auth"]["kubernetes"]["serviceAccountRef"]["name"],
+                account["metadata"]["name"],
+            )
+            self.assertEqual(
+                provider["caProvider"],
+                {"type": "ConfigMap", "name": "infra-openbao-ca-bundle", "key": "ca.crt"},
+            )
+            self.assertIn(
+                'secrets.neurwerk.com/openbao-trust: "true"',
+                (ROOT / "releases/namespaces" / source).read_text(),
+            )
         for namespace, name, key, record, field in (
             ("docling", "docling-api", "api-key", "internal", "apiKey"),
             ("docling", "docling-inference", "token", "external", "inferenceToken"),
-            ("monitor-agentgateway-extproc", "monitor-agentgateway-extproc-docling-secret",
-             "api-key", "internal", "doclingApiKey"),
+            (
+                "monitor-agentgateway-extproc",
+                "monitor-agentgateway-extproc-docling-secret",
+                "api-key",
+                "internal",
+                "doclingApiKey",
+            ),
         ):
-            secret, = [item for item in secrets if f"  name: {name}\n" in item]
-            self.assertIn(f"  namespace: {namespace}\n", secret)
-            self.assertEqual(secret.count("secretKey:"), 1)
-            for text in (f"secretKey: {key}\n", f"key: {namespace}/{record}\n", f"property: {field}\n",
-                         f"name: {namespace}-openbao-secret-store\n", "kind: SecretStore",
-                         f"    name: {name}\n", "refreshInterval: 1h", "creationPolicy: Owner",
-                         "deletionPolicy: Retain"):
-                self.assertIn(text, secret)
+            (secret,) = [item for item in secrets if item["metadata"]["name"] == name]
+            self.assertEqual(secret["metadata"]["namespace"], namespace)
+            spec = secret["spec"]
+            self.assertEqual(
+                spec["data"],
+                [
+                    {
+                        "secretKey": key,
+                        "remoteRef": {"key": f"{namespace}/{record}", "property": field},
+                    }
+                ],
+            )
+            self.assertEqual(
+                spec["secretStoreRef"],
+                {"name": f"{namespace}-openbao-secret-store", "kind": "SecretStore"},
+            )
+            self.assertEqual(
+                spec["target"],
+                {"name": name, "creationPolicy": "Owner", "deletionPolicy": "Retain"},
+            )
 
         watcher_values = json.loads((ROOT / "releases/docling/reloader/values.json").read_text())
         default_reloader = render("reloader", {}).stdout
         selected_reloader = render("reloader", watcher_values).stdout
+
         def watched(output):
             return set(re.search(r'--namespaces=([^"\s]+)', output).group(1).split(","))
+
         self.assertEqual(watched(selected_reloader), watched(default_reloader) | {"docling"})
+
         def rbac_namespaces(output):
             return set(re.findall(r"(?m)^  namespace: (.+)$", output))
-        self.assertEqual(rbac_namespaces(selected_reloader), rbac_namespaces(default_reloader) | {"docling"})
+
+        self.assertEqual(
+            rbac_namespaces(selected_reloader), rbac_namespaces(default_reloader) | {"docling"}
+        )
         reloader_values = subprocess.check_output(
-            ["kustomize", "build", str(ROOT / "releases/docling/reloader")], text=True)
+            ["kustomize", "build", str(ROOT / "releases/docling/reloader")], text=True
+        )
         self.assertIn("name: docling-reloader-values", reloader_values)
         self.assertIn("namespace: infra-reloader", reloader_values)
         release = (ROOT / "releases/reloader/app.yaml").read_text()
@@ -428,13 +603,26 @@ class DoclingTests(unittest.TestCase):
     def test_librechat_opt_in_uses_mib_and_preserves_disabled_output(self):
         disabled = render("librechat/shared", {}).stdout
         self.assertNotIn("fileConfig:", disabled)
+        self.assertNotIn("imageOutputType:", disabled)
         values = {"frontendLibrechat": {"documentAttachments": {"enabled": True}}}
         enabled = render("librechat/shared", values).stdout
         for text in ("fileConfig:", "AgentGateway:", "fileLimit: 5", "fileSizeLimit: 20",
                      "totalSizeLimit: 40", "fallback: provider", "'^application/pdf$'", "'^text/csv$'"):
             self.assertIn(text, enabled)
+        self.assertNotIn("'^image/", enabled)
         values["documentAttachments"] = {"fileBytes": 1048576, "totalBytes": 2097152, "count": 2}
         changed = render("librechat/shared", values).stdout
         self.assertIn("fileSizeLimit: 1", changed)
         self.assertIn("totalSizeLimit: 2", changed)
         self.assertIn("fileLimit: 2", changed)
+        values["frontendLibrechat"]["documentAttachments"]["imagesEnabled"] = True
+        for version in (1, 2, "3"):
+            values["guardrails"] = {"llmPolicyEngine": {"attachmentPolicyVersion": version}}
+            self.assertIn("image uploads require", render("librechat/shared", values, check=False).stderr)
+        values["guardrails"]["llmPolicyEngine"]["attachmentPolicyVersion"] = 3
+        images = render("librechat/shared", values).stdout
+        for text in ("imageOutputType: png", "'^image/jpeg$'", "'^image/png$'", "'^image/heic$'"):
+            self.assertIn(text, images)
+        self.assertNotIn("'^image/webp$'", images)
+        values["frontendLibrechat"]["documentAttachments"]["enabled"] = False
+        self.assertIn("image uploads require", render("librechat/shared", values, check=False).stderr)

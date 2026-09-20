@@ -15,6 +15,9 @@ docling:
   inference:
     # Shared client-values selection for Docling and extProc, not a product override.
     # Explicit selection only; remote never falls back to local CPU inference.
+    # Preferred names: internal-standard / private-vlm; cpu / remote are aliases.
+    # Keep the shipped default unchanged. Private VLM requires the validated
+    # HTTPS endpoint, separate credentials and RFC1918 egress below.
     mode: remote
     # The following settings are used only in remote mode.
     url: ""

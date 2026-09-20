@@ -1,6 +1,6 @@
 version: 0.3.9
-releaseDate: '2026-09-18'
-summary: Add client LDAP group mappings, optional Docling extraction, and LibreChat voice settings.
+releaseDate: '2026-09-20'
+summary: Add LDAP mappings, document and photo processing, face policies, chat memory, and voice settings.
 trust:
   signerIdentity: platform-release
   algorithm: ssh-ed25519
@@ -23,8 +23,8 @@ packages:
     chartPrefixes: []
     prerequisites:
     - name: openbao-stack-setup
-      version: 0.2.16
-      source: https://github.com/neurwerk/k8s_stack_tooling/commit/269b8c09190df8bd7b775ff7ef202964d3fe2703
+      version: 0.2.17
+      source: https://github.com/neurwerk/k8s_stack_tooling/commit/8f62f6e1b0ccf6b4d60f7cc66bc9a19f6fdc234b
   - path: releases/docling/secret-sync
     status: included
     reason: Optional remote-mode credential delivery; provision the API key and inference token before
@@ -32,8 +32,8 @@ packages:
     chartPrefixes: []
     prerequisites:
     - name: openbao-stack-setup
-      version: 0.2.15
-      source: https://github.com/neurwerk/k8s_stack_tooling/commit/79a3c2eb98ea1e407376a95f83d2441576d719f6
+      version: 0.2.17
+      source: https://github.com/neurwerk/k8s_stack_tooling/commit/8f62f6e1b0ccf6b4d60f7cc66bc9a19f6fdc234b
   - path: releases/docling/reloader
     status: included
     reason: Optional Docling namespace watch and rotation RBAC; compose only after its namespace exists.
@@ -50,8 +50,8 @@ packages:
     - charts/docling
     prerequisites:
     - name: openbao-stack-setup
-      version: 0.2.16
-      source: https://github.com/neurwerk/k8s_stack_tooling/commit/269b8c09190df8bd7b775ff7ef202964d3fe2703
+      version: 0.2.17
+      source: https://github.com/neurwerk/k8s_stack_tooling/commit/8f62f6e1b0ccf6b4d60f7cc66bc9a19f6fdc234b
   - path: releases/namespaces/maintenance
     status: included
     reason: Operator-tested optional maintenance; enable only when selected by the client.
@@ -115,8 +115,8 @@ prerequisites:
   version: 2.9.4
   source: client bootstrap manifests
 - name: openbao-stack-setup
-  version: 0.2.14
-  source: https://github.com/neurwerk/k8s_stack_tooling/commit/0c2e02ddf18776530c1b7cd735327bf27570721b
+  version: 0.2.17
+  source: https://github.com/neurwerk/k8s_stack_tooling/commit/8f62f6e1b0ccf6b4d60f7cc66bc9a19f6fdc234b
 - name: gateway-api-experimental
   version: 1.6.0
   source: https://github.com/kubernetes-sigs/gateway-api/releases/tag/v1.6.0
@@ -156,7 +156,7 @@ exceptions:
     before dropping back to UID 1000.
 provenance:
   previousTag: v0.3.8
-  includedThrough: 72d649d1aca557d8a9485c7581242ab92a5198f2
+  includedThrough: 1a71c31393ab286b1a7b7a8801d8c6966d1d9d3c
   commits:
   - 2682c828a8f0ceed58b3f4aaac2b04aaae2be4ed
   - 974453ee2144875cb41caa5e89d473873101cd96
@@ -166,4 +166,14 @@ provenance:
   - 06b2ecf01bfbb915b1d3711e6682a1d5858465c5
   - 5c9e0c8c3e9a39cca8b9405c716d43bf805f80f4
   - 72d649d1aca557d8a9485c7581242ab92a5198f2
-  compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.8...72d649d1aca557d8a9485c7581242ab92a5198f2
+  - cb9e3103dbf8cd25b52007d3d929dfbe06b89334
+  - 9de840845fb321cb67439c96d0b961a0854b5f9d
+  - f489338f12778ba5c34b928478a99a075dcbaf09
+  - 3a4a0a698522889ca96ca5082e2c900df8e685bc
+  - bb85bed12bc82d1b3f12cdde7f226c7f798686f7
+  - 11fe32d09ee51c33db2453616b01a041a5f14e94
+  - 3e061fe44900cfe1e3f50d6a2a545ed00961c21b
+  - 6d06a97ab8467b8002d84c6372f3dd26ab074cb7
+  - 8c19f049a86317b1d4d7e365b0f02f156f18d6dd
+  - 1a71c31393ab286b1a7b7a8801d8c6966d1d9d3c
+  compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.8...1a71c31393ab286b1a7b7a8801d8c6966d1d9d3c

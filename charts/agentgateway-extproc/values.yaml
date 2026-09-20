@@ -14,7 +14,7 @@
 
 # ── extProc gRPC service ──────────────────────────────────────────────────────
 monitorAgentgatewayExtproc:
-  extprocImage: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.8.0@sha256:908d088a10014f0f868f2d04a9bbf3521f1659966af7c2583c4746fa660d74f5
+  extprocImage: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.10.1@sha256:5f56d548dff55bc3a25a1fde84b91f4164360541d2008a1c972d65e274c8b0b6
 
   # Docling requires exactly two fixed replicas (no HPA while enabled).
   replicas: 2
@@ -84,6 +84,8 @@ monitorAgentgatewayExtproc:
 docling:
   enabled: false
   inference:
+    # Preferred names: internal-standard / private-vlm; cpu / remote are aliases.
+    # Templates retain cpu / remote environment values; 0.9.0 accepts both pairs.
     mode: remote
   documentTimeoutSeconds: 300
   # Whole document batch budget, not a separate timeout for every file.

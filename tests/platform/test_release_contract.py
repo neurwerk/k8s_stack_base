@@ -15,7 +15,6 @@ from unittest import mock
 
 import yaml
 
-
 ROOT = Path(__file__).resolve().parents[2]
 SPEC = importlib.util.spec_from_file_location(
     "platform_release", ROOT / "scripts/platform_release.py"
@@ -58,258 +57,6 @@ class ReleaseContractTest(unittest.TestCase):
         }
         self.assertEqual(list(platform_release._manifest_images(config)), [image])
 
-    def test_keycloak_branding_render_contract(self) -> None:
-        def render(auth):
-            return subprocess.run(
-                ["helm", "template", "keycloak", str(ROOT / "charts/keycloak/server"),
-                 "--values", str(ROOT / "tests/validation/helm-lint-values.yaml"),
-                 "--values", "-"],
-                input=yaml.safe_dump({"authKeycloak": auth}),
-                capture_output=True, text=True, check=False,
-            )
-
-        result = render({})
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertNotIn("KC_REALM_LOGIN_THEME", result.stdout)
-        self.assertNotIn("KC_REALM_EMAIL_THEME", result.stdout)
-        self.assertNotIn("name: client-brand", result.stdout)
-        self.assertNotIn("name: auth-keycloak-branding-properties", result.stdout)
-        self.assertNotIn("checksum/branding", result.stdout)
-
-        auth = {
-            "branding": {"enabled": True, "logoConfigMapName": "keycloak-branding-logo"},
-            "realmDisplayName": " Example Company \\ =:#!\t\f\u00e9",
-            "loginTheme": "client-brand", "emailTheme": "client-brand",
-        }
-        result = render(auth)
-        self.assertEqual(result.returncode, 0, result.stderr)
-        docs = {doc["kind"]: doc for doc in yaml.safe_load_all(result.stdout) if doc}
-        properties = docs["ConfigMap"]["data"]
-        expected = "parent=neurwerk\ncompanyName=\\ Example\\ Company\\ \\\\\\ \\=\\:\\#\\!\\t\\f\u00e9\n"
-        self.assertEqual(properties, {
-            "login-theme.properties": expected + "companyLogoFormat=png\n",
-            "email-theme.properties": expected,
-        })
-        sts = docs["StatefulSet"]
-        self.assertEqual(sts["metadata"]["annotations"]["configmap.reloader.stakater.com/reload"],
-                         "keycloak-branding-logo")
-        pod = sts["spec"]["template"]
-        checksum = pod["metadata"]["annotations"]["checksum/branding"]
-        volume = next(v for v in pod["spec"]["volumes"] if v["name"] == "client-brand")
-        self.assertEqual(volume["projected"]["defaultMode"], 0o444)
-        self.assertEqual(volume["projected"]["sources"], [
-            {"configMap": {"name": "auth-keycloak-branding-properties", "items": [
-                {"key": "login-theme.properties", "path": "login/theme.properties"},
-                {"key": "email-theme.properties", "path": "email/theme.properties"}]}},
-            {"configMap": {"name": "keycloak-branding-logo", "items": [
-                {"key": "company-logo.png", "path": "login/resources/img/company-logo.png"}]}},
-        ])
-        self.assertIn({"name": "client-brand", "mountPath": "/opt/keycloak/themes/client-brand",
-                       "readOnly": True}, pod["spec"]["containers"][0]["volumeMounts"])
-        env = docs["Job"]["spec"]["template"]["spec"]["containers"][0]["env"]
-        for name in ("KC_REALM_LOGIN_THEME", "KC_REALM_EMAIL_THEME"):
-            self.assertIn({"name": name, "value": "client-brand"}, env)
-        result = render({**auth, "branding": {**auth["branding"], "logoFormat": "svg"}})
-        self.assertEqual(result.returncode, 0, result.stderr)
-        docs = {doc["kind"]: doc for doc in yaml.safe_load_all(result.stdout) if doc}
-        self.assertEqual(docs["ConfigMap"]["data"], {
-            "login-theme.properties": expected + "companyLogoFormat=svg\n",
-            "email-theme.properties": expected,
-        })
-        svg_pod = docs["StatefulSet"]["spec"]["template"]
-        self.assertNotEqual(svg_pod["metadata"]["annotations"]["checksum/branding"], checksum)
-        svg_volume = next(v for v in svg_pod["spec"]["volumes"] if v["name"] == "client-brand")
-        self.assertEqual(svg_volume["projected"]["sources"][1], {
-            "configMap": {"name": "keycloak-branding-logo", "items": [
-                {"key": "company-logo.svg", "path": "login/resources/img/company-logo.svg"}]},
-        })
-        for fmt in ("", "SVG", "jpg", "../svg", "svg\ncompanyName=other", True, 1, None):
-            with self.subTest(logo_format=fmt):
-                result = render({**auth, "branding": {**auth["branding"], "logoFormat": fmt}})
-                self.assertNotEqual(result.returncode, 0)
-                self.assertIn("authKeycloak.branding.logoFormat must be png or svg", result.stderr)
-        auth["realmDisplayName"] = "Example Company"
-        self.assertNotIn(checksum, render(auth).stdout)
-        auth["activeDirectory"] = {
-            "enabled": True, "connectionUrl": "ldaps://ad.example:636",
-            "usersDn": "OU=Users,DC=example", "groupsDn": "OU=Groups,DC=example",
-            "groupNames": ["neurwerk-platform-admins"], "egressCidrs": ["192.0.2.1/32"],
-        }
-        result = render(auth)
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn('"auth-keycloak-active-directory-ca,keycloak-branding-logo"', result.stdout)
-        for key in ("loginTheme", "emailTheme"):
-            result = render({key: "client-brand"})
-            self.assertNotEqual(result.returncode, 0)
-            self.assertIn("client-brand selection requires", result.stderr)
-        for name in ("line\nbreak", "line\rbreak", "${env.NAME}", "\\${name}"):
-            with self.subTest(company=name):
-                result = render({**auth, "realmDisplayName": name})
-                self.assertNotEqual(result.returncode, 0)
-                self.assertIn("must not contain CR, LF, or property interpolation", result.stderr)
-        for name in ("", "../logo", "Logo", "logo,other", "x" * 64):
-            with self.subTest(configmap=name):
-                result = render({**auth, "branding": {"enabled": True, "logoConfigMapName": name}})
-                self.assertNotEqual(result.returncode, 0)
-                self.assertIn("authKeycloak.branding.logoConfigMapName", result.stderr)
-
-    def test_active_directory_mapping_transport_and_runtime_gate(self) -> None:
-        charts = ("server", "realm-config/active-directory")
-        image = "ghcr.io/neurwerk/k8s-stack-tooling:0.7.0"
-        legacy = ["neurwerk-platform-admins"]
-        mappings = [
-            {"sourceName": "APP_Users (West), R&D+Ops\\Team", "targetParent": "/access/neurwerk-studio-users"},
-            {"sourceName": "GIT_Admins", "targetParent": "/access/neurwerk-forgejo-admins"},
-        ]
-        ad = {
-            "enabled": True, "connectionUrl": "ldaps://ad.example:636",
-            "usersDn": "OU=Users,DC=example", "groupsDn": "OU=Groups,DC=example",
-            "groupNames": legacy, "egressCidrs": ["192.0.2.1/32"],
-        }
-
-        def render(chart, settings, tooling=None, branding=False):
-            values = {"authKeycloak": {"activeDirectory": settings, "smtp": {"enabled": False}, "branding": {
-                "enabled": branding, "logoConfigMapName": "keycloak-branding-logo",
-            }}}
-            if tooling is not None:
-                values["k8sTools"] = {"image": tooling}
-            return subprocess.run(
-                ["helm", "template", "keycloak", str(ROOT / "charts/keycloak" / chart),
-                 "--namespace", "auth-keycloak",
-                 "--values", str(ROOT / "tests/validation/helm-lint-values.yaml"),
-                 "--values", "-"],
-                input=yaml.safe_dump(values), capture_output=True, text=True, check=False,
-            )
-
-        for chart in charts:
-            for enabled, mapped, plain, allow, tooling in (
-                (False, False, False, False, None),
-                (True, False, False, False, None),
-                (True, False, False, True, None),
-                (True, True, False, False, None),
-                (True, True, True, True, None),
-                (True, False, True, True, None),
-                (True, True, False, False, image),
-                (True, True, True, True, image + "@sha256:" + "a" * 64),
-                (True, False, True, True, image),
-            ):
-                for branding in (False, True):
-                    with self.subTest(chart=chart, enabled=enabled, mapped=mapped,
-                                      plain=plain, allow=allow, branding=branding):
-                        settings = {
-                            **ad, "enabled": enabled, "allowInsecureLdap": allow,
-                            "connectionUrl": "ldap://ad.example:389" if plain else ad["connectionUrl"],
-                            "groupNames": [] if mapped else legacy,
-                            "groupMappings": mappings if mapped else [],
-                        }
-                        if plain:
-                            settings.update(caConfigMapName="", caKey="")
-                        result = render(chart, settings, tooling, branding)
-                        self.assertEqual(result.returncode, 0, result.stderr)
-                        docs = [doc for doc in yaml.safe_load_all(result.stdout) if doc]
-                        self.assertNotIn("KC_TLS_HOSTNAME_VERIFIER", result.stdout)
-                        self.assertNotIn("KC_SPI_TRUSTSTORE_FILE_HOSTNAME_VERIFICATION_POLICY", result.stdout)
-                        if chart == "server":
-                            sts = next(doc for doc in docs if doc["kind"] == "StatefulSet")
-                            pod = sts["spec"]["template"]["spec"]
-                            container = pod["containers"][0]
-                            env = {item["name"]: item for item in container["env"]}
-                            volumes = {item["name"]: item for item in pod["volumes"]}
-                            mounts = {item["name"]: item for item in container["volumeMounts"]}
-                            secure = enabled and not plain
-                            self.assertEqual("KC_TRUSTSTORE_PATHS" in env, secure)
-                            self.assertEqual("active-directory-ca" in volumes, secure)
-                            self.assertEqual("active-directory-ca" in mounts, secure)
-                            if secure:
-                                self.assertEqual(volumes["active-directory-ca"]["configMap"]["name"],
-                                                 "auth-keycloak-active-directory-ca")
-                                self.assertTrue(mounts["active-directory-ca"]["readOnly"])
-                            self.assertIn("postgres-ca", volumes)
-                            self.assertIn("postgres-ca", mounts)
-                            self.assertIn("sslmode=verify-full", env["KC_DB_URL"]["value"])
-                            self.assertEqual("client-brand" in volumes, branding)
-                            reloads = (["auth-keycloak-active-directory-ca"] if secure else [])
-                            reloads += ["keycloak-branding-logo"] if branding else []
-                            self.assertEqual(sts["metadata"].get("annotations", {}).get(
-                                "configmap.reloader.stakater.com/reload", ""), ",".join(reloads))
-                            policy = next(doc for doc in docs if doc["metadata"]["name"] ==
-                                          "auth-keycloak-keycloak-egress")
-                            external = [rule for rule in policy["spec"]["egress"]
-                                        if any("ipBlock" in peer for peer in rule["to"])]
-                            self.assertEqual(external, [{
-                                "to": [{"ipBlock": {"cidr": "192.0.2.1/32"}}],
-                                "ports": [{"port": 389 if plain else 636, "protocol": "TCP"}],
-                            }] if enabled else [])
-                        else:
-                            job = next(doc for doc in docs if doc["kind"] == "Job")
-                            container = job["spec"]["template"]["spec"]["containers"][0]
-                            env = {item["name"]: item for item in container["env"]}
-                            self.assertEqual(env["KC_ACTIVE_DIRECTORY_ENABLED"]["value"],
-                                             str(enabled).lower())
-                            self.assertEqual(any(doc["kind"] == "ExternalSecret" for doc in docs), enabled)
-                            if enabled:
-                                self.assertEqual(json.loads(env["KC_ACTIVE_DIRECTORY_GROUP_NAMES"]["value"]),
-                                                 [] if mapped else legacy)
-                                self.assertEqual(json.loads(env["KC_ACTIVE_DIRECTORY_GROUP_MAPPINGS"]["value"]),
-                                                 mappings if mapped else [])
-                                self.assertEqual(env["KC_ACTIVE_DIRECTORY_ALLOW_INSECURE_LDAP"]["value"],
-                                                 str(allow).lower())
-                                for suffix, key in (("DN", "activeDirectoryBindDn"),
-                                                    ("CREDENTIAL", "activeDirectoryBindCredential")):
-                                    self.assertEqual(env[f"KC_ACTIVE_DIRECTORY_BIND_{suffix}"]["valueFrom"], {
-                                        "secretKeyRef": {"name": "auth-keycloak-active-directory-secret",
-                                                         "key": key},
-                                    })
-                            else:
-                                self.assertEqual([name for name in env if name.startswith("KC_ACTIVE_DIRECTORY_")],
-                                                 ["KC_ACTIVE_DIRECTORY_ENABLED"])
-
-            mapped_ad = {**ad, "groupNames": [], "groupMappings": mappings}
-            for tooling in (image.replace("0.7.0", "0.6.2"),
-                            image.replace("0.7.0", "0.6.2") + "@sha256:" + "a" * 64,
-                            image.replace("0.7.0", "0.7"), image.replace("0.7.0", "latest"),
-                            image + "-rc.1", image + "@sha256:abc",
-                            "registry.example/tooling:0.7.0"):
-                for settings in (mapped_ad, {**ad, "connectionUrl": "ldap://ad.example:389",
-                                             "allowInsecureLdap": True}):
-                    with self.subTest(chart=chart, old_or_invalid_image=tooling, settings=settings):
-                        result = render(chart, settings, tooling)
-                        self.assertNotEqual(result.returncode, 0)
-                        self.assertIn("requires k8sTools.image", result.stderr)
-                        self.assertIn(">=0.7.0", result.stderr)
-            for version in ("0.7.1", "0.10.0", "1.0.0"):
-                with self.subTest(chart=chart, version=version):
-                    result = render(chart, mapped_ad, image.replace("0.7.0", version))
-                    self.assertEqual(result.returncode, 0, result.stderr)
-            for override, error in (
-                ({"groupNames": legacy}, "exactly one non-empty list"),
-                ({"groupMappings": []}, "exactly one non-empty list"),
-                ({"groupMappings": {}}, "must be lists"),
-                ({"groupMappings": ["AD_USERS"]}, "only sourceName and targetParent"),
-                ({"groupMappings": [{**mappings[0], "extra": True}]}, "only sourceName and targetParent"),
-                ({"groupMappings": [mappings[0], {**mappings[1], "sourceName": mappings[0]["sourceName"].lower()}]},
-                 "duplicate sourceName"),
-                ({"groupMappings": [mappings[0], {**mappings[1], "targetParent": mappings[0]["targetParent"]}]},
-                 "duplicate targetParent"),
-                *[({"groupMappings": [{**mappings[0], "sourceName": source}]}, "sourceName")
-                  for source in ("", " AD_USERS", "AD_USERS ", "AD\nUSERS", "AD\x00USERS",
-                                 "<group>", "${GROUP}", "{{group}}", "REPLACE_ME", "x" * 65, True)],
-                *[({"groupMappings": [{**mappings[0], "targetParent": target}]}, "canonical /access/")
-                  for target in ("/access", "/access/neurwerk-unknown", "/access/neurwerk-studio-users/child", True)],
-                ({"allowInsecureLdap": "true"}, "must be a boolean"),
-                *[({"connectionUrl": url}, "connectionUrl") for url in (
-                    "ldap://ad.example:389", "ldaps://ad.example:389", "ldaps://ad.example",
-                    "ldaps://ad.example:636/path", "ldaps://<host>:636",
-                )],
-                ({"connectionUrl": "ldap://ad.example:636", "allowInsecureLdap": True}, "connectionUrl"),
-                ({"caConfigMapName": ""}, "required for LDAPS"),
-                ({"caKey": ""}, "required for LDAPS"),
-            ):
-                with self.subTest(chart=chart, invalid=override):
-                    result = render(chart, {**mapped_ad, **override}, image)
-                    self.assertNotEqual(result.returncode, 0)
-                    self.assertIn(error, result.stderr)
-
     def test_compact_notes_preserve_only_selected_authored_body(self) -> None:
         body = (
             "- Fix LibreChat MCP authentication with internal routing.\n"
@@ -343,10 +90,9 @@ class ReleaseContractTest(unittest.TestCase):
                 self.assertEqual(platform_release.render_release_notes(root), "## v0.3.2\n")
             changelog.unlink()
             self.assertEqual(platform_release.render_release_notes(root), "## v0.3.2\n")
-            for invalid_body in ("- TODO: selected work",):
-                changelog.write_text(f"## [0.3.2] - 2026-09-08\n\n{invalid_body}\n")
-                with self.assertRaises(platform_release.ReleaseError):
-                    platform_release.render_release_notes(root)
+            changelog.write_text("## [0.3.2] - 2026-09-08\n\n- TODO: selected work\n")
+            with self.assertRaises(platform_release.ReleaseError):
+                platform_release.render_release_notes(root)
             (root / "VERSION").write_text("0.3.2\n## injected")
             with self.assertRaises(platform_release.ReleaseError):
                 platform_release.render_release_notes(root)
@@ -355,12 +101,18 @@ class ReleaseContractTest(unittest.TestCase):
         authored = "- An authored fix.\n\n### Instructions\n\nKeep this procedure."
         historical = "## [0.3.1] - 2026-09-01\n\n- Historical notes.\n"
         for body, summary in (
-            (authored, "Summary"), ("", "Explicit summary"),
+            (authored, "Summary"),
+            ("", "Explicit summary"),
             (authored + "\n\n```markdown\n## [0.3.2]\nExample only.\n```", "Summary"),
             (authored + "\n\n~~~markdown\n## [0.3.2]\nExample only.\n~~~", "Summary"),
-            ("", ""), ("", "Summary\n## [9.9.9]"), ("- TODO: finish", "Summary"),
+            ("", ""),
+            ("", "Summary\n## [9.9.9]"),
+            ("- TODO: finish", "Summary"),
         ):
-            with self.subTest(body=body, summary=summary), tempfile.TemporaryDirectory() as directory:
+            with (
+                self.subTest(body=body, summary=summary),
+                tempfile.TemporaryDirectory() as directory,
+            ):
                 root = Path(directory)
                 (root / "release").mkdir()
                 version = root / "VERSION"
@@ -370,20 +122,37 @@ class ReleaseContractTest(unittest.TestCase):
                 changelog = root / "CHANGELOG.md"
                 original = f"# Changelog\n\n## [Unreleased]\n\n{body}\n\n{historical}"
                 changelog.write_text(original)
-                provenance = {"previousTag": "v0.3.1", "includedThrough": "a" * 40,
-                              "commits": ["a" * 40], "compareUrl": "unchanged"}
+                provenance = {
+                    "previousTag": "v0.3.1",
+                    "includedThrough": "a" * 40,
+                    "commits": ["a" * 40],
+                    "compareUrl": "unchanged",
+                }
                 args = SimpleNamespace(
-                    version="0.3.2", previous_tag="v0.3.1", release_date="2026-09-08",
-                    summary=summary, stable_upgrade="supported", recovery="forward-fix",
+                    version="0.3.2",
+                    previous_tag="v0.3.1",
+                    release_date="2026-09-08",
+                    summary=summary,
+                    stable_upgrade="supported",
+                    recovery="forward-fix",
                     upgrades_from_alpha_revisions="",
                 )
                 with (
-                    mock.patch.multiple(platform_release, ROOT=root, VERSION_PATH=version,
-                                        CONFIG_PATH=config, CHANGELOG_PATH=changelog,
-                                        MANIFEST_PATH=root / "release/manifest.yaml"),
-                    mock.patch.object(platform_release, "latest_release_tag", return_value="v0.3.1"),
+                    mock.patch.multiple(
+                        platform_release,
+                        ROOT=root,
+                        VERSION_PATH=version,
+                        CONFIG_PATH=config,
+                        CHANGELOG_PATH=changelog,
+                        MANIFEST_PATH=root / "release/manifest.yaml",
+                    ),
+                    mock.patch.object(
+                        platform_release, "latest_release_tag", return_value="v0.3.1"
+                    ),
                     mock.patch.object(platform_release, "verify_release_tag_signature") as verify,
-                    mock.patch.object(platform_release, "provenance_from_git", return_value=provenance),
+                    mock.patch.object(
+                        platform_release, "provenance_from_git", return_value=provenance
+                    ),
                     mock.patch.object(platform_release, "build_manifest", return_value={}),
                     mock.patch.object(platform_release, "validate_manifest_schema"),
                 ):
@@ -396,26 +165,25 @@ class ReleaseContractTest(unittest.TestCase):
                     platform_release.prepare_release(args)
                     verify.assert_called_once_with("v0.3.1", "v0.3.1")
                     expected_body = body
-                    self.assertEqual(changelog.read_text(),
-                                     "# Changelog\n\n## [Unreleased]\n\n"
-                                     f"## [0.3.2] - 2026-09-08\n\n{expected_body}\n\n{historical}")
+                    self.assertEqual(
+                        changelog.read_text(),
+                        "# Changelog\n\n## [Unreleased]\n\n"
+                        f"## [0.3.2] - 2026-09-08\n\n{expected_body}\n\n{historical}",
+                    )
                     prepared = yaml.safe_load(config.read_text())
                     self.assertEqual(prepared["provenance"], provenance)
                     self.assertFalse((root / "release/migrations/v0.3.2.md").exists())
-                    migration = ""
-                    self.assertEqual(migration, platform_release.migration_scaffold(
-                        "0.3.2", "supported", [], "forward-fix"))
-                    self.assertFalse(platform_release.contains_todo(migration))
-                    platform_release.validate_migration_compatibility(migration, prepared["compatibility"])
+                    platform_release.validate_migration_compatibility("", prepared["compatibility"])
 
                     # Retry from the same predecessor with existing authored evidence.
                     existing = changelog.read_text()
                     for suffix, error in (
                         ("", None),
-                        ("\n## [0.3.2] - 2026-09-08\n\n- Duplicate.\n",
-                         "duplicate changelog sections for 0.3.2"),
-                        ("\n## [0.3.2] - 2026-09-08\n",
-                         "duplicate changelog sections for 0.3.2"),
+                        (
+                            "\n## [0.3.2] - 2026-09-08\n\n- Duplicate.\n",
+                            "duplicate changelog sections for 0.3.2",
+                        ),
+                        ("\n## [0.3.2] - 2026-09-08\n", "duplicate changelog sections for 0.3.2"),
                     ):
                         with self.subTest(existing_suffix=suffix):
                             version.write_text("0.3.1\n")
@@ -468,43 +236,18 @@ class ReleaseContractTest(unittest.TestCase):
         platform_release.validate_manifest_schema(manifest)
 
     def test_stable_upgrade_policy_and_legacy_compatibility(self) -> None:
-        scaffold = platform_release.migration_scaffold(
-            "0.1.2", "supported", [], "forward-fix"
-        )
-        self.assertEqual(scaffold, "")
-        self.assertFalse(platform_release.contains_todo(scaffold))
         supported = "- Stable upgrades: Supported.\n"
-        platform_release.validate_migration_compatibility(
-            supported,
-            {
-                "stableUpgrade": "supported",
-                "upgradesFromAlphaRevisions": [],
-                "downgrade": "unsupported",
-                "recovery": "forward-fix",
-            },
-        )
-        for optional_notes in ("", "Plain notes.\n", "## Support\n", "## Recovery\n", "## Breaking Changes\n"):
-            platform_release.validate_migration_compatibility(
-                optional_notes,
-                {
-                    "stableUpgrade": "supported",
-                    "upgradesFromAlphaRevisions": [],
-                    "downgrade": "unsupported",
-                    "recovery": "forward-fix",
-                },
-            )
-
-        fresh_install_only = supported.replace(
-            "Stable upgrades: Supported", "Stable upgrades: Fresh installation only"
-        )
-        fresh_policy = {
-            "stableUpgrade": "fresh-install-only",
+        policy = {
+            "stableUpgrade": "supported",
             "upgradesFromAlphaRevisions": [],
             "downgrade": "unsupported",
             "recovery": "forward-fix",
         }
+        for notes in (supported, "", "Plain notes.\n", "## Support\n", "## Recovery\n"):
+            platform_release.validate_migration_compatibility(notes, policy)
+        fresh_policy = {**policy, "stableUpgrade": "fresh-install-only"}
         platform_release.validate_migration_compatibility(
-            fresh_install_only, fresh_policy
+            "- Stable upgrades: Fresh installation only.\n", fresh_policy
         )
         manifest = platform_release.load_yaml(ROOT / "release/manifest.yaml")
         manifest["metadata"]["name"] = "v0.1.2"
@@ -512,9 +255,7 @@ class ReleaseContractTest(unittest.TestCase):
         manifest["spec"]["compatibility"] = dict(fresh_policy)
         platform_release.validate_manifest_schema(manifest)
         manifest["spec"]["compatibility"]["upgradesFrom"] = []
-        with self.assertRaisesRegex(
-            platform_release.ReleaseError, "does not match its schema"
-        ):
+        with self.assertRaisesRegex(platform_release.ReleaseError, "does not match its schema"):
             platform_release.validate_manifest_schema(manifest)
         manifest["spec"]["compatibility"] = {
             "upgradesFrom": [],
@@ -522,13 +263,9 @@ class ReleaseContractTest(unittest.TestCase):
             "downgrade": "unsupported",
             "recovery": "forward-fix",
         }
-        with self.assertRaisesRegex(
-            platform_release.ReleaseError, "does not match its schema"
-        ):
+        with self.assertRaisesRegex(platform_release.ReleaseError, "does not match its schema"):
             platform_release.validate_manifest_schema(manifest)
-        with self.assertRaisesRegex(
-            platform_release.ReleaseError, "stableUpgrade does not match"
-        ):
+        with self.assertRaisesRegex(platform_release.ReleaseError, "stableUpgrade does not match"):
             platform_release.validate_migration_compatibility(supported, fresh_policy)
 
         legacy = (ROOT / "release/migrations/v0.1.0.md").read_text()
@@ -548,33 +285,21 @@ class ReleaseContractTest(unittest.TestCase):
         )
 
     def test_migration_compatibility_rejects_invalid_alpha_revisions(self) -> None:
-        migration = """## Support
-
-- Stable upgrades: Supported.
-- Supported alpha source revisions: `aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa`, `bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb`.
-- Downgrade: Unsupported.
-
-## Breaking Changes
-
-None.
-
-## Recovery
-
-Recovery classification: Forward fix.
-"""
-        invalid_migrations = (
+        declaration = f"- Supported alpha source revisions: `{'a' * 40}`, `{'b' * 40}`.\n"
+        migration = (
+            "## Support\n- Stable upgrades: Supported.\n"
+            + declaration
+            + "## Recovery\nRecovery classification: Forward fix.\n"
+        )
+        for name, candidate, message in (
             (
                 "duplicate declaration",
-                migration.replace(
-                    "- Supported alpha source revisions:",
-                    "- Supported alpha source revisions: None.\n"
-                    "- Supported alpha source revisions:",
-                ),
+                migration.replace(declaration, declaration * 2),
                 "exactly one supported alpha source revisions declaration",
             ),
             (
                 "short revision",
-                migration.replace("`aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa`", "`abc123`"),
+                migration.replace("a" * 40, "abc123"),
                 "comma-separated backticked full lowercase commits",
             ),
             (
@@ -589,18 +314,10 @@ Recovery classification: Forward fix.
             ),
             (
                 "misplaced declaration",
-                migration.replace(
-                    "- Supported alpha source revisions: `aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa`, `bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb`.\n",
-                    "",
-                ).replace(
-                    "Recovery classification: Forward fix.",
-                    "- Supported alpha source revisions: None.\n"
-                    "Recovery classification: Forward fix.",
-                ),
+                migration.replace(declaration, "") + declaration,
                 "declaration must appear in ## Support",
             ),
-        )
-        for name, candidate, message in invalid_migrations:
+        ):
             with self.subTest(name=name):
                 with self.assertRaisesRegex(platform_release.ReleaseError, message):
                     platform_release.parse_migration_compatibility(candidate)

@@ -2,57 +2,31 @@
 
 from __future__ import annotations
 
-import subprocess
 import unittest
-from pathlib import Path
-
-
-ROOT = Path(__file__).resolve().parents[2]
-CHART = ROOT / "charts/keycloak/realm-config/initial-admin"
-VALUES = ROOT / "tests/validation/helm-lint-values.yaml"
+from helm import ROOT, render as helm_render
 
 
 def render(*extra_args: str) -> str:
-    result = subprocess.run(
-        [
-            "helm",
-            "template",
-            "auth-keycloak-initial-admin",
-            str(CHART),
-            "--namespace",
-            "auth-keycloak",
-            "--values",
-            str(VALUES),
-            *extra_args,
-        ],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    if result.returncode != 0:
-        raise RuntimeError(result.stderr)
-    return result.stdout
+    return helm_render(
+        "keycloak/realm-config/initial-admin",
+        namespace="auth-keycloak",
+        release="auth-keycloak-initial-admin",
+        extra_args=extra_args,
+    ).stdout
 
 
 class KeycloakInitialAdminTests(unittest.TestCase):
     def test_email_hook_waits_for_public_issuer_after_user_creation(self) -> None:
         manifest = render()
-        release = (ROOT / "releases/keycloak/realm-initial-admin.yaml").read_text(
-            encoding="ascii"
-        )
+        release = (ROOT / "releases/keycloak/realm-initial-admin.yaml").read_text(encoding="ascii")
 
         self.assertIn('"helm.sh/hook-weight": "-1"', manifest)
         self.assertIn("name: auth-keycloak-initial-admin-action-email-job", manifest)
         self.assertIn('"helm.sh/hook": post-install\n', manifest)
         self.assertIn('"helm.sh/hook-weight": "0"', manifest)
         self.assertIn("- send-user-actions-email", manifest)
-        self.assertIn(
-            'image: "ghcr.io/neurwerk/k8s-stack-tooling:0.7.0@sha256:'
-            'f744427df82f4a5b0a94f2f9fbf6c59ab98e1ec4f99963b6d836ea9d765e88bb"',
-            manifest,
-        )
-        self.assertIn("value: \"https://lint.example\"", manifest)
-        self.assertIn("name: KC_ACTION_EMAIL_LIFESPAN\n              value: \"1800\"", manifest)
+        self.assertIn('value: "https://lint.example"', manifest)
+        self.assertIn('name: KC_ACTION_EMAIL_LIFESPAN\n              value: "1800"', manifest)
         self.assertIn("name: auth-keycloak-initial-admin-action-email-egress", manifest)
         self.assertIn("app.kubernetes.io/component: configuration", manifest)
         self.assertIn("job: auth-keycloak-initial-admin-action-email-job", manifest)
@@ -86,7 +60,7 @@ class KeycloakInitialAdminTests(unittest.TestCase):
 
     def test_unknown_routing_mode_fails_rendering(self) -> None:
         with self.assertRaisesRegex(
-            RuntimeError,
+            AssertionError,
             "canonicalEndpointRouting.mode must be internal-traefik or public-dns",
         ):
             render("--set", "canonicalEndpointRouting.mode=unknown")

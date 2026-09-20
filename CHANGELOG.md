@@ -9,52 +9,65 @@ upgrade path.
 
 ## [Unreleased]
 
-## [0.3.9] - 2026-09-18
+## [0.3.9] - 2026-09-20
 
-- Map client AD group names to children of existing Keycloak access groups using
-  built-in LDAP mappers and inherited roles, without an extension.
-- Add explicit plaintext LDAP opt-in on port 389; verified LDAPS on port 636
-  remains the default. Adopt published Tooling `0.7.0` by digest in all 13 consumers.
-- Include optional Docling CPU or private remote document extraction, its credential
-  delivery, and the published extProc `0.8.0` / PII Engine `0.9.0-cpu` integration.
-- Add per-model `block`, `extract`, and `passthrough` attachment modes independently
-  of PII settings; passthrough requires PII disabled.
-- Add optional local speech-to-text and separately configured text-to-speech in
-  LibreChat, with scoped destinations and credentials; both stay off by default.
+- LDAP group-to-access mappings without a Keycloak extension; verified LDAPS by
+  default, with explicit plain LDAP support.
+- Docling processing for PDF, Office, text, Markdown and CSV, using local CPU
+  parsing/OCR or a private vision reader.
+- JPEG/PNG processing and opt-in HEIC/HEIF phone photos, with rotation, resizing
+  and metadata removal.
+- Per-model attachment rules: block, process/extract, or explicit passthrough;
+  separate controls decide whether extracted text or checked images are forwarded.
+- Face policies can block, send text only, or route to an approved local model;
+  text PII checks remain separate, and failed required checks stop processing.
+- Optional saved chat memories, user controls and an automatic memory agent;
+  optional local speech-to-text and separate text-to-speech.
+- Clearer photo errors, bounded processing, temporary-result cleanup and stronger
+  storage readiness checks.
+- Verified runtime pins: Tooling `0.7.0`, extProc `0.10.1`, PII Engine `0.10.0-cpu`
+  and Docling `1.33.0`. New features stay opt-in.
 
-### Upgrade Notes
+### Upgrade Steps
 
-- New features remain opt-in; publication does not enable LDAP, Docling, or uploads.
-  Preserve existing local administrator access, memberships, and persistent data.
-- For LDAP, select exactly one of legacy `groupNames` or `groupMappings`, provide
-  bind credentials through OpenBao, and allow only the selected directory port.
-  Mapped reconciliation temporarily disables federation until validation succeeds;
-  failed transitions remain disabled for retry. Plain LDAP sends passwords without TLS.
-- For Docling, follow the exact package-specific setup CLI prerequisites in the
-  manifest and provision credentials before startup. Select CPU or remote inference
-  explicitly, then enable uploads and model extraction through client configuration.
-  Remote mode needs its own approved inference endpoint and token; there is no fallback.
-- The baseline OpenBao setup CLI advances to `0.2.14` at Tooling commit
-  `0c2e02ddf18776530c1b7cd735327bf27570721b`; optional packages retain their
-  separately declared prerequisites. Before enabling authenticated speech, stage
-  its selected values and secret delivery, run approved `stack-setup reconcile`
-  to update existing OpenBao permissions, then use
-  `stack-setup secret set librechat-stt` and/or `stack-setup secret set librechat-tts`
-  for the selected directions. Do not start the authenticated speech consumer before its required
-  Secrets exist. Speech-disabled clients need no speech credentials or speech-specific
-  reconciliation solely for this upgrade; existing credentials must be preserved.
-- Back up affected persistent data before adoption and inspect application health
-  afterward. Downgrades remain unsupported; recovery is forward-fix.
+1. Verify backups and the supported signed-release transition; preserve existing
+   data, credentials and local administrator access. Downgrades are unsupported.
+2. Use `openbao-stack-setup 0.2.17` at the exact revision in the manifest.
+   Do not bootstrap an existing installation or rotate valid credentials.
+   Deploy PII Engine `0.10.0-cpu` and extProc `0.10.1` before starting Docling or
+   selecting explicit attachment modes, policy v3, image uploads or face actions.
+3. For **Docling**, stage its namespace, selected values and secret delivery first;
+   run approved `stack-setup reconcile` before starting it. For `private-vlm`
+   (also called `remote`), use `stack-setup secret set docling-inference` only
+   for missing/changed credentials; complete certificate and
+   Reloader setup before enabling the service and uploads.
+4. For **LDAP**, apply enabled values, secret delivery and directory egress first;
+   use `stack-setup secret set active-directory` only for missing/changed bind
+   credentials. CA trust is required for LDAPS, not plain LDAP; use one group list.
+   Mapping changes briefly disable federation and stay disabled on failure.
+5. For **authenticated voice**, stage its selected values and secret delivery,
+   reconcile OpenBao permissions, then provision missing keys with
+   `stack-setup secret set librechat-stt` and/or
+   `stack-setup secret set librechat-tts` before startup.
+   Disabled features need no feature-specific credential setup.
+6. Enable memory with `frontendLibrechat.memory.enabled`; automatic updates also
+   need `agent.enabled: true` and an `agent.model` from the effective model catalog
+   in that memory block. Verify Flux, applications, storage and logs after adoption.
 
-### Known Limitations
+Exact setup commands and the normal custody procedure are in the
+[OpenBao runbook](https://github.com/neurwerk/documentation/blob/main/dev/operations/openbao.md);
+see [attachments](https://github.com/neurwerk/documentation/blob/main/dev/architecture/docling.md)
+and [face policies](https://github.com/neurwerk/documentation/blob/main/dev/architecture/face-image-policy.md)
+for feature activation details. Publication does not activate these features.
 
-- Recorded CPU TXT/PDF conversion and PII checks passed; full chat dispatch and
-  remote vision inference remain unverified. An existing storage-health issue holds
-  the final client upload activation; no repeated server rehearsal is required.
-- PII reconstruction across split lines or table cells is not implemented, and
-  the pinned LibreChat can skip Office files for Claude-named models before dispatch.
-- LibreChat RAG and Code Interpreter remain excluded. The existing LibreChat image
-  exception expires on `2026-09-30`; replace it with a reviewed release before expiry.
+### Limits
+
+- Plain LDAP sends passwords without TLS. A private vision reader sees original
+  content before PII checks; passthrough requires PII/face protection off.
+- Split-line/table-cell PII reconstruction is unsupported. LibreChat can skip
+  Office uploads for Claude-named models; use PDF/text instead.
+- LibreChat RAG and Code Interpreter remain excluded. The existing LibreChat
+  image exception expires on `2026-09-30`.
 - The existing partial-stream completion limitation (#108) remains accepted for
   interactive chat, not unattended actions.
 

@@ -1,4 +1,47 @@
-# Optional Speech
+# LibreChat Configuration
+
+## Optional Memory
+
+The `shared` chart exposes `frontendLibrechat.memory` in client LibreChat values.
+It defaults to `enabled: false` and renders `memory.disabled: true`. Enabling it
+makes per-user saved memories and their controls available; it does not reset any
+user's saved off choice. Users otherwise default to on in the pinned application.
+
+Automatic updates also require `agent.enabled: true` and an explicit `agent.model`
+from the effective model catalog. Requests use the existing `AgentGateway`
+endpoint and the user's credentials and model permissions, with no new Secret.
+For example, with a configured model named `local/example`:
+
+```yaml
+frontendLibrechat:
+  memory:
+    enabled: true
+    tokenLimit: 2000
+    maxInputTokens: 4000
+    messageWindowSize: 5
+    agent:
+      enabled: true
+      model: local/example
+```
+
+Clients can override the limits and `agent.instructions`. Default instructions
+save clearly stated, lasting preferences automatically, update corrections, and
+honor forget requests. The stored-memory token limit, recent-chat token limit,
+and recent message count must be positive integers. Automatic updates default to
+off independently of manual memory. No inline composer memory tools are enabled.
+
+`personalize: true` and `interface.memories: true` keep the upstream USER/ADMIN
+memory controls available without changing the existing Agents/Marketplace role
+policy. Users can switch off **Settings > Data controls > Reference saved memories**
+and add, edit, or delete entries in **Memories**. Switching off stops future memory
+use and automatic updates, not deletion of saved entries or previous chat content.
+There is no supported per-user default-off setting in the pinned application.
+
+Memories are stored in the existing LibreChat database. Automatic processing adds
+model calls and uses the selected route's tracing and PII policy. A local memory
+model does not prevent saved notes being sent with later cloud-model chats.
+
+## Optional Speech
 
 This configuration uses existing LibreChat speech support. No application patch,
 upstream contribution, custom image, or image/source pin change is required.

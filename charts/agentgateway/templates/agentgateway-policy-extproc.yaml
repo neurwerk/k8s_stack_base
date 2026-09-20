@@ -2,6 +2,7 @@
 {{- if and .Values.guardrails.llmPolicyEngine.enabled $models }}
 {{- $piiCatalog := dict }}
 {{- $attachmentModes := dict }}
+{{- $attachmentPolicy := include "infra-agentgateway.attachmentPolicy" . | fromJson }}
 {{- range $model := $models }}
 {{-   $piiEnabled := true }}
 {{-   if hasKey $model "piiEnabled" }}{{- $piiEnabled = $model.piiEnabled }}{{- end }}
@@ -40,12 +41,21 @@ spec:
             failureMode: FailClosed
             metadataContext:
               neurwerk.destination_policy:
-                contract_version: "1"
+                contract_version: {{ .Values.guardrails.llmPolicyEngine.attachmentPolicyVersion | toString | quote }}
                 destination_kind: '"model"'
                 principal_id: 'has(jwt.sub) ? jwt.sub : extauthz.principal_id'
                 models: {{ $piiCatalog | toJson | quote }}
                 {{- if $attachmentModes }}
                 attachment_modes: {{ $attachmentModes | toJson | quote }}
+                {{- end }}
+                {{- if ge (int .Values.guardrails.llmPolicyEngine.attachmentPolicyVersion) 2 }}
+                image_forwarding: {{ $attachmentPolicy.image_forwarding | toJson | quote }}
+                face_protection: {{ $attachmentPolicy.face_protection | toJson | quote }}
+                local_models: {{ $attachmentPolicy.local_models | toJson | quote }}
+                {{- end }}
+                {{- if eq (int .Values.guardrails.llmPolicyEngine.attachmentPolicyVersion) 3 }}
+                image_models: {{ $attachmentPolicy.image_models | toJson | quote }}
+                image_reroutes: {{ $attachmentPolicy.image_reroutes | toJson | quote }}
                 {{- end }}
             processingOptions:
               requestBodyMode: Buffered

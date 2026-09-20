@@ -82,7 +82,7 @@ spec:
                   name: monitor-agentgateway-extproc-docling-secret
                   key: api-key
             - name: EXTPROC_DOCLING__INFERENCE_MODE
-              value: {{ $docling.inference.mode | quote }}
+              value: {{ ternary "cpu" "remote" (has $docling.inference.mode (list "cpu" "internal-standard")) | quote }}
             - name: EXTPROC_DOCLING__TIMEOUT
               value: {{ $docling.syncWaitSeconds | quote }}
             - name: EXTPROC_DOCLING__DOCUMENT_TIMEOUT

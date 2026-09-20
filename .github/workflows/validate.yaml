@@ -76,9 +76,6 @@ jobs:
           helm repo add opensearch https://opensearch-project.github.io/helm-charts
           helm repo add stakater https://stakater.github.io/stakater-charts
 
-      - name: Run make check (Helm, Kustomize, kubeconform, kube-linter, security tests)
-        run: make check
-
       - name: Validate release notes
         run: |
           uv run --frozen python - <<'PY'
@@ -93,7 +90,7 @@ jobs:
               raise SystemExit("\n".join(errors))
           PY
 
-      - name: Run pre-commit
+      - name: Run pre-commit (includes full make check)
         uses: pre-commit/action@2c7b3805fd2a0fd8c1884dcaebf91fc102a13ecd # v3.0.1
         with:
           extra_args: --all-files

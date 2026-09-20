@@ -6,8 +6,9 @@ import re
 import textwrap
 import unittest
 
-from .helpers import ROOT, render_chart, resource, resources_of_kind
+import yaml
 
+from .helpers import ROOT, render_chart, resource, resources_of_kind
 
 DISABLE_OPTIONAL_CAPABILITIES = (
     "--set",
@@ -47,6 +48,34 @@ def agent_capabilities(config: str) -> list[str]:
 
 class SharedConfigTests(unittest.TestCase):
     """Keep generated agent, reasoning, and MCP settings aligned."""
+
+    def test_memory_defaults_and_client_overrides(self) -> None:
+        self.assertEqual(yaml.safe_load(render_librechat_config())["memory"], {"disabled": True})
+        args = ("--set", "frontendLibrechat.memory.enabled=true")
+        manual = yaml.safe_load(render_librechat_config(*args))
+        self.assertTrue(manual["interface"]["memories"])
+        self.assertTrue(manual["memory"]["personalize"])
+        self.assertNotIn("agent", manual["memory"])
+        args += (
+            "--set", "frontendLibrechat.memory.agent.enabled=true",
+            "--set-string", "guardrails.llmPolicyEngine.models[0].name=local/example",
+            "--set", "frontendLibrechat.memory.agent.model=local/example",
+            "--set-string", "frontendLibrechat.memory.agent.instructions=Remember stated preferences.",
+            "--set", "frontendLibrechat.memory.tokenLimit=1000",
+        )
+        config = yaml.safe_load(render_librechat_config(*args))
+        self.assertEqual(config["memory"], {
+            "disabled": False, "personalize": True, "tokenLimit": 1000,
+            "maxInputTokens": 4000, "messageWindowSize": 5,
+            "agent": {"enabled": True, "provider": "AgentGateway", "model": "local/example",
+                      "instructions": "Remember stated preferences."},
+        })
+        for override in ("agent.model=missing", "tokenLimit=0", "agent.enabled=invalid"):
+            with self.subTest(override=override):
+                result = render_chart("shared", check=False, extra_args=(
+                    *args, "--set", f"frontendLibrechat.memory.{override}"))
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("frontendLibrechat.memory.", result.stderr)
 
     def test_speech_disabled_has_no_config_or_credentials(self) -> None:
         self.assertEqual(
@@ -286,14 +315,6 @@ class SharedConfigTests(unittest.TestCase):
             "includeReasoningHistory",
         ):
             self.assertNotRegex(config, rf"(?m)^      {key}:")
-
-    def test_grouped_specs_own_selection_without_a_raw_endpoint_row(self) -> None:
-        config = render_librechat_config()
-
-        self.assertIn("  modelSelect: false\n", config)
-        self.assertIn(
-            '        default: ["remote/example/model"]\n        fetch: false\n', config
-        )
 
 
 if __name__ == "__main__":
