@@ -32,9 +32,11 @@ ceph_health_ready() {
       (if has("details") then .details else {} end) as $details |
       select($details | type == "object") |
       if .health == "HEALTH_OK" and ($details | length) == 0 then "HEALTH_OK"
+      elif .health == "HEALTH_WARN" and ($details | length) > 0 and
+        ($details | all(.severity == "HEALTH_WARN")) then "HEALTH_WARN"
       else empty end
     ' 2>/dev/null); then
-    echo "Ceph health is stale, malformed, or contains blocking warnings/errors."
+    echo "Ceph health is stale, malformed, or contains blocking errors."
     return 1
   fi
   echo "$health_summary"
