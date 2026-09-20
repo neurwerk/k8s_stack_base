@@ -301,7 +301,7 @@ see the [Docling chart notes](charts/docling/README.md#private-image-preset).
 
 AgentGateway chart `1.6.0` adds opt-in `attachmentPolicyVersion: 3`, retaining
 default `1` and all v1/v2 routing and reader rules. Base now pins verified
-PII Engine `0.10.0-cpu` and extProc `0.10.0`, which support this contract.
+PII Engine `0.10.0-cpu` and extProc `0.10.1`, which support this contract.
 Deploy both compatible services before choosing v3 or adding the central face
 policy; image pins alone do not enable uploads or deploy a vision model.
 
@@ -310,13 +310,22 @@ waiting for NVIDIA or the combined GitHub Release. The successful
 [CPU job](https://github.com/neurwerk/k8s_stack_pii_engine/actions/runs/35427564628/job/105856180059)
 and its digest artifact identify source `dbef8e841b704fe31abafce6b3ea72a9081644ed`
 and digest `sha256:ee535afd041a1857dbc7aadcab0ff87c68c4a1bf7771c70f03136c5c96d6dba4`.
-ExtProc's [release](https://github.com/neurwerk/k8s_stack_agentgateway_extproc/releases/tag/v0.10.0)
+ExtProc's initial [release](https://github.com/neurwerk/k8s_stack_agentgateway_extproc/releases/tag/v0.10.0)
 and successful [workflow](https://github.com/neurwerk/k8s_stack_agentgateway_extproc/actions/runs/35427564491)
 identify source `8eac7c2fd9c88283fe40e1a75276ddfdeb7d0cf7` and digest
 `sha256:f8d3e7a204588c00e170574ef091123109f01a23c055e2161cbed383452a0b14`.
 Independent registry checks matched both digests, source/version labels and
-`linux/amd64` manifests. Engine/model-sync charts are `1.0.5`/`1.0.4`, extProc is
-`1.3.2`, and Docling's documentation-only chart update is `0.4.2`.
+`linux/amd64` manifests. Engine/model-sync charts are `1.0.5`/`1.0.4`, and Docling's
+documentation-only chart update is `0.4.2`.
+
+ExtProc chart `1.3.3` now pins the verified
+[`0.10.1` patch](https://github.com/neurwerk/k8s_stack_agentgateway_extproc/releases/tag/v0.10.1)
+from source `162270eb659c859020c48fe127c6c2861397a113`, digest
+`sha256:5f56d548dff55bc3a25a1fde84b91f4164360541d2008a1c972d65e274c8b0b6`.
+Faces with no readable text under `text-only` still reject with 403, but show a
+short explanation without the Markdown table; the detailed report retains
+`text-only` and records `no_readable_text` separately. Image permissions and
+PII Engine are unchanged.
 
 V3 permits processed JPEG/PNG/HEIC extraction through enabled Docling
 `internal-standard`/`cpu` as well as `private-vlm`/`remote`. V2 still requires the
