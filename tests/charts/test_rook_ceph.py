@@ -74,19 +74,19 @@ ceph_health_ready
         self.cluster["status"]["ceph"]["details"] = {}
         self.run_gate()
 
-    def test_all_warnings_rejected(self):
+    def test_all_warnings_allowed(self):
         health = self.cluster["status"]["ceph"]
         health["health"] = "HEALTH_WARN"
         for codes in [(code,) for code in WARNINGS] + [WARNINGS]:
             with self.subTest(codes=codes):
                 health["details"] = {code: {"severity": "HEALTH_WARN"} for code in codes}
-                self.run_gate(False)
+                self.run_gate()
         for code in ("OSD_DOWN", "BLUESTORE_SLOW_OP_ALERT", "AUTH_UNKNOWN",
                      "AUTH_INSECURE_SERVICE_KEY_TYPE", "AUTH_INSECURE_SERVICE_TICKETS"):
             with self.subTest(code=code):
                 health["details"] = {WARNINGS[0]: {"severity": "HEALTH_WARN"},
                                      code: {"severity": "HEALTH_WARN"}}
-                self.run_gate(False)
+                self.run_gate()
 
     def test_errors_and_malformed_health(self):
         health = self.cluster["status"]["ceph"]

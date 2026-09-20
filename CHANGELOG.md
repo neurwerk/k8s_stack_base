@@ -9,6 +9,8 @@ upgrade path.
 
 ## [Unreleased]
 
+- Allow Ceph health warnings through readiness while retaining storage checks.
+
 ## [0.3.9] - 2026-09-20
 
 - LDAP group-to-access mappings without a Keycloak extension; verified LDAPS by
