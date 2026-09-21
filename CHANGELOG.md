@@ -9,6 +9,8 @@ upgrade path.
 
 ## [Unreleased]
 
+## [0.3.12] - 2026-09-21
+
 - Allow explicit HTTP opt-in for private Docling inference backends; HTTPS remains the default.
 
 ## [0.3.11] - 2026-09-20
