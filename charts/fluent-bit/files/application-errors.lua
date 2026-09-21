@@ -60,6 +60,11 @@ local function classify(record)
         return nil
     end
 
+    if contains(diagnostic, "client_aborted") or contains(diagnostic, "client disconnected")
+        or contains(diagnostic, "client canceled") or contains(diagnostic, "client cancelled")
+        or contains(diagnostic, "cancellederror") or contains(diagnostic, "aborterror") then
+        return nil
+    end
     if status == 408 or status == 504 then
         return "timeout"
     end
@@ -69,11 +74,6 @@ local function classify(record)
             or contains(diagnostic, "etimedout") then
             return "timeout"
         end
-    end
-    if contains(diagnostic, "client_aborted") or contains(diagnostic, "client disconnected")
-        or contains(diagnostic, "client canceled") or contains(diagnostic, "client cancelled")
-        or contains(diagnostic, "cancellederror") or contains(diagnostic, "aborterror") then
-        return nil
     end
     if status and status >= 500 and status < 600 then
         return "upstream_error"

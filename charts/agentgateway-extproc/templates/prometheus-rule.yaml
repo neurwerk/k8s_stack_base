@@ -18,7 +18,9 @@ spec:
         - alert: AgentGatewayEngineRequestFailed
           expr: >-
             sum by (outcome)
-            (increase(extproc_engine_requests_total{namespace="{{ .Release.Namespace }}",outcome=~"error|invalid_reply"}[5m])) > 0
+            (increase(extproc_engine_requests_total{namespace="{{ .Release.Namespace }}",outcome=~"error|invalid_reply"}[5m])
+            or (extproc_engine_requests_total{namespace="{{ .Release.Namespace }}",outcome=~"error|invalid_reply"} > 0
+            unless extproc_engine_requests_total{namespace="{{ .Release.Namespace }}",outcome=~"error|invalid_reply"} offset 5m)) > 0
           labels:
             severity: warning
             alert_scope: application
@@ -36,7 +38,9 @@ spec:
         - alert: AgentGatewayResponseProcessingFailed
           expr: >-
             sum by (phase, reason)
-            (increase(extproc_response_failures_total{namespace="{{ .Release.Namespace }}"}[5m])) > 0
+            (increase(extproc_response_failures_total{namespace="{{ .Release.Namespace }}"}[5m])
+            or (extproc_response_failures_total{namespace="{{ .Release.Namespace }}"} > 0
+            unless extproc_response_failures_total{namespace="{{ .Release.Namespace }}"} offset 5m)) > 0
           labels:
             severity: warning
             alert_scope: application

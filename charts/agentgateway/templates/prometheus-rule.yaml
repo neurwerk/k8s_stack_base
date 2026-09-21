@@ -18,7 +18,9 @@ spec:
         - alert: AgentGatewayRequestFailed
           expr: >-
             sum by (status, reason)
-            (increase(agentgateway_requests_total{namespace="{{ .Release.Namespace }}",status=~"5.."}[5m])) > 0
+            (increase(agentgateway_requests_total{namespace="{{ .Release.Namespace }}",status=~"5.."}[5m])
+            or (agentgateway_requests_total{namespace="{{ .Release.Namespace }}",status=~"5.."} > 0
+            unless agentgateway_requests_total{namespace="{{ .Release.Namespace }}",status=~"5.."} offset 5m)) > 0
           labels:
             severity: warning
             alert_scope: application
