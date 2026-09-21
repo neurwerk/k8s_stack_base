@@ -1,0 +1,30 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: monitor-fluent-bit-metrics-network-policy
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: fluent-bit
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: monitor-fluent-bit
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: fluent-bit
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitor-kube-prometheus-stack
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus
+              operator.prometheus.io/name: monitor-kube-prometheus-st
+      ports:
+        - port: http
+          protocol: TCP
+        - port: error-metrics
+          protocol: TCP

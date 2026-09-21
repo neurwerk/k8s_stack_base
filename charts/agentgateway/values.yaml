@@ -33,6 +33,10 @@
 infraAgentgatewayWrapper:
   hostname: ""                        # set in client_*/config/client.yaml
 
+  alerts:
+    # Application failures use the existing Alertmanager email recipient.
+    enabled: true
+
   ports:
     container:
       http: 8080                      # AG proxy HTTP port
