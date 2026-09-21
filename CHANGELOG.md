@@ -9,6 +9,9 @@ upgrade path.
 
 ## [Unreleased]
 
+- Adopt verified Tooling `0.7.2`: absent mapped AD groups warn and remain
+  configured for later discovery; genuine synchronization failures still block activation.
+
 ## [0.3.13] - 2026-09-21
 
 - Improve extProc stream capacity, Service endpoint routing and graceful drain; keep PII suffix validation offline.
