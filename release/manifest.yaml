@@ -246,7 +246,7 @@ spec:
       appVersion: 1.15.0
     - path: charts/docling
       name: docling
-      version: 0.4.2
+      version: 0.4.3
       appVersion: 1.33.0
     - path: charts/external-secrets
       name: infra-external-secrets

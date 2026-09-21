@@ -13,15 +13,24 @@
 
 {{/* Inference endpoint and model. */}}
 {{- if $remote -}}
-{{- $endpointPattern := `^https://[a-zA-Z0-9]([a-zA-Z0-9.-]*[a-zA-Z0-9])?(:[1-9][0-9]{0,4})?/v1/chat/completions$` -}}
+{{- if not (kindIs "bool" $inference.allowHttp) -}}
+  {{- fail "docling.inference.allowHttp must be boolean" -}}
+{{- end -}}
+{{- $endpointPattern := `^https?://[a-zA-Z0-9]([a-zA-Z0-9.-]*[a-zA-Z0-9])?(:[1-9][0-9]{0,4})?/v1/chat/completions$` -}}
 {{- if not (regexMatch $endpointPattern $inference.url) -}}
-  {{- fail "docling.inference.url must be a full HTTPS /v1/chat/completions URL without userinfo, query or fragment" -}}
+  {{- fail "docling.inference.url must be a full HTTP(S) /v1/chat/completions URL without userinfo, query or fragment" -}}
 {{- end -}}
 {{- $url := urlParse $inference.url -}}
+{{- if and (eq $url.scheme "http") (not $inference.allowHttp) -}}
+  {{- fail "HTTP inference requires docling.inference.allowHttp=true; HTTPS is the default" -}}
+{{- end -}}
 {{- if not (regexMatch `^[1-9][0-9]*$` (toJson $inference.port)) -}}
   {{- fail "docling.inference.port must be an integer" -}}
 {{- end -}}
 {{- $urlPort := "443" -}}
+{{- if eq $url.scheme "http" -}}
+  {{- $urlPort = "80" -}}
+{{- end -}}
 {{- if contains ":" $url.host -}}
   {{- $urlPort = last (splitList ":" $url.host) -}}
 {{- end -}}

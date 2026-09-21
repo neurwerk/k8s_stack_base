@@ -181,6 +181,20 @@ class DoclingTests(unittest.TestCase):
     def settings(result):
         return json.loads(resource(result, "ConfigMap")["data"]["settings.json"])
 
+    def test_http_inference_requires_opt_in_and_matching_port(self):
+        for authority, port in (("10.20.30.40:8080", 8080), ("10.20.30.40", 80)):
+            url = f"http://{authority}/v1/chat/completions"
+            inference = {"url": url, "port": port, "allowHttp": True}
+            result = render("docling", {"docling": {"inference": inference}})
+            preset = self.settings(result)["custom_vlm_presets"]["default"]
+            self.assertEqual(preset["engine_options"]["url"], url)
+            self.assertIn(f"port: {port}, protocol: TCP", resources(result, "NetworkPolicy")[0])
+            self.assertIn("scheme: HTTPS", resources(result, "Deployment")[0])
+            for override in ({"allowHttp": False}, {"port": 443}):
+                self.assertNotEqual(render(
+                    "docling", {"docling": {"inference": inference | override}}, check=False
+                ).returncode, 0)
+
     def test_bad_enabled_settings_fail(self):
         for flag in ("false",):
             for chart in ("docling", "agentgateway-extproc", "agentgateway"):
@@ -196,6 +210,7 @@ class DoclingTests(unittest.TestCase):
                 0,
             )
         bad = [
+            {"inference": {"allowHttp": "true"}},
             {"inference": {"mode": "auto"}},
             {"inference": {"url": "http://inference.test/v1/chat/completions"}},
             {"inference": {"url": "https://user@inference.test/v1/chat/completions"}},

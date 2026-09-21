@@ -9,6 +9,8 @@ upgrade path.
 
 ## [Unreleased]
 
+- Allow explicit HTTP opt-in for private Docling inference backends; HTTPS remains the default.
+
 ## [0.3.11] - 2026-09-20
 
 - Fix LDAP provisioning and allow client-configured connection/read timeouts with Tooling 0.7.1.
