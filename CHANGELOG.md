@@ -16,12 +16,12 @@ upgrade path.
   preserve reversible replacement. Face actions and approved reroutes still apply.
 - Distinguish empty image text from extraction failures and policy blocks with
   configuration-specific messages. Successful text-only fallback is a notice.
-- Adopt verified extProc `0.11.0` with an exact image digest; AgentGateway chart
-  `1.7.0` validates the new mode and extProc chart `1.3.4` supplies its runtime.
+- Adopt verified extProc `0.11.2` and PII Engine `0.10.1` with exact image digests;
+  AgentGateway chart `1.7.1` and extProc chart `1.3.5` supply the updated routing and runtime.
 
 ### Upgrade Steps
 
-Deploy the compatible extProc `0.11.0` runtime before selecting
+Deploy the compatible extProc `0.11.2` runtime before selecting
 `imageForwarding: if-policy-allows` under attachment policy v3. Then migrate the
 intended client model entries from the existing strict mode. The new mode requires
 enabled extraction, text PII and face protection; explicit client settings retain
