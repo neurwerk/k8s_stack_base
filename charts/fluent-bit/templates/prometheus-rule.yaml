@@ -37,9 +37,12 @@ spec:
             {{- end }}
         - alert: ApplicationErrorCollectorUnavailable
           expr: >-
-            (up{namespace="{{ .Release.Namespace }}", endpoint="error-metrics"} == 0)
-            or (absent(up{namespace="{{ .Release.Namespace }}", endpoint="error-metrics"})
-            and on () (max(kube_daemonset_status_desired_number_scheduled{namespace="{{ .Release.Namespace }}"}) > 0))
+            (up{namespace="{{ .Release.Namespace }}", endpoint="http"} == 0)
+            or (up{namespace="{{ .Release.Namespace }}", endpoint="http"} == 1
+            unless on (namespace, pod)
+            fluentbit_output_proc_records_total{namespace="{{ .Release.Namespace }}", endpoint="http", name="prometheus_exporter.1"})
+            or (absent(up{namespace="{{ .Release.Namespace }}", endpoint="http"})
+            and on () (max(kube_daemonset_status_desired_number_scheduled{namespace="{{ .Release.Namespace }}", daemonset="monitor-fluent-bit"}) > 0))
           for: 1m
           labels:
             severity: critical
@@ -48,5 +51,5 @@ spec:
             application: fluent-bit
           annotations:
             summary: Application error collection is unavailable
-            description: Check Fluent Bit readiness and the error-metrics endpoint; log-derived error notifications may be missing.
+            description: Check Fluent Bit readiness and its prometheus_exporter output; log-derived error notifications may be missing.
 {{- end }}
