@@ -1,0 +1,52 @@
+{{- if .Values.monitorFluentBit.applicationAlerts.enabled }}
+{{- $studio := ((.Values.frontendStudio | default dict).studio | default dict).hostname | default "" }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: monitor-fluent-bit-application-errors
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: fluent-bit
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: monitor-fluent-bit
+    release: monitor-kube-prometheus-stack
+spec:
+  groups:
+    - name: application-error-logs
+      interval: 30s
+      rules:
+        - alert: ApplicationErrorObserved
+          # A timestamp catches the first event even before a counter has a baseline.
+          expr: >-
+            time() - max by (application_namespace, application, error_kind)
+            (stack_application_error_last_seen_seconds) < 300
+          labels:
+            severity: warning
+            alert_scope: application
+            namespace: '{{ "{{ $labels.application_namespace }}" }}'
+          annotations:
+            summary: '{{ "{{ $labels.application }}: {{ $labels.error_kind }}" }}'
+            description: >-
+              An unexpected application failure was logged in the last five minutes.
+              Clearing this alert means no further matching errors were observed, not that the bug is fixed.
+              Inspect the application's logs for the failure and preceding dependency errors.
+            events_since_collector_start: >-
+              {{ `{{ with printf "sum(stack_application_error_events_total{application_namespace=%q,application=%q,error_kind=%q})" $labels.application_namespace $labels.application $labels.error_kind | query }}{{ . | first | value | printf "%.0f" }}{{ end }}` }}
+            {{- if and $studio (ne $studio "place.holder") }}
+            logs_url: {{ printf "https://%s/logs" $studio | quote }}
+            {{- end }}
+        - alert: ApplicationErrorCollectorUnavailable
+          expr: >-
+            (up{namespace="{{ .Release.Namespace }}", endpoint="error-metrics"} == 0)
+            or (absent(up{namespace="{{ .Release.Namespace }}", endpoint="error-metrics"})
+            and on () (max(kube_daemonset_status_desired_number_scheduled{namespace="{{ .Release.Namespace }}"}) > 0))
+          for: 1m
+          labels:
+            severity: critical
+            alert_scope: application
+            namespace: {{ .Release.Namespace }}
+            application: fluent-bit
+          annotations:
+            summary: Application error collection is unavailable
+            description: Check Fluent Bit readiness and the error-metrics endpoint; log-derived error notifications may be missing.
+{{- end }}

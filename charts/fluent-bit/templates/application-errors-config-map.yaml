@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: monitor-fluent-bit-application-errors
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: fluent-bit
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: monitor-fluent-bit
+data:
+  application-errors.lua: |
+    {{- .Files.Get "files/application-errors.lua" | nindent 4 }}

@@ -9,6 +9,8 @@ upgrade path.
 
 ## [Unreleased]
 
+- Email grouped application errors, timeouts and unavailable chat/API dependencies
+  through the existing monitoring stack, with Studio log links and no additional services.
 - Adopt verified extProc `0.11.3` in chart `1.3.6`: cached PII reroutes retain
   historical reports without incorrectly requiring current reversal mappings,
   preventing adapter-generated HTTP 503 failures on retries.

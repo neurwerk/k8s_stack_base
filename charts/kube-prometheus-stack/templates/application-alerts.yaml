@@ -1,0 +1,56 @@
+{{- $alerts := .Values.monitorKubePrometheusStack.alerting.applications }}
+{{- if $alerts.enabled }}
+{{- $namespaces := list }}
+{{- range $alerts.namespaces }}
+{{- $namespaces = append $namespaces (regexQuoteMeta .) }}
+{{- end }}
+{{- $selector := required "application alert namespaces must not be empty" (join "|" $namespaces) }}
+{{- $studio := ((.Values.frontendStudio | default dict).studio | default dict).hostname | default "" }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: monitor-kube-prometheus-stack-application-availability
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: application-availability
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: monitor-kube-prometheus-stack
+    release: monitor-kube-prometheus-stack
+spec:
+  groups:
+    - name: application-availability
+      interval: 30s
+      rules:
+        - alert: ApplicationDeploymentUnavailable
+          expr: >-
+            (max by (namespace, deployment) (kube_deployment_status_replicas_available{namespace=~{{ $selector | quote }}}) == 0)
+            and on (namespace, deployment)
+            (max by (namespace, deployment) (kube_deployment_spec_replicas{namespace=~{{ $selector | quote }}}) > 0)
+          for: {{ $alerts.unavailableFor }}
+          labels:
+            severity: critical
+            alert_scope: application
+            application: '{{ "{{ $labels.deployment }}" }}'
+          annotations:
+            summary: '{{ "{{ $labels.deployment }} has no available replicas" }}'
+            description: Check Pod readiness, recent restarts, and dependency connectivity. A configured scale-to-zero is excluded.
+            {{- if and $studio (ne $studio "place.holder") }}
+            logs_url: {{ printf "https://%s/logs" $studio | quote }}
+            {{- end }}
+        - alert: ApplicationStatefulSetUnavailable
+          expr: >-
+            (max by (namespace, statefulset) (kube_statefulset_status_replicas_ready{namespace=~{{ $selector | quote }}}) == 0)
+            and on (namespace, statefulset)
+            (max by (namespace, statefulset) (kube_statefulset_replicas{namespace=~{{ $selector | quote }}}) > 0)
+          for: {{ $alerts.unavailableFor }}
+          labels:
+            severity: critical
+            alert_scope: application
+            application: '{{ "{{ $labels.statefulset }}" }}'
+          annotations:
+            summary: '{{ "{{ $labels.statefulset }} has no ready replicas" }}'
+            description: Check Pod readiness, storage, and dependency connectivity. A configured scale-to-zero is excluded.
+            {{- if and $studio (ne $studio "place.holder") }}
+            logs_url: {{ printf "https://%s/logs" $studio | quote }}
+            {{- end }}
+{{- end }}

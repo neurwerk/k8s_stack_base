@@ -1,0 +1,36 @@
+{{- if .Values.infraAgentgatewayWrapper.alerts.enabled }}
+{{- $studio := ((.Values.frontendStudio | default dict).studio | default dict).hostname | default "" }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: infra-agentgateway-request-errors
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: agentgateway
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: infra-agentgateway
+    release: monitor-kube-prometheus-stack
+spec:
+  groups:
+    - name: agentgateway-request-errors
+      interval: 30s
+      rules:
+        - alert: AgentGatewayRequestFailed
+          expr: >-
+            sum by (status, reason)
+            (increase(agentgateway_requests_total{namespace="{{ .Release.Namespace }}",status=~"5.."}[5m])) > 0
+          labels:
+            severity: warning
+            alert_scope: application
+            namespace: {{ .Release.Namespace }}
+            application: agentgateway
+          annotations:
+            summary: AgentGateway returned a server error
+            description: >-
+              {{ "{{ $value | humanize }}" }} failed requests in the last five minutes;
+              status={{ "{{ $labels.status }}" }}, reason={{ "{{ $labels.reason }}" }}.
+              Includes both JWT and API-key callers. Check gateway, processor, and upstream logs.
+            {{- if and $studio (ne $studio "place.holder") }}
+            logs_url: {{ printf "https://%s/logs" $studio | quote }}
+            {{- end }}
+{{- end }}
