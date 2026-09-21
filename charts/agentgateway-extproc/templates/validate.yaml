@@ -6,8 +6,12 @@
   {{- fail "docling.inference.mode must be internal-standard or private-vlm (aliases: cpu or remote)" -}}
 {{- end -}}
 {{- $rpcs := .Values.monitorAgentgatewayExtproc.grpcMaximumConcurrentRpcs -}}
-{{- if or (not (regexMatch `^[1-9][0-9]*$` (toJson $rpcs))) (gt (float64 $rpcs) 16.0) -}}
-  {{- fail "monitorAgentgatewayExtproc.grpcMaximumConcurrentRpcs must be an integer from 1 to 16" -}}
+{{- if or (not (regexMatch `^[1-9][0-9]*$` (toJson $rpcs))) (gt (float64 $rpcs) 128.0) -}}
+  {{- fail "monitorAgentgatewayExtproc.grpcMaximumConcurrentRpcs must be an integer from 1 to 128" -}}
+{{- end -}}
+{{- $grace := .Values.monitorAgentgatewayExtproc.shutdownGraceSeconds -}}
+{{- if or (not (regexMatch `^[1-9][0-9]*$` (toJson $grace))) (gt (float64 $grace) 1200.0) -}}
+  {{- fail "monitorAgentgatewayExtproc.shutdownGraceSeconds must be an integer from 1 to 1200" -}}
 {{- end -}}
 {{- if $docling.enabled -}}
 {{- if ne (toString .Values.monitorAgentgatewayExtproc.replicas) "2" -}}

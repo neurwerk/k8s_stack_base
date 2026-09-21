@@ -41,6 +41,20 @@ class DoclingTests(unittest.TestCase):
                 self.assertIn("matchNames: [docling]", enabled)
 
     def test_native_tls_config_and_disposable_runtime(self):
+        gateway = render("agentgateway")
+        policy = resource(gateway, "AgentgatewayPolicy", "infra-agentgateway-policy-extproc")
+        processor = policy["spec"]["traffic"]["extProc"]["conditional"][0]["policy"]
+        self.assertEqual(processor["backendRef"], {
+            "group": "", "kind": "Service", "name": "monitor-agentgateway-extproc-service",
+            "namespace": "monitor-agentgateway-extproc", "port": 9000,
+        })
+        self.assertEqual(processor["failureMode"], "FailClosed")
+        backend = resource(gateway, "AgentgatewayPolicy", "infra-agentgateway-extproc-backend")
+        self.assertEqual(backend["spec"]["backend"]["http"], {
+            "version": "HTTP2", "requestTimeout": "1005s",
+        })
+        grant = resource(gateway, "ReferenceGrant", "infra-agentgateway-extproc")
+        self.assertEqual(grant["metadata"]["namespace"], "monitor-agentgateway-extproc")
         result = render("docling", {"docling": {"inference": {"caConfigMap": "inference-ca"}}})
         settings = self.settings(result)
         preset = settings["custom_vlm_presets"]["default"]
@@ -283,7 +297,7 @@ class DoclingTests(unittest.TestCase):
             self.assertNotEqual(
                 render("agentgateway-extproc", {"docling": values}, check=False).returncode, 0
             )
-        for rpcs in (0, 17, True):
+        for rpcs in (0, 129, True):
             self.assertNotEqual(
                 render(
                     "agentgateway-extproc",

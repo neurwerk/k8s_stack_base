@@ -163,7 +163,7 @@ spec:
     charts:
     - path: charts/agentgateway
       name: infra-agentgateway
-      version: 1.7.0
+      version: 1.7.1
       appVersion: 1.5.0
       dependencyLock:
         digest: sha256:e5b8cfb3b1e062b8e9268a42405a466d71d22bdb18ae83ff7496788af21abedd
@@ -176,8 +176,8 @@ spec:
           sha256: a22cfb7dcc56da05d31b18c0a969e1b8eee35d19a4493d88b5d4720efcc85945
     - path: charts/agentgateway-extproc
       name: agentgateway-extproc
-      version: 1.3.4
-      appVersion: 0.11.0
+      version: 1.3.5
+      appVersion: 0.11.2
     - path: charts/cert-manager/approval-policy
       name: infra-cert-manager-approval-policy
       version: 1.2.0
@@ -440,12 +440,12 @@ spec:
           sha256: a9de76017a82a38954dfb453a030c42a349c015fe1493641f457aa0e71590267
     - path: charts/pii-engine
       name: pii-engine
-      version: 1.0.5
-      appVersion: 0.10.0
+      version: 1.0.6
+      appVersion: 0.10.1
     - path: charts/pii-engine-model-sync
       name: pii-engine-model-sync
-      version: 1.0.4
-      appVersion: 0.10.0
+      version: 1.0.5
+      appVersion: 0.10.1
     - path: charts/postgres/auth
       name: infra-postgres-auth
       version: 1.0.0
@@ -900,7 +900,7 @@ spec:
       eligibility: included
       origins:
       - charts/dify/web/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.11.0@sha256:a1d93631aa4bf6dcc897de7bc621c1539cd71be0c851c3d3bf4d963bb6137d93
+    - reference: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.11.2@sha256:3981766a4e2f4304dc31448deb62333bf26bf5f2fd8c971ae8994d2d5967b569
       pinned: true
       eligibility: included
       origins:
@@ -915,7 +915,7 @@ spec:
       eligibility: included
       origins:
       - charts/keycloak/server/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-pii-engine:0.10.0-cpu@sha256:ee535afd041a1857dbc7aadcab0ff87c68c4a1bf7771c70f03136c5c96d6dba4
+    - reference: ghcr.io/neurwerk/k8s-stack-pii-engine:0.10.1-cpu@sha256:81c0379ba316b639593557335332393b0c08eab3023e9ccc0df68a51ee82cede
       pinned: true
       eligibility: included
       origins:

@@ -1,18 +1,36 @@
 {{- if .Values.guardrails.llmPolicyEngine.enabled }}
 apiVersion: agentgateway.dev/v1alpha1
-kind: AgentgatewayBackend
+kind: AgentgatewayPolicy
 metadata:
   name: infra-agentgateway-extproc-backend
-  namespace: infra-agentgateway
+  namespace: monitor-agentgateway-extproc
   labels:
     app.kubernetes.io/name: extproc
     app.kubernetes.io/instance: {{ .Release.Name }}
     app.kubernetes.io/part-of: infra-agentgateway
 spec:
-  static:
-    host: monitor-agentgateway-extproc-service.monitor-agentgateway-extproc.svc.cluster.local
-    port: {{ .Values.guardrails.llmPolicyEngine.extProcPort | default 9000 }}
-  policies:
+  targetRefs:
+    - group: ""
+      kind: Service
+      name: monitor-agentgateway-extproc-service
+      sectionName: {{ .Values.guardrails.llmPolicyEngine.extProcPort | default 9000 | quote }}
+  backend:
     http:
+      version: HTTP2
       requestTimeout: {{ if .Values.docling.enabled }}{{ printf "%ds" (add .Values.docling.syncWaitSeconds 615 30) | quote }}{{ else }}{{ .Values.guardrails.llmPolicyEngine.extProcTimeout | quote }}{{ end }}
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: infra-agentgateway-extproc
+  namespace: monitor-agentgateway-extproc
+spec:
+  from:
+    - group: agentgateway.dev
+      kind: AgentgatewayPolicy
+      namespace: infra-agentgateway
+  to:
+    - group: ""
+      kind: Service
+      name: monitor-agentgateway-extproc-service
 {{- end }}

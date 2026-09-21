@@ -38,6 +38,7 @@ spec:
         checksum/config: {{ .Values.monitorAgentgatewayExtproc.engine.url | sha256sum }}
     spec:
       automountServiceAccountToken: false
+      terminationGracePeriodSeconds: {{ add .Values.monitorAgentgatewayExtproc.shutdownGraceSeconds 30 }}
       securityContext:
         {{- toYaml .Values.monitorAgentgatewayExtproc.securityContext | nindent 8 }}
       containers:
@@ -54,6 +55,8 @@ spec:
               name: http
               protocol: TCP
           env:
+            - name: EXTPROC_SHUTDOWN_GRACE_SECONDS
+              value: {{ .Values.monitorAgentgatewayExtproc.shutdownGraceSeconds | quote }}
             - name: EXTPROC_ENGINE__BASE_URL
               value: {{ .Values.monitorAgentgatewayExtproc.engine.url | quote }}
             - name: EXTPROC_ENGINE__CA_CERT

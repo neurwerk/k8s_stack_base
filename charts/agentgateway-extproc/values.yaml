@@ -14,7 +14,7 @@
 
 # ── extProc gRPC service ──────────────────────────────────────────────────────
 monitorAgentgatewayExtproc:
-  extprocImage: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.11.0@sha256:a1d93631aa4bf6dcc897de7bc621c1539cd71be0c851c3d3bf4d963bb6137d93
+  extprocImage: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.11.2@sha256:3981766a4e2f4304dc31448deb62333bf26bf5f2fd8c971ae8994d2d5967b569
 
   # Docling requires exactly two fixed replicas (no HPA while enabled).
   replicas: 2
@@ -45,8 +45,9 @@ monitorAgentgatewayExtproc:
   maxResponseBytes: "10485760"
   maxTransformedRequestBytes: "10485760"
   grpcMaxReceiveMessageBytes: "6356992"
-  # Native gRPC admission per process, including non-document streams (1..16).
+  # Application stream admission per process; native gRPC reserves rejection headroom.
   grpcMaximumConcurrentRpcs: 4
+  shutdownGraceSeconds: 300
 
   # ── Adapter logging ───────────────────────────────────────────────────────
   debug: false

@@ -9,6 +9,8 @@ upgrade path.
 
 ## [Unreleased]
 
+- Improve extProc stream capacity, Service endpoint routing and graceful drain; keep PII suffix validation offline.
+
 - Add opt-in policy-aware image forwarding: `pass` detections permit images;
   text transformations send extracted, policy-processed text without images and
   preserve reversible replacement. Face actions and approved reroutes still apply.

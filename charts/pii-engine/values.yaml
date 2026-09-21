@@ -1,7 +1,7 @@
 # IMAGE SOURCE: owned service
 # The image is built by the pii_engine repository and pinned here.
 monitorPiiEngine:
-  image: ghcr.io/neurwerk/k8s-stack-pii-engine:0.10.0-cpu@sha256:ee535afd041a1857dbc7aadcab0ff87c68c4a1bf7771c70f03136c5c96d6dba4
+  image: ghcr.io/neurwerk/k8s-stack-pii-engine:0.10.1-cpu@sha256:81c0379ba316b639593557335332393b0c08eab3023e9ccc0df68a51ee82cede
   device: cpu
   accelerator:
     enabled: false
