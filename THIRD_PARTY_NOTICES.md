@@ -22,7 +22,7 @@ digests; `release/manifest.yaml` records each archive's SHA-256 digest.
 | [`LICENSES/Bitnami-Charts-2024-ATTRIBUTION.txt`](LICENSES/Bitnami-Charts-2024-ATTRIBUTION.txt) | Exact attribution preamble from [Bitnami Charts at `minio/14.10.5`](https://github.com/bitnami/charts/blob/minio/14.10.5/LICENSE.md), used by the mapped 2024 chart tags |
 | [`LICENSES/Bitnami-Charts-2025-ATTRIBUTION.txt`](LICENSES/Bitnami-Charts-2025-ATTRIBUTION.txt) | Exact attribution preamble from [Bitnami Charts at `clickhouse/8.0.5`](https://github.com/bitnami/charts/blob/clickhouse/8.0.5/LICENSE.md), used by the mapped 2025 chart tags |
 | [`LICENSES/Grafana-Helm-Charts-ATTRIBUTION.txt`](LICENSES/Grafana-Helm-Charts-ATTRIBUTION.txt) | Copyright attribution from [Grafana Helm Charts `grafana-9.0.0`](https://github.com/grafana/helm-charts/blob/grafana-9.0.0/LICENSE) |
-| [`LICENSES/OpenSearch-Helm-Charts-NOTICE.txt`](LICENSES/OpenSearch-Helm-Charts-NOTICE.txt) | Exact [OpenSearch Helm Charts `opensearch-2.27.0` NOTICE](https://github.com/opensearch-project/helm-charts/blob/opensearch-2.27.0/NOTICE.txt) |
+| [`LICENSES/OpenSearch-Helm-Charts-NOTICE.txt`](LICENSES/OpenSearch-Helm-Charts-NOTICE.txt) | Exact OpenSearch Helm Charts NOTICE used by [`opensearch-2.27.0`](https://github.com/opensearch-project/helm-charts/blob/opensearch-2.27.0/NOTICE.txt) and [`opensearch-dashboards-2.26.0`](https://github.com/opensearch-project/helm-charts/blob/opensearch-dashboards-2.26.0/NOTICE.txt) |
 
 ## Direct Archives
 
@@ -36,7 +36,8 @@ digests; `release/manifest.yaml` records each archive's SHA-256 digest.
 | `charts/kube-prometheus-stack/charts/kube-prometheus-stack-72.4.0.tgz` | [Prometheus Community Helm Charts `kube-prometheus-stack-72.4.0`](https://github.com/prometheus-community/helm-charts/tree/kube-prometheus-stack-72.4.0/charts/kube-prometheus-stack) | Apache-2.0 |
 | `charts/langfuse/charts/langfuse-1.5.34.tgz` | [Langfuse Kubernetes `langfuse-1.5.34`](https://github.com/langfuse/langfuse-k8s/tree/langfuse-1.5.34/charts/langfuse) | Langfuse MIT |
 | `charts/openbao/charts/openbao-0.29.1.tgz` | [OpenBao Helm `openbao-0.29.1`](https://github.com/openbao/openbao-helm/tree/openbao-0.29.1/charts/openbao) | OpenBao MPL-2.0 |
-| `charts/opensearch/charts/opensearch-2.27.0.tgz` | [OpenSearch Helm Charts `opensearch-2.27.0`](https://github.com/opensearch-project/helm-charts/tree/opensearch-2.27.0/charts/opensearch) | Apache-2.0; OpenSearch NOTICE |
+| `charts/opensearch/app/charts/opensearch-2.27.0.tgz` | [OpenSearch Helm Charts `opensearch-2.27.0`](https://github.com/opensearch-project/helm-charts/tree/opensearch-2.27.0/charts/opensearch) | Apache-2.0; OpenSearch NOTICE |
+| `charts/opensearch/dashboards/charts/opensearch-dashboards-2.26.0.tgz` | [OpenSearch Helm Charts `opensearch-dashboards-2.26.0`](https://github.com/opensearch-project/helm-charts/tree/opensearch-dashboards-2.26.0/charts/opensearch-dashboards) | Apache-2.0; OpenSearch NOTICE |
 | `charts/reloader/charts/reloader-2.2.16.tgz` | [Reloader `v1.4.21`](https://github.com/stakater/Reloader/tree/v1.4.21/deployments/kubernetes/chart/reloader) | Apache-2.0 |
 | `charts/trust-manager/charts/trust-manager-v0.24.0.tgz` | [trust-manager `v0.24.0`](https://github.com/cert-manager/trust-manager/tree/v0.24.0/deploy/charts/trust-manager) | Apache-2.0 |
 

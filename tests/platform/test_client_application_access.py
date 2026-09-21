@@ -668,10 +668,15 @@ class AdapterTest(unittest.TestCase):
                     node = node.setdefault(part, {})
                 node["enabled"] = False
         self.select("langfuse")
-        for chart in ("kube-prometheus-stack", "opensearch", "openbao"):
+        for chart in (
+            "kube-prometheus-stack",
+            "opensearch/app",
+            "opensearch/dashboards",
+            "openbao",
+        ):
             self.chart(chart)
         for chart in adapter.NO_INGRESS:
-            path = self.platform / "releases/apps" / (chart + ".yaml")
+            path = self.platform / "releases/apps" / (chart.replace("/", "-") + ".yaml")
             original = composition.document(composition.read(path))
             for field in adapter.NO_INGRESS[chart]:
                 changed = copy.deepcopy(original)

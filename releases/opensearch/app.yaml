@@ -31,7 +31,7 @@ spec:
       namespace: monitor-fluent-bit
   chart:
     spec:
-      chart: ./charts/opensearch
+      chart: ./charts/opensearch/app
       sourceRef:
         kind: GitRepository
         name: k8s-stack
