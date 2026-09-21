@@ -20,6 +20,8 @@ docling:
     # HTTPS endpoint, separate credentials and RFC1918 egress below.
     mode: remote
     # The following settings are used only in remote mode.
+    # Explicit opt-in for private HTTP backends; HTTPS remains the default.
+    allowHttp: false
     url: ""
     model: ""
     tokenSecretRef: {name: "", key: ""}
