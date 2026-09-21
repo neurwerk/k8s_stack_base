@@ -156,7 +156,7 @@ class MaintenanceTests(unittest.TestCase):
         data = contract(render(values))
         self.assertEqual(set(data["routes"]), {"global", "studio"})
         self.assertRegex(data["deployment"]["spec"]["template"]["spec"]["containers"][0]["image"],
-                         r"^ghcr\.io/neurwerk/k8s-stack-tooling:0\.7\.1@sha256:[0-9a-f]{64}$")
+                         r"^ghcr\.io/neurwerk/k8s-stack-tooling:0\.7\.2@sha256:[0-9a-f]{64}$")
         self.assertEqual(data["deployment"]["spec"]["template"]["spec"]["containers"][0]["resources"], values["maintenance"]["resources"])
 
     def test_reject_invalid_approval_inputs(self):
