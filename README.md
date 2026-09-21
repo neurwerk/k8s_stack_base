@@ -301,7 +301,7 @@ see the [Docling chart notes](charts/docling/README.md#private-image-preset).
 
 AgentGateway chart `1.6.0` adds opt-in `attachmentPolicyVersion: 3`, retaining
 default `1` and all v1/v2 routing and reader rules. Base now pins verified
-PII Engine `0.10.0-cpu` and extProc `0.10.1`, which support this contract.
+PII Engine `0.10.0-cpu` and extProc `0.11.0`, which support this contract.
 Deploy both compatible services before choosing v3 or adding the central face
 policy; image pins alone do not enable uploads or deploy a vision model.
 
@@ -318,7 +318,7 @@ Independent registry checks matched both digests, source/version labels and
 `linux/amd64` manifests. Engine/model-sync charts are `1.0.5`/`1.0.4`, and Docling's
 documentation-only chart update is `0.4.2`.
 
-ExtProc chart `1.3.3` now pins the verified
+ExtProc chart `1.3.3` previously pinned the verified
 [`0.10.1` patch](https://github.com/neurwerk/k8s_stack_agentgateway_extproc/releases/tag/v0.10.1)
 from source `162270eb659c859020c48fe127c6c2861397a113`, digest
 `sha256:5f56d548dff55bc3a25a1fde84b91f4164360541d2008a1c972d65e274c8b0b6`.
@@ -393,9 +393,60 @@ remains part of separately authorized activation, not proven by chart rendering.
 
 `Qwen3-VL-8B-Instruct` is a possible local vision-model example to qualify, not a
 deployed model, default override or substitute for explicit capability approval.
-The opt-in `destination_consumer.py` check now requires the compatible v3 consumer
-and checks seven rendered v1/v2/v3 catalogs, exact named/fallback bindings and
+The opt-in `destination_consumer.py` check now requires extProc `0.11.0` or newer
+and checks eight rendered v1/v2/v3 catalogs, exact named/fallback bindings and
 rejection of new fields under old contract versions.
+
+### Policy-Aware Image Forwarding
+
+AgentGateway chart `1.7.0` adds opt-in `imageForwarding: if-policy-allows` under
+`attachmentPolicyVersion: 3`. It requires extProc `0.11.0` or newer, enabled
+Docling, `attachmentMode: process`/`extract`, `piiEnabled: true`, and face protection.
+Both explicit model entries and selected catalog entries support the setting.
+
+ExtProc chart `1.3.4` pins the verified
+[`0.11.0` release](https://github.com/neurwerk/k8s_stack_agentgateway_extproc/releases/tag/v0.11.0)
+from source `cf452b30dac8e91e424cf15d79d31d359d6e6da7`, digest
+`sha256:a1d93631aa4bf6dcc897de7bc621c1539cd71be0c851c3d3bf4d963bb6137d93`.
+The successful [publication workflow](https://github.com/neurwerk/k8s_stack_agentgateway_extproc/actions/runs/35591295684)
+and independent registry checks agree on this digest, source/version labels and
+the `linux/amd64` manifest. The existing PII Engine contract is sufficient.
+
+With complete current-request analysis, no text detections or exclusively `pass`
+text detections permit forwarding normalized pixels. Text transformations instead
+send the transformed extracted text without images. Reversible replacement and
+response restoration remain active. This succeeds with a PII Engine Notice, not
+an error popup. Text-triggered reroutes retain the engine route and send text only;
+FACE reroutes still need the exact approved local image binding. Transformations
+also withhold pixels on those routes, and the notice reports the actual output.
+Explicit block decisions and FACE text-only restrictions remain authoritative.
+
+Empty OCR never means a clean image. Each image must have extracted text when the
+selected output requires it; an empty result stops mixed uploads as well. Approved
+local image reroutes and existing unchecked local routes retain their textless
+image support. Required extraction or analysis failures still stop processing.
+
+Short errors state the actual configuration or failure, for example:
+
+> neurwerk: image text extraction only; no text extracted from an image. Image forwarding is disabled for this model.
+
+> neurwerk: faces detected; configured policy permits sending only extracted text. No text was extracted from an image.
+
+> neurwerk: image forwarding requires extracted text for PII analysis; no text extracted from an image.
+
+Conversion failures, deadlines, unsupported input, limits, strict PII rejection and
+explicit face/data policy blocks have separate fixed messages. Successful text
+fallback says `neurwerk: PII policy applied; extracted text forwarded without images.`
+The report retains the original FACE action and actual forwarding outcome.
+
+**Adoption order:** first adopt a platform release containing the compatible
+extProc runtime and complete its rollout. Then change the intended image-capable
+model entries from `if-no-pii-detected` to `if-policy-allows`. The gateway and
+runtime may reconcile independently; older replicas reject the new value.
+Existing strict, text-only, unchecked and passthrough settings retain their meaning;
+the platform release does not silently replace explicit client settings or enable
+attachments. New messages arrive with the updated runtime. Stable clients obtain
+these changes by adopting the exact signed platform release containing them.
 
 ## Validation
 

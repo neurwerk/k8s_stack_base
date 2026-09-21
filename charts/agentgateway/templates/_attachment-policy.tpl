@@ -47,9 +47,12 @@ the concrete routing branch, never names, groups, URLs or policy route classes. 
 {{- $forward := "none" -}}
 {{- if hasKey $model "imageForwarding" -}}
 {{- $forward = $model.imageForwarding -}}
-{{- if not (and (kindIs "string" $forward) (has $forward (list "none" "if-no-pii-detected" "pii-unchecked"))) -}}
-{{- fail (printf "model %q imageForwarding must be none, if-no-pii-detected, or pii-unchecked" $name) -}}
+{{- if not (and (kindIs "string" $forward) (has $forward (list "none" "if-no-pii-detected" "if-policy-allows" "pii-unchecked"))) -}}
+{{- fail (printf "model %q imageForwarding must be none, if-no-pii-detected, if-policy-allows, or pii-unchecked" $name) -}}
 {{- end -}}
+{{- end -}}
+{{- if and (eq $forward "if-policy-allows") (ne $version "3") -}}
+{{- fail (printf "model %q if-policy-allows requires attachmentPolicyVersion: 3 and extProc 0.11.0 or newer" $name) -}}
 {{- end -}}
 {{- $local := and (eq (toJson $model.local) "true") (not $model.piiReroute) (eq (toJson $backend.enabled) "true") (kindIs "string" $backend.host) (not (empty $backend.host)) (kindIs "string" $model.model) (not (empty $model.model)) -}}
 {{- $images := and $local (eq (toJson $model.supportsImages) "true") -}}
@@ -65,9 +68,9 @@ the concrete routing branch, never names, groups, URLs or policy route classes. 
 {{- if and (eq $version "3") (ne $forward "none") (not (and $.Values.docling.enabled (has $.Values.docling.inference.mode (list "internal-standard" "cpu" "private-vlm" "remote")))) -}}
 {{- fail (printf "model %q image forwarding requires enabled Docling internal-standard/cpu or private-vlm/remote mode" $name) -}}
 {{- end -}}
-{{- if eq $forward "if-no-pii-detected" -}}
+{{- if has $forward (list "if-no-pii-detected" "if-policy-allows") -}}
 {{- if not (and $pii $face) -}}
-{{- fail (printf "model %q if-no-pii-detected requires PII and face protection" $name) -}}
+{{- fail (printf "model %q %s requires PII and face protection" $name $forward) -}}
 {{- end -}}
 {{- end -}}
 {{- if and (eq $forward "pii-unchecked") (or $face (not $local)) -}}
