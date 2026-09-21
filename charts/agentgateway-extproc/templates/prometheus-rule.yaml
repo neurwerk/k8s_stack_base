@@ -1,0 +1,58 @@
+{{- if .Values.monitorAgentgatewayExtproc.alerts.enabled }}
+{{- $studio := ((.Values.frontendStudio | default dict).studio | default dict).hostname | default "" }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: monitor-agentgateway-extproc-errors
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: monitor-agentgateway-extproc
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: monitor-agentgateway-extproc
+    release: monitor-kube-prometheus-stack
+spec:
+  groups:
+    - name: agentgateway-extproc-errors
+      interval: 30s
+      rules:
+        - alert: AgentGatewayEngineRequestFailed
+          expr: >-
+            sum by (outcome)
+            (increase(extproc_engine_requests_total{namespace="{{ .Release.Namespace }}",outcome=~"error|invalid_reply"}[5m])
+            or (extproc_engine_requests_total{namespace="{{ .Release.Namespace }}",outcome=~"error|invalid_reply"} > 0
+            unless extproc_engine_requests_total{namespace="{{ .Release.Namespace }}",outcome=~"error|invalid_reply"} offset 5m)) > 0
+          labels:
+            severity: warning
+            alert_scope: application
+            namespace: {{ .Release.Namespace }}
+            application: agentgateway-extproc
+          annotations:
+            summary: PII Engine communication or reply validation failed
+            description: >-
+              {{ "{{ $value | humanize }}" }} failures in the last five minutes;
+              outcome={{ "{{ $labels.outcome }}" }}. Check processor and PII Engine logs.
+              Expected policy rejections are excluded.
+            {{- if and $studio (ne $studio "place.holder") }}
+            logs_url: {{ printf "https://%s/logs" $studio | quote }}
+            {{- end }}
+        - alert: AgentGatewayResponseProcessingFailed
+          expr: >-
+            sum by (phase, reason)
+            (increase(extproc_response_failures_total{namespace="{{ .Release.Namespace }}"}[5m])
+            or (extproc_response_failures_total{namespace="{{ .Release.Namespace }}"} > 0
+            unless extproc_response_failures_total{namespace="{{ .Release.Namespace }}"} offset 5m)) > 0
+          labels:
+            severity: warning
+            alert_scope: application
+            namespace: {{ .Release.Namespace }}
+            application: agentgateway-extproc
+          annotations:
+            summary: Model or MCP response processing failed
+            description: >-
+              {{ "{{ $value | humanize }}" }} failures in the last five minutes;
+              phase={{ "{{ $labels.phase }}" }}, reason={{ "{{ $labels.reason }}" }}.
+              This includes failures after HTTP response headers were sent; inspect processor logs.
+            {{- if and $studio (ne $studio "place.holder") }}
+            logs_url: {{ printf "https://%s/logs" $studio | quote }}
+            {{- end }}
+{{- end }}

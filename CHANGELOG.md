@@ -11,22 +11,27 @@ upgrade path.
 
 ## [0.3.13] - 2026-09-21
 
+- Add an authenticated, internal-only OpenSearch Dashboards interface for operational log inspection.
+- Add grouped email notifications for application errors, timeouts, stream-processing failures,
+  and unavailable chat/API dependencies, with bounded Fluent Bit metrics and optional Studio log links.
+- Adopt verified extProc `0.11.3` in chart `1.3.7`: cached PII reroutes retain
+  historical reports without incorrectly requiring current reversal mappings,
+  preventing adapter-generated HTTP 503 failures on retries.
 - Adopt verified Tooling `0.7.2`: absent mapped AD groups warn and remain
   configured for later discovery; genuine synchronization failures still block activation.
-
 - Improve extProc stream capacity, Service endpoint routing and graceful drain; keep PII suffix validation offline.
-
 - Add opt-in policy-aware image forwarding: `pass` detections permit images;
   text transformations send extracted, policy-processed text without images and
   preserve reversible replacement. Face actions and approved reroutes still apply.
 - Distinguish empty image text from extraction failures and policy blocks with
   configuration-specific messages. Successful text-only fallback is a notice.
-- Adopt verified extProc `0.11.2` and PII Engine `0.10.1` with exact image digests;
-  AgentGateway chart `1.7.1` and extProc chart `1.3.5` supply the updated routing and runtime.
+- Adopt PII Engine `0.10.1` with its exact image digest. AgentGateway chart `1.7.3`,
+  Fluent Bit chart `1.0.2`, and monitoring chart `1.0.2` supply the updated runtime.
 
 ### Upgrade Steps
 
-Deploy the compatible extProc `0.11.2` runtime before selecting
+Before upgrading, run openbao-stack-setup 0.2.18 reconciliation to provision the required OpenSearch Dashboards credentials.
+Deploy the compatible extProc `0.11.3` runtime before selecting
 `imageForwarding: if-policy-allows` under attachment policy v3. Then migrate the
 intended client model entries from the existing strict mode. The new mode requires
 enabled extraction, text PII and face protection; explicit client settings retain

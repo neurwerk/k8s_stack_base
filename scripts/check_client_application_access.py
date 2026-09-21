@@ -47,7 +47,7 @@ NON_ENDPOINT_CHARTS = set("""
 agentgateway-extproc docling cert-manager/approver-policy cert-manager/issuers
 cert-manager/approval-policy cert-manager/controller cert-manager/internal-issuer
 external-secrets fluent-bit fluent-bit/shared kube-prometheus-stack wireguard
-openbao openbao/operator opensearch pii-engine pii-engine-model-sync
+openbao openbao/operator opensearch/app opensearch/dashboards pii-engine pii-engine-model-sync
 postgres/auth postgres/operations reloader traefik trust-manager studio/shared maintenance
 keycloak-api-key-bridge keycloak/realm-config/active-directory
 keycloak/realm-config/initial-admin keycloak/realm-config/realm-roles
@@ -65,7 +65,8 @@ BASE_URL = "https://github.com/neurwerk/k8s_stack_base.git"
 NO_INGRESS = {
     "langfuse": ("langfuse.langfuse.ingress.enabled",),
     "kube-prometheus-stack": tuple("kube-prometheus-stack." + name + ".ingress.enabled" for name in ("grafana", "prometheus", "alertmanager")),
-    "opensearch": ("opensearch.ingress.enabled",),
+    "opensearch/app": ("opensearch.ingress.enabled",),
+    "opensearch/dashboards": ("opensearch-dashboards.ingress.enabled",),
     "openbao": ("openbao.server.ingress.enabled", "openbao.server.route.enabled",
                 "openbao.server.gateway.httpRoute.enabled", "openbao.server.gateway.tlsRoute.enabled"),
 }
