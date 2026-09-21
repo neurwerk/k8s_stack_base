@@ -14,7 +14,7 @@
 
 # ── extProc gRPC service ──────────────────────────────────────────────────────
 monitorAgentgatewayExtproc:
-  extprocImage: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.10.1@sha256:5f56d548dff55bc3a25a1fde84b91f4164360541d2008a1c972d65e274c8b0b6
+  extprocImage: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.11.0@sha256:a1d93631aa4bf6dcc897de7bc621c1539cd71be0c851c3d3bf4d963bb6137d93
 
   # Docling requires exactly two fixed replicas (no HPA while enabled).
   replicas: 2

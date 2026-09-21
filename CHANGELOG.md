@@ -14,6 +14,8 @@ upgrade path.
   preserve reversible replacement. Face actions and approved reroutes still apply.
 - Distinguish empty image text from extraction failures and policy blocks with
   configuration-specific messages. Successful text-only fallback is a notice.
+- Adopt verified extProc `0.11.0` with an exact image digest; AgentGateway chart
+  `1.7.0` validates the new mode and extProc chart `1.3.4` supplies its runtime.
 
 ### Upgrade Steps
 

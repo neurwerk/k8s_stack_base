@@ -301,7 +301,7 @@ see the [Docling chart notes](charts/docling/README.md#private-image-preset).
 
 AgentGateway chart `1.6.0` adds opt-in `attachmentPolicyVersion: 3`, retaining
 default `1` and all v1/v2 routing and reader rules. Base now pins verified
-PII Engine `0.10.0-cpu` and extProc `0.10.1`, which support this contract.
+PII Engine `0.10.0-cpu` and extProc `0.11.0`, which support this contract.
 Deploy both compatible services before choosing v3 or adding the central face
 policy; image pins alone do not enable uploads or deploy a vision model.
 
@@ -318,7 +318,7 @@ Independent registry checks matched both digests, source/version labels and
 `linux/amd64` manifests. Engine/model-sync charts are `1.0.5`/`1.0.4`, and Docling's
 documentation-only chart update is `0.4.2`.
 
-ExtProc chart `1.3.3` now pins the verified
+ExtProc chart `1.3.3` previously pinned the verified
 [`0.10.1` patch](https://github.com/neurwerk/k8s_stack_agentgateway_extproc/releases/tag/v0.10.1)
 from source `162270eb659c859020c48fe127c6c2861397a113`, digest
 `sha256:5f56d548dff55bc3a25a1fde84b91f4164360541d2008a1c972d65e274c8b0b6`.
@@ -403,6 +403,14 @@ AgentGateway chart `1.7.0` adds opt-in `imageForwarding: if-policy-allows` under
 `attachmentPolicyVersion: 3`. It requires extProc `0.11.0` or newer, enabled
 Docling, `attachmentMode: process`/`extract`, `piiEnabled: true`, and face protection.
 Both explicit model entries and selected catalog entries support the setting.
+
+ExtProc chart `1.3.4` pins the verified
+[`0.11.0` release](https://github.com/neurwerk/k8s_stack_agentgateway_extproc/releases/tag/v0.11.0)
+from source `cf452b30dac8e91e424cf15d79d31d359d6e6da7`, digest
+`sha256:a1d93631aa4bf6dcc897de7bc621c1539cd71be0c851c3d3bf4d963bb6137d93`.
+The successful [publication workflow](https://github.com/neurwerk/k8s_stack_agentgateway_extproc/actions/runs/35591295684)
+and independent registry checks agree on this digest, source/version labels and
+the `linux/amd64` manifest. The existing PII Engine contract is sufficient.
 
 With complete current-request analysis, no text detections or exclusively `pass`
 text detections permit forwarding normalized pixels. Text transformations instead
