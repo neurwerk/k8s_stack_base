@@ -9,6 +9,8 @@ upgrade path.
 
 ## [Unreleased]
 
+## [0.3.13] - 2026-09-21
+
 - Improve extProc stream capacity, Service endpoint routing and graceful drain; keep PII suffix validation offline.
 
 - Add opt-in policy-aware image forwarding: `pass` detections permit images;

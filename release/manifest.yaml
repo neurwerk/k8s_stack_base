@@ -1,11 +1,12 @@
 apiVersion: platform.neurwerk.com/v1alpha1
 kind: PlatformRelease
 metadata:
-  name: v0.3.12
+  name: v0.3.13
 spec:
-  version: 0.3.12
+  version: 0.3.13
   releaseDate: '2026-09-21'
-  summary: Allow opt-in HTTP for private Docling inference; keep HTTPS as the default.
+  summary: Improve processor capacity, routing and shutdown, offline PII validation, and policy-aware
+    image notices.
   trust:
     signerIdentity: platform-release
     algorithm: ssh-ed25519
@@ -1132,9 +1133,9 @@ spec:
       uv: 0.11.21
       node: 24.20.0
   provenance:
-    previousTag: v0.3.11
-    includedThrough: 987ffca7946a841c1e3eed74c5ab201cdbbbff24
+    previousTag: v0.3.12
+    includedThrough: 232708065e7931175b6c4d25addb5191b1807c19
     commits:
-    - cce9f6dc0e9f48a0eb7ddd6a0f74e864d2dfb2cc
-    - 987ffca7946a841c1e3eed74c5ab201cdbbbff24
-    compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.11...987ffca7946a841c1e3eed74c5ab201cdbbbff24
+    - b9562ad523a9ea292ebcf4597cf238c8bcb65bf1
+    - 232708065e7931175b6c4d25addb5191b1807c19
+    compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.12...232708065e7931175b6c4d25addb5191b1807c19
