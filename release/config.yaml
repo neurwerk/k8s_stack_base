@@ -1,7 +1,7 @@
 version: 0.3.13
 releaseDate: '2026-09-21'
-summary: Improve processor capacity, routing and shutdown, offline PII validation, and policy-aware image
-  notices.
+summary: Improve processor capacity, routing and shutdown, offline PII validation, policy-aware image
+  notices, and optional LDAP group handling.
 trust:
   signerIdentity: platform-release
   algorithm: ssh-ed25519
@@ -157,8 +157,10 @@ exceptions:
     before dropping back to UID 1000.
 provenance:
   previousTag: v0.3.12
-  includedThrough: 232708065e7931175b6c4d25addb5191b1807c19
+  includedThrough: 74b7aa0e03dbc47cd45195875473e8599a4d961e
   commits:
   - b9562ad523a9ea292ebcf4597cf238c8bcb65bf1
   - 232708065e7931175b6c4d25addb5191b1807c19
-  compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.12...232708065e7931175b6c4d25addb5191b1807c19
+  - 285d0be955936191003c9005af57fbb91e2e1925
+  - 74b7aa0e03dbc47cd45195875473e8599a4d961e
+  compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.12...74b7aa0e03dbc47cd45195875473e8599a4d961e
