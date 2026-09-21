@@ -7,23 +7,16 @@ and client-specific facts or sizing belong in the relevant client repository.
 
 ## Issues
 
-Before opening an issue:
+Use a short form or open a blank issue. A clear title and a few useful sentences
+are enough. Keep each issue focused on one problem or outcome and check for an
+existing issue first.
 
-1. Search existing issues and avoid duplicates.
-2. Use one issue for one problem or outcome.
-3. Write a descriptive title that states the behavior or desired result.
-4. Select the appropriate issue form. Maintainers use native `Bug`, `Feature`,
-   and `Task` issue types.
-5. Describe the problem before proposing an implementation.
-6. For bugs, include reproduction steps, expected and actual behavior, the
-   affected platform version or commit, environment details, and useful evidence.
-7. For features, explain the user or platform problem, desired outcome, and why
-   current behavior is insufficient.
-8. Define objective acceptance criteria.
-9. State scope and non-goals when boundaries could be ambiguous.
-10. Link related issues, pull requests, designs, and documentation.
-11. Remove secrets, credentials, private keys, tokens, and client data from all
-    issue content and attachments.
+For bugs, describe what happened and what you expected. Add reproduction steps,
+versions, or evidence if available. For features and tasks, explain what should
+change and why. Leave unknown details open rather than inventing answers or
+filling sections with boilerplate. Maintainers can ask for details during triage.
+
+Remove secrets and private data from issue content and attachments.
 
 Do not report security vulnerabilities in a public issue. Follow the
 [security policy](SECURITY.md) and use private vulnerability reporting.
@@ -31,10 +24,8 @@ Do not report security vulnerabilities in a public issue. Follow the
 Use [GitHub Discussions](https://github.com/neurwerk/k8s_stack_base/discussions)
 for questions, support, and general conversation.
 
-Reporters do not assign priority. During triage, maintainers validate the issue,
-confirm its scope and type, request missing information, and assign priority,
-area, milestone or project, and owner where appropriate. Maintainers may close
-duplicates, incomplete reports, support questions, and out-of-scope requests.
+Maintainers assign issue types (`Bug`, `Feature`, or `Task`), priority, and other
+classification during triage as needed.
 
 ## Pull Requests
 
