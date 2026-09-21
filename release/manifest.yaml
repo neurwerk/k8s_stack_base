@@ -1,11 +1,11 @@
 apiVersion: platform.neurwerk.com/v1alpha1
 kind: PlatformRelease
 metadata:
-  name: v0.3.11
+  name: v0.3.12
 spec:
-  version: 0.3.11
-  releaseDate: '2026-09-20'
-  summary: Fix LDAP provisioning and allow client-configured connection/read timeouts with Tooling 0.7.1.
+  version: 0.3.12
+  releaseDate: '2026-09-21'
+  summary: Allow opt-in HTTP for private Docling inference; keep HTTPS as the default.
   trust:
     signerIdentity: platform-release
     algorithm: ssh-ed25519
@@ -14,7 +14,7 @@ spec:
     stableUpgrade: supported
     upgradesFromAlphaRevisions: []
     downgrade: unsupported
-    recovery: forward-fix
+    recovery: configuration-revert
   packages:
     default:
     - releases/namespaces
@@ -1132,8 +1132,9 @@ spec:
       uv: 0.11.21
       node: 24.20.0
   provenance:
-    previousTag: v0.3.10
-    includedThrough: bb7f87a33eb72739766ab6776cd7a209debc8eb6
+    previousTag: v0.3.11
+    includedThrough: 987ffca7946a841c1e3eed74c5ab201cdbbbff24
     commits:
-    - bb7f87a33eb72739766ab6776cd7a209debc8eb6
-    compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.10...bb7f87a33eb72739766ab6776cd7a209debc8eb6
+    - cce9f6dc0e9f48a0eb7ddd6a0f74e864d2dfb2cc
+    - 987ffca7946a841c1e3eed74c5ab201cdbbbff24
+    compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.11...987ffca7946a841c1e3eed74c5ab201cdbbbff24
