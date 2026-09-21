@@ -35,9 +35,11 @@ spec:
         - condition: 'request.method == "POST" && request.path.startsWith("/v1/")'
           policy:
             backendRef:
-              group: agentgateway.dev
-              kind: AgentgatewayBackend
-              name: infra-agentgateway-extproc-backend
+              group: ""
+              kind: Service
+              name: monitor-agentgateway-extproc-service
+              namespace: monitor-agentgateway-extproc
+              port: {{ .Values.guardrails.llmPolicyEngine.extProcPort | default 9000 }}
             failureMode: FailClosed
             metadataContext:
               neurwerk.destination_policy:

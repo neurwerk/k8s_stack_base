@@ -15,7 +15,7 @@ description: |
     - AgentgatewayPolicy with JWT auth (Keycloak JWKS) + CEL RBAC
     - Secret with LLM provider API keys
 type: application
-version: 1.7.0
+version: 1.7.1
 appVersion: "1.5.0"
 dependencies:
   - name: agentgateway
