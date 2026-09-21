@@ -247,6 +247,29 @@ class PrivateImageTests(unittest.TestCase):
             policy["attachments"]["faces"]["routeClass"] = "direct"
             self.assertIn("only allowed with action reroute", render("agentgateway", values, check=False).stderr)
 
+    def test_policy_aware_images_require_v3_and_complete_protections(self):
+        for version, override, error in (
+            (2, {}, "requires attachmentPolicyVersion: 3"),
+            (3, {"piiEnabled": False}, "requires PII and face protection"),
+            (3, {"faceProtectionEnabled": False}, "requires PII and face protection"),
+            (3, {"attachmentMode": "block"}, "requires attachmentMode process or extract"),
+        ):
+            values = self.values(version=version, **{
+                "attachmentMode": "process", "imageForwarding": "if-policy-allows", **override,
+            })
+            result = render("agentgateway", values, check=False)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn(error, result.stderr)
+        values = self.values(version=3, attachmentMode="process", imageForwarding="if-policy-allows")
+        values["docling"] = {"enabled": True, "inference": {"mode": "internal-standard"}}
+        source = values["openrouterCatalog"]["models"][0]
+        source.update(attachmentMode="extract", imageForwarding="if-policy-allows")
+        self.assertEqual(self.metadata(values)["image_forwarding"], {
+            "direct": "if-policy-allows", source["name"]: "if-policy-allows",
+        })
+        values["docling"]["enabled"] = False
+        self.assertIn("requires enabled Docling", render("agentgateway", values, check=False).stderr)
+
     def test_metadata_bounds_and_known_ids(self):
         values = self.values()
         for count in (256, 257):

@@ -9,6 +9,20 @@ upgrade path.
 
 ## [Unreleased]
 
+- Add opt-in policy-aware image forwarding: `pass` detections permit images;
+  text transformations send extracted, policy-processed text without images and
+  preserve reversible replacement. Face actions and approved reroutes still apply.
+- Distinguish empty image text from extraction failures and policy blocks with
+  configuration-specific messages. Successful text-only fallback is a notice.
+
+### Upgrade Steps
+
+Deploy the compatible extProc `0.11.0` runtime before selecting
+`imageForwarding: if-policy-allows` under attachment policy v3. Then migrate the
+intended client model entries from the existing strict mode. The new mode requires
+enabled extraction, text PII and face protection; explicit client settings retain
+their meaning. See [policy-aware image forwarding](README.md#policy-aware-image-forwarding).
+
 ## [0.3.12] - 2026-09-21
 
 - Allow explicit HTTP opt-in for private Docling inference backends; HTTPS remains the default.
