@@ -13,6 +13,22 @@
 
 monitorKubePrometheusStack:
   alerting:
+    applications:
+      enabled: true
+      # Only workloads in the chat/API path and its required dependencies.
+      namespaces:
+        - frontend-librechat
+        - infra-agentgateway
+        - monitor-agentgateway-extproc
+        - monitor-pii-engine
+        - docling
+        - auth-keycloak-api-key-bridge
+        - auth-keycloak
+        - infra-postgres-auth
+        - infra-postgres-operations
+        - infra-rook-ceph
+        - kube-system
+      unavailableFor: 30s
     email:
       # The platform release enables email by default. Chart-only rendering stays
       # inert until a client supplies its non-secret SMTP and recipient facts.
@@ -72,7 +88,7 @@ kube-prometheus-stack:
 
   # ── Grafana ───────────────────────────────────────────────────────────────
   grafana:
-    enabled: true
+    enabled: false
     # The wrapper supplies ConfigMap-only Roles in each trusted dashboard
     # namespace instead of the subchart's cluster-wide ConfigMap/Secret role.
     rbac:

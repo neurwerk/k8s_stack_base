@@ -89,7 +89,12 @@ spec:
                           if exc.status != 404:
                               raise
 
-                  sync_configmap("monitor-opensearch-ca-trust", "monitor-opensearch")
+                  if sync_configmap("monitor-opensearch-ca-trust", "monitor-opensearch"):
+                      restart(
+                          "Deployment",
+                          "monitor-opensearch-dashboards",
+                          "monitor-opensearch",
+                      )
                   if sync_configmap("monitor-fluent-bit-shared-opensearch-ca", "monitor-fluent-bit"):
                       restart("DaemonSet", "monitor-fluent-bit", "monitor-fluent-bit")
                   if sync_configmap("frontend-studio-shared-opensearch-ca", "frontend-studio"):

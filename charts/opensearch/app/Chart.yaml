@@ -7,12 +7,12 @@ description: |
     - OpenSearch (single-node, internal-only, TLS via internal CA)
     - cert-manager Certificates (admin, transport, HTTP) + CA trust sync
     - Convergent security bootstrap Job (securityadmin.sh)
-    - Init Jobs to create the fluent-bit-ingest and studio-logs-read users
+    - Init Jobs to create the internal service users
     - Init Job for log archiving (ISM snapshot policy to Ceph RGW)
 
-  No Gateway/HTTPRoute — internal-only, no dashboards.
+  No Gateway/HTTPRoute - internal-only.
 type: application
-version: 1.0.4
+version: 1.0.6
 appVersion: "2.18.0"
 dependencies:
   - name: opensearch

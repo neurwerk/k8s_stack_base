@@ -3,6 +3,7 @@ kind: Kustomization
 namespace: monitor-opensearch
 resources:
   - app.yaml
+  - dashboards.yaml
 generatorOptions:
   disableNameSuffixHash: true
 configMapGenerator:

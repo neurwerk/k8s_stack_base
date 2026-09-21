@@ -90,7 +90,7 @@ publicCertificates:
 
 # k8sTools — init script image version
 k8sTools:
-  image: ghcr.io/neurwerk/k8s-stack-tooling:0.7.1@sha256:5d0472c4995d9d3da8115e4080d1f0b36bf34d8ab67aa6eefa91cee8eca2b5fc
+  image: ghcr.io/neurwerk/k8s-stack-tooling:0.7.2@sha256:bfc4d5e1d3e7009c23be9759ee91ef91e5befc8b42af7f743d13449b2b4973b6
 
 # Populated from the OpenBao-backed Helm input Secret.
 authKeycloakSecrets: {}

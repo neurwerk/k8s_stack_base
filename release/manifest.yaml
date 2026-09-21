@@ -5,8 +5,8 @@ metadata:
 spec:
   version: 0.3.13
   releaseDate: '2026-09-21'
-  summary: Improve processor capacity, routing and shutdown, offline PII validation, and policy-aware
-    image notices.
+  summary: Improve processor capacity and policy-aware images; add grouped failure alerts, internal log
+    dashboards, and credential reconciliation.
   trust:
     signerIdentity: platform-release
     algorithm: ssh-ed25519
@@ -29,8 +29,8 @@ spec:
       chartPrefixes: []
       prerequisites:
       - name: openbao-stack-setup
-        version: 0.2.17
-        source: https://github.com/neurwerk/k8s_stack_tooling/commit/8f62f6e1b0ccf6b4d60f7cc66bc9a19f6fdc234b
+        version: 0.2.18
+        source: https://github.com/neurwerk/k8s_stack_tooling/commit/8ce01f5f029a9762a0d86276334f10dad7c4e37b
     - path: releases/docling/secret-sync
       status: included
       reason: Optional remote-mode credential delivery; provision the API key and inference token before
@@ -38,8 +38,8 @@ spec:
       chartPrefixes: []
       prerequisites:
       - name: openbao-stack-setup
-        version: 0.2.17
-        source: https://github.com/neurwerk/k8s_stack_tooling/commit/8f62f6e1b0ccf6b4d60f7cc66bc9a19f6fdc234b
+        version: 0.2.18
+        source: https://github.com/neurwerk/k8s_stack_tooling/commit/8ce01f5f029a9762a0d86276334f10dad7c4e37b
     - path: releases/docling/reloader
       status: included
       reason: Optional Docling namespace watch and rotation RBAC; compose only after its namespace exists.
@@ -56,8 +56,8 @@ spec:
       - charts/docling
       prerequisites:
       - name: openbao-stack-setup
-        version: 0.2.17
-        source: https://github.com/neurwerk/k8s_stack_tooling/commit/8f62f6e1b0ccf6b4d60f7cc66bc9a19f6fdc234b
+        version: 0.2.18
+        source: https://github.com/neurwerk/k8s_stack_tooling/commit/8ce01f5f029a9762a0d86276334f10dad7c4e37b
     - path: releases/namespaces/maintenance
       status: included
       reason: Operator-tested optional maintenance; enable only when selected by the client.
@@ -121,8 +121,8 @@ spec:
     version: 2.9.4
     source: client bootstrap manifests
   - name: openbao-stack-setup
-    version: 0.2.17
-    source: https://github.com/neurwerk/k8s_stack_tooling/commit/8f62f6e1b0ccf6b4d60f7cc66bc9a19f6fdc234b
+    version: 0.2.18
+    source: https://github.com/neurwerk/k8s_stack_tooling/commit/8ce01f5f029a9762a0d86276334f10dad7c4e37b
   - name: gateway-api-experimental
     version: 1.6.0
     source: https://github.com/kubernetes-sigs/gateway-api/releases/tag/v1.6.0
@@ -164,7 +164,7 @@ spec:
     charts:
     - path: charts/agentgateway
       name: infra-agentgateway
-      version: 1.7.1
+      version: 1.7.3
       appVersion: 1.5.0
       dependencyLock:
         digest: sha256:e5b8cfb3b1e062b8e9268a42405a466d71d22bdb18ae83ff7496788af21abedd
@@ -177,8 +177,8 @@ spec:
           sha256: a22cfb7dcc56da05d31b18c0a969e1b8eee35d19a4493d88b5d4720efcc85945
     - path: charts/agentgateway-extproc
       name: agentgateway-extproc
-      version: 1.3.5
-      appVersion: 0.11.2
+      version: 1.3.7
+      appVersion: 0.11.3
     - path: charts/cert-manager/approval-policy
       name: infra-cert-manager-approval-policy
       version: 1.2.0
@@ -264,7 +264,7 @@ spec:
           sha256: da2d5c126a103b4c1b16a9dc1c168c4332a3687144e88ac070e594f81a0b6578
     - path: charts/fluent-bit
       name: monitor-fluent-bit
-      version: 1.0.0
+      version: 1.0.2
       appVersion: 3.2.8
       dependencyLock:
         digest: sha256:90275c51b97202d8b18e353f33c38e5800924b94be0b21d2adf9a62590334d17
@@ -285,44 +285,44 @@ spec:
       appVersion: 15.0.8
     - path: charts/keycloak/oidc/agentgateway
       name: agentgateway
-      version: 1.1.4
+      version: 1.1.5
       appVersion: '1.0'
     - path: charts/keycloak/oidc/dify
       name: dify
-      version: 1.0.4
+      version: 1.0.5
       appVersion: '1.0'
     - path: charts/keycloak/oidc/dify-agentgateway
       name: dify-agentgateway
-      version: 1.1.4
+      version: 1.1.5
       appVersion: '1.0'
     - path: charts/keycloak/oidc/forgejo
       name: keycloak-forgejo-oidc
-      version: 0.1.3
+      version: 0.1.4
       appVersion: '1.0'
     - path: charts/keycloak/oidc/keycloak-api-key-bridge
       name: keycloak-api-key-bridge
-      version: 1.0.4
+      version: 1.0.5
       appVersion: '1.0'
     - path: charts/keycloak/oidc/librechat
       name: librechat
-      version: 1.0.4
+      version: 1.0.5
       appVersion: '1.0'
     - path: charts/keycloak/oidc/studio
       name: studio
-      version: 1.0.4
+      version: 1.0.5
       appVersion: '1.0'
     - path: charts/keycloak/realm-config/active-directory
       name: keycloak-active-directory
-      version: 1.1.2
+      version: 1.1.3
     - path: charts/keycloak/realm-config/initial-admin
       name: keycloak-oidc-configurations-initial-admin
-      version: 1.1.3
+      version: 1.1.4
     - path: charts/keycloak/realm-config/realm-roles
       name: keycloak-oidc-configurations-realm-roles
-      version: 2.2.2
+      version: 2.2.3
     - path: charts/keycloak/server
       name: keycloak
-      version: 1.1.2
+      version: 1.1.3
       appVersion: 26.7.2
     - path: charts/keycloak-api-key-bridge
       name: auth-keycloak-api-key-bridge
@@ -330,7 +330,7 @@ spec:
       appVersion: 0.7.0
     - path: charts/kube-prometheus-stack
       name: monitor-kube-prometheus-stack
-      version: 1.0.0
+      version: 1.0.2
       appVersion: 0.82.2
       dependencyLock:
         digest: sha256:52ccce9875b52ce65fb7e2e05455cc672e2ddac98d7c5b2d94ff99ec174af431
@@ -412,7 +412,7 @@ spec:
       appVersion: 9.1.1
     - path: charts/maintenance
       name: maintenance
-      version: 0.1.3
+      version: 0.1.4
     - path: charts/openbao
       name: infra-openbao
       version: 1.0.0
@@ -426,9 +426,9 @@ spec:
         archives:
         - path: charts/openbao/charts/openbao-0.29.1.tgz
           sha256: 646d932f597632a7328bd300994e66c2cabaa1b6763372cbabb559cd84ff3f2f
-    - path: charts/opensearch
+    - path: charts/opensearch/app
       name: monitor-opensearch
-      version: 1.0.4
+      version: 1.0.6
       appVersion: 2.18.0
       dependencyLock:
         digest: sha256:59f3aee22c25979b8b3287d24f2bb2915274394629658f88af2d1004899efe23
@@ -437,8 +437,21 @@ spec:
           repository: https://opensearch-project.github.io/helm-charts
           version: 2.27.0
         archives:
-        - path: charts/opensearch/charts/opensearch-2.27.0.tgz
+        - path: charts/opensearch/app/charts/opensearch-2.27.0.tgz
           sha256: a9de76017a82a38954dfb453a030c42a349c015fe1493641f457aa0e71590267
+    - path: charts/opensearch/dashboards
+      name: monitor-opensearch-dashboards
+      version: 1.0.0
+      appVersion: 2.18.0
+      dependencyLock:
+        digest: sha256:ae50bb8d8a5485f6cf7455f438a6022af6e8c16a2f3e97b4c7667ddf09588874
+        dependencies:
+        - name: opensearch-dashboards
+          repository: https://opensearch-project.github.io/helm-charts
+          version: 2.26.0
+        archives:
+        - path: charts/opensearch/dashboards/charts/opensearch-dashboards-2.26.0.tgz
+          sha256: 87e4ade6832d51139b8b2fa2ed73c55908d18eebc2a7b6ec78673bd522d8fd76
     - path: charts/pii-engine
       name: pii-engine
       version: 1.0.6
@@ -707,7 +720,11 @@ spec:
     - path: releases/opensearch/app.yaml
       namespace: monitor-opensearch
       name: opensearch
-      chart: ./charts/opensearch
+      chart: ./charts/opensearch/app
+    - path: releases/opensearch/dashboards.yaml
+      namespace: monitor-opensearch
+      name: opensearch-dashboards
+      chart: ./charts/opensearch/dashboards
     - path: releases/pii-engine/app.yaml
       namespace: monitor-pii-engine
       name: pii-engine
@@ -797,11 +814,6 @@ spec:
       eligibility: included
       origins:
       - charts/librechat/meilisearch/values.yaml
-    - reference: docker.io/grafana/grafana:12.0.0
-      pinned: true
-      eligibility: included
-      origins:
-      - charts/kube-prometheus-stack/values.yaml
     - reference: docker.io/langfuse/langfuse-worker:3.179.1
       pinned: true
       eligibility: included
@@ -826,12 +838,17 @@ spec:
       pinned: true
       eligibility: included
       origins:
-      - charts/opensearch/values.yaml
+      - charts/opensearch/app/values.yaml
+    - reference: docker.io/opensearchproject/opensearch-dashboards:2.18.0
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/opensearch/dashboards/values.yaml
     - reference: docker.io/opensearchproject/opensearch:2.18.0
       pinned: true
       eligibility: included
       origins:
-      - charts/opensearch/values.yaml
+      - charts/opensearch/app/values.yaml
     - reference: docker.io/otel/opentelemetry-collector-contrib:0.132.1
       pinned: true
       eligibility: included
@@ -901,7 +918,7 @@ spec:
       eligibility: included
       origins:
       - charts/dify/web/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.11.2@sha256:3981766a4e2f4304dc31448deb62333bf26bf5f2fd8c971ae8994d2d5967b569
+    - reference: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.11.3@sha256:73ebf97fcca39808b2553defbcf9b1611f2251175f82a384e5d68d104c96e480
       pinned: true
       eligibility: included
       origins:
@@ -932,7 +949,7 @@ spec:
       eligibility: included
       origins:
       - charts/studio/web/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-tooling:0.7.1@sha256:5d0472c4995d9d3da8115e4080d1f0b36bf34d8ab67aa6eefa91cee8eca2b5fc
+    - reference: ghcr.io/neurwerk/k8s-stack-tooling:0.7.2@sha256:bfc4d5e1d3e7009c23be9759ee91ef91e5befc8b42af7f743d13449b2b4973b6
       pinned: true
       eligibility: included
       origins:
@@ -948,7 +965,7 @@ spec:
       - charts/keycloak/realm-config/realm-roles/values.yaml
       - charts/keycloak/server/values.yaml
       - charts/maintenance/values.yaml
-      - charts/opensearch/values.yaml
+      - charts/opensearch/app/values.yaml
     - reference: ghcr.io/neurwerk/librechat-code-interpreter-api:fea707467600f3802d65596a6875c7822f25cfd8
       pinned: true
       eligibility: excluded
@@ -1044,11 +1061,6 @@ spec:
       eligibility: included
       origins:
       - charts/trust-manager/values.yaml
-    - reference: quay.io/kiwigrid/k8s-sidecar:1.30.0
-      pinned: true
-      eligibility: included
-      origins:
-      - charts/kube-prometheus-stack/values.yaml
     - reference: quay.io/openbao/openbao:2.6.1
       pinned: true
       eligibility: included
@@ -1134,8 +1146,14 @@ spec:
       node: 24.20.0
   provenance:
     previousTag: v0.3.12
-    includedThrough: 232708065e7931175b6c4d25addb5191b1807c19
+    includedThrough: da3bee6cb843f0482b48950a3887c222af663db9
     commits:
     - b9562ad523a9ea292ebcf4597cf238c8bcb65bf1
     - 232708065e7931175b6c4d25addb5191b1807c19
-    compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.12...232708065e7931175b6c4d25addb5191b1807c19
+    - 285d0be955936191003c9005af57fbb91e2e1925
+    - 74b7aa0e03dbc47cd45195875473e8599a4d961e
+    - 480a24834816671a8925e0712bd0320d5b1f46d0
+    - 57f4e404236c10292b9634aad12cda477f467f99
+    - 25894c934e046d57c7925fe1d05955c0fd87d976
+    - da3bee6cb843f0482b48950a3887c222af663db9
+    compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.12...da3bee6cb843f0482b48950a3887c222af663db9

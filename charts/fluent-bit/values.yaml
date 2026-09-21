@@ -1,5 +1,10 @@
 # IMAGE SOURCE: upstream
 # Fluent Bit images are controlled by the vendor subchart.
+monitorFluentBit:
+  applicationAlerts:
+    # Email routing is owned by kube-prometheus-stack; this enables the log rules.
+    enabled: true
+
 # --- Subchart dependency: fluent-bit ---
 fluent-bit:
   # Use DaemonSet to run on every node
@@ -7,6 +12,13 @@ fluent-bit:
 
   annotations:
     secret.reloader.stakater.com/reload: "monitor-fluent-bit-shared-ingest-secret"
+    configmap.reloader.stakater.com/reload: "monitor-fluent-bit-application-errors"
+
+  extraPorts:
+    - name: error-metrics
+      containerPort: 2021
+      port: 2021
+      protocol: TCP
 
   # The upstream test hook uses busybox:latest and is not part of deployment.
   testFramework:
@@ -23,7 +35,7 @@ fluent-bit:
           Name              tail
           Tag               kube.*
           Path              /var/log/containers/*.log
-          Parser            docker
+          multiline.parser  docker, cri
           DB                /var/log/flb_kube.db
           Mem_Buf_Limit     50MB
           Skip_Long_Lines   On
@@ -45,6 +57,52 @@ fluent-bit:
           Annotations         Off
           Labels              Off
 
+      [FILTER]
+          Name                lua
+          Match               kube.*
+          Script              /fluent-bit/application-errors/application-errors.lua
+          Call                application_error
+          Time_As_Table       true
+
+      [FILTER]
+          Name                log_to_metrics
+          Match               kube.*
+          Tag                 application.errors
+          Metric_Mode         counter
+          Metric_Namespace    stack
+          Metric_Subsystem    application_error
+          Metric_Name         events_total
+          Metric_Description  Classified application error log events since collector start
+          Regex               _stack_error_kind .+
+          Add_Label           application_namespace $_stack_error_namespace
+          Add_Label           application $_stack_error_application
+          Add_Label           error_kind $_stack_error_kind
+          Flush_Interval_Sec  5
+
+      [FILTER]
+          Name                log_to_metrics
+          Match               kube.*
+          Tag                 application.errors
+          Metric_Mode         gauge
+          Metric_Namespace    stack
+          Metric_Subsystem    application_error
+          Metric_Name         last_seen_seconds
+          Metric_Description  Unix timestamp of the latest classified application error
+          Value_Field         _stack_error_timestamp
+          Regex               _stack_error_kind .+
+          Add_Label           application_namespace $_stack_error_namespace
+          Add_Label           application $_stack_error_application
+          Add_Label           error_kind $_stack_error_kind
+          Flush_Interval_Sec  5
+
+      [FILTER]
+          Name                modify
+          Match               kube.*
+          Remove              _stack_error_namespace
+          Remove              _stack_error_application
+          Remove              _stack_error_kind
+          Remove              _stack_error_timestamp
+
     outputs: |
       [OUTPUT]
           Name                opensearch
@@ -62,6 +120,12 @@ fluent-bit:
           Logstash_DateFormat %Y.%m.%d
           Retry_Limit         False
           Suppress_Type_Name  On
+
+      [OUTPUT]
+          Name                prometheus_exporter
+          Match               application.errors
+          Host                0.0.0.0
+          Port                2021
 
   # Environment variables from the namespace-local ESO Secret.
   env:
@@ -83,10 +147,16 @@ fluent-bit:
   # upstream chart; opensearch-ca carries the internal CA trust bundle used by
   # the OpenSearch output (tls.ca_file).
   extraVolumes:
+    - name: application-errors
+      configMap:
+        name: monitor-fluent-bit-application-errors
     - name: opensearch-ca
       configMap:
         name: monitor-fluent-bit-shared-opensearch-ca
   extraVolumeMounts:
+    - name: application-errors
+      mountPath: /fluent-bit/application-errors
+      readOnly: true
     - name: opensearch-ca
       mountPath: /fluent-bit/tls
       readOnly: true
