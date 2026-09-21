@@ -33,6 +33,10 @@ data:
             authentication_backend:
               type: intern
               config: {}
+        kibana:
+          multitenancy_enabled: false
+          server_username: {{ .Values.monitorOpensearchWrapper.dashboardsUser | quote }}
+          index: ".opensearch_dashboards"
   internal_users.yml: |
     ---
     _meta:
@@ -59,6 +63,12 @@ data:
       backend_roles:
         - "studio_logs_read_role"
       description: "Studio log reader"
+
+    {{ .Values.monitorOpensearchWrapper.dashboardsUser | quote }}:
+      hash: "DASHBOARDS_HASH_PLACEHOLDER"
+      reserved: false
+      backend_roles: []
+      description: "OpenSearch Dashboards server"
   roles.yml: |
     ---
     _meta:
@@ -104,6 +114,13 @@ data:
         - "admin"
       users: []
       hosts: []
+
+    kibana_server:
+      reserved: true
+      backend_roles: []
+      hosts: []
+      users:
+        - {{ .Values.monitorOpensearchWrapper.dashboardsUser | quote }}
 
     fluent_bit_ingest_role:
       reserved: false

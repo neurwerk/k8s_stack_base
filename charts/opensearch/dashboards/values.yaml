@@ -1,0 +1,88 @@
+# IMAGE SOURCE: upstream
+# OpenSearch Dashboards is controlled by its pinned vendor subchart.
+opensearch-dashboards:
+  fullnameOverride: monitor-opensearch-dashboards
+  replicaCount: 1
+  opensearchHosts: "https://opensearch-cluster-master.monitor-opensearch.svc.cluster.local:9200"
+
+  image:
+    repository: opensearchproject/opensearch-dashboards
+    tag: "2.18.0"
+    pullPolicy: IfNotPresent
+
+  serviceAccount:
+    create: false
+    name: monitor-opensearch-dashboards
+  rbac:
+    create: false
+
+  labels:
+    app.kubernetes.io/name: opensearch-dashboards
+    app.kubernetes.io/instance: monitor-opensearch-dashboards
+    app.kubernetes.io/part-of: monitor-opensearch
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+    runAsNonRoot: true
+    runAsUser: 1000
+
+  extraEnvs:
+    - name: OPENSEARCH_USERNAME
+      value: kibanaserver
+    - name: OPENSEARCH_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: monitor-opensearch-secret
+          key: dashboardPassword
+    - name: COOKIE_PASS
+      valueFrom:
+        secretKeyRef:
+          name: monitor-opensearch-secret
+          key: dashboardCookieSecret
+
+  extraVolumes:
+    - name: opensearch-ca
+      configMap:
+        name: monitor-opensearch-ca-trust
+  extraVolumeMounts:
+    - name: opensearch-ca
+      mountPath: /usr/share/opensearch-dashboards/config/certs
+      readOnly: true
+
+  config:
+    opensearch_dashboards.yml: |
+      server.host: "0.0.0.0"
+      opensearch.hosts: ["https://opensearch-cluster-master.monitor-opensearch.svc.cluster.local:9200"]
+      opensearch.ssl.verificationMode: full
+      opensearch.ssl.certificateAuthorities: ["/usr/share/opensearch-dashboards/config/certs/ca.crt"]
+      opensearch.username: "${OPENSEARCH_USERNAME}"
+      opensearch.password: "${OPENSEARCH_PASSWORD}"
+      opensearch.requestHeadersAllowlist: [authorization, securitytenant]
+      opensearch_security.auth.type: "basicauth"
+      opensearch_security.multitenancy.enabled: false
+      opensearch_security.cookie.secure: false
+      opensearch_security.cookie.password: "${COOKIE_PASS}"
+
+  service:
+    type: ClusterIP
+    port: 5601
+  ingress:
+    enabled: false
+  serviceMonitor:
+    enabled: false
+  resources:
+    requests:
+      cpu: 100m
+      memory: 512Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi

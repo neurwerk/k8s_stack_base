@@ -78,6 +78,10 @@ spec:
                 /usr/share/opensearch/plugins/opensearch-security/tools/hash.sh \
                   -p "${OPENSEARCH_STUDIO_PASSWORD}"
               )
+              DASHBOARDS_HASH=$(
+                /usr/share/opensearch/plugins/opensearch-security/tools/hash.sh \
+                  -p "${OPENSEARCH_DASHBOARDS_PASSWORD}"
+              )
               echo "Internal user password hashes generated."
 
               # Render internal_users.yml from template
@@ -86,6 +90,7 @@ spec:
                 -e "s|ADMIN_HASH_PLACEHOLDER|${ADMIN_HASH}|" \
                 -e "s|FLUENT_BIT_HASH_PLACEHOLDER|${FLUENT_BIT_HASH}|" \
                 -e "s|STUDIO_HASH_PLACEHOLDER|${STUDIO_HASH}|" \
+                -e "s|DASHBOARDS_HASH_PLACEHOLDER|${DASHBOARDS_HASH}|" \
                 /security-config-template/internal_users.yml \
                 > /security-config-rendered/internal_users.yml
               if grep -q "_HASH_PLACEHOLDER" /security-config-rendered/internal_users.yml; then
@@ -134,6 +139,11 @@ spec:
                 secretKeyRef:
                   name: monitor-opensearch-secret
                   key: studioPassword
+            - name: OPENSEARCH_DASHBOARDS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: monitor-opensearch-secret
+                  key: dashboardPassword
           volumeMounts:
             - name: admin-cert
               mountPath: /certs/admin

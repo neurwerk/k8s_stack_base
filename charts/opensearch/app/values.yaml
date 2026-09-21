@@ -48,9 +48,6 @@ opensearch:
         - key: AWS_SECRET_ACCESS_KEY
           path: s3.client.default.secret_key
 
-  dashboards:
-    enabled: false
-
   # TLS certificates issued by the internal CA (cert-manager).
   secretMounts:
     - name: transport-tls
@@ -112,6 +109,9 @@ monitorOpensearchWrapper:
   # Studio logs viewer user (read-only, provisioned by the studio-logs init Job).
   studioLogsUser: "studio-logs-read"
   studioLogsRole: "studio_logs_read_role"
+
+  # OpenSearch Dashboards server identity.
+  dashboardsUser: "kibanaserver"
 
   # Log archiving — ISM snapshot policy to archive fluent-bit-* indices to Ceph RGW.
   archive:

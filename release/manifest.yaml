@@ -164,7 +164,7 @@ spec:
     charts:
     - path: charts/agentgateway
       name: infra-agentgateway
-      version: 1.7.2
+      version: 1.7.3
       appVersion: 1.5.0
       dependencyLock:
         digest: sha256:e5b8cfb3b1e062b8e9268a42405a466d71d22bdb18ae83ff7496788af21abedd
@@ -330,7 +330,7 @@ spec:
       appVersion: 0.7.0
     - path: charts/kube-prometheus-stack
       name: monitor-kube-prometheus-stack
-      version: 1.0.1
+      version: 1.0.2
       appVersion: 0.82.2
       dependencyLock:
         digest: sha256:52ccce9875b52ce65fb7e2e05455cc672e2ddac98d7c5b2d94ff99ec174af431
@@ -426,9 +426,9 @@ spec:
         archives:
         - path: charts/openbao/charts/openbao-0.29.1.tgz
           sha256: 646d932f597632a7328bd300994e66c2cabaa1b6763372cbabb559cd84ff3f2f
-    - path: charts/opensearch
+    - path: charts/opensearch/app
       name: monitor-opensearch
-      version: 1.0.5
+      version: 1.0.6
       appVersion: 2.18.0
       dependencyLock:
         digest: sha256:59f3aee22c25979b8b3287d24f2bb2915274394629658f88af2d1004899efe23
@@ -437,8 +437,21 @@ spec:
           repository: https://opensearch-project.github.io/helm-charts
           version: 2.27.0
         archives:
-        - path: charts/opensearch/charts/opensearch-2.27.0.tgz
+        - path: charts/opensearch/app/charts/opensearch-2.27.0.tgz
           sha256: a9de76017a82a38954dfb453a030c42a349c015fe1493641f457aa0e71590267
+    - path: charts/opensearch/dashboards
+      name: monitor-opensearch-dashboards
+      version: 1.0.0
+      appVersion: 2.18.0
+      dependencyLock:
+        digest: sha256:ae50bb8d8a5485f6cf7455f438a6022af6e8c16a2f3e97b4c7667ddf09588874
+        dependencies:
+        - name: opensearch-dashboards
+          repository: https://opensearch-project.github.io/helm-charts
+          version: 2.26.0
+        archives:
+        - path: charts/opensearch/dashboards/charts/opensearch-dashboards-2.26.0.tgz
+          sha256: 87e4ade6832d51139b8b2fa2ed73c55908d18eebc2a7b6ec78673bd522d8fd76
     - path: charts/pii-engine
       name: pii-engine
       version: 1.0.6
@@ -707,7 +720,11 @@ spec:
     - path: releases/opensearch/app.yaml
       namespace: monitor-opensearch
       name: opensearch
-      chart: ./charts/opensearch
+      chart: ./charts/opensearch/app
+    - path: releases/opensearch/dashboards.yaml
+      namespace: monitor-opensearch
+      name: opensearch-dashboards
+      chart: ./charts/opensearch/dashboards
     - path: releases/pii-engine/app.yaml
       namespace: monitor-pii-engine
       name: pii-engine
@@ -797,11 +814,6 @@ spec:
       eligibility: included
       origins:
       - charts/librechat/meilisearch/values.yaml
-    - reference: docker.io/grafana/grafana:12.0.0
-      pinned: true
-      eligibility: included
-      origins:
-      - charts/kube-prometheus-stack/values.yaml
     - reference: docker.io/langfuse/langfuse-worker:3.179.1
       pinned: true
       eligibility: included
@@ -826,12 +838,17 @@ spec:
       pinned: true
       eligibility: included
       origins:
-      - charts/opensearch/values.yaml
+      - charts/opensearch/app/values.yaml
+    - reference: docker.io/opensearchproject/opensearch-dashboards:2.18.0
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/opensearch/dashboards/values.yaml
     - reference: docker.io/opensearchproject/opensearch:2.18.0
       pinned: true
       eligibility: included
       origins:
-      - charts/opensearch/values.yaml
+      - charts/opensearch/app/values.yaml
     - reference: docker.io/otel/opentelemetry-collector-contrib:0.132.1
       pinned: true
       eligibility: included
@@ -948,7 +965,7 @@ spec:
       - charts/keycloak/realm-config/realm-roles/values.yaml
       - charts/keycloak/server/values.yaml
       - charts/maintenance/values.yaml
-      - charts/opensearch/values.yaml
+      - charts/opensearch/app/values.yaml
     - reference: ghcr.io/neurwerk/librechat-code-interpreter-api:fea707467600f3802d65596a6875c7822f25cfd8
       pinned: true
       eligibility: excluded
@@ -1044,11 +1061,6 @@ spec:
       eligibility: included
       origins:
       - charts/trust-manager/values.yaml
-    - reference: quay.io/kiwigrid/k8s-sidecar:1.30.0
-      pinned: true
-      eligibility: included
-      origins:
-      - charts/kube-prometheus-stack/values.yaml
     - reference: quay.io/openbao/openbao:2.6.1
       pinned: true
       eligibility: included

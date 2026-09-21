@@ -26,7 +26,7 @@ spec:
           podSelector:
             matchLabels:
               app.kubernetes.io/name: fluent-bit
-    # Port 9200: Security bootstrap and user-provisioning Jobs only
+    # Port 9200: Security bootstrap, provisioning Jobs, and Dashboards
     - ports:
         - port: 9200
           protocol: TCP
@@ -42,6 +42,7 @@ spec:
                   - opensearch-security-bootstrap
                   - opensearch-user-provisioning
                   - opensearch-archive-provisioning
+                  - opensearch-dashboards
     # Port 9200: Studio API (logs viewer — read-only studio-logs-read user)
     - ports:
         - port: 9200
