@@ -1,7 +1,7 @@
 version: 0.3.13
 releaseDate: '2026-09-21'
-summary: Improve processor capacity and policy-aware images; add grouped failure alerts and internal
-  log dashboards.
+summary: Improve processor capacity and policy-aware images; add grouped failure alerts, internal log
+  dashboards, and credential reconciliation.
 trust:
   signerIdentity: platform-release
   algorithm: ssh-ed25519
