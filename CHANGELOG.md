@@ -9,6 +9,9 @@ upgrade path.
 
 ## [Unreleased]
 
+- Adopt verified extProc `0.11.3` in chart `1.3.6`: cached PII reroutes retain
+  historical reports without incorrectly requiring current reversal mappings,
+  preventing adapter-generated HTTP 503 failures on retries.
 - Adopt verified Tooling `0.7.2`: absent mapped AD groups warn and remain
   configured for later discovery; genuine synchronization failures still block activation.
 
