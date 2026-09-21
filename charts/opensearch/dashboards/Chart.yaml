@@ -1,0 +1,10 @@
+apiVersion: v2
+name: monitor-opensearch-dashboards
+description: Internal OpenSearch Dashboards for the monitor-opensearch namespace.
+type: application
+version: 1.0.0
+appVersion: "2.18.0"
+dependencies:
+  - name: opensearch-dashboards
+    version: "2.26.0"
+    repository: https://opensearch-project.github.io/helm-charts

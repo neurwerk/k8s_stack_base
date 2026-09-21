@@ -7,13 +7,12 @@ description: |
     - Prometheus Operator
     - Prometheus
     - Alertmanager
-    - Grafana
     - kube-state-metrics
     - prometheus-node-exporter
 
   No Gateway/HTTPRoute — internal-only monitoring.
 type: application
-version: 1.0.1
+version: 1.0.2
 appVersion: "0.82.2"
 dependencies:
   - name: kube-prometheus-stack

@@ -65,6 +65,14 @@ spec:
       remoteRef:
         key: monitor-opensearch/internal
         property: fluentBitPassword
+    - secretKey: dashboardCookieSecret
+      remoteRef:
+        key: monitor-opensearch/internal
+        property: dashboardCookieSecret
+    - secretKey: dashboardPassword
+      remoteRef:
+        key: monitor-opensearch/internal
+        property: dashboardPassword
     - secretKey: studioPassword
       remoteRef:
         key: monitor-opensearch/internal

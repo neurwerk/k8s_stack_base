@@ -88,7 +88,7 @@ kube-prometheus-stack:
 
   # ── Grafana ───────────────────────────────────────────────────────────────
   grafana:
-    enabled: true
+    enabled: false
     # The wrapper supplies ConfigMap-only Roles in each trusted dashboard
     # namespace instead of the subchart's cluster-wide ConfigMap/Secret role.
     rbac:

@@ -9,6 +9,7 @@ upgrade path.
 
 ## [Unreleased]
 
+- Add an authenticated, internal-only OpenSearch Dashboards interface for operational log inspection.
 - Email grouped application errors, timeouts and unavailable chat/API dependencies
   through the existing monitoring stack, with Studio log links and no additional services.
 - Adopt verified extProc `0.11.3` in chart `1.3.6`: cached PII reroutes retain

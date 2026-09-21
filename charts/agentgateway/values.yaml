@@ -373,8 +373,7 @@ agentgateway:
     image:
       pullPolicy: IfNotPresent
 
-  # Scrape controller and data-plane metrics and provision the upstream
-  # diagnostic dashboard. The wrapper adds a separate user-experience dashboard.
+  # Scrape controller and data-plane metrics.
   monitoring:
     enabled: true
     serviceMonitor:
@@ -385,7 +384,7 @@ agentgateway:
       podMonitor:
         enabled: true
     grafanaDashboard:
-      enabled: true
+      enabled: false
 
 # Populated from the OpenBao-backed Helm input Secret. The database password is
 # delivered to the data plane by secretKeyRef and is never rendered in rawConfig.

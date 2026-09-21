@@ -1,3 +1,4 @@
+{{- if .Values.agentgateway.monitoring.grafanaDashboard.enabled }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -11,3 +12,4 @@ metadata:
 data:
   llm-user-experience.json: |
 {{ .Files.Get "files/llm-user-experience-dashboard.json" | indent 4 }}
+{{- end }}
