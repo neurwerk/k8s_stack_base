@@ -10,6 +10,7 @@ upgrade path.
 ## [Unreleased]
 
 - Exclude DocumentDB's expected Atlas capability probe from application-error alerts while retaining the log and alerting on other gateway failures.
+- Make application-error email timing, resolved notifications, and active hours client-configurable without delaying critical availability alerts.
 
 ## [0.3.14] - 2026-09-22
 
