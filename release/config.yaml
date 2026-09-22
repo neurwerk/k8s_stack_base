@@ -1,7 +1,6 @@
-version: 0.3.13
-releaseDate: '2026-09-21'
-summary: Improve processor capacity and policy-aware images; add grouped failure alerts, internal log
-  dashboards, and credential reconciliation.
+version: 0.3.14
+releaseDate: '2026-09-22'
+summary: Correct the OpenBao reconciliation prerequisite after asynchronous token-store maintenance.
 trust:
   signerIdentity: platform-release
   algorithm: ssh-ed25519
@@ -10,7 +9,7 @@ compatibility:
   stableUpgrade: supported
   upgradesFromAlphaRevisions: []
   downgrade: unsupported
-  recovery: configuration-revert
+  recovery: forward-fix
 packages:
   default:
   - releases/namespaces
@@ -24,8 +23,8 @@ packages:
     chartPrefixes: []
     prerequisites:
     - name: openbao-stack-setup
-      version: 0.2.18
-      source: https://github.com/neurwerk/k8s_stack_tooling/commit/8ce01f5f029a9762a0d86276334f10dad7c4e37b
+      version: 0.2.20
+      source: https://github.com/neurwerk/k8s_stack_tooling/commit/d613eda1709ed8553d239ed89a7d6fa0ef549e1c
   - path: releases/docling/secret-sync
     status: included
     reason: Optional remote-mode credential delivery; provision the API key and inference token before
@@ -33,8 +32,8 @@ packages:
     chartPrefixes: []
     prerequisites:
     - name: openbao-stack-setup
-      version: 0.2.18
-      source: https://github.com/neurwerk/k8s_stack_tooling/commit/8ce01f5f029a9762a0d86276334f10dad7c4e37b
+      version: 0.2.20
+      source: https://github.com/neurwerk/k8s_stack_tooling/commit/d613eda1709ed8553d239ed89a7d6fa0ef549e1c
   - path: releases/docling/reloader
     status: included
     reason: Optional Docling namespace watch and rotation RBAC; compose only after its namespace exists.
@@ -51,8 +50,8 @@ packages:
     - charts/docling
     prerequisites:
     - name: openbao-stack-setup
-      version: 0.2.18
-      source: https://github.com/neurwerk/k8s_stack_tooling/commit/8ce01f5f029a9762a0d86276334f10dad7c4e37b
+      version: 0.2.20
+      source: https://github.com/neurwerk/k8s_stack_tooling/commit/d613eda1709ed8553d239ed89a7d6fa0ef549e1c
   - path: releases/namespaces/maintenance
     status: included
     reason: Operator-tested optional maintenance; enable only when selected by the client.
@@ -116,8 +115,8 @@ prerequisites:
   version: 2.9.4
   source: client bootstrap manifests
 - name: openbao-stack-setup
-  version: 0.2.18
-  source: https://github.com/neurwerk/k8s_stack_tooling/commit/8ce01f5f029a9762a0d86276334f10dad7c4e37b
+  version: 0.2.20
+  source: https://github.com/neurwerk/k8s_stack_tooling/commit/d613eda1709ed8553d239ed89a7d6fa0ef549e1c
 - name: gateway-api-experimental
   version: 1.6.0
   source: https://github.com/kubernetes-sigs/gateway-api/releases/tag/v1.6.0
@@ -156,15 +155,8 @@ exceptions:
   reason: The reviewed upstream DocumentDB local image requires passwordless sudo to prepare runtime directories
     before dropping back to UID 1000.
 provenance:
-  previousTag: v0.3.12
-  includedThrough: da3bee6cb843f0482b48950a3887c222af663db9
+  previousTag: v0.3.13
+  includedThrough: 6c1b2f45752a109d3cd17852a43bba6f50499a4c
   commits:
-  - b9562ad523a9ea292ebcf4597cf238c8bcb65bf1
-  - 232708065e7931175b6c4d25addb5191b1807c19
-  - 285d0be955936191003c9005af57fbb91e2e1925
-  - 74b7aa0e03dbc47cd45195875473e8599a4d961e
-  - 480a24834816671a8925e0712bd0320d5b1f46d0
-  - 57f4e404236c10292b9634aad12cda477f467f99
-  - 25894c934e046d57c7925fe1d05955c0fd87d976
-  - da3bee6cb843f0482b48950a3887c222af663db9
-  compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.12...da3bee6cb843f0482b48950a3887c222af663db9
+  - 6c1b2f45752a109d3cd17852a43bba6f50499a4c
+  compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.13...6c1b2f45752a109d3cd17852a43bba6f50499a4c
