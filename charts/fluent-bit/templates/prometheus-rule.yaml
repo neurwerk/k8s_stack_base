@@ -18,8 +18,10 @@ spec:
         - alert: ApplicationErrorObserved
           # A timestamp catches the first event even before a counter has a baseline.
           expr: >-
-            time() - max by (application_namespace, application, error_kind)
-            (stack_application_error_last_seen_seconds) < 300
+            max by (application_namespace, application, error_kind)
+            (stack_application_error_last_seen_seconds)
+            and (time() - max by (application_namespace, application, error_kind)
+            (stack_application_error_last_seen_seconds) < 300)
           labels:
             severity: warning
             alert_scope: application
@@ -33,7 +35,7 @@ spec:
             events_since_collector_start: >-
               {{ `{{ with printf "sum(stack_application_error_events_total{application_namespace=%q,application=%q,error_kind=%q})" $labels.application_namespace $labels.application $labels.error_kind | query }}{{ . | first | value | printf "%.0f" }}{{ end }}` }}
             {{- if and $studio (ne $studio "place.holder") }}
-            logs_url: {{ printf "https://%s/logs" $studio | quote }}
+            logs_url: {{ printf "https://%s/logs?namespace=%s&at=%s" $studio "{{ $labels.application_namespace }}" "{{ $value | printf \"%.0f\" }}" | quote }}
             {{- end }}
         - alert: ApplicationErrorCollectorUnavailable
           expr: >-
