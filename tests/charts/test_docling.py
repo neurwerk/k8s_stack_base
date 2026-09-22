@@ -345,7 +345,7 @@ class DoclingTests(unittest.TestCase):
 
         def checked_import(name, *args, **kwargs):
             if name == "docling_serve.app":
-                self.assertEqual(logging.root.manager.disable, logging.CRITICAL)
+                self.assertEqual(logging.root.manager.disable, logging.WARNING)
                 presets = json.loads(os.environ["DOCLING_SERVE_CUSTOM_VLM_PRESETS"])
                 self.assertEqual(presets["default"]["engine_options"]["headers"],
                                  {"Authorization": "Bearer test-upstream-token"})
@@ -436,7 +436,7 @@ class DoclingTests(unittest.TestCase):
                     patch("builtins.open", mock_open(read_data=json.dumps(settings))):
                 self.assertEqual(scope["main"](), 0)
                 self.assertNotIn("DOCLING_SERVE_CUSTOM_VLM_PRESETS", os.environ)
-                self.assertEqual(logging.root.manager.disable, logging.CRITICAL)
+                self.assertEqual(logging.root.manager.disable, logging.WARNING)
                 self.assertFalse(uvicorn.run.call_args.kwargs["access_log"])
                 self.assertEqual(uvicorn.run.call_args.kwargs["timeout_graceful_shutdown"], 360)
                 os.environ["DOCLING_SERVE_API_KEY"] = ""

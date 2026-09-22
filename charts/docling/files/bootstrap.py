@@ -7,7 +7,7 @@ import sys
 
 
 def main():
-    logging.disable(logging.CRITICAL)
+    logging.disable(logging.WARNING)
     try:
         with open(os.environ["DOCLING_SERVE_CONFIG_FILE"], encoding="utf-8") as source:
             settings = json.load(source)
@@ -31,7 +31,7 @@ def main():
         import uvicorn
 
         # Upstream configures logging during import. Do not let Uvicorn reset it.
-        logging.disable(logging.CRITICAL)
+        logging.disable(logging.WARNING)
         # A server-wide concurrency cap would reject health probes when busy.
         uvicorn.run(
             create_app, factory=True, host="0.0.0.0", port=5001,
