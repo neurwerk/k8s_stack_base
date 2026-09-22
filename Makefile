@@ -153,7 +153,7 @@ release-notes: ## Write release notes; pass OUTPUT=<path>
 	@if [ -z "$(OUTPUT)" ]; then printf "$(RED)OUTPUT is required$(RESET)\n"; exit 1; fi
 	@$(UV) run --frozen python scripts/platform_release.py notes --output "$(OUTPUT)"
 
-check: tools helm-lint helm-validate kustomize-validate kube-linter chart-check security-check platform-check ## Run full local validation suite
+check: tools helm-lint rendered-check kustomize-validate chart-check security-check platform-check ## Run full local validation suite
 
 streaming-acceptance: ## Run opt-in local streaming regression; see tests/live/agentgateway/README.md
 	@$(PYTHON3) tests/live/agentgateway/test_streaming.py

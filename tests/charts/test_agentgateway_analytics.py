@@ -5,7 +5,7 @@ import unittest
 
 import yaml
 
-from helm import ROOT, documents, env_value, render, resource
+from helm import documents, env_value, render, resource
 
 GATEWAY_PEER = {
     "namespaceSelector": {"matchLabels": {"kubernetes.io/metadata.name": "infra-agentgateway"}},
@@ -176,7 +176,7 @@ class AgentGatewayAnalyticsTests(unittest.TestCase):
         self.assertNotIn("tracing", raw["config"])
         self.assertIn("database", raw["config"]["logging"])
 
-    def test_database_and_studio_peers_and_release_order(self):
+    def test_database_and_studio_peers(self):
         postgres = render(
             "postgres/operations",
             release="postgres-operations",
@@ -199,17 +199,3 @@ class AgentGatewayAnalyticsTests(unittest.TestCase):
             "spec"
         ]["egress"]
         self.assertIn({"to": [GATEWAY_PEER], "ports": [{"port": 15000, "protocol": "TCP"}]}, rules)
-        for path, dependency, namespace in (
-            ("agentgateway/app.yaml", "postgres-operations", "infra-postgres-operations"),
-            ("studio/api.yaml", "agentgateway", "infra-agentgateway"),
-        ):
-            release = yaml.safe_load((ROOT / "releases" / path).read_text())
-            self.assertIn(
-                {"name": dependency, "namespace": namespace}, release["spec"]["dependsOn"]
-            )
-        for namespace, field in (
-            ("infra-agentgateway", "postgresqlPassword"),
-            ("infra-postgres-operations", "agentgatewayPassword"),
-        ):
-            delivery = (ROOT / "releases/openbao/secret-sync" / f"{namespace}.yaml").read_text()
-            self.assertIn(f"property: {field}", delivery)

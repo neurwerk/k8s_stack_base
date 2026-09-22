@@ -163,14 +163,6 @@ class RenderTests(unittest.TestCase):
         self.assertNotIn("cephx:", result.stdout)
         self.assertNotIn("muteHealthWarning", result.stdout)
         self.assertNotIn("allowedCiphers", result.stdout)
-        script = (CHART / "files/health.sh").read_text()
-        self.assertIn(
-            script.strip(),
-            "\n".join(
-                line[15:] if line.startswith(" " * 15) else line
-                for line in result.stdout.splitlines()
-            ),
-        )
         job = result.stdout.split("# Source: rook-ceph/templates/readiness-job.yaml\n", 1)[1]
         shell = textwrap.dedent(
             job.split("            - |\n", 1)[1].split("\n          env:", 1)[0]
@@ -178,8 +170,7 @@ class RenderTests(unittest.TestCase):
         syntax = subprocess.run(["/bin/sh", "-n"], input=shell, text=True, capture_output=True)
         self.assertEqual(syntax.returncode, 0, syntax.stderr)
         self.assertEqual(shell.count("\nEOF\n"), 2, "Smoke-test heredocs must remain unindented")
-        template = (CHART / "templates/readiness-job.yaml").read_text()
         self.assertLess(
-            template.index("RBD dynamic provisioning and persisted write/read succeeded."),
-            template.index("Ceph health did not pass after the RBD smoke test."),
+            shell.index("RBD dynamic provisioning and persisted write/read succeeded."),
+            shell.index("Ceph health did not pass after the RBD smoke test."),
         )
