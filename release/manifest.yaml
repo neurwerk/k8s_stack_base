@@ -264,7 +264,7 @@ spec:
           sha256: da2d5c126a103b4c1b16a9dc1c168c4332a3687144e88ac070e594f81a0b6578
     - path: charts/fluent-bit
       name: monitor-fluent-bit
-      version: 1.0.2
+      version: 1.0.3
       appVersion: 3.2.8
       dependencyLock:
         digest: sha256:90275c51b97202d8b18e353f33c38e5800924b94be0b21d2adf9a62590334d17

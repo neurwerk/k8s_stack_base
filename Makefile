@@ -13,6 +13,7 @@ KUBELINTER  := $(shell command -v kube-linter 2>/dev/null || echo "")
 PRECOMMIT   := $(shell command -v pre-commit 2>/dev/null || echo "")
 PYTHON3     := $(shell command -v python3 2>/dev/null || echo "")
 UV          := $(shell command -v uv 2>/dev/null || echo "")
+LUA         := $(shell command -v lua 2>/dev/null || echo "")
 
 # --- Paths ---
 CHART_DIRS     := $(sort $(shell find charts -type f -name Chart.yaml -print | xargs -n1 dirname))
@@ -39,7 +40,7 @@ help: ## Show this help
 tools: ## Check that required CLIs are installed
 	@printf "$(CYAN)Checking required tools...$(RESET)\n"
 	@errors=0; \
-	for tool in "helm" "kustomize" "kubeconform" "kube-linter" "python3" "uv"; do \
+	for tool in "helm" "kustomize" "kubeconform" "kube-linter" "python3" "uv" "lua"; do \
 		path=$$(command -v "$$tool" 2>/dev/null || true); \
 		if [ -z "$$path" ]; then \
 			printf "  $(RED)✗$(RESET) $$tool — not found\n"; \
@@ -52,6 +53,7 @@ tools: ## Check that required CLIs are installed
 				kube-linter) version=$$("$$tool" version 2>/dev/null) ;; \
 				python3) version=$$("$$tool" --version 2>/dev/null) ;; \
 				uv) version=$$("$$tool" --version 2>/dev/null) ;; \
+				lua) version=$$("$$tool" -v 2>&1) ;; \
 			esac; \
 			printf "  $(GREEN)✓$(RESET) $$tool — $$version\n"; \
 		fi \

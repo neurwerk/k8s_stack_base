@@ -9,6 +9,8 @@ upgrade path.
 
 ## [Unreleased]
 
+- Exclude DocumentDB's expected Atlas capability probe from application-error alerts while retaining the log and alerting on other gateway failures.
+
 ## [0.3.13] - 2026-09-21
 
 - Add an authenticated, internal-only OpenSearch Dashboards interface for operational log inspection.
