@@ -263,7 +263,7 @@ spec:
           sha256: da2d5c126a103b4c1b16a9dc1c168c4332a3687144e88ac070e594f81a0b6578
     - path: charts/fluent-bit
       name: monitor-fluent-bit
-      version: 1.0.3
+      version: 1.0.4
       appVersion: 3.2.8
       dependencyLock:
         digest: sha256:90275c51b97202d8b18e353f33c38e5800924b94be0b21d2adf9a62590334d17
@@ -486,15 +486,15 @@ spec:
       appVersion: v1.20.3
     - path: charts/studio/api
       name: studio-api
-      version: 1.1.4
-      appVersion: 0.9.1
+      version: 1.1.5
+      appVersion: 0.9.2
     - path: charts/studio/shared
       name: studio-shared
       version: 1.0.0
     - path: charts/studio/web
       name: studio
-      version: 1.0.5
-      appVersion: 0.9.1
+      version: 1.0.6
+      appVersion: 0.9.2
     - path: charts/traefik
       name: traefik
       version: 1.0.2
@@ -938,12 +938,12 @@ spec:
       origins:
       - charts/pii-engine-model-sync/values.yaml
       - charts/pii-engine/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-studio-api:0.9.1@sha256:59660fdb5db04d8b588798dd192bcc7b5bfe37e2565c5b56ab4964d6a14fb48b
+    - reference: ghcr.io/neurwerk/k8s-stack-studio-api:0.9.2@sha256:065a736825f7f7528a31ac3f1ff334871a5f7f19302c69bdaacae969c28e6540
       pinned: true
       eligibility: included
       origins:
       - charts/studio/api/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-studio-web:0.9.1@sha256:6169d5937c209627778f44f18a05bd7fef2a8d9412abe7c1fdd7286689727652
+    - reference: ghcr.io/neurwerk/k8s-stack-studio-web:0.9.2@sha256:1d6874a71c0719fd90523de020c259e34407983f350eaddc54ef55a2388b0ec1
       pinned: true
       eligibility: included
       origins:
