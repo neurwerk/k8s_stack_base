@@ -457,9 +457,10 @@ mise exec -- make check
 ```
 
 This checks charts, schemas, lint, release contracts and offline safety tests;
-it never contacts a cluster. `mise exec -- pre-commit run --all-files` includes
-the same full check, so running both is unnecessary. See `make help` for focused
-targets; release verification uses `make check release-check TAG=vX.Y.Z`.
+it never contacts a cluster. Pre-commit runs lightweight file checks only. See
+`make help` for focused targets. Before tagging, run `make check` and
+`make release-check`; the tag workflow repeats only release-contract and trust
+verification because the reviewed commit has already passed Required CI.
 `helm-validate` and `kube-linter` share one render per chart and run both checks.
 Live acceptance is opt-in with explicit context and credentials, never part of
 `make check`; see [AgentGateway setup](tests/live/agentgateway/README.md).
@@ -478,7 +479,7 @@ pin; local `VALIDATION_WORKTREE` overrides never apply there.
 It reads one explicit normalized YAML plan, not a client repository, Helm values,
 Flux output, or Kubernetes resource. A human must derive its endpoint selection,
 effective logical endpoints, feature flags, and device grants from reviewed
-effective values, or use the bounded local composition adapter described below.
+ effective values.
 Success says **"Access plan valid; planning only. Runtime enforcement/DNS not
 verified."** It does not prove actual client selection, topology, authentication,
 certificate issuance/trust, DNS, or reachability, and does not enforce access.
@@ -564,202 +565,6 @@ returns `(errors, warnings)` without mutating input and raises `PlanError` for
 malformed structure. Tests run automatically through `make platform-check` and
 `make check`. No charts, release contracts, runtime defaults, or client values
 consume this plan format.
-
-### Local Composition Adapter
-
-`scripts/check_client_application_access.py` derives that normalized plan from
-two supplied local checkouts. It is **offline planning, not runtime enforcement**.
-It never fetches repositories, runs Helm/Kustomize, renders Secrets, resolves Secret
-references, changes inputs, or contacts Kubernetes, DNS, OpenBao, or applications.
-
-```bash
-mise exec -- uv run --offline --frozen python scripts/check_client_application_access.py \
-  --client-root /path/to/example-client --platform-root /path/to/platform \
-  --cluster prod-eu-1
-```
-
-The client policy is always `config/application-access.yaml`. Its entire schema
-is the following, using the same boundary, level, and expanded device-ID rules as
-the normalized checker:
-
-```yaml
-access:
-  boundary: internet
-  default: internal
-endpoints:
-  keycloak: {}
-  forgejo:
-    level: restricted
-    devices: [device-a]
-```
-
-This is a schema illustration, not an inventory for a real client. The endpoint
-keys must **exactly** match the derived selection. Entries allow only optional
-`level` and `devices`. Features, certificates, routing, hostnames, and enablement
-must not be duplicated in policy. Unknown keys, duplicate keys, aliases, merge
-keys, explicit tags, and unsupported types fail with value-free diagnostics.
-
-Supported input contract:
-
-- Start at `clusters/<cluster>/kustomization.yaml`; follow only its selected local
-  resource files/directories and selected Flux Kustomizations. The `k8s-stack`
-  source maps to the supplied platform root and `flux-system` to the client root.
-  Bootstrap self-selection is recognized without traversing it twice. Separate
-  Forgejo stages remain selected even with their external Gateway disabled.
-- Local Kustomizations support `resources`, `namespace`, harmless common labels
-  and annotations, and stable-name `configMapGenerator.files` entries, including
-  `key=relative-file`. Generated file contents are loaded only when referenced as
-  values. ConfigMap identity is namespace-local; duplicate identities fail.
-- Management annotations cannot suppress application of selected facts. Selected
-  resource annotations, `commonAnnotations`, and generator annotations permit
-  only absent or `Override` SSA policy and absent or `enabled` reconciliation.
-  `kustomize.toolkit.fluxcd.io/ssa` values such as `Ignore`, `IfNotPresent`, and
-  `Merge`, and `kustomize.toolkit.fluxcd.io/reconcile: disabled`, are rejected
-  before ConfigMaps or ExternalSecret producers can supply facts. Unsupported
-  annotations at any selected layer fail even if a later transform might replace
-  them; the adapter does not infer whether stale runtime objects were applied.
-- Chart defaults precede each HelmRelease's actual ordered `valuesFrom`, then
-  inline `spec.values`. No fixed shared/client/product ordering is assumed.
-  Required missing ConfigMaps fail. Missing optional ConfigMaps and unscoped
-  Secret references make relevant leaves unknown. A later explicit non-secret
-  scalar settles that leaf, not its missing siblings. Secret contents are never
-  inspected, even when a similarly named local file exists.
-- A single selected namespace-local ExternalSecret producer can establish a
-  Secret's finite declared write scope. Its exact target must use explicit
-  `creationPolicy: Owner`, `engineVersion: v2`, and `mergePolicy: Replace`
-  (including the default). Its template data must contain the referenced
-  values key, with static nested mapping keys. Optional sibling Secret output
-  keys must be static valid Kubernetes data keys (1-253 ASCII letters, digits,
-  `-`, `_`, or `.`, excluding `.` and names beginning with `..`), with only raw
-  full-field `{{ .identifier }}` expressions.
-  These siblings support direct workload consumers and do not contribute Helm
-  writes; only the referenced YAML is inspected. Only whole-scalar
-  `{{ .identifier | quote }}` placeholders are replaced by parser markers;
-  all resulting leaf values, including literal values, remain **unknown**.
-  No upstream data or remote references are resolved. Missing, ambiguous or
-  unsupported producers leave the entire reference unknown. Merge policies,
-  templateFrom, other sibling output forms, sequences, aliases, dynamic keys and other
-  Go syntax/interpolation are unsupported. This is a declared producer contract,
-  **not proof of actual synchronization, contents, ownership or tamper resistance**.
-- All Secret `targetPath` references are rejected, including apparently disjoint
-  dotted paths. An opaque Helm strvals payload can contain comma assignments that
-  overwrite sibling values, with precedence over inline values. A path alone
-  cannot establish write scope. ConfigMap `targetPath` and Helm `--set` parsing
-  also remain unsupported; producer-shape support applies only to root YAML refs.
-- The fixed endpoint bundles cover Keycloak server, LibreChat app/shared, Admin
-  Panel, Studio web/API, Dify web/API/shared, Langfuse, AgentGateway, and enabled
-  selected Forgejo. Rook's selected external object route requires file-endpoint
-  classification even without LibreChat object storage. Unknown charts fail;
-  the explicit `NON_ENDPOINT_CHARTS` catalog excludes backend, controller,
-  operator-only and job packages, not arbitrary serving charts.
-- Only the fixed chart surfaces described here are modeled, not arbitrary vendor
-  extensions. Enabled alternate ingresses fail classification: nested Langfuse
-  ingress, Grafana/Prometheus/Alertmanager ingresses, OpenSearch ingress, and
-  OpenBao server ingress/OpenShift route/HTTPRoute/TLSRoute. The two fixed
-  Langfuse and kube-prometheus-stack dependency archives supply their actual
-  upstream defaults before wrapper defaults; their committed bytes are verified
-  and only their regular `values.yaml` member is parsed, without extraction or
-  rendering. This is not a generic Helm dependency or exposure interpreter.
-- Raw namespaces, ConfigMaps, RBAC, service accounts, NetworkPolicies and External
-  Secrets resources are non-endpoint inputs. Deployments, Services, CRDs and
-  ResourceQuotas are accepted only in the exact reviewed generated Flux v2.9.4
-  controller bundle, SHA-256
-  `97da4654bc11de5637d7f506b0a73707e1e6a1f7a8e9fa8e307063c0b9befa1f`.
-  Filename and controller resource names do not establish trust. Changed/unknown
-  bundles and namespace transforms of controller workloads fail. Other raw
-  serving resources remain unsupported. Updating Flux requires reviewing and
-  deliberately updating this bounded bootstrap contract.
-- LibreChat app/shared file flags must agree. The app's file endpoint must use
-  its canonical RGW hostname; an override to another origin, non-root storage
-  path, or virtual-hosted bucket addressing fails. A selected Rook route is
-  compared independently. Dify SSO comes from the API chart's exact string
-  boolean `ENABLE_SOCIAL_OAUTH_LOGIN`, never Python truthiness.
-- Advertised origins, enabled OIDC callback origins and Studio's OIDC authority
-  must agree with canonical endpoints. The Admin Panel uses the main LibreChat
-  callback but its own web origin. Callback paths must exactly match
-  `/oauth/openid/callback` (LibreChat), `/api/admin/oauth/openid/callback` (Admin
-  Panel), `/auth/callback` (Studio), and `/console/api/oauth/authorize/keycloak`
-  (Dify when console SSO is enabled). Web origins must have no path. Forgejo's
-  fixed `/user/oauth2/keycloak/callback` is constructed by its selected chart
-  from the checked canonical hostname, not an independently configurable URL.
-  Each enabled callback registration's Keycloak hostname and realm must match
-  the selected issuer and Keycloak, including the separate Forgejo OIDC release.
-  AgentGateway's empty redirect/web-origin pair is a native/service-only
-  registration and creates no Keycloak browser dependency. Any nonempty pair or
-  one-sided callback configuration is rejected as unsupported browser mode; no
-  conditional dependency is silently omitted. Unsupported callback forms (including
-  local HTTP callbacks) fail rather than inventing an endpoint. Same-origin logical
-  endpoints require identical levels and expanded grants. Gateway ports other
-  than canonical HTTPS 443 are unsupported. Gateway enablement is not exposure.
-- Certificate profiles derive from effective `publicCertificates.useProduction`;
-  only production is supported. Canonical routing observations must agree and
-  remain independent of access. No observed mode means unsupported, not a guessed
-  default. This is not a general Helm/chart semantic validator or readiness check.
-
-Forgejo OIDC consumes quoted `values.yaml` from `forgejo-oidc-values`, without
-`targetPath`. The same producer retains the raw `oidcClientSecret` output because
-the registration Job reads that key directly; the Helm value is only a rotation
-trigger and never appears in workload manifests. Both outputs use the same
-existing source field, Secret identity, ownership, retention, and Flux watch label.
-The authorized early-alpha change updates producer and consumer together and
-accepts a temporary missing-key reconciliation failure until ESO synchronizes.
-Verify current-generation producer/consumer readiness and application health
-afterward, without printing Secret values. Stable clients stay on their selected
-release until a later reviewed release bump; no credential generation or OpenBao
-schema change is needed.
-
-Remote paths, root/symlink escapes, resource/Flux cycles, suspension, patches,
-components, substitutions/postBuild, decryption, plugins, post-renderers, alternate
-chart sources/values files, and alternate target namespaces fail closed. The
-adapter also rejects source ignore files, runtime `preserveValues`, and disabled
-Helm hooks rather than interpreting a runtime state it cannot inspect. The
-supported subset deliberately rejects unresolved or unclassified inputs instead
-of treating them as absent or safe. No runtime edit follows from a failure.
-
-The selected platform `GitRepository/flux-system/k8s-stack` must use exactly
-`https://github.com/neurwerk/k8s_stack_base.git` and select local `main`, an exact
-stable `vX.Y.Z` tag, or a full frozen-alpha commit. HEAD must equal the selected
-revision. Tags are never reinterpreted as candidate inputs. There is no fetch,
-remote-freshness claim, or signature check.
-
-Git inspection uses only `rev-parse`, `ls-tree`, and names-only `ls-files`.
-It never uses `status`, `diff`, content conversion, textconv, or clean/process
-filters. Lazy fetching and replacement objects are disabled explicitly; the
-inherited Git environment is scrubbed, global/system configuration is disabled,
-all transport protocols are denied, and fsmonitor/hooks/automatic maintenance
-are disabled. Git must support `--no-lazy-fetch`; unsupported versions fail
-instead of falling back to less constrained inspection.
-
-Snapshot state comes from raw bytes and executable modes compared with committed
-blob identities, plus tracked/untracked filename inventory. Ignored caches are
-not read for snapshot reporting. Consumed client input paths are tracked, including
-the policy and lazily loaded ConfigMap files, before revision reporting. A consumed
-client file absent from HEAD or differing from its committed blob forces
-`clientSnapshot: modified` even when Git ignores it. Such client candidates remain
-allowed; an unrelated ignored cache does not change the report. Independently,
-**every consumed platform file**
-must be a regular committed blob with matching raw bytes and mode, including
-manifests, generated values inputs, chart defaults, and the fixed vendor archives.
-Selected ignored/untracked payloads and symlinks are rejected even when the rest
-of the checkout appears unchanged. No index stat-cache or filter result grants
-provenance. Snapshot reporting describes worktree bytes, not staged-only changes.
-
-Output distinguishes runtime platform/client revisions from the checker revision
-and marks modified client/checker snapshots. Modified client inputs are planning
-candidates, not a claim that HEAD contains the policy. These constraints prevent
-repository attribute commands from executing; they are not an OS sandbox against
-a hostile Git binary, filesystem, or concurrent privileged modification.
-
-The importable API is
-`scripts.check_client_application_access.derive_plan(client_root: Path, platform_root: Path, cluster="prod-eu-1")`, returning
-`(normalized_plan, revision_identities)` and raising `PlanError` on invalid or
-unsupported input. It calls `validate_plan(normalized_plan)` before returning.
-The CLI exits 0 for valid plans, 1 for input/dependency failures and 2 for usage
-errors. It reports known endpoint IDs, safe schema diagnostics and revisions,
-never raw hostnames, grants or YAML. All results include the explicit offline
-planning/no runtime enforcement disclaimer. Synthetic tests include actual Base
-release composition with generic example values; no private client fixtures are
-stored in this repository.
 
 ## Verify A Release
 

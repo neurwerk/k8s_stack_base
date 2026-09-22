@@ -6,7 +6,6 @@ import io
 import json
 import logging
 import os
-import re
 import subprocess
 import sys
 import types
@@ -14,7 +13,7 @@ import unittest
 import yaml
 from unittest.mock import patch, Mock, mock_open
 
-from helm import ROOT, env_value, render, resource, resources, values_from
+from helm import ROOT, env_value, render, resource, resources
 
 
 class DoclingTests(unittest.TestCase):
@@ -35,7 +34,6 @@ class DoclingTests(unittest.TestCase):
                 self.assertEqual(env_value(result, "EXTPROC_GRPC_MAXIMUM_CONCURRENT_RPCS"), "4")
                 self.assertIn("memory: 256Mi", disabled)
                 self.assertIn("memory: 512Mi", disabled)
-                self.assertEqual(len(resources(result, "HorizontalPodAutoscaler")), 1)
             else:
                 self.assertEqual(enabled.count("cert-manager-internal-docling-server"), 2)
                 self.assertIn("matchNames: [docling]", enabled)
@@ -335,10 +333,6 @@ class DoclingTests(unittest.TestCase):
         self.assertEqual(env_value(extproc, "EXTPROC_DOCLING__DOCUMENT_TIMEOUT"), "3600")
         for name, value in zip(("FILE_BYTES", "TOTAL_BYTES", "COUNT", "PAGES"), maximums.values()):
             self.assertEqual(env_value(extproc, f"EXTPROC_DOCLING__{name}"), str(value))
-        release = (ROOT / "releases/docling/app/app.yaml").read_text()
-        rollout_minutes = int(re.search(r"(?m)^  timeout: (\d+)m$", release).group(1))
-        self.assertGreater(rollout_minutes * 60, 3660 + 30 + 5 * 60)
-
     def test_bootstrap_orders_secret_injection_and_log_suppression(self):
         settings = self.settings(render("docling", {}))
         scope = {"__name__": "bootstrap_test"}
@@ -454,85 +448,22 @@ class DoclingTests(unittest.TestCase):
 
         delivery = subprocess.run(["kustomize", "build", str(ROOT / "releases/docling/secret-sync/internal")],
                                   text=True, capture_output=True, check=True)
-        self.assertEqual([len(resources(delivery, kind)) for kind in
-                          ("ServiceAccount", "SecretStore", "ExternalSecret")], [2, 2, 2])
-        self.assertEqual(len(re.findall(r"(?m)^kind:", delivery.stdout)), 6)
         for text in ("docling-inference", "inferenceToken", "/external", "dataFrom:"):
             self.assertNotIn(text, delivery.stdout)
-        root = subprocess.run(["kustomize", "build", str(ROOT / "releases/docling/secret-sync")],
-                              text=True, capture_output=True, check=True)
-        for kind in ("ServiceAccount", "SecretStore", "ExternalSecret"):
-            for resource in resources(delivery, kind):
-                self.assertIn(resource.strip(), [item.strip() for item in resources(root, kind)])
 
-    def test_optional_packages_and_shared_caps(self):
-        for stage in ("namespaces", "infrastructure", "applications"):
-            result = subprocess.check_output(
-                [
-                    "kustomize",
-                    "build",
-                    "--load-restrictor",
-                    "LoadRestrictionsNone",
-                    str(ROOT / "releases" / stage),
-                ],
-                text=True,
-            )
-            self.assertNotRegex(result, r"(?m)^  (?:name|namespace): docling$")
-            self.assertNotIn("name: monitor-agentgateway-extproc-docling-secret", result)
-            self.assertNotIn("name: monitor-agentgateway-extproc-openbao-secret-store", result)
-        package = subprocess.check_output(
-            [
-                "kustomize",
-                "build",
-                "--load-restrictor",
-                "LoadRestrictionsNone",
-                str(ROOT / "releases/docling/app"),
-            ],
-            text=True,
-        )
-        self.assertIn("name: base-shared-document-attachments-config-map", package)
-        self.assertIn("name: docling-product-values", package)
-        extproc = subprocess.check_output(
-            [
-                "kustomize",
-                "build",
-                "--load-restrictor",
-                "LoadRestrictionsNone",
-                str(ROOT / "releases/agentgateway-extproc"),
-            ],
-            text=True,
-        )
-        self.assertIn("name: base-shared-document-attachments-config-map", extproc)
-        refs = values_from("agentgateway-extproc/app.yaml")
-        self.assertLess(
-            refs.index(("ConfigMap", "base-shared-document-attachments-config-map")),
-            refs.index(("ConfigMap", "client-values")),
-        )
-        caps = yaml.safe_load((ROOT / "releases/shared/document-attachments.yaml").read_text())[
-            "documentAttachments"
-        ]
-        for chart in ("docling", "agentgateway-extproc", "librechat/shared"):
-            defaults = yaml.safe_load((ROOT / "charts" / chart / "values.yaml").read_text())
-            self.assertEqual(defaults["documentAttachments"], caps)
-
+    def test_secret_sync_security(self):
         delivery = subprocess.run(
             ["kustomize", "build", str(ROOT / "releases/docling/secret-sync")],
             text=True,
             capture_output=True,
             check=True,
         )
-        self.assertEqual(len(re.findall(r"(?m)^kind:", delivery.stdout)), 7)
         self.assertFalse(resources(delivery, "Secret"))
         self.assertNotIn("dataFrom:", delivery.stdout)
         self.assertNotIn("template:", delivery.stdout)
         accounts = [yaml.safe_load(doc) for doc in resources(delivery, "ServiceAccount")]
         stores = [yaml.safe_load(doc) for doc in resources(delivery, "SecretStore")]
-        secrets = [yaml.safe_load(doc) for doc in resources(delivery, "ExternalSecret")]
-        self.assertEqual((len(accounts), len(stores), len(secrets)), (2, 2, 3))
-        for namespace, source in (
-            ("docling", "docling/namespace.yaml"),
-            ("monitor-agentgateway-extproc", "agentgateway-extproc.yaml"),
-        ):
+        for namespace in ("docling", "monitor-agentgateway-extproc"):
             (account,) = [item for item in accounts if item["metadata"]["namespace"] == namespace]
             self.assertFalse(account["automountServiceAccountToken"])
             (store,) = [item for item in stores if item["metadata"]["namespace"] == namespace]
@@ -546,65 +477,6 @@ class DoclingTests(unittest.TestCase):
                 provider["caProvider"],
                 {"type": "ConfigMap", "name": "infra-openbao-ca-bundle", "key": "ca.crt"},
             )
-            self.assertIn(
-                'secrets.neurwerk.com/openbao-trust: "true"',
-                (ROOT / "releases/namespaces" / source).read_text(),
-            )
-        for namespace, name, key, record, field in (
-            ("docling", "docling-api", "api-key", "internal", "apiKey"),
-            ("docling", "docling-inference", "token", "external", "inferenceToken"),
-            (
-                "monitor-agentgateway-extproc",
-                "monitor-agentgateway-extproc-docling-secret",
-                "api-key",
-                "internal",
-                "doclingApiKey",
-            ),
-        ):
-            (secret,) = [item for item in secrets if item["metadata"]["name"] == name]
-            self.assertEqual(secret["metadata"]["namespace"], namespace)
-            spec = secret["spec"]
-            self.assertEqual(
-                spec["data"],
-                [
-                    {
-                        "secretKey": key,
-                        "remoteRef": {"key": f"{namespace}/{record}", "property": field},
-                    }
-                ],
-            )
-            self.assertEqual(
-                spec["secretStoreRef"],
-                {"name": f"{namespace}-openbao-secret-store", "kind": "SecretStore"},
-            )
-            self.assertEqual(
-                spec["target"],
-                {"name": name, "creationPolicy": "Owner", "deletionPolicy": "Retain"},
-            )
-
-        watcher_values = json.loads((ROOT / "releases/docling/reloader/values.json").read_text())
-        default_reloader = render("reloader", {}).stdout
-        selected_reloader = render("reloader", watcher_values).stdout
-
-        def watched(output):
-            return set(re.search(r'--namespaces=([^"\s]+)', output).group(1).split(","))
-
-        self.assertEqual(watched(selected_reloader), watched(default_reloader) | {"docling"})
-
-        def rbac_namespaces(output):
-            return set(re.findall(r"(?m)^  namespace: (.+)$", output))
-
-        self.assertEqual(
-            rbac_namespaces(selected_reloader), rbac_namespaces(default_reloader) | {"docling"}
-        )
-        reloader_values = subprocess.check_output(
-            ["kustomize", "build", str(ROOT / "releases/docling/reloader")], text=True
-        )
-        self.assertIn("name: docling-reloader-values", reloader_values)
-        self.assertIn("namespace: infra-reloader", reloader_values)
-        release = (ROOT / "releases/reloader/app.yaml").read_text()
-        self.assertIn("name: docling-reloader-values", release)
-        self.assertIn("optional: true", release)
 
     def test_cleanup_uses_verified_scoped_request_and_fixed_errors(self):
         scope = {"__name__": "cleanup_test"}

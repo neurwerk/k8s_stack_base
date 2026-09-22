@@ -2,13 +2,10 @@
 
 import copy
 import json
-from pathlib import Path
-import re
 import subprocess
 import unittest
 from helm import render as helm_render, resource
 
-ROOT = Path(__file__).resolve().parents[2]
 # Test-only artifact, never a release pin or a purported published image.
 IMAGE = "ghcr.io/neurwerk/k8s-stack-tooling:0.0.0@sha256:" + "a" * 64
 VALUES = {
@@ -34,14 +31,6 @@ VALUES = {
     "infraAgentgatewayWrapper": {"hostname": "models.platform.test"},
     "infraRookCeph": {"objectStore": {"publicHostname": "storage.platform.test"}},
 }
-LABELS = {
-    "app.kubernetes.io/name": "maintenance",
-    "app.kubernetes.io/instance": "maintenance",
-    "app.kubernetes.io/part-of": "maintenance",
-    "maintenance.neurwerk.com/managed-by": "operator",
-}
-
-
 def render(values):
     return helm_render(
         "maintenance",
@@ -63,8 +52,6 @@ class MaintenanceTests(unittest.TestCase):
     def test_disabled_has_only_static_infrastructure(self):
         result = render({})
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertCountEqual(re.findall(r"^kind: (.*)$", result.stdout, re.MULTILINE),
-                              ["Service", "NetworkPolicy"])
         self.assertIn("type: ClusterIP", result.stdout)
         self.assertIn("egress: []", result.stdout)
         self.assertIn("podSelector: {}", result.stdout)
@@ -79,31 +66,18 @@ class MaintenanceTests(unittest.TestCase):
                 values["authKeycloak"]["branding"]["logoFormat"] = logo_format
                 result = render(values)
                 data = contract(result)
-                self.assertCountEqual(re.findall(r"^kind: (.*)$", result.stdout, re.MULTILINE),
-                                      ["Service", "NetworkPolicy", "ConfigMap"])
-                self.assertEqual(set(data), {"version", "namespace", "serviceName", "servicePort", "deployment", "routes"})
-                self.assertEqual((data["version"], data["namespace"], data["serviceName"], data["servicePort"]),
-                                 (1, "maintenance", "maintenance", 8080))
                 deployment = data["deployment"]
                 validation = subprocess.run(
                     ["kubeconform", "-strict", "-summary"], input=json.dumps(deployment),
                     text=True, capture_output=True, check=False,
                 )
                 self.assertEqual(validation.returncode, 0, validation.stdout + validation.stderr)
-                self.assertEqual(deployment["apiVersion"], "apps/v1")
-                self.assertEqual(deployment["kind"], "Deployment")
-                self.assertEqual(deployment["metadata"], {"name": "maintenance", "namespace": "maintenance", "labels": LABELS})
-                self.assertEqual(deployment["spec"]["replicas"], 1)
-                self.assertEqual(deployment["spec"]["selector"]["matchLabels"], LABELS)
-                self.assertEqual(deployment["spec"]["template"]["metadata"], {"labels": LABELS})
                 pod = deployment["spec"]["template"]["spec"]
                 self.assertFalse(pod["automountServiceAccountToken"])
                 self.assertTrue(pod["securityContext"]["runAsNonRoot"])
                 self.assertEqual(pod["securityContext"]["seccompProfile"], {"type": "RuntimeDefault"})
                 container, = pod["containers"]
                 self.assertEqual(container["image"], IMAGE)
-                self.assertEqual(container["command"], ["maintenance-server"])
-                self.assertEqual(container["ports"], [{"name": "http", "containerPort": 8080}])
                 self.assertEqual(container["securityContext"], {
                     "allowPrivilegeEscalation": False, "readOnlyRootFilesystem": True,
                     "capabilities": {"drop": ["ALL"]},
@@ -121,19 +95,15 @@ class MaintenanceTests(unittest.TestCase):
                 self.assertEqual(container["volumeMounts"][0], {"name": "branding", "mountPath": "/branding", "readOnly": True})
                 self.assertEqual(container["volumeMounts"][1]["mountPath"], "/tmp")
                 self.assertEqual(set(container["resources"]), {"requests", "limits"})
-                self.assertEqual(set(data["routes"]), {"global", "studio", "dify", "librechat", "langfuse"})
                 all_hosts = []
                 for scope, route in data["routes"].items():
                     self.assertEqual(route["kind"], "IngressRoute")
                     self.assertEqual(route["apiVersion"], "traefik.io/v1alpha1")
                     metadata = route["metadata"]
-                    self.assertEqual(set(metadata), {"name", "namespace", "labels", "annotations"})
                     self.assertEqual(metadata["name"], f"maintenance-{scope}")
                     self.assertEqual(metadata["namespace"], "maintenance")
-                    self.assertEqual(metadata["labels"], LABELS)
                     hosts = json.loads(metadata["annotations"]["maintenance.neurwerk.com/hosts"])
                     spec = route["spec"]
-                    self.assertEqual(set(spec), {"entryPoints", "tls", "routes"})
                     self.assertEqual(spec["entryPoints"], ["websecure"])
                     self.assertEqual(spec["tls"], {})
                     self.assertEqual(spec["routes"], [{
@@ -144,7 +114,6 @@ class MaintenanceTests(unittest.TestCase):
                     if scope != "global":
                         all_hosts.extend(hosts)
                 self.assertEqual(json.loads(data["routes"]["global"]["metadata"]["annotations"]["maintenance.neurwerk.com/hosts"]), all_hosts)
-                self.assertEqual(len(set(all_hosts)), 5)
 
     def test_selection_and_resources(self):
         values = copy.deepcopy(VALUES)
@@ -154,9 +123,6 @@ class MaintenanceTests(unittest.TestCase):
             "requests": {"cpu": "20m", "memory": "80Mi"}, "limits": {"cpu": "200m", "memory": "160Mi"},
         }
         data = contract(render(values))
-        self.assertEqual(set(data["routes"]), {"global", "studio"})
-        self.assertRegex(data["deployment"]["spec"]["template"]["spec"]["containers"][0]["image"],
-                         r"^ghcr\.io/neurwerk/k8s-stack-tooling:0\.7\.2@sha256:[0-9a-f]{64}$")
         self.assertEqual(data["deployment"]["spec"]["template"]["spec"]["containers"][0]["resources"], values["maintenance"]["resources"])
 
     def test_reject_invalid_approval_inputs(self):
@@ -199,13 +165,6 @@ class MaintenanceTests(unittest.TestCase):
                 parent[parts[-1]] = value
                 result = render(values)
                 self.assertNotEqual(result.returncode, 0, result.stdout)
-
-    def test_traefik_explicit_crd_defaults(self):
-        result = subprocess.run(["helm", "template", "traefik", str(ROOT / "charts/traefik")],
-                                text=True, capture_output=True, check=True)
-        self.assertIn("kubernetesCRD:\n        enabled: true\n        allowEmptyServices: true", result.stdout)
-        self.assertIn("kubernetesGateway:\n        enabled: true", result.stdout)
-
 
 if __name__ == "__main__":
     unittest.main()

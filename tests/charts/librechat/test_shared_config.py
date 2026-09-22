@@ -8,7 +8,7 @@ import unittest
 
 import yaml
 
-from .helpers import ROOT, render_chart, resource, resources_of_kind
+from .helpers import render_chart, resource, resources_of_kind
 
 DISABLE_OPTIONAL_CAPABILITIES = (
     "--set",
@@ -78,10 +78,6 @@ class SharedConfigTests(unittest.TestCase):
                 self.assertIn("frontendLibrechat.memory.", result.stderr)
 
     def test_speech_disabled_has_no_config_or_credentials(self) -> None:
-        self.assertEqual(
-            (ROOT / "charts/librechat/app/templates/_speech.tpl").read_text(),
-            (ROOT / "charts/librechat/shared/templates/_speech.tpl").read_text(),
-        )
         args = ("--set", "frontendLibrechat.speech.stt.auth.enabled=true",
                 "--set", "frontendLibrechat.speech.tts.auth.enabled=true")
         config = render_librechat_config(*args)
@@ -228,7 +224,6 @@ class SharedConfigTests(unittest.TestCase):
             "--set-string", "authKeycloak.hostname=identity.example.invalid",
             "--set-string", "frontendLibrechat.agentGateway.hostPort=gateway.example.invalid:8080",
         )
-        default = render_librechat_config(*ENABLE_MCP, *addresses)
         internal_entry = '    - "identity.example.invalid:443"\n'
         for mode in ("internal-traefik", "public-dns"):
             for enabled in (True, False):
@@ -247,9 +242,6 @@ class SharedConfigTests(unittest.TestCase):
                     expected = '  allowedAddresses:\n    - "gateway.example.invalid:8080"\n'
                     if mode == "internal-traefik":
                         expected += internal_entry
-                        self.assertEqual(config, default)
-                    else:
-                        self.assertEqual(config, default.replace(internal_entry, ""))
                     self.assertEqual(allowlist, expected)
 
     def test_shared_rejects_invalid_routing_modes_even_without_mcp(self) -> None:

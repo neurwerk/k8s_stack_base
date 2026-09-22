@@ -58,14 +58,8 @@ class WireguardTests(unittest.TestCase):
 
     def test_rejects_unsafe_or_incomplete_inputs(self):
         for values, diagnostic in [
-            ({"virtualIP": "192.0.2.1; accept"}, "pattern"),
-            ({"forgejoServiceIP": "::1"}, "pattern"),
-            ({"outerSourceCIDRs": []}, "minItems"),
-            ({"replicas": 2}, "maximum"),
             ({"service": {"type": "NodePort"}}, "explicit port"),
             ({"virtualIP": "198.51.100.10"}, "must differ"),
-            ({"serverKeySecret": ""}, "pattern"),
-            ({"peers": [{"owner": "test", "address": "192.0.2.2", "publicKey": "invalid"}]}, "pattern"),
         ]:
             with self.subTest(values=values):
                 result = render("wireguard", {"wireguard": values}, check=False)

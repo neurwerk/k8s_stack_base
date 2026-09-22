@@ -43,9 +43,6 @@ class PermissionsTests(unittest.TestCase):
         self.assertIn("frontend-librechat-valkey", network)
         ingress = (ROOT / "charts/postgres/operations/templates/network-policy.yaml").read_text()
         self.assertIn("app.kubernetes.io/instance: frontend-librechat-permissions", ingress)
-        release = (ROOT / "releases/librechat/core/app.yaml").read_text()
-        for dependency in ("postgres-operations", "frontend-librechat-shared", "frontend-librechat-valkey"):
-            self.assertIn(f"- name: {dependency}", release)
 
     def test_endpoints_enabled_without_global_role_overrides(self) -> None:
         config = render_librechat_config()

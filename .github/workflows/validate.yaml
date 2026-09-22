@@ -90,10 +90,29 @@ jobs:
               raise SystemExit("\n".join(errors))
           PY
 
-      - name: Run pre-commit (includes full make check)
+      - name: Run lightweight pre-commit checks
         uses: pre-commit/action@2c7b3805fd2a0fd8c1884dcaebf91fc102a13ecd # v3.0.1
         with:
           extra_args: --all-files
 
+      - name: Run full validation once
+        run: make check
+
+      - name: Detect WireGuard packet-test changes
+        id: wireguard-changes
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          changed=true
+          if [[ -n "$BASE_SHA" && ! "$BASE_SHA" =~ ^0+$ ]] \
+            && git cat-file -e "$BASE_SHA^{commit}" 2>/dev/null \
+            && git diff --quiet "$BASE_SHA" "$GITHUB_SHA" -- \
+              charts/wireguard releases/wireguard releases/namespaces/wireguard \
+              tests/wireguard .github/workflows/validate.yaml; then
+            changed=false
+          fi
+          echo "changed=$changed" >> "$GITHUB_OUTPUT"
+
       - name: Verify isolated WireGuard packet paths
+        if: steps.wireguard-changes.outputs.changed == 'true'
         run: uv run --frozen python tests/wireguard/packets.py

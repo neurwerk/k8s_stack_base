@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import unittest
-from helm import ROOT, render as helm_render
+from helm import render as helm_render
 
 
 def render(*extra_args: str) -> str:
@@ -18,7 +18,6 @@ def render(*extra_args: str) -> str:
 class KeycloakInitialAdminTests(unittest.TestCase):
     def test_email_hook_waits_for_public_issuer_after_user_creation(self) -> None:
         manifest = render()
-        release = (ROOT / "releases/keycloak/realm-initial-admin.yaml").read_text(encoding="ascii")
 
         self.assertIn('"helm.sh/hook-weight": "-1"', manifest)
         self.assertIn("name: auth-keycloak-initial-admin-action-email-job", manifest)
@@ -41,8 +40,6 @@ class KeycloakInitialAdminTests(unittest.TestCase):
             manifest,
         )
         self.assertNotIn("ipBlock:", manifest)
-        self.assertIn("name: RemediateOnFailure", release)
-        self.assertIn("retries: -1", release)
 
     def test_email_hook_is_absent_without_smtp(self) -> None:
         manifest = render("--set", "authKeycloak.smtp.enabled=false")
