@@ -23,7 +23,7 @@ local function contains(value, fragment)
     return value:find(fragment, 1, true) ~= nil
 end
 
-local function classify(record)
+local function classify(record, application)
     local message = text(record.message or record.msg or record.log)
     local prefix = message:gsub("^%d%d%d%d%-%d%d%-%d%d[t ]%d%d:%d%d:%d%d[^%s]*%s+", "")
     prefix = prefix:gsub("^%[%d+%]%s*", "")
@@ -48,6 +48,15 @@ local function classify(record)
     local transport_error = message:match('%serror="([^"]*)"') or message:match('%serror=([^%s]+)')
     local has_error = error_text ~= "" or (transport_error ~= nil and transport_error ~= ""
         and transport_error ~= '""' and transport_error ~= "null" and transport_error ~= "none")
+
+    -- DocumentDB deliberately rejects this Atlas-only capability probe with
+    -- CommandNotFound so compatible clients can continue against a non-Atlas server.
+    if application == "postgres-operations"
+        and contains(diagnostic, "user request failed")
+        and contains(diagnostic, "command 'atlasversion' not found")
+        and contains(diagnostic, "error_code=59") then
+        return nil
+    end
 
     -- These are caller outcomes, not application failures. The short memory wait
     -- merely lets chat proceed while the background task continues.
@@ -127,7 +136,7 @@ function application_error(tag, timestamp, record)
     if not application then
         return 2, timestamp, record
     end
-    local kind = classify(record)
+    local kind = classify(record, application)
     if not kind then
         return 2, timestamp, record
     end

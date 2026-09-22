@@ -9,6 +9,8 @@ upgrade path.
 
 ## [Unreleased]
 
+- Exclude DocumentDB's expected Atlas capability probe from application-error alerts while retaining the log and alerting on other gateway failures.
+
 ## [0.3.14] - 2026-09-22
 
 - Require `openbao-stack-setup` `0.2.20` for OpenBao reconciliation so accepted
