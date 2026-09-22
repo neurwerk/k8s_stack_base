@@ -39,6 +39,22 @@ monitorKubePrometheusStack:
       to: ""
       authUsername: ""
       authPassword: ""
+      # Log-derived errors have a dedicated route so notification policy changes
+      # do not delay critical application availability alerts.
+      applicationErrors:
+        groupWait: 30s
+        groupInterval: 5m
+        repeatInterval: 1h
+        sendResolved: true
+        # When enabled, Alertmanager delivers these notifications only during
+        # the configured local-time window.
+        activeTime:
+          enabled: false
+          weekdays:
+            - monday:friday
+          startTime: "08:00"
+          endTime: "18:00"
+          location: UTC
 
 # ── Subchart dependency: kube-prometheus-stack ────────────────────────────────
 # Values under this key are passed directly to the subchart.
