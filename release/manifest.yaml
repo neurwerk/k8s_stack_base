@@ -28,8 +28,8 @@ spec:
       chartPrefixes: []
       prerequisites:
       - name: openbao-stack-setup
-        version: 0.2.18
-        source: https://github.com/neurwerk/k8s_stack_tooling/commit/8ce01f5f029a9762a0d86276334f10dad7c4e37b
+        version: 0.2.20
+        source: https://github.com/neurwerk/k8s_stack_tooling/commit/d613eda1709ed8553d239ed89a7d6fa0ef549e1c
     - path: releases/docling/secret-sync
       status: included
       reason: Optional remote-mode credential delivery; provision the API key and inference token before
@@ -37,8 +37,8 @@ spec:
       chartPrefixes: []
       prerequisites:
       - name: openbao-stack-setup
-        version: 0.2.18
-        source: https://github.com/neurwerk/k8s_stack_tooling/commit/8ce01f5f029a9762a0d86276334f10dad7c4e37b
+        version: 0.2.20
+        source: https://github.com/neurwerk/k8s_stack_tooling/commit/d613eda1709ed8553d239ed89a7d6fa0ef549e1c
     - path: releases/docling/reloader
       status: included
       reason: Optional Docling namespace watch and rotation RBAC; compose only after its namespace exists.
@@ -55,8 +55,8 @@ spec:
       - charts/docling
       prerequisites:
       - name: openbao-stack-setup
-        version: 0.2.18
-        source: https://github.com/neurwerk/k8s_stack_tooling/commit/8ce01f5f029a9762a0d86276334f10dad7c4e37b
+        version: 0.2.20
+        source: https://github.com/neurwerk/k8s_stack_tooling/commit/d613eda1709ed8553d239ed89a7d6fa0ef549e1c
     - path: releases/namespaces/maintenance
       status: included
       reason: Operator-tested optional maintenance; enable only when selected by the client.
@@ -120,8 +120,8 @@ spec:
     version: 2.9.4
     source: client bootstrap manifests
   - name: openbao-stack-setup
-    version: 0.2.18
-    source: https://github.com/neurwerk/k8s_stack_tooling/commit/8ce01f5f029a9762a0d86276334f10dad7c4e37b
+    version: 0.2.20
+    source: https://github.com/neurwerk/k8s_stack_tooling/commit/d613eda1709ed8553d239ed89a7d6fa0ef549e1c
   - name: gateway-api-experimental
     version: 1.6.0
     source: https://github.com/kubernetes-sigs/gateway-api/releases/tag/v1.6.0

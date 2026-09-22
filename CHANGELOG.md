@@ -11,7 +11,14 @@ upgrade path.
 
 ## [0.3.14] - 2026-09-22
 
+- Require `openbao-stack-setup` `0.2.20` for OpenBao reconciliation so accepted
+  asynchronous token-store maintenance no longer aborts stale-accessor cleanup.
+- Simplify repository validation without changing platform runtime artifacts.
 
+### Upgrade Steps
+
+Before upgrading, run openbao-stack-setup 0.2.20 reconciliation and wait for
+`OpenBao reconciliation completed.` Existing credentials and persistent data are preserved.
 
 ## [0.3.13] - 2026-09-21
 
