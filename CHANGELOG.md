@@ -9,6 +9,10 @@ upgrade path.
 
 ## [Unreleased]
 
+## [0.3.14] - 2026-09-22
+
+
+
 ## [0.3.13] - 2026-09-21
 
 - Add an authenticated, internal-only OpenSearch Dashboards interface for operational log inspection.
