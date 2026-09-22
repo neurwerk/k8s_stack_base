@@ -1,0 +1,36 @@
+{{ define "application-error.application" }}{{ if eq . "librechat" }}LibreChat{{ else if eq . "agentgateway" }}AgentGateway{{ else if eq . "agentgateway-extproc" }}AgentGateway extProc{{ else if eq . "pii-engine" }}PII Engine{{ else if eq . "docling" }}Docling{{ else if eq . "api-key-bridge" }}API-key bridge{{ else if eq . "keycloak" }}Keycloak{{ else if eq . "postgres-auth" }}PostgreSQL Auth{{ else if eq . "postgres-operations" }}PostgreSQL Operations{{ else if eq . "object-storage" }}Object Storage{{ else if eq . "traefik" }}Traefik{{ else }}{{ . }}{{ end }}{{ end }}
+{{ define "application-error.failure" }}{{ if eq . "timeout" }}Timeout{{ else if eq . "connection_error" }}Connection failure{{ else if eq . "upstream_error" }}Upstream failure{{ else if eq . "processing_error" }}Processing failure{{ else if eq . "background_error" }}Background failure{{ else if eq . "upload_error" }}Upload failure{{ else if eq . "document_error" }}Document failure{{ else if eq . "stream_error" }}Stream failure{{ else }}Application failure{{ end }}{{ end }}
+{{ define "application-error.subject" }}{{ if eq .Status "resolved" }}[CLEARED]{{ else }}[ATTENTION]{{ end }} {{ template "application-error.application" .CommonLabels.application }} - {{ if eq (len .Alerts) 1 }}{{ with (index .Alerts 0) }}{{ template "application-error.failure" .Labels.error_kind }}{{ end }}{{ else if eq .Status "resolved" }}{{ len .Alerts }} failure types{{ else }}{{ len .Alerts.Firing }} active failure type{{ if ne (len .Alerts.Firing) 1 }}s{{ end }}{{ end }}{{ end }}
+{{ define "application-error.text" }}
+{{ template "application-error.application" .CommonLabels.application }} application errors
+
+Alert status: {{ if eq .Status "resolved" }}Cleared{{ else }}Active{{ end }}
+Alert urgency: Attention
+Namespace: {{ .CommonLabels.namespace }}
+{{ range .Alerts }}
+Failure type: {{ template "application-error.failure" .Labels.error_kind }}
+Status: {{ if eq .Status "resolved" }}Cleared{{ else }}Active{{ end }}
+Latest matching event: {{ .Annotations.latest_event }}
+{{ with .Annotations.logs_url }}View matching failures: {{ . }}{{ end }}
+{{ with .Annotations.surrounding_logs_url }}View surrounding logs: {{ . }}{{ end }}
+{{ end }}
+Alert urgency describes how quickly to investigate. Log level describes an individual record and is shown in Studio.
+{{ if gt (len .Alerts.Resolved) 0 }}Cleared means no further matching failures were observed during the alert window. It does not prove that the underlying bug is fixed.{{ end }}
+{{ end }}
+{{ define "application-error.html" }}
+<!doctype html>
+<html><body style="font-family:Arial,sans-serif;color:#18181b;line-height:1.5">
+<h2 style="margin-bottom:8px">{{ template "application-error.application" .CommonLabels.application }} application errors</h2>
+<p style="margin-top:0"><strong>Alert status:</strong> {{ if eq .Status "resolved" }}Cleared{{ else }}Active{{ end }}<br><strong>Alert urgency:</strong> Attention<br><strong>Namespace:</strong> {{ .CommonLabels.namespace }}</p>
+{{ range .Alerts }}
+<div style="margin:20px 0;padding:16px;border:1px solid #d4d4d8;border-radius:8px">
+<strong>{{ template "application-error.failure" .Labels.error_kind }}</strong><br>
+Status: {{ if eq .Status "resolved" }}Cleared{{ else }}Active{{ end }}<br>
+Latest matching event: {{ .Annotations.latest_event }}
+{{ with .Annotations.logs_url }}<p><a href="{{ . }}">View matching failures</a>{{ end }}{{ with .Annotations.surrounding_logs_url }} &middot; <a href="{{ . }}">View surrounding logs</a></p>{{ end }}
+</div>
+{{ end }}
+<p style="color:#52525b">Alert urgency describes how quickly to investigate. Log level describes an individual record and is shown in Studio.</p>
+{{ if gt (len .Alerts.Resolved) 0 }}<p style="color:#52525b">Cleared means no further matching failures were observed during the alert window. It does not prove that the underlying bug is fixed.</p>{{ end }}
+</body></html>
+{{ end }}

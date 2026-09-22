@@ -32,10 +32,10 @@ spec:
               An unexpected application failure was logged in the last five minutes.
               Clearing this alert means no further matching errors were observed, not that the bug is fixed.
               Inspect the application's logs for the failure and preceding dependency errors.
-            events_since_collector_start: >-
-              {{ `{{ with printf "sum(stack_application_error_events_total{application_namespace=%q,application=%q,error_kind=%q})" $labels.application_namespace $labels.application $labels.error_kind | query }}{{ . | first | value | printf "%.0f" }}{{ end }}` }}
+            latest_event: '{{ "{{ $value | humanizeTimestamp }}" }}'
             {{- if and $studio (ne $studio "place.holder") }}
-            logs_url: {{ printf "https://%s/logs?namespace=%s&at=%s" $studio "{{ $labels.application_namespace }}" "{{ $value | printf \"%.0f\" }}" | quote }}
+            logs_url: {{ printf "https://%s/logs?namespace=%s&failure_type=%s&at=%s" $studio "{{ $labels.application_namespace }}" "{{ $labels.error_kind }}" "{{ $value | printf \"%.0f\" }}" | quote }}
+            surrounding_logs_url: {{ printf "https://%s/logs?namespace=%s&at=%s" $studio "{{ $labels.application_namespace }}" "{{ $value | printf \"%.0f\" }}" | quote }}
             {{- end }}
         - alert: ApplicationErrorCollectorUnavailable
           expr: >-
