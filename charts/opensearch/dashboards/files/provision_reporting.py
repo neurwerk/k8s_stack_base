@@ -48,7 +48,9 @@ def matching_saved_objects(session):
 
 def get_backend(session):
     response = session.get(
-        f"{BASE_URL}/api/directquery/dataconnections/{DATA_SOURCE_NAME}", timeout=30
+        f"{BASE_URL}/api/directquery/dataconnections/"
+        f"{DATA_SOURCE_NAME}/dataSourceMDSId=",
+        timeout=30,
     )
     if response.status_code == 404:
         return None
@@ -84,7 +86,7 @@ def delete_data_source(session):
     request_json(
         session,
         "DELETE",
-        f"/api/directquery/dataconnections/{DATA_SOURCE_NAME}",
+        f"/api/directquery/dataconnections/{DATA_SOURCE_NAME}/dataSourceMDSId=",
     )
 
 

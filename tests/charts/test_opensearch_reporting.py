@@ -56,6 +56,7 @@ class Session:
         self.calls = []
 
     def get(self, url, timeout):
+        self.calls.append(("GET", url, {}))
         return Response(self.backend, url=url)
 
     def request(self, method, url, timeout, **kwargs):
@@ -101,10 +102,24 @@ class OpenSearchReportingProvisioningTests(unittest.TestCase):
         self.assertEqual(
             provisioner.converge_data_source(session), "connection-object-id"
         )
-        methods_and_paths = [
-            (method, url.rsplit("/", 1)[-1]) for method, url, _ in session.calls
-        ]
-        self.assertIn(("DELETE", provisioner.DATA_SOURCE_NAME), methods_and_paths)
+        self.assertTrue(
+            any(
+                method == "GET"
+                and url.endswith(
+                    f"/{provisioner.DATA_SOURCE_NAME}/dataSourceMDSId="
+                )
+                for method, url, _ in session.calls
+            )
+        )
+        self.assertTrue(
+            any(
+                method == "DELETE"
+                and url.endswith(
+                    f"/{provisioner.DATA_SOURCE_NAME}/dataSourceMDSId="
+                )
+                for method, url, _ in session.calls
+            )
+        )
         self.assertTrue(
             any(
                 method == "POST" and url.endswith("dataconnections")
