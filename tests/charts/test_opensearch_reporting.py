@@ -8,9 +8,12 @@ import unittest
 from pathlib import Path
 from types import SimpleNamespace
 
+import yaml
+
 
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "charts/opensearch/dashboards/files/provision_reporting.py"
+VALUES = ROOT / "charts/opensearch/dashboards/values.yaml"
 
 
 def load_provisioner():
@@ -63,6 +66,14 @@ class Session:
 
 
 class OpenSearchReportingProvisioningTests(unittest.TestCase):
+    def test_dashboards_data_source_feature_is_enabled(self) -> None:
+        values = yaml.safe_load(VALUES.read_text(encoding="utf-8"))
+
+        self.assertIn(
+            "data_source.enabled: true",
+            values["opensearch-dashboards"]["config"]["opensearch_dashboards.yml"],
+        )
+
     def test_missing_saved_object_recreates_backend_and_saved_object(self) -> None:
         provisioner = load_provisioner()
         backend = {
