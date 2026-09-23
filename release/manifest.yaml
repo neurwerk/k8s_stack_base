@@ -427,7 +427,7 @@ spec:
           sha256: 646d932f597632a7328bd300994e66c2cabaa1b6763372cbabb559cd84ff3f2f
     - path: charts/opensearch/app
       name: monitor-opensearch
-      version: 1.2.0
+      version: 1.2.1
       appVersion: 3.8.0
       dependencyLock:
         digest: sha256:9c8dd301b564083b467cb09c7cf52f57674aaf46b3ef479f62ebd61e49fc52f3
@@ -440,7 +440,7 @@ spec:
           sha256: cad6c77d04ec2389be6f61b5422ce61e7264eb7145e42b4c78dbc00e9d7dbe4d
     - path: charts/opensearch/dashboards
       name: monitor-opensearch-dashboards
-      version: 1.2.3
+      version: 1.2.4
       appVersion: 3.8.0
       dependencyLock:
         digest: sha256:c658a0cd2ccc77db042f6be25fbef4effe147bbbb40e86db6b2ce5b8579cceb4

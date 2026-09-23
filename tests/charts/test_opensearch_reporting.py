@@ -14,6 +14,10 @@ import yaml
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "charts/opensearch/dashboards/files/provision_reporting.py"
 VALUES = ROOT / "charts/opensearch/dashboards/values.yaml"
+SECURITY_CONFIG = (
+    ROOT / "charts/opensearch/app/templates/configmap-security-config.yaml"
+)
+CRONJOB = ROOT / "charts/opensearch/dashboards/templates/reporting-cronjob.yaml"
 
 
 def load_provisioner():
@@ -67,6 +71,21 @@ class Session:
 
 
 class OpenSearchReportingProvisioningTests(unittest.TestCase):
+    def test_reader_has_saved_object_access_and_report_preflight(self) -> None:
+        security_config = SECURITY_CONFIG.read_text(encoding="utf-8")
+        cronjob = CRONJOB.read_text(encoding="utf-8")
+
+        reader_role = security_config.split(
+            "    {{ .Values.monitorOpensearchWrapper.reportingReaderRole }}:", 1
+        )[1].split(
+            "  roles_mapping.yml:", 1
+        )[0]
+        self.assertIn('- ".kibana"', reader_role)
+        self.assertIn('- ".kibana_*"', reader_role)
+        self.assertIn('- "read"', reader_role)
+        self.assertIn("verify-dashboard-access", cronjob)
+        self.assertIn("response.raise_for_status()", cronjob)
+
     def test_dashboards_reporting_features_are_enabled(self) -> None:
         values = yaml.safe_load(VALUES.read_text(encoding="utf-8"))
         config = values["opensearch-dashboards"]["config"]["opensearch_dashboards.yml"]
