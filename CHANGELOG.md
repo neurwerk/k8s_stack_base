@@ -9,8 +9,19 @@ upgrade path.
 
 ## [Unreleased]
 
+- Replace OpenSearch and OpenSearch Dashboards 2.18 with fresh 3.8 installations.
+  OpenSearch receives new workload, service, certificate, PVC, and archive bucket
+  identities; existing indices, snapshots, and Dashboards saved objects are not migrated.
 - Exclude DocumentDB's expected Atlas capability probe from application-error alerts while retaining the log and alerting on other gateway failures.
 - Make application-error email timing, resolved notifications, and active hours client-configurable without delaying critical availability alerts.
+
+### Upgrade Steps
+
+Expect OpenSearch downtime and a temporary log-ingestion gap while the empty 3.8
+cluster starts. Verify log ingestion, Studio log search, Dashboards login, ISM, and
+snapshot creation before manually deleting PVC
+`opensearch-cluster-master-opensearch-cluster-master-0` and the retained
+`opensearch-archive` bucket.
 
 ## [0.3.14] - 2026-09-22
 

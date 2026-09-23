@@ -180,7 +180,7 @@ spec:
       appVersion: 0.11.3
     - path: charts/cert-manager/approval-policy
       name: infra-cert-manager-approval-policy
-      version: 1.2.0
+      version: 1.2.1
     - path: charts/cert-manager/approver-policy
       name: infra-cert-manager-approver-policy
       version: 1.0.0
@@ -263,7 +263,7 @@ spec:
           sha256: da2d5c126a103b4c1b16a9dc1c168c4332a3687144e88ac070e594f81a0b6578
     - path: charts/fluent-bit
       name: monitor-fluent-bit
-      version: 1.0.5
+      version: 1.0.6
       appVersion: 3.2.8
       dependencyLock:
         digest: sha256:90275c51b97202d8b18e353f33c38e5800924b94be0b21d2adf9a62590334d17
@@ -427,30 +427,30 @@ spec:
           sha256: 646d932f597632a7328bd300994e66c2cabaa1b6763372cbabb559cd84ff3f2f
     - path: charts/opensearch/app
       name: monitor-opensearch
-      version: 1.0.6
-      appVersion: 2.18.0
+      version: 1.1.0
+      appVersion: 3.8.0
       dependencyLock:
-        digest: sha256:59f3aee22c25979b8b3287d24f2bb2915274394629658f88af2d1004899efe23
+        digest: sha256:9c8dd301b564083b467cb09c7cf52f57674aaf46b3ef479f62ebd61e49fc52f3
         dependencies:
         - name: opensearch
           repository: https://opensearch-project.github.io/helm-charts
-          version: 2.27.0
+          version: 3.8.0
         archives:
-        - path: charts/opensearch/app/charts/opensearch-2.27.0.tgz
-          sha256: a9de76017a82a38954dfb453a030c42a349c015fe1493641f457aa0e71590267
+        - path: charts/opensearch/app/charts/opensearch-3.8.0.tgz
+          sha256: cad6c77d04ec2389be6f61b5422ce61e7264eb7145e42b4c78dbc00e9d7dbe4d
     - path: charts/opensearch/dashboards
       name: monitor-opensearch-dashboards
-      version: 1.0.0
-      appVersion: 2.18.0
+      version: 1.1.0
+      appVersion: 3.8.0
       dependencyLock:
-        digest: sha256:ae50bb8d8a5485f6cf7455f438a6022af6e8c16a2f3e97b4c7667ddf09588874
+        digest: sha256:c658a0cd2ccc77db042f6be25fbef4effe147bbbb40e86db6b2ce5b8579cceb4
         dependencies:
         - name: opensearch-dashboards
           repository: https://opensearch-project.github.io/helm-charts
-          version: 2.26.0
+          version: 3.8.0
         archives:
-        - path: charts/opensearch/dashboards/charts/opensearch-dashboards-2.26.0.tgz
-          sha256: 87e4ade6832d51139b8b2fa2ed73c55908d18eebc2a7b6ec78673bd522d8fd76
+        - path: charts/opensearch/dashboards/charts/opensearch-dashboards-3.8.0.tgz
+          sha256: d932c62d60743f2837c7b9a4248ef7719c3049fe11b2dd8d44bc6ede43641a0e
     - path: charts/pii-engine
       name: pii-engine
       version: 1.0.6
@@ -486,7 +486,7 @@ spec:
       appVersion: v1.20.3
     - path: charts/studio/api
       name: studio-api
-      version: 1.1.6
+      version: 1.1.7
       appVersion: 0.9.3
     - path: charts/studio/shared
       name: studio-shared
@@ -838,12 +838,12 @@ spec:
       eligibility: included
       origins:
       - charts/opensearch/app/values.yaml
-    - reference: docker.io/opensearchproject/opensearch-dashboards:2.18.0
+    - reference: docker.io/opensearchproject/opensearch-dashboards:3.8.0
       pinned: true
       eligibility: included
       origins:
       - charts/opensearch/dashboards/values.yaml
-    - reference: docker.io/opensearchproject/opensearch:2.18.0
+    - reference: docker.io/opensearchproject/opensearch:3.8.0
       pinned: true
       eligibility: included
       origins:

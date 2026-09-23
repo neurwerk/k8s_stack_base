@@ -107,7 +107,7 @@ fluent-bit:
       [OUTPUT]
           Name                opensearch
           Match               kube.*
-          Host                opensearch-cluster-master.monitor-opensearch.svc.cluster.local
+          Host                opensearch-v3-master.monitor-opensearch.svc.cluster.local
           Port                9200
           HTTP_User           fluent-bit-ingest
           HTTP_Passwd         ${OPENSEARCH_INGEST_PASSWORD}

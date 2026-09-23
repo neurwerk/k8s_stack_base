@@ -3,11 +3,11 @@
 opensearch-dashboards:
   fullnameOverride: monitor-opensearch-dashboards
   replicaCount: 1
-  opensearchHosts: "https://opensearch-cluster-master.monitor-opensearch.svc.cluster.local:9200"
+  opensearchHosts: "https://opensearch-v3-master.monitor-opensearch.svc.cluster.local:9200"
 
   image:
     repository: opensearchproject/opensearch-dashboards
-    tag: "2.18.0"
+    tag: "3.8.0"
     pullPolicy: IfNotPresent
 
   serviceAccount:
@@ -17,8 +17,6 @@ opensearch-dashboards:
     create: false
 
   labels:
-    app.kubernetes.io/name: opensearch-dashboards
-    app.kubernetes.io/instance: monitor-opensearch-dashboards
     app.kubernetes.io/part-of: monitor-opensearch
   podSecurityContext:
     runAsNonRoot: true
@@ -61,7 +59,7 @@ opensearch-dashboards:
   config:
     opensearch_dashboards.yml: |
       server.host: "0.0.0.0"
-      opensearch.hosts: ["https://opensearch-cluster-master.monitor-opensearch.svc.cluster.local:9200"]
+      opensearch.hosts: ["https://opensearch-v3-master.monitor-opensearch.svc.cluster.local:9200"]
       opensearch.ssl.verificationMode: full
       opensearch.ssl.certificateAuthorities: ["/usr/share/opensearch-dashboards/config/certs/ca.crt"]
       opensearch.username: "${OPENSEARCH_USERNAME}"
