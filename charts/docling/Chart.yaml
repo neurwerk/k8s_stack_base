@@ -2,7 +2,7 @@ apiVersion: v2
 name: docling
 description: Private upstream document conversion with explicit CPU or remote inference
 type: application
-version: 0.4.3
+version: 0.4.4
 appVersion: "1.33.0"
 annotations:
   source.repository: https://github.com/docling-project/docling-serve
