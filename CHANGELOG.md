@@ -9,6 +9,8 @@ upgrade path.
 
 ## [Unreleased]
 
+## [0.3.15] - 2026-09-23
+
 - Give the read-only OpenSearch reporting identity access to Dashboards' saved-object
   index and stop report Jobs before email when that access is denied.
 - Enable the OpenSearch Dashboards data-source feature required for convergent
