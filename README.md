@@ -371,10 +371,17 @@ selection and authorization to the existing gateway routes. Missing approval
 blocks image forwarding. V3 `pii-unchecked` additionally requires
 `image_models[source]` to be true.
 
-LibreChat shared chart `1.5.0` adds disabled-by-default
+LibreChat app chart `1.2.2` and shared chart `1.6.1` pin `v0.8.8-rc4`
+(`ghcr.io/danny-avila/librechat:v0.8.8-rc4@sha256:929f4491cb9a87d6beb02e9e9ce9a54d4ee05bc56b65b1debe5b1f28a327a4fb`)
+with configuration schema `1.3.17`. Linux AMD64 and ARM64 images carry the
+source commit below. `STREAM_DELTA_COALESCE_MS=0` remains explicit despite
+RC4's new 25 ms default. Newly supported upstream models still require an
+explicit platform model catalog entry.
+
+The shared chart retains disabled-by-default
 `frontendLibrechat.documentAttachments.imagesEnabled`. It requires existing
 `documentAttachments.enabled` and metadata v3. The pinned source
-`eaed216994b2604e050966cd6eaf3c2bdd359233` validates selected HEIC files, converts
+`361553f3322d7b9bb547d0a9c2c5aaefc2934901` validates selected HEIC files, converts
 them to JPEG in the browser (`client/src/hooks/Files/useFileHandling.ts` and
 `client/src/utils/heicConverter.ts`), then uploads them. The opt-in chart setting
 allows JPEG, PNG and HEIC selection and explicitly chooses `imageOutputType: png`
