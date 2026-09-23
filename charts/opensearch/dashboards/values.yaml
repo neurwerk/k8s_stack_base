@@ -108,7 +108,7 @@ monitorOpensearchReporting:
         cpu: 200m
         memory: 128Mi
   report:
-    image: ghcr.io/neurwerk/k8s-stack-opensearch-reporting-cli:0.1.0@sha256:4b1698d57754baf16ccf8bb0148d588cc5d4b5e6fa086563ced7a5eb73a836c1
+    image: ghcr.io/neurwerk/k8s-stack-opensearch-reporting-cli:0.1.1@sha256:078a88c222b4c3b97dff0801f851e0ff51784fa978889bd33324ad86de4bbbd3
     schedule: "0 8 * * *"
     timeZone: Europe/Berlin
     activeDeadlineSeconds: 1200
@@ -119,6 +119,8 @@ monitorOpensearchReporting:
     subject: Neurwerk LLM performance report
     note: Previous local calendar day
     timeout: "900000"
+    # Fit all six default panels in the browser viewport before capture.
+    height: 1600
     resources:
       requests:
         cpu: 100m

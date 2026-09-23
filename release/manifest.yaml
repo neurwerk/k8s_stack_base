@@ -434,7 +434,7 @@ spec:
           sha256: cad6c77d04ec2389be6f61b5422ce61e7264eb7145e42b4c78dbc00e9d7dbe4d
     - path: charts/opensearch/dashboards
       name: monitor-opensearch-dashboards
-      version: 1.2.4
+      version: 1.2.5
       appVersion: 3.8.0
       dependencyLock:
         digest: sha256:c658a0cd2ccc77db042f6be25fbef4effe147bbbb40e86db6b2ce5b8579cceb4
@@ -926,7 +926,7 @@ spec:
       eligibility: included
       origins:
       - charts/keycloak/server/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-opensearch-reporting-cli:0.1.0@sha256:4b1698d57754baf16ccf8bb0148d588cc5d4b5e6fa086563ced7a5eb73a836c1
+    - reference: ghcr.io/neurwerk/k8s-stack-opensearch-reporting-cli:0.1.1@sha256:078a88c222b4c3b97dff0801f851e0ff51784fa978889bd33324ad86de4bbbd3
       pinned: true
       eligibility: included
       origins:
