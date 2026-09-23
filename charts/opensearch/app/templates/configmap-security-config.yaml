@@ -152,10 +152,10 @@ data:
     _meta:
       type: "nodesdn"
       config_version: 2
-  whitelist.yml: |
+  allowlist.yml: |
     ---
     _meta:
-      type: "whitelist"
+      type: "allowlist"
       config_version: 2
 
     config:

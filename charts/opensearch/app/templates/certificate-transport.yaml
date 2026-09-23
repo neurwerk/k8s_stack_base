@@ -9,8 +9,8 @@ metadata:
     app.kubernetes.io/instance: {{ .Release.Name }}
     app.kubernetes.io/part-of: monitor-opensearch
 spec:
-  commonName: opensearch-cluster-master
-  secretName: monitor-opensearch-transport-tls
+  commonName: opensearch-v3-master
+  secretName: monitor-opensearch-v3-transport-tls
   privateKey:
     algorithm: RSA
     size: 2048
@@ -21,13 +21,13 @@ spec:
     - server auth
     - client auth
   dnsNames:
-    - opensearch-cluster-master
-    - opensearch-cluster-master.monitor-opensearch
-    - opensearch-cluster-master.monitor-opensearch.svc
-    - opensearch-cluster-master.monitor-opensearch.svc.cluster.local
-    - opensearch-cluster-master-headless
-    - opensearch-cluster-master-headless.monitor-opensearch.svc.cluster.local
-    - "*.opensearch-cluster-master-headless.monitor-opensearch.svc.cluster.local"
+    - opensearch-v3-master
+    - opensearch-v3-master.monitor-opensearch
+    - opensearch-v3-master.monitor-opensearch.svc
+    - opensearch-v3-master.monitor-opensearch.svc.cluster.local
+    - opensearch-v3-master-headless
+    - opensearch-v3-master-headless.monitor-opensearch.svc.cluster.local
+    - "*.opensearch-v3-master-headless.monitor-opensearch.svc.cluster.local"
   issuerRef:
     name: infra-cert-manager-internal-ca-issuer
     kind: ClusterIssuer

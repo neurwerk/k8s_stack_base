@@ -45,7 +45,7 @@ frontendStudio:
 
     # --- OpenSearch (logs viewer) ---
     # Password comes from frontend-studio-openbao-secret.
-    opensearchUrl: "https://opensearch-cluster-master.monitor-opensearch.svc.cluster.local:9200"
+    opensearchUrl: "https://opensearch-v3-master.monitor-opensearch.svc.cluster.local:9200"
     opensearchUser: "studio-logs-read"
     # Path to the internal CA cert (mounted from the frontend-studio-shared-opensearch-ca ConfigMap)
     opensearchCaCert: "/certs/ca.crt"
