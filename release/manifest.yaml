@@ -141,12 +141,6 @@ spec:
     version: x86-64-v3
     source: https://github.com/documentdb/documentdb/blob/v0.116-0/pg_documentdb_gw/.cargo/config.toml
   exceptions:
-  - artifact: ghcr.io/danny-avila/librechat-dev@sha256:d05623decc48482bd83560248eb6efbdb5e60ea844298ab2fbaa70b462feb611
-    owner: platform
-    expires: 2026-09-30
-    reason: Reviewed upstream source eaed216994b2604e050966cd6eaf3c2bdd359233 provides required streaming,
-      reasoning and role provisioning APIs. Docker Dev Images Build run 34323899158 published this exact
-      multi-architecture digest. Moving development tags remain prohibited.
   - artifact: charts/postgres/operations:documentdb-database-rbac
     owner: platform
     expires: 2026-11-27
@@ -246,7 +240,7 @@ spec:
       appVersion: 1.15.0
     - path: charts/docling
       name: docling
-      version: 0.4.3
+      version: 0.4.4
       appVersion: 1.33.0
     - path: charts/external-secrets
       name: infra-external-secrets
@@ -359,8 +353,8 @@ spec:
       appVersion: 1.0.0
     - path: charts/librechat/app
       name: frontend-librechat
-      version: 1.2.1
-      appVersion: eaed216994b2604e050966cd6eaf3c2bdd359233
+      version: 1.2.2
+      appVersion: v0.8.8-rc4
     - path: charts/librechat/code-interpreter/api
       name: librechat-code-interpreter-api
       version: 1.0.0
@@ -403,8 +397,8 @@ spec:
       appVersion: v0.9.0
     - path: charts/librechat/shared
       name: frontend-librechat-shared
-      version: 1.6.0
-      appVersion: eaed216994b2604e050966cd6eaf3c2bdd359233
+      version: 1.6.1
+      appVersion: v0.8.8-rc4
     - path: charts/librechat/valkey
       name: frontend-librechat-valkey
       version: 1.0.0
@@ -880,7 +874,7 @@ spec:
       eligibility: included
       origins:
       - charts/librechat/admin-panel/values.yaml
-    - reference: ghcr.io/danny-avila/librechat-dev@sha256:d05623decc48482bd83560248eb6efbdb5e60ea844298ab2fbaa70b462feb611
+    - reference: ghcr.io/danny-avila/librechat:v0.8.8-rc4@sha256:929f4491cb9a87d6beb02e9e9ce9a54d4ee05bc56b65b1debe5b1f28a327a4fb
       pinned: true
       eligibility: included
       origins:

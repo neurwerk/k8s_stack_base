@@ -26,7 +26,7 @@ frontendLibrechat:
       auth:
         enabled: false
   app:
-    image: ghcr.io/danny-avila/librechat-dev@sha256:d05623decc48482bd83560248eb6efbdb5e60ea844298ab2fbaa70b462feb611
+    image: ghcr.io/danny-avila/librechat:v0.8.8-rc4@sha256:929f4491cb9a87d6beb02e9e9ce9a54d4ee05bc56b65b1debe5b1f28a327a4fb
     imagePullPolicy: IfNotPresent
     # Keep upstream Redis stream delta coalescing disabled by default.
     streamDeltaCoalesceMs: 0
