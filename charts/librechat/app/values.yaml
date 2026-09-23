@@ -4,6 +4,11 @@ frontendLibrechat:
   speech:
     stt:
       enabled: false
+      # Browser defaults; existing saved user preferences take precedence.
+      autoTranscribeAudio: false
+      decibelValue: -45
+      # Seconds after transcription; -1 disables automatic sending.
+      autoSendText: -1
       provider: openai-compatible
       # Full HTTP(S) URL: canonical RFC1918 IPv4, explicit port and API path.
       url: ""
