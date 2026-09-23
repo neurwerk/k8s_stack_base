@@ -2,7 +2,7 @@ apiVersion: v2
 name: monitor-opensearch-dashboards
 description: Internal OpenSearch Dashboards for the monitor-opensearch namespace.
 type: application
-version: 1.1.0
+version: 1.2.0
 appVersion: "3.8.0"
 dependencies:
   - name: opensearch-dashboards

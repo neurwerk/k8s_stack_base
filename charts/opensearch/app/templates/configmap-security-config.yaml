@@ -69,11 +69,29 @@ data:
       reserved: false
       backend_roles: []
       description: "OpenSearch Dashboards server"
+
+    {{ .Values.monitorOpensearchWrapper.reportingProvisionerUser | quote }}:
+      hash: "REPORTING_PROVISIONER_HASH_PLACEHOLDER"
+      reserved: false
+      backend_roles:
+        - {{ .Values.monitorOpensearchWrapper.reportingProvisionerRole | quote }}
+      description: "OpenSearch reporting provisioner"
+
+    {{ .Values.monitorOpensearchWrapper.reportingReaderUser | quote }}:
+      hash: "REPORTING_READER_HASH_PLACEHOLDER"
+      reserved: false
+      backend_roles:
+        - {{ .Values.monitorOpensearchWrapper.reportingReaderRole | quote }}
+      description: "OpenSearch reporting reader"
   roles.yml: |
     ---
     _meta:
       type: "roles"
       config_version: 2
+
+    # Dashboards uses this marker role to remove write controls for readers.
+    kibana_read_only:
+      reserved: true
 
     fluent_bit_ingest_role:
       reserved: false
@@ -100,6 +118,31 @@ data:
       index_permissions:
         - index_patterns:
             - "*"
+          allowed_actions:
+            - "read"
+
+    {{ .Values.monitorOpensearchWrapper.reportingProvisionerRole }}:
+      reserved: false
+      cluster_permissions:
+        - "cluster:admin/opensearch/ql/datasources/create"
+        - "cluster:admin/opensearch/ql/datasources/read"
+        - "cluster:admin/opensearch/ql/datasources/update"
+        - "cluster:admin/opensearch/ql/datasources/delete"
+
+    {{ .Values.monitorOpensearchWrapper.reportingReaderRole }}:
+      reserved: false
+      cluster_permissions:
+        - "cluster_composite_ops_ro"
+        - "cluster:admin/opensearch/ql/datasources/read"
+        - "cluster:admin/opensearch/ql/async_query/create"
+        - "cluster:admin/opensearch/ql/async_query/result"
+        - "cluster:admin/opensearch/ql/async_query/delete"
+        - "cluster:admin/opensearch/direct_query/read/query"
+        - "cluster:admin/opensearch/direct_query/read/resources"
+      index_permissions:
+        - index_patterns:
+            - ".opensearch_dashboards"
+            - ".opensearch_dashboards_*"
           allowed_actions:
             - "read"
   roles_mapping.yml: |
@@ -137,6 +180,38 @@ data:
       hosts: []
       users:
         - {{ .Values.monitorOpensearchWrapper.studioLogsUser | quote }}
+
+    {{ .Values.monitorOpensearchWrapper.reportingProvisionerRole }}:
+      reserved: false
+      backend_roles:
+        - {{ .Values.monitorOpensearchWrapper.reportingProvisionerRole | quote }}
+      hosts: []
+      users:
+        - {{ .Values.monitorOpensearchWrapper.reportingProvisionerUser | quote }}
+
+    {{ .Values.monitorOpensearchWrapper.reportingReaderRole }}:
+      reserved: false
+      backend_roles:
+        - {{ .Values.monitorOpensearchWrapper.reportingReaderRole | quote }}
+      hosts: []
+      users:
+        - {{ .Values.monitorOpensearchWrapper.reportingReaderUser | quote }}
+
+    kibana_user:
+      reserved: false
+      backend_roles:
+        - {{ .Values.monitorOpensearchWrapper.reportingProvisionerRole | quote }}
+      hosts: []
+      users:
+        - {{ .Values.monitorOpensearchWrapper.reportingProvisionerUser | quote }}
+
+    kibana_read_only:
+      reserved: true
+      backend_roles:
+        - {{ .Values.monitorOpensearchWrapper.reportingReaderRole | quote }}
+      hosts: []
+      users:
+        - {{ .Values.monitorOpensearchWrapper.reportingReaderUser | quote }}
   action_groups.yml: |
     ---
     _meta:

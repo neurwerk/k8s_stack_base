@@ -67,6 +67,7 @@ opensearch-dashboards:
       opensearch.requestHeadersAllowlist: [authorization, securitytenant]
       opensearch_security.auth.type: "basicauth"
       opensearch_security.multitenancy.enabled: false
+      opensearch_security.readonly_mode.roles: ["kibana_read_only"]
       opensearch_security.cookie.secure: false
       opensearch_security.cookie.password: "${COOKIE_PASS}"
 
@@ -84,3 +85,48 @@ opensearch-dashboards:
     limits:
       cpu: 500m
       memory: 1Gi
+
+# Optional daily Prometheus-backed PDF report. Clients own enablement and SMTP facts.
+monitorOpensearchReporting:
+  enabled: false
+  dashboard:
+    # Leave name empty to use the chart-owned default dashboard ConfigMap.
+    configMap:
+      name: ""
+      key: dashboard.ndjson
+  provisioning:
+    image: ghcr.io/neurwerk/k8s-stack-tooling:0.7.2@sha256:bfc4d5e1d3e7009c23be9759ee91ef91e5befc8b42af7f743d13449b2b4973b6
+    activeDeadlineSeconds: 600
+    backoffLimit: 3
+    resources:
+      requests:
+        cpu: 10m
+        memory: 32Mi
+      limits:
+        cpu: 200m
+        memory: 128Mi
+  report:
+    image: ghcr.io/neurwerk/k8s-stack-opensearch-reporting-cli:0.1.0@sha256:4b1698d57754baf16ccf8bb0148d588cc5d4b5e6fa086563ced7a5eb73a836c1
+    schedule: "0 8 * * *"
+    timeZone: Europe/Berlin
+    activeDeadlineSeconds: 1200
+    startingDeadlineSeconds: 3600
+    backoffLimit: 2
+    successfulJobsHistoryLimit: 1
+    failedJobsHistoryLimit: 3
+    subject: Neurwerk LLM performance report
+    note: Previous local calendar day
+    timeout: "900000"
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: "1"
+        memory: 1Gi
+  smtp:
+    host: ""
+    port: 465
+    secure: true
+    from: ""
+    to: ""

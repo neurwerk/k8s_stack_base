@@ -82,6 +82,14 @@ spec:
                 /usr/share/opensearch/plugins/opensearch-security/tools/hash.sh \
                   -p "${OPENSEARCH_DASHBOARDS_PASSWORD}"
               )
+              REPORTING_PROVISIONER_HASH=$(
+                /usr/share/opensearch/plugins/opensearch-security/tools/hash.sh \
+                  -p "${OPENSEARCH_REPORTING_PROVISIONER_PASSWORD}"
+              )
+              REPORTING_READER_HASH=$(
+                /usr/share/opensearch/plugins/opensearch-security/tools/hash.sh \
+                  -p "${OPENSEARCH_REPORTING_READER_PASSWORD}"
+              )
               echo "Internal user password hashes generated."
 
               # Render internal_users.yml from template
@@ -91,6 +99,8 @@ spec:
                 -e "s|FLUENT_BIT_HASH_PLACEHOLDER|${FLUENT_BIT_HASH}|" \
                 -e "s|STUDIO_HASH_PLACEHOLDER|${STUDIO_HASH}|" \
                 -e "s|DASHBOARDS_HASH_PLACEHOLDER|${DASHBOARDS_HASH}|" \
+                -e "s|REPORTING_PROVISIONER_HASH_PLACEHOLDER|${REPORTING_PROVISIONER_HASH}|" \
+                -e "s|REPORTING_READER_HASH_PLACEHOLDER|${REPORTING_READER_HASH}|" \
                 /security-config-template/internal_users.yml \
                 > /security-config-rendered/internal_users.yml
               if grep -q "_HASH_PLACEHOLDER" /security-config-rendered/internal_users.yml; then
@@ -144,6 +154,16 @@ spec:
                 secretKeyRef:
                   name: monitor-opensearch-secret
                   key: dashboardPassword
+            - name: OPENSEARCH_REPORTING_PROVISIONER_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: monitor-opensearch-secret
+                  key: provisionerPassword
+            - name: OPENSEARCH_REPORTING_READER_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: monitor-opensearch-secret
+                  key: reportReaderPassword
           volumeMounts:
             - name: admin-cert
               mountPath: /certs/admin

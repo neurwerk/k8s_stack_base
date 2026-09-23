@@ -1,0 +1,81 @@
+{{- if .Values.monitorOpensearchReporting.enabled }}
+{{- $reporting := .Values.monitorOpensearchReporting -}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: monitor-opensearch-reporting-provisioner
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-delete-policy": before-hook-creation
+  labels:
+    app.kubernetes.io/name: opensearch-reporting-provisioner
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: monitor-opensearch
+spec:
+  activeDeadlineSeconds: {{ $reporting.provisioning.activeDeadlineSeconds }}
+  backoffLimit: {{ $reporting.provisioning.backoffLimit }}
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: opensearch-reporting-provisioner
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/part-of: monitor-opensearch
+    spec:
+      automountServiceAccountToken: false
+      restartPolicy: OnFailure
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: provision
+          image: {{ $reporting.provisioning.image | quote }}
+          command: [python3, /provisioner/provision_reporting.py]
+          env:
+            - name: DASHBOARDS_URL
+              value: http://monitor-opensearch-dashboards:5601
+            - name: DATA_SOURCE_NAME
+              value: neurwerk-prometheus
+            - name: DATA_SOURCE_URI
+              value: http://monitor-kube-prometheus-st-prometheus.monitor-kube-prometheus-stack.svc.cluster.local:9090
+            - name: DATA_SOURCE_READER_ROLE
+              value: opensearch_reporting_reader
+            - name: DASHBOARD_FILE
+              value: /dashboard/dashboard.ndjson
+            - name: OPENSEARCH_USERNAME
+              value: opensearch-reporting-provisioner
+            - name: OPENSEARCH_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: monitor-opensearch-secret
+                  key: provisionerPassword
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          resources:
+{{ toYaml $reporting.provisioning.resources | indent 12 }}
+          volumeMounts:
+            - name: provisioner
+              mountPath: /provisioner
+              readOnly: true
+            - name: dashboard
+              mountPath: /dashboard
+              readOnly: true
+      volumes:
+        - name: provisioner
+          configMap:
+            name: monitor-opensearch-reporting-provisioner
+        - name: dashboard
+          configMap:
+            name: {{ default "monitor-opensearch-reporting-dashboard" $reporting.dashboard.configMap.name | quote }}
+            items:
+              - key: {{ $reporting.dashboard.configMap.key | quote }}
+                path: dashboard.ndjson
+{{- end }}

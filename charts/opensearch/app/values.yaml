@@ -27,6 +27,11 @@ opensearch:
           key: adminPassword
     - name: DISABLE_INSTALL_DEMO_CONFIG
       value: "true"
+    - name: QUERY_DATASOURCE_ENCRYPTION_KEY
+      valueFrom:
+        secretKeyRef:
+          name: monitor-opensearch-secret
+          key: queryDatasourceEncryptionKey
 
   persistence:
     enabled: true
@@ -94,6 +99,8 @@ opensearch:
       plugins.security.restapi.roles_enabled:
         - all_access
 
+      plugins.query.datasources.encryption.masterkey: "${QUERY_DATASOURCE_ENCRYPTION_KEY}"
+
 # --- OpenSearch wrapper settings ---
 
 # Init Job settings
@@ -115,6 +122,12 @@ monitorOpensearchWrapper:
 
   # OpenSearch Dashboards server identity.
   dashboardsUser: "kibanaserver"
+
+  # Dedicated data-source and reporting users.
+  reportingProvisionerUser: "opensearch-reporting-provisioner"
+  reportingProvisionerRole: "opensearch_reporting_provisioner"
+  reportingReaderUser: "opensearch-reporting-reader"
+  reportingReaderRole: "opensearch_reporting_reader"
 
   # Log archiving — ISM snapshot policy to archive fluent-bit-* indices to Ceph RGW.
   archive:
