@@ -67,7 +67,7 @@ spec:
               exec upsert-opensearch-user
           env:
             - name: OPENSEARCH_INTERNAL_URL
-              value: "https://opensearch-cluster-master.{{ .Release.Namespace }}.svc.cluster.local:9200"
+              value: "https://opensearch-v3-master.{{ .Release.Namespace }}.svc.cluster.local:9200"
             - name: OPENSEARCH_ADMIN_USER
               value: "admin"
             - name: OPENSEARCH_ADMIN_PASSWORD

@@ -74,7 +74,7 @@ spec:
               kubernetes.io/metadata.name: monitor-opensearch
           podSelector:
             matchLabels:
-              app.kubernetes.io/name: opensearch
+              app.kubernetes.io/name: opensearch-v3
       ports:
         - port: 9200
           protocol: TCP

@@ -13,7 +13,7 @@
 
 # --- Studio API configuration ---
 frontendStudio:
-  apiImage: "ghcr.io/neurwerk/k8s-stack-studio-api:0.9.3@sha256:85cc8f52b0549ca5c754503c16dccfec04b2b0c066a900bc6c59fddbdc4178c8"
+  apiImage: "ghcr.io/neurwerk/k8s-stack-studio-api:0.10.0@sha256:fb75d9ccb34a2899ad58613fdff87c691dde0dea55c59248a89066c349c7403d"
   api:
     replicas: 1
     securityContext:
@@ -45,7 +45,7 @@ frontendStudio:
 
     # --- OpenSearch (logs viewer) ---
     # Password comes from frontend-studio-openbao-secret.
-    opensearchUrl: "https://opensearch-cluster-master.monitor-opensearch.svc.cluster.local:9200"
+    opensearchUrl: "https://opensearch-v3-master.monitor-opensearch.svc.cluster.local:9200"
     opensearchUser: "studio-logs-read"
     # Path to the internal CA cert (mounted from the frontend-studio-shared-opensearch-ca ConfigMap)
     opensearchCaCert: "/certs/ca.crt"

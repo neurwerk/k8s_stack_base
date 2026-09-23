@@ -44,7 +44,7 @@ spec:
               set -euo pipefail
               export JAVA_HOME=/usr/share/opensearch/jdk
 
-              OPENSEARCH_HOST="opensearch-cluster-master.{{ .Release.Namespace }}.svc.cluster.local"
+              OPENSEARCH_HOST="opensearch-v3-master.{{ .Release.Namespace }}.svc.cluster.local"
               OPENSEARCH_URL="https://${OPENSEARCH_HOST}:9200"
 
               # Wait for OpenSearch to become reachable over HTTPS.
@@ -107,7 +107,7 @@ spec:
               cp -f /security-config-template/action_groups.yml /security-config-rendered/action_groups.yml
               cp -f /security-config-template/tenants.yml /security-config-rendered/tenants.yml
               cp -f /security-config-template/nodes_dn.yml /security-config-rendered/nodes_dn.yml
-              cp -f /security-config-template/whitelist.yml /security-config-rendered/whitelist.yml
+              cp -f /security-config-template/allowlist.yml /security-config-rendered/allowlist.yml
 
               # Apply security configuration
               echo "Running securityadmin.sh..."

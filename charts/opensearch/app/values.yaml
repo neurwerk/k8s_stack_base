@@ -4,6 +4,9 @@
 # Pinned here (chart defaults).
 # --- Subchart dependency: opensearch ---
 opensearch:
+  nameOverride: opensearch-v3
+  clusterName: opensearch-cluster-v3
+  masterService: opensearch-v3-master
   labels:
     app.kubernetes.io/part-of: monitor-opensearch
   singleNode: true
@@ -41,7 +44,7 @@ opensearch:
       - repository-s3
 
   keystore:
-    - secretName: monitor-opensearch-archive-object-bucket-claim
+    - secretName: monitor-opensearch-v3-archive-object-bucket-claim
       items:
         - key: AWS_ACCESS_KEY_ID
           path: s3.client.default.access_key
@@ -51,11 +54,11 @@ opensearch:
   # TLS certificates issued by the internal CA (cert-manager).
   secretMounts:
     - name: transport-tls
-      secretName: monitor-opensearch-transport-tls
+      secretName: monitor-opensearch-v3-transport-tls
       path: /usr/share/opensearch/config/certs/transport
       defaultMode: 0440
     - name: http-tls
-      secretName: monitor-opensearch-http-tls
+      secretName: monitor-opensearch-v3-http-tls
       path: /usr/share/opensearch/config/certs/http
       defaultMode: 0440
 
@@ -68,7 +71,7 @@ opensearch:
   # opensearch.yml — TLS via internal CA, security plugin enabled.
   config:
     opensearch.yml: |
-      cluster.name: opensearch-cluster
+      cluster.name: opensearch-cluster-v3
       network.host: 0.0.0.0
       discovery.type: single-node
 
@@ -83,7 +86,7 @@ opensearch:
       plugins.security.ssl.http.pemtrustedcas_filepath: certs/http/ca.crt
 
       plugins.security.nodes_dn:
-        - "CN=opensearch-cluster-master"
+        - "CN=opensearch-v3-master"
 
       plugins.security.authcz.admin_dn:
         - "CN=opensearch-security-admin"
@@ -100,7 +103,7 @@ k8sTools:
 monitorOpensearchWrapper:
   recoverySchedule: "*/15 * * * *"
   # Image for the security bootstrap Job (hash.sh / securityadmin.sh)
-  bootstrapImage: "docker.io/opensearchproject/opensearch:2.18.0"
+  bootstrapImage: "docker.io/opensearchproject/opensearch:3.8.0"
   # OpenSearch ingest user
   ingestUser: "fluent-bit-ingest"
   # Permissions for the ingest user (index patterns)
@@ -118,5 +121,5 @@ monitorOpensearchWrapper:
     enabled: true
     hotDays: 3  # ~4GB/day per index, 3d retention ≈ 12GB working set on disk
     repoName: archive
-    bucket: opensearch-archive
+    bucket: opensearch-v3-archive
     endpoint: rook-ceph-rgw-infra-rook-ceph-object-store.infra-rook-ceph.svc.cluster.local:80

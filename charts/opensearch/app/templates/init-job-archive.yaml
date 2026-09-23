@@ -75,6 +75,7 @@ spec:
                       'endpoint': os.environ['ARCHIVE_ENDPOINT'],
                       'protocol': 'http',
                       'path_style_access': 'true',
+                      'server_side_encryption_type': 'bucket_default',
                       'max_snapshot_bytes_per_sec': '40mb',
                       'max_restore_bytes_per_sec': '40mb'
                   }
@@ -180,7 +181,7 @@ spec:
               echo "Archive provisioning complete."
           env:
             - name: OPENSEARCH_INTERNAL_URL
-              value: "https://opensearch-cluster-master.{{ .Release.Namespace }}.svc.cluster.local:9200"
+              value: "https://opensearch-v3-master.{{ .Release.Namespace }}.svc.cluster.local:9200"
             - name: OPENSEARCH_ADMIN_USER
               value: "admin"
             - name: OPENSEARCH_ADMIN_PASSWORD
