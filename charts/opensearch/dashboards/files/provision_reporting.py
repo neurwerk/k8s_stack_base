@@ -66,10 +66,10 @@ def backend_matches(body):
 
 
 def create_backend(session):
-    request_json(
-        session,
+    response = session.request(
         "POST",
-        "/api/directquery/dataconnections",
+        f"{BASE_URL}/api/directquery/dataconnections",
+        timeout=30,
         json={
             "name": DATA_SOURCE_NAME,
             "connector": "prometheus",
@@ -77,6 +77,7 @@ def create_backend(session):
             "properties": {"prometheus.uri": DATA_SOURCE_URI},
         },
     )
+    response.raise_for_status()
 
 
 def delete_data_source(session):
