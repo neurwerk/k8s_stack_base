@@ -11,6 +11,14 @@ upgrade path.
 
 ## [0.3.15] - 2026-09-23
 
+- Upgrade LibreChat to `v0.8.8-rc4` and add client-configurable speech-input
+  defaults for automatic transcription, silence detection, and sending.
+- Adopt Studio `0.10.0` and link application-error emails to bounded Studio log
+  searches for faster diagnosis.
+- Preserve Docling error-level logs while continuing to suppress lower-level
+  output, so conversion failures remain visible without logging document content.
+- Adopt OpenSearch reporting CLI `0.1.1` to wait for captured report downloads
+  and fit dashboard panels to the generated PDF.
 - Give the read-only OpenSearch reporting identity access to Dashboards' saved-object
   index and stop report Jobs before email when that access is denied.
 - Enable the OpenSearch Dashboards data-source feature required for convergent
