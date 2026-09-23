@@ -11,7 +11,7 @@ upgrade path.
 
 - Enable the OpenSearch Dashboards data-source feature required for convergent
   Prometheus connection and reporting dashboard provisioning, using the 3.8
-  local-cluster API routes.
+  local-cluster API routes and Explore saved-object support.
 - Require `openbao-stack-setup` `0.2.21` before enabling OpenSearch reporting.
   Reconciliation adds the data-source encryption key, reporting identities, and
   the OpenSearch SMTP credential copy without rotating existing values.

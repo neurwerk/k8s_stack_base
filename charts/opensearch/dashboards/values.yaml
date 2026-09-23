@@ -71,6 +71,7 @@ opensearch-dashboards:
       opensearch_security.cookie.secure: false
       opensearch_security.cookie.password: "${COOKIE_PASS}"
       data_source.enabled: true
+      explore.enabled: true
 
   service:
     type: ClusterIP
