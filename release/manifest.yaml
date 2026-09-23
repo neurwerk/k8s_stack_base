@@ -359,7 +359,7 @@ spec:
       appVersion: 1.0.0
     - path: charts/librechat/app
       name: frontend-librechat
-      version: 1.2.0
+      version: 1.2.1
       appVersion: eaed216994b2604e050966cd6eaf3c2bdd359233
     - path: charts/librechat/code-interpreter/api
       name: librechat-code-interpreter-api
@@ -403,7 +403,7 @@ spec:
       appVersion: v0.9.0
     - path: charts/librechat/shared
       name: frontend-librechat-shared
-      version: 1.5.0
+      version: 1.6.0
       appVersion: eaed216994b2604e050966cd6eaf3c2bdd359233
     - path: charts/librechat/valkey
       name: frontend-librechat-valkey

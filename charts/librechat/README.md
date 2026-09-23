@@ -86,3 +86,11 @@ Speech UI engines default to `external` for enabled directions. These are user
 defaults, not locks. Conversation mode remains controlled by the user. Browser
 recognition behavior is unchanged. Use the same speech values for both charts;
 changing only one release breaks the configuration, credential and egress contract.
+
+With STT enabled, `frontendLibrechat.speech.stt` also accepts
+`autoTranscribeAudio` (boolean, default `false`), `decibelValue` (negative number,
+default `-45`), and `autoSendText` (integer seconds, default `-1` to disable).
+For example, `autoTranscribeAudio: true` and `autoSendText: 3` stop recording after
+the application's silence interval, transcribe the audio, then send the text
+three seconds after transcription succeeds. Existing browser preferences take
+precedence; users with saved settings can change them in the Speech settings.

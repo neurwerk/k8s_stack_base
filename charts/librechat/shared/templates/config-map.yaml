@@ -101,8 +101,15 @@ data:
       {{- end }}
       speechTab:
         {{- if hasKey $speech "stt" }}
+        {{- $stt := .Values.frontendLibrechat.speech.stt }}
+        {{- if not (kindIs "bool" $stt.autoTranscribeAudio) }}{{ fail "frontendLibrechat.speech.stt.autoTranscribeAudio must be boolean" }}{{ end }}
+        {{- if not (regexMatch `^-[0-9]+(\.[0-9]+)?$` (toJson $stt.decibelValue)) }}{{ fail "frontendLibrechat.speech.stt.decibelValue must be a negative number" }}{{ end }}
+        {{- if not (regexMatch `^(-1|0|[1-9][0-9]*)$` (toJson $stt.autoSendText)) }}{{ fail "frontendLibrechat.speech.stt.autoSendText must be -1 or a nonnegative integer in seconds" }}{{ end }}
         speechToText:
           engineSTT: external
+          autoTranscribeAudio: {{ $stt.autoTranscribeAudio }}
+          decibelValue: {{ $stt.decibelValue }}
+          autoSendText: {{ $stt.autoSendText }}
         {{- end }}
         {{- if hasKey $speech "tts" }}
         textToSpeech:
