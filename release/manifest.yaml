@@ -440,7 +440,7 @@ spec:
           sha256: cad6c77d04ec2389be6f61b5422ce61e7264eb7145e42b4c78dbc00e9d7dbe4d
     - path: charts/opensearch/dashboards
       name: monitor-opensearch-dashboards
-      version: 1.2.2
+      version: 1.2.3
       appVersion: 3.8.0
       dependencyLock:
         digest: sha256:c658a0cd2ccc77db042f6be25fbef4effe147bbbb40e86db6b2ce5b8579cceb4

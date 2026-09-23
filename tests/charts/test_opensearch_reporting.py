@@ -67,13 +67,12 @@ class Session:
 
 
 class OpenSearchReportingProvisioningTests(unittest.TestCase):
-    def test_dashboards_data_source_feature_is_enabled(self) -> None:
+    def test_dashboards_reporting_features_are_enabled(self) -> None:
         values = yaml.safe_load(VALUES.read_text(encoding="utf-8"))
+        config = values["opensearch-dashboards"]["config"]["opensearch_dashboards.yml"]
 
-        self.assertIn(
-            "data_source.enabled: true",
-            values["opensearch-dashboards"]["config"]["opensearch_dashboards.yml"],
-        )
+        self.assertIn("data_source.enabled: true", config)
+        self.assertIn("explore.enabled: true", config)
 
     def test_missing_saved_object_recreates_backend_and_saved_object(self) -> None:
         provisioner = load_provisioner()
