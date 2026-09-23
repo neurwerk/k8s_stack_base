@@ -23,6 +23,26 @@ local function contains(value, fragment)
     return value:find(fragment, 1, true) ~= nil
 end
 
+local levels = {
+    trace = "TRACE", debug = "DEBUG", info = "INFO", information = "INFO",
+    warn = "WARNING", warning = "WARNING", err = "ERROR", error = "ERROR",
+    fatal = "FATAL", panic = "FATAL", critical = "FATAL",
+}
+
+local function log_level(record)
+    for _, field in ipairs({"level", "levelname", "severity"}) do
+        local value = text(record[field]):match("^%s*(%a+)%s*$")
+        if levels[value] then
+            return levels[value]
+        end
+    end
+    local prefix = text(record.message or record.msg or record.log):gsub("^%s+", "")
+    prefix = prefix:gsub("^%d%d%d%d%-%d%d%-%d%d[t ]%d%d:%d%d:%d%d[^%s]*%s+", "")
+    prefix = prefix:gsub("^utc%s+", ""):gsub("^%[%d+%]%s*", "")
+    local value = prefix:match("^%[(%a+)%]") or prefix:match("^(%a+)[%s:]")
+    return levels[value] or "UNKNOWN"
+end
+
 local function classify(record, application)
     local message = text(record.message or record.msg or record.log)
     local prefix = message:gsub("^%d%d%d%d%-%d%d%-%d%d[t ]%d%d:%d%d:%d%d[^%s]*%s+", "")
@@ -117,6 +137,8 @@ local function classify(record, application)
 end
 
 function application_error(tag, timestamp, record)
+    -- Reserved collector metadata is never accepted from application JSON.
+    record.stack_log = {level = log_level(record)}
     -- Never accept metric fields supplied in application JSON.
     record._stack_error_namespace = nil
     record._stack_error_application = nil
@@ -149,6 +171,7 @@ function application_error(tag, timestamp, record)
     record._stack_error_namespace = namespace
     record._stack_error_application = application
     record._stack_error_kind = kind
+    record.stack_log.failure_type = kind
     record._stack_error_timestamp = last_seen[key]
     return 2, timestamp, record
 end
