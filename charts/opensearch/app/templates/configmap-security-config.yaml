@@ -141,6 +141,9 @@ data:
         - "cluster:admin/opensearch/direct_query/read/resources"
       index_permissions:
         - index_patterns:
+            - ".kibana"
+            - ".kibana-6"
+            - ".kibana_*"
             - ".opensearch_dashboards"
             - ".opensearch_dashboards_*"
           allowed_actions:

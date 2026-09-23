@@ -9,6 +9,8 @@ upgrade path.
 
 ## [Unreleased]
 
+- Give the read-only OpenSearch reporting identity access to Dashboards' saved-object
+  index and stop report Jobs before email when that access is denied.
 - Enable the OpenSearch Dashboards data-source feature required for convergent
   Prometheus connection and reporting dashboard provisioning, using the 3.8
   local-cluster API routes and Explore saved-object support.
