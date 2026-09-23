@@ -1,14 +1,14 @@
 apiVersion: objectbucket.io/v1alpha1
 kind: ObjectBucketClaim
 metadata:
-  name: monitor-opensearch-archive-object-bucket-claim
+  name: monitor-opensearch-v3-archive-object-bucket-claim
   namespace: {{ .Release.Namespace }}
   labels:
     app.kubernetes.io/name: opensearch-archive-object-bucket-claim
     app.kubernetes.io/instance: {{ .Release.Name }}
     app.kubernetes.io/part-of: {{ .Release.Namespace }}
 spec:
-  bucketName: opensearch-archive
+  bucketName: opensearch-v3-archive
   storageClassName: infra-rook-ceph-object-bucket
   additionalConfig:
     bucketLifecycle: |

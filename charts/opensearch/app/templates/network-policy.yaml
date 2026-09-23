@@ -10,7 +10,7 @@ metadata:
 spec:
   podSelector:
     matchLabels:
-      app.kubernetes.io/name: opensearch
+      app.kubernetes.io/name: opensearch-v3
       app.kubernetes.io/instance: {{ .Release.Name }}
   policyTypes:
     - Ingress
@@ -64,4 +64,4 @@ spec:
               kubernetes.io/metadata.name: monitor-opensearch
           podSelector:
             matchLabels:
-              app.kubernetes.io/name: opensearch
+              app.kubernetes.io/name: opensearch-v3

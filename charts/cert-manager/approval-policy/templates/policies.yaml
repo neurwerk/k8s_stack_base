@@ -99,14 +99,14 @@ metadata:
 spec:
   allowed:
     commonName:
-      value: opensearch-cluster-master
+      value: opensearch-v3-master
       required: true
     dnsNames:
       values:
-        - opensearch-cluster-master
-        - opensearch-cluster-master.monitor-opensearch
-        - opensearch-cluster-master.monitor-opensearch.svc
-        - opensearch-cluster-master.monitor-opensearch.svc.cluster.local
+        - opensearch-v3-master
+        - opensearch-v3-master.monitor-opensearch
+        - opensearch-v3-master.monitor-opensearch.svc
+        - opensearch-v3-master.monitor-opensearch.svc.cluster.local
       required: true
     isCA: false
     usages:
@@ -136,17 +136,17 @@ metadata:
 spec:
   allowed:
     commonName:
-      value: opensearch-cluster-master
+      value: opensearch-v3-master
       required: true
     dnsNames:
       values:
-        - opensearch-cluster-master
-        - opensearch-cluster-master.monitor-opensearch
-        - opensearch-cluster-master.monitor-opensearch.svc
-        - opensearch-cluster-master.monitor-opensearch.svc.cluster.local
-        - opensearch-cluster-master-headless
-        - opensearch-cluster-master-headless.monitor-opensearch.svc.cluster.local
-        - "*.opensearch-cluster-master-headless.monitor-opensearch.svc.cluster.local"
+        - opensearch-v3-master
+        - opensearch-v3-master.monitor-opensearch
+        - opensearch-v3-master.monitor-opensearch.svc
+        - opensearch-v3-master.monitor-opensearch.svc.cluster.local
+        - opensearch-v3-master-headless
+        - opensearch-v3-master-headless.monitor-opensearch.svc.cluster.local
+        - "*.opensearch-v3-master-headless.monitor-opensearch.svc.cluster.local"
       required: true
     isCA: false
     usages:
