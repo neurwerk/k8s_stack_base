@@ -23,8 +23,8 @@ packages:
     chartPrefixes: []
     prerequisites:
     - name: openbao-stack-setup
-      version: 0.2.20
-      source: https://github.com/neurwerk/k8s_stack_tooling/commit/d613eda1709ed8553d239ed89a7d6fa0ef549e1c
+      version: 0.2.21
+      source: https://github.com/neurwerk/k8s_stack_tooling/commit/5524da01f186559a96501724198c449fbe6c5467
   - path: releases/docling/secret-sync
     status: included
     reason: Optional remote-mode credential delivery; provision the API key and inference token before
@@ -32,8 +32,8 @@ packages:
     chartPrefixes: []
     prerequisites:
     - name: openbao-stack-setup
-      version: 0.2.20
-      source: https://github.com/neurwerk/k8s_stack_tooling/commit/d613eda1709ed8553d239ed89a7d6fa0ef549e1c
+      version: 0.2.21
+      source: https://github.com/neurwerk/k8s_stack_tooling/commit/5524da01f186559a96501724198c449fbe6c5467
   - path: releases/docling/reloader
     status: included
     reason: Optional Docling namespace watch and rotation RBAC; compose only after its namespace exists.
@@ -50,8 +50,8 @@ packages:
     - charts/docling
     prerequisites:
     - name: openbao-stack-setup
-      version: 0.2.20
-      source: https://github.com/neurwerk/k8s_stack_tooling/commit/d613eda1709ed8553d239ed89a7d6fa0ef549e1c
+      version: 0.2.21
+      source: https://github.com/neurwerk/k8s_stack_tooling/commit/5524da01f186559a96501724198c449fbe6c5467
   - path: releases/namespaces/maintenance
     status: included
     reason: Operator-tested optional maintenance; enable only when selected by the client.
@@ -115,8 +115,8 @@ prerequisites:
   version: 2.9.4
   source: client bootstrap manifests
 - name: openbao-stack-setup
-  version: 0.2.20
-  source: https://github.com/neurwerk/k8s_stack_tooling/commit/d613eda1709ed8553d239ed89a7d6fa0ef549e1c
+  version: 0.2.21
+  source: https://github.com/neurwerk/k8s_stack_tooling/commit/5524da01f186559a96501724198c449fbe6c5467
 - name: gateway-api-experimental
   version: 1.6.0
   source: https://github.com/kubernetes-sigs/gateway-api/releases/tag/v1.6.0

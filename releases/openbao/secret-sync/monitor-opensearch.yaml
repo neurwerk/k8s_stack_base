@@ -77,3 +77,23 @@ spec:
       remoteRef:
         key: monitor-opensearch/internal
         property: studioPassword
+    - secretKey: queryDatasourceEncryptionKey
+      remoteRef:
+        key: monitor-opensearch/internal
+        property: queryDatasourceEncryptionKey
+    - secretKey: provisionerPassword
+      remoteRef:
+        key: monitor-opensearch/internal
+        property: provisionerPassword
+    - secretKey: reportReaderPassword
+      remoteRef:
+        key: monitor-opensearch/internal
+        property: reportReaderPassword
+    - secretKey: smtpUsername
+      remoteRef:
+        key: monitor-opensearch/external
+        property: smtpUsername
+    - secretKey: smtpPassword
+      remoteRef:
+        key: monitor-opensearch/external
+        property: smtpPassword

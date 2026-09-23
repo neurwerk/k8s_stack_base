@@ -7,7 +7,7 @@ spec:
   releaseName: monitor-opensearch-dashboards
   targetNamespace: monitor-opensearch
   interval: 5m
-  timeout: 10m
+  timeout: 20m
   install:
     strategy:
       name: RetryOnFailure
@@ -27,3 +27,13 @@ spec:
         name: k8s-stack
         namespace: flux-system
       interval: 1m
+  valuesFrom:
+    - kind: ConfigMap
+      name: base-shared-resources-config-map
+      valuesKey: values.yaml
+    - kind: ConfigMap
+      name: client-values
+      valuesKey: values.yaml
+    - kind: ConfigMap
+      name: opensearch-product-values
+      valuesKey: values.yaml

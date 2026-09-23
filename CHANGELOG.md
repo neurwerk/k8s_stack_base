@@ -9,6 +9,11 @@ upgrade path.
 
 ## [Unreleased]
 
+- Require `openbao-stack-setup` `0.2.21` before enabling OpenSearch reporting.
+  Reconciliation adds the data-source encryption key, reporting identities, and
+  the OpenSearch SMTP credential copy without rotating existing values.
+- Add an opt-in Prometheus-backed OpenSearch performance dashboard and hardened
+  daily PDF email reporting with dedicated least-privilege identities.
 - Replace OpenSearch and OpenSearch Dashboards 2.18 with fresh 3.8 installations.
   OpenSearch receives new workload, service, certificate, PVC, and archive bucket
   identities; existing indices, snapshots, and Dashboards saved objects are not migrated.
@@ -16,6 +21,10 @@ upgrade path.
 - Make application-error email timing, resolved notifications, and active hours client-configurable without delaying critical availability alerts.
 
 ### Upgrade Steps
+
+Before enabling OpenSearch reporting, install `openbao-stack-setup` `0.2.21` and
+complete one catalog reconciliation. Do not start the reporting workloads until
+the `monitor-opensearch` ExternalSecret is Ready with the new fields.
 
 Expect OpenSearch downtime and a temporary log-ingestion gap while the empty 3.8
 cluster starts. Verify log ingestion, Studio log search, Dashboards login, ISM, and
