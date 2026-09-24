@@ -1,6 +1,6 @@
-version: 0.3.15
-releaseDate: '2026-09-23'
-summary: Upgrade OpenSearch reporting and LibreChat with clearer operational diagnostics.
+version: 0.3.16
+releaseDate: '2026-09-24'
+summary: Fix log ingestion and add typed attachment support.
 trust:
   signerIdentity: platform-release
   algorithm: ssh-ed25519
@@ -149,23 +149,13 @@ exceptions:
   reason: The reviewed upstream DocumentDB local image requires passwordless sudo to prepare runtime directories
     before dropping back to UID 1000.
 provenance:
-  previousTag: v0.3.14
-  includedThrough: a641fa5b7eb238db26c7fd901142fbd11b04559f
+  previousTag: v0.3.15
+  includedThrough: 4db49f0418874cdacd19c8e9fa2887fea4baae14
   commits:
-  - c0c15e980a95d6562fbdedbe9c9ba511e1ed5c32
-  - 6cc432999d2f5d058e5d43886a8d03b8c0d2277e
-  - 4b0907592d4a13abff11f9c60200143e515a6313
-  - d7cb22e6a423257c713f8260f27c44ab7d654d89
-  - d80b47bd47cc6ef4b90dfa06ec9904a7b3ee28af
-  - 65fd3e77bfd8872bde98c1a554939621c5fe48a6
-  - 245611dbc85f69318b8c04ca6a0025bb79e4c164
-  - 3eb93267aa2e74f2aec39ecb420944824fc2acb7
-  - 994cc6c2dd2fb8e187faf4670067c3926608a34a
-  - b29dad51d2553e01eb5781d5267fa7a35c635af6
-  - dacbc625077d434a6dd99850c908471dc327fe34
-  - 56621bafd5f9302f3348a61d06d1de4b47e46552
-  - 8de140030a6149382ff3134eda90c98c4ea8abd5
-  - 4b790b24b9ee89a24eade098df31641e8fcc2316
-  - ba7aab63b6029496f9b5983401f7a825e3924b55
-  - a641fa5b7eb238db26c7fd901142fbd11b04559f
-  compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.14...a641fa5b7eb238db26c7fd901142fbd11b04559f
+  - 2053cdec7d9d47e573bd0f7d83218be2e64a0759
+  - 10393a65ed2a134c5b9e63912eb03422398ec5b2
+  - 2d2d212eb8c55b13383cf86129f90f2ef9ea0df2
+  - 3851c9294d9448eaee06701d64799c9593da8378
+  - f7863eee3618dc758515804e1bf4c50dd5e37414
+  - 4db49f0418874cdacd19c8e9fa2887fea4baae14
+  compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.15...4db49f0418874cdacd19c8e9fa2887fea4baae14
