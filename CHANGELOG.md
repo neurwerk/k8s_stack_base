@@ -9,6 +9,7 @@ upgrade path.
 
 ## [Unreleased]
 
+- Adopt extProc `0.12.0` for typed attachment policy v4 and local unchecked image normalization.
 - Adopt extProc `0.11.4` for short image-policy errors in LibreChat, preserving successful response tables and structured API reports.
 - Fix stalled log ingestion from conflicting application JSON types; preserve raw-log search and initialize collector metrics before the first error.
 

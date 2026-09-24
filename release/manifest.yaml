@@ -157,7 +157,7 @@ spec:
     charts:
     - path: charts/agentgateway
       name: infra-agentgateway
-      version: 1.7.3
+      version: 1.8.0
       appVersion: 1.5.0
       dependencyLock:
         digest: sha256:e5b8cfb3b1e062b8e9268a42405a466d71d22bdb18ae83ff7496788af21abedd
@@ -170,8 +170,8 @@ spec:
           sha256: a22cfb7dcc56da05d31b18c0a969e1b8eee35d19a4493d88b5d4720efcc85945
     - path: charts/agentgateway-extproc
       name: agentgateway-extproc
-      version: 1.3.8
-      appVersion: 0.11.4
+      version: 1.3.9
+      appVersion: 0.12.0
     - path: charts/cert-manager/approval-policy
       name: infra-cert-manager-approval-policy
       version: 1.2.1
@@ -240,7 +240,7 @@ spec:
       appVersion: 1.15.0
     - path: charts/docling
       name: docling
-      version: 0.4.4
+      version: 0.4.6
       appVersion: 1.33.0
     - path: charts/external-secrets
       name: infra-external-secrets
@@ -397,7 +397,7 @@ spec:
       appVersion: v0.9.0
     - path: charts/librechat/shared
       name: frontend-librechat-shared
-      version: 1.6.1
+      version: 1.7.0
       appVersion: v0.8.8-rc4
     - path: charts/librechat/valkey
       name: frontend-librechat-valkey
@@ -911,7 +911,7 @@ spec:
       eligibility: included
       origins:
       - charts/dify/web/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.11.4@sha256:5e3b9c17e76bfabc9053054842ba6bcd1b133cb7b1a47563f06d21e5744f5e1e
+    - reference: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.12.0@sha256:65f5142b2a9742f2ce9583a4aad32921a537447666e3bedd47d78bb87c2b9eb9
       pinned: true
       eligibility: included
       origins:
