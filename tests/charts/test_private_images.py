@@ -334,6 +334,14 @@ class PrivateImageTests(unittest.TestCase):
         self.assertEqual(metadata["face_protection"], {"direct": False})
         self.assertEqual(metadata["image_models"], {"direct": True})
 
+        values["docling"]["enabled"] = False
+        self.assertEqual(self.metadata(values)["image_forwarding"], {"direct": "pii-unchecked"})
+        values["guardrails"]["llmPolicyEngine"]["models"][0]["attachments"]["documents"] = {"mode": "extract-text"}
+        self.assertIn("attachment extraction requires enabled Docling",
+                      render("agentgateway", values, check=False).stderr)
+        values["docling"]["enabled"] = True
+        self.assertEqual(self.metadata(values)["document_modes"], {"direct": "extract-text"})
+
         invalid = (
             ({"documents": {"mode": "extract"}}, {}, "documents.mode"),
             ({"images": {"mode": "process"}}, {}, "images.mode"),
@@ -357,7 +365,7 @@ class PrivateImageTests(unittest.TestCase):
             values["openrouterCatalog"]["models"] = []
             values["docling"] = ({"enabled": False} if inference is None else
                                  {"enabled": True, "inference": {"mode": inference}})
-            self.assertIn("non-block attachment modes require enabled Docling",
+            self.assertIn("attachment extraction requires enabled Docling",
                           render("agentgateway", values, check=False).stderr)
 
     def test_v4_reroutes_preserve_concrete_destination_proof(self):

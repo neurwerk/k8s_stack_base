@@ -156,8 +156,9 @@ the concrete routing branch, never names, groups, URLs or policy route classes. 
 {{- if and (eq $version "3") (ne $forward "none") (not (and $.Values.docling.enabled (has $.Values.docling.inference.mode (list "internal-standard" "cpu" "private-vlm" "remote")))) -}}
 {{- fail (printf "model %q image forwarding requires enabled Docling internal-standard/cpu or private-vlm/remote mode" $name) -}}
 {{- end -}}
-{{- if and (eq $version "4") (or (ne $documentMode "block") (ne $imageMode "block")) (not (and $.Values.docling.enabled (has $.Values.docling.inference.mode (list "internal-standard" "cpu" "private-vlm" "remote")))) -}}
-{{- fail (printf "model %q non-block attachment modes require enabled Docling internal-standard/cpu or private-vlm/remote mode" $name) -}}
+{{- $needsExtraction := or (eq $documentMode "extract-text") (eq $imageMode "extract-text") (and (eq $imageMode "forward-normalized") (ne $imagePolicy "unchecked")) -}}
+{{- if and (eq $version "4") $needsExtraction (not (and $.Values.docling.enabled (has $.Values.docling.inference.mode (list "internal-standard" "cpu" "private-vlm" "remote")))) -}}
+{{- fail (printf "model %q attachment extraction requires enabled Docling internal-standard/cpu or private-vlm/remote mode" $name) -}}
 {{- end -}}
 {{- if has $forward (list "if-no-pii-detected" "if-policy-allows") -}}
 {{- if not (and $pii $face) -}}

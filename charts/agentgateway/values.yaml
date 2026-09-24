@@ -328,8 +328,9 @@ guardrails:
     # local:true, no piiReroute and a concrete configured local backend. V4 derives
     # face protection; it rejects attachmentMode, imageForwarding and
     # faceProtectionEnabled instead of accepting per-model legacy switches.
-    # Any non-block v4 category requires enabled Docling in a current v3-compatible
-    # internal-standard/cpu or private-vlm/remote mode. V4 metadata emits complete
+    # Document/image text extraction and checked image forwarding require enabled
+    # Docling in internal-standard/cpu or private-vlm/remote mode. Unchecked image
+    # normalization alone needs no Docling service. V4 metadata emits complete
     # document_modes and image_modes maps instead of attachment_modes, while keeping
     # the existing safety and routing maps. Deploy the v4 consumer before selection.
     # Set direct model values here; Helm list overrides replace the whole list.
