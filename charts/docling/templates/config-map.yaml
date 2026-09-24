@@ -7,7 +7,7 @@
   "prompt" "Convert this page to docling."
   "response_format" "doctags"
   "temperature" 0
-  "max_new_tokens" 8192
+  "max_new_tokens" $docling.inference.maxOutputTokens
   "stop_strings" (list "</doctag>" "<|end_of_text|>")
 }}
 {{- $engineOptions := dict

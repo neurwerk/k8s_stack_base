@@ -53,12 +53,20 @@ class DoclingTests(unittest.TestCase):
         })
         grant = resource(gateway, "ReferenceGrant", "infra-agentgateway-extproc")
         self.assertEqual(grant["metadata"]["namespace"], "monitor-agentgateway-extproc")
-        result = render("docling", {"docling": {"inference": {"caConfigMap": "inference-ca"}}})
+        result = render(
+            "docling",
+            {
+                "docling": {
+                    "inference": {"caConfigMap": "inference-ca", "maxOutputTokens": 4096}
+                }
+            },
+        )
         settings = self.settings(result)
         preset = settings["custom_vlm_presets"]["default"]
         self.assertEqual(preset["engine_options"]["engine_type"], "api")
         self.assertEqual(preset["engine_options"]["headers"], {})
         self.assertEqual(preset["model_spec"]["response_format"], "doctags")
+        self.assertEqual(preset["model_spec"]["max_new_tokens"], 4096)
         for name, value in {
             "max_sources_per_request": 1,
             "eng_loc_num_workers": 1,
@@ -237,6 +245,7 @@ class DoclingTests(unittest.TestCase):
             {"inference": {"cidrs": ["10.1.2.3/7"]}},
             {"inference": {"cidrs": ["192.168.999.1/32"]}},
             {"inference": {"timeoutSeconds": 301}},
+            {"inference": {"maxOutputTokens": 8193}},
             {"syncWaitSeconds": 300},
             {"documentTimeoutSeconds": 0},
             {"cleanup": {"retentionSeconds": 86400}},
