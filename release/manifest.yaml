@@ -170,8 +170,8 @@ spec:
           sha256: a22cfb7dcc56da05d31b18c0a969e1b8eee35d19a4493d88b5d4720efcc85945
     - path: charts/agentgateway-extproc
       name: agentgateway-extproc
-      version: 1.3.7
-      appVersion: 0.11.3
+      version: 1.3.8
+      appVersion: 0.11.4
     - path: charts/cert-manager/approval-policy
       name: infra-cert-manager-approval-policy
       version: 1.2.1
@@ -911,7 +911,7 @@ spec:
       eligibility: included
       origins:
       - charts/dify/web/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.11.3@sha256:73ebf97fcca39808b2553defbcf9b1611f2251175f82a384e5d68d104c96e480
+    - reference: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.11.4@sha256:5e3b9c17e76bfabc9053054842ba6bcd1b133cb7b1a47563f06d21e5744f5e1e
       pinned: true
       eligibility: included
       origins:
