@@ -21,7 +21,7 @@ class PrivateImageTests(unittest.TestCase):
         return {
             key: json.loads(json.loads(value))
             for key, value in re.findall(
-                r'(?m)^                (contract_version|models|attachment_modes|image_forwarding|face_protection|local_models|image_models|image_reroutes): (".*")$',
+                r'(?m)^                (contract_version|models|attachment_modes|document_modes|image_modes|image_forwarding|face_protection|local_models|image_models|image_reroutes): (".*")$',
                 result.stdout,
             )
         }
@@ -269,6 +269,126 @@ class PrivateImageTests(unittest.TestCase):
         })
         values["docling"]["enabled"] = False
         self.assertIn("requires enabled Docling", render("agentgateway", values, check=False).stderr)
+
+    def test_v4_defaults_and_versioned_fields(self):
+        values = self.values(version=4, attachments={})
+        values["openrouterCatalog"]["models"][0]["attachments"] = {}
+        metadata = self.metadata(values)
+        names = set(metadata["models"])
+        self.assertEqual(metadata["contract_version"], 4)
+        self.assertNotIn("attachment_modes", metadata)
+        self.assertEqual(metadata["document_modes"], {name: "block" for name in names})
+        self.assertEqual(metadata["image_modes"], {name: "block" for name in names})
+        self.assertEqual(metadata["image_forwarding"], {name: "none" for name in names})
+        self.assertEqual(metadata["face_protection"], {name: False for name in names})
+
+        for field, value in (("attachmentMode", "block"), ("imageForwarding", "none"),
+                             ("faceProtectionEnabled", False)):
+            values["guardrails"]["llmPolicyEngine"]["models"][0][field] = value
+            failed = render("agentgateway", values, check=False)
+            self.assertNotEqual(failed.returncode, 0)
+            self.assertIn("is not allowed with attachmentPolicyVersion: 4", failed.stderr)
+            del values["guardrails"]["llmPolicyEngine"]["models"][0][field]
+
+        for version in (1, 2, 3):
+            values["guardrails"]["llmPolicyEngine"]["attachmentPolicyVersion"] = version
+            failed = render("agentgateway", values, check=False)
+            self.assertNotEqual(failed.returncode, 0)
+            self.assertIn("nested attachments requires attachmentPolicyVersion: 4", failed.stderr)
+
+        values["guardrails"]["llmPolicyEngine"]["attachmentPolicyVersion"] = 4
+        del values["guardrails"]["llmPolicyEngine"]["models"][0]["attachments"]
+        self.assertIn("requires nested attachments", render("agentgateway", values, check=False).stderr)
+
+    def test_v4_derives_typed_policy_and_validates_combinations(self):
+        cases = (
+            ({"documents": {"mode": "extract-text"}}, True, "none", True),
+            ({"images": {"mode": "extract-text"}}, False, "none", True),
+            ({"images": {"mode": "forward-normalized"}}, True, "if-policy-allows", True),
+            ({"images": {"mode": "forward-normalized", "policy": "strict"}}, True,
+             "if-no-pii-detected", True),
+        )
+        for attachments, pii, forwarding, face in cases:
+            with self.subTest(attachments=attachments, pii=pii):
+                values = self.values(version=4, attachments=attachments, piiEnabled=pii,
+                                     supportsImages=True)
+                values["openrouterCatalog"]["models"] = []
+                values["docling"] = {"enabled": True, "inference": {"mode": "internal-standard"}}
+                metadata = self.metadata(values)
+                self.assertEqual(metadata["document_modes"]["direct"],
+                                 attachments.get("documents", {}).get("mode", "block"))
+                self.assertEqual(metadata["image_modes"]["direct"],
+                                 attachments.get("images", {}).get("mode", "block"))
+                self.assertEqual(metadata["image_forwarding"]["direct"], forwarding)
+                self.assertEqual(metadata["face_protection"]["direct"], face)
+
+        values = self.values(
+            version=4,
+            attachments={"images": {"mode": "forward-normalized", "policy": "unchecked"}},
+            piiEnabled=False, local=True, supportsImages=True,
+        )
+        values["openrouterCatalog"]["models"] = []
+        values["docling"] = {"enabled": True, "inference": {"mode": "private-vlm"}}
+        metadata = self.metadata(values)
+        self.assertEqual(metadata["image_forwarding"], {"direct": "pii-unchecked"})
+        self.assertEqual(metadata["face_protection"], {"direct": False})
+        self.assertEqual(metadata["image_models"], {"direct": True})
+
+        invalid = (
+            ({"documents": {"mode": "extract"}}, {}, "documents.mode"),
+            ({"images": {"mode": "process"}}, {}, "images.mode"),
+            ({"images": {"mode": "block", "policy": "strict"}}, {}, "only allowed"),
+            ({"images": {"mode": "forward-normalized"}}, {}, "supportsImages:true"),
+            ({"images": {"mode": "forward-normalized"}}, {"supportsImages": True, "piiEnabled": False}, "requires PII"),
+            ({"images": {"mode": "forward-normalized", "policy": "unchecked"}},
+             {"supportsImages": True, "local": True}, "requires piiEnabled:false"),
+            ({"images": {"mode": "forward-normalized", "policy": "unchecked"}},
+             {"supportsImages": True, "piiEnabled": False}, "concrete local:true"),
+        )
+        for attachments, row, error in invalid:
+            with self.subTest(attachments=attachments, row=row):
+                values = self.values(version=4, attachments=attachments, **row)
+                values["openrouterCatalog"]["models"] = []
+                values["docling"] = {"enabled": True, "inference": {"mode": "internal-standard"}}
+                self.assertIn(error, render("agentgateway", values, check=False).stderr)
+
+        for inference in (None, "public"):
+            values = self.values(version=4, attachments={"images": {"mode": "extract-text"}})
+            values["openrouterCatalog"]["models"] = []
+            values["docling"] = ({"enabled": False} if inference is None else
+                                 {"enabled": True, "inference": {"mode": inference}})
+            self.assertIn("non-block attachment modes require enabled Docling",
+                          render("agentgateway", values, check=False).stderr)
+
+    def test_v4_reroutes_preserve_concrete_destination_proof(self):
+        values = self.values(
+            version=4, attachments={}, local=True, supportsImages=True,
+        )
+        source = values["openrouterCatalog"]["models"][0]
+        source.update(attachments={"images": {"mode": "forward-normalized"}}, supportsImages=True)
+        values["docling"] = {"enabled": True, "inference": {"mode": "internal-standard"}}
+        policy = values["monitorPiiEngine"]["policy"]
+        policy["attachments"] = {"faces": {"action": "reroute", "routeClass": "faces/local"}}
+        policy["routing"]["targets"] = [{"name": "direct", "classPrefix": "faces/"}]
+        metadata = self.metadata(values)
+        self.assertEqual(metadata["image_reroutes"], {
+            source["name"]: {"faces/local": "direct"},
+        })
+        values["guardrails"]["llmPolicyEngine"]["models"][0].update(local=True, supportsImages=False)
+        self.assertEqual(self.metadata(values)["image_reroutes"], {})
+
+    def test_v4_typed_mode_maps_keep_independent_size_limits(self):
+        values = self.values(version=4, attachments={})
+        values["guardrails"]["llmPolicyEngine"]["models"] = []
+        values["openrouterCatalog"]["models"] = [
+            {"name": f"remote/{index:03d}/" + "x" * 44, "upstreamModel": f"acme/{index}",
+             "attachments": {"documents": {"mode": "extract-text"}}}
+            for index in range(256)
+        ]
+        values["docling"] = {"enabled": True, "inference": {"mode": "internal-standard"}}
+        failed = render("agentgateway", values, check=False)
+        self.assertNotEqual(failed.returncode, 0)
+        self.assertIn("document_modes destination metadata JSON exceeds", failed.stderr)
 
     def test_metadata_bounds_and_known_ids(self):
         values = self.values()

@@ -47,7 +47,7 @@ spec:
                 destination_kind: '"model"'
                 principal_id: 'has(jwt.sub) ? jwt.sub : extauthz.principal_id'
                 models: {{ $piiCatalog | toJson | quote }}
-                {{- if $attachmentModes }}
+                {{- if and (ne (int .Values.guardrails.llmPolicyEngine.attachmentPolicyVersion) 4) $attachmentModes }}
                 attachment_modes: {{ $attachmentModes | toJson | quote }}
                 {{- end }}
                 {{- if ge (int .Values.guardrails.llmPolicyEngine.attachmentPolicyVersion) 2 }}
@@ -55,9 +55,13 @@ spec:
                 face_protection: {{ $attachmentPolicy.face_protection | toJson | quote }}
                 local_models: {{ $attachmentPolicy.local_models | toJson | quote }}
                 {{- end }}
-                {{- if eq (int .Values.guardrails.llmPolicyEngine.attachmentPolicyVersion) 3 }}
+                {{- if ge (int .Values.guardrails.llmPolicyEngine.attachmentPolicyVersion) 3 }}
                 image_models: {{ $attachmentPolicy.image_models | toJson | quote }}
                 image_reroutes: {{ $attachmentPolicy.image_reroutes | toJson | quote }}
+                {{- end }}
+                {{- if eq (int .Values.guardrails.llmPolicyEngine.attachmentPolicyVersion) 4 }}
+                document_modes: {{ $attachmentPolicy.document_modes | toJson | quote }}
+                image_modes: {{ $attachmentPolicy.image_modes | toJson | quote }}
                 {{- end }}
             processingOptions:
               requestBodyMode: Buffered
