@@ -44,6 +44,13 @@ fluent-bit:
           # use stat-based polling instead of per-file inotify watchers.
           Inotify_Watcher   false
 
+      # Keep the metrics exporter initialized even before any application errors.
+      [INPUT]
+          Name              dummy
+          Tag               collector.heartbeat
+          Dummy             {"heartbeat":1}
+          Interval_Sec      30
+
     filters: |
       [FILTER]
           Name                kubernetes
@@ -54,6 +61,8 @@ fluent-bit:
           # Rook OSD Pod metadata exceeds Fluent Bit's 32,000-byte default.
           Buffer_Size         128k
           Merge_Log           On
+          Merge_Log_Key       application
+          Keep_Log            On
           Annotations         Off
           Labels              Off
 
@@ -95,13 +104,24 @@ fluent-bit:
           Add_Label           error_kind $_stack_error_kind
           Flush_Interval_Sec  5
 
+      # Classification sees structured JSON; OpenSearch receives only stable fields.
       [FILTER]
-          Name                modify
+          Name                lua
           Match               kube.*
-          Remove              _stack_error_namespace
-          Remove              _stack_error_application
-          Remove              _stack_error_kind
-          Remove              _stack_error_timestamp
+          Script              /fluent-bit/application-errors/application-errors.lua
+          Call                opensearch_record
+          Time_As_Table       true
+
+      [FILTER]
+          Name                log_to_metrics
+          Match               collector.heartbeat
+          Tag                 application.errors
+          Metric_Mode         counter
+          Metric_Namespace    stack
+          Metric_Subsystem    log_collector
+          Metric_Name         heartbeat_total
+          Metric_Description  Collector heartbeat independent of application errors
+          Flush_Interval_Sec  5
 
     outputs: |
       [OUTPUT]
@@ -120,6 +140,7 @@ fluent-bit:
           Logstash_DateFormat %Y.%m.%d
           Retry_Limit         False
           Suppress_Type_Name  On
+          Generate_ID         On
 
       [OUTPUT]
           Name                prometheus_exporter
