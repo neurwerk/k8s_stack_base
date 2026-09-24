@@ -137,8 +137,10 @@ local function classify(record, application)
 end
 
 function application_error(tag, timestamp, record)
+    -- Kubernetes metadata stays separate from application-supplied JSON fields.
+    local payload = type(record.application) == "table" and record.application or record
     -- Reserved collector metadata is never accepted from application JSON.
-    record.stack_log = {level = log_level(record)}
+    record.stack_log = {level = log_level(payload)}
     -- Never accept metric fields supplied in application JSON.
     record._stack_error_namespace = nil
     record._stack_error_application = nil
@@ -158,7 +160,7 @@ function application_error(tag, timestamp, record)
     if not application then
         return 2, timestamp, record
     end
-    local kind = classify(record, application)
+    local kind = classify(payload, application)
     if not kind then
         return 2, timestamp, record
     end
@@ -174,4 +176,40 @@ function application_error(tag, timestamp, record)
     record.stack_log.failure_type = kind
     record._stack_error_timestamp = last_seen[key]
     return 2, timestamp, record
+end
+
+-- All applications share daily indices. Never dynamically map their JSON keys:
+-- e.g. ts may be epoch seconds or an ISO timestamp, time may be a duration, and
+-- error may be text or an object. Keep the complete original text searchable in
+-- log; structured fields are used above for classification, not indexed as fields.
+function opensearch_record(tag, timestamp, record)
+    local result = {log = type(record.log) == "string" and record.log or ""}
+    if type(record.stream) == "string" then
+        result.stream = record.stream
+    end
+    local metadata = record.kubernetes
+    if type(metadata) == "table" then
+        local safe = {}
+        for _, key in ipairs({"namespace_name", "pod_name", "container_name",
+            "pod_id", "pod_ip", "host", "docker_id", "container_image", "container_hash"}) do
+            if type(metadata[key]) == "string" then
+                safe[key] = metadata[key]
+            end
+        end
+        if next(safe) ~= nil then
+            result.kubernetes = safe
+        end
+    end
+    if type(record.stack_log) == "table" then
+        local safe = {}
+        for _, key in ipairs({"level", "failure_type"}) do
+            if type(record.stack_log[key]) == "string" then
+                safe[key] = record.stack_log[key]
+            end
+        end
+        if next(safe) ~= nil then
+            result.stack_log = safe
+        end
+    end
+    return 2, timestamp, result
 end

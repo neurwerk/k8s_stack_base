@@ -9,6 +9,8 @@ upgrade path.
 
 ## [Unreleased]
 
+- Fix stalled log ingestion from conflicting application JSON types; preserve raw-log search and initialize collector metrics before the first error.
+
 ## [0.3.15] - 2026-09-23
 
 - Upgrade LibreChat to `v0.8.8-rc4` and add client-configurable speech-input
