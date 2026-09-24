@@ -2,6 +2,7 @@
 
 Pass an explicit consumer source tree and its installed Python environment.
 No sibling-repository layout or consumer version is assumed by normal Base tests.
+The v4 fixture is the producer-side schema expected by the coordinated extProc task.
 """
 
 import argparse
@@ -21,6 +22,24 @@ def main():
     parser.add_argument("--consumer-python", required=True, type=Path)
     args = parser.parse_args()
     payloads = []
+
+    def rendered_payload(values):
+        rendered = render("agentgateway", values).stdout
+        # Literal JSON CEL expressions are decoded; only the verified-identity
+        # expression is substituted with a synthetic principal (not caller input).
+        block = re.search(r"neurwerk\.destination_policy:\n((?: {16}[^\n]*\n)+)", rendered)
+        assert block is not None
+        fields = re.findall(r"(?m)^                ([a-z_]+): (.+)$", block.group(1))
+        payload = {}
+        for name, expression in fields:
+            if name == "principal_id":
+                payload[name] = "synthetic-principal"
+            else:
+                cel = expression[1:-1] if expression.startswith("'") else json.loads(expression)
+                payload[name] = json.loads(cel)
+        assert payload["destination_kind"] == "model"
+        return payload
+
     for version, forwarding in ((1, "none"), (2, "none"),
                                 (2, "if-no-pii-detected"), (2, "pii-unchecked"),
                                  (3, "none"), (3, "if-no-pii-detected"), (3, "pii-unchecked"),
@@ -52,22 +71,33 @@ def main():
             policy["attachments"] = {"faces": {"action": "reroute", "routeClass": "faces/local"}}
             if forwarding in {"if-no-pii-detected", "if-policy-allows"}:
                 policy["routing"]["targets"] = [{"name": "processed", "classPrefix": "faces/"}]
-        rendered = render("agentgateway", values).stdout
-        # Literal JSON CEL expressions are decoded; only the verified-identity
-        # expression is substituted with a synthetic principal (not caller input).
-        block = re.search(r"neurwerk\.destination_policy:\n((?: {16}[^\n]*\n)+)", rendered)
-        assert block is not None
-        fields = re.findall(r"(?m)^                ([a-z_]+): (.+)$", block.group(1))
-        payload = {}
-        for name, expression in fields:
-            if name == "principal_id":
-                payload[name] = "synthetic-principal"
-            else:
-                cel = expression[1:-1] if expression.startswith("'") else json.loads(expression)
-                payload[name] = json.loads(cel)
-        assert payload["destination_kind"] == "model"
+        payload = rendered_payload(values)
         assert len(payload["models"]) == 3
         payloads.append(payload)
+
+    typed_models = [
+        {"name": "blocked", "local": True, "model": "text", "attachments": {}},
+        {"name": "document", "local": True, "model": "text",
+         "attachments": {"documents": {"mode": "extract-text"}}},
+        {"name": "image-text", "local": True, "model": "vision", "piiEnabled": False,
+         "attachments": {"images": {"mode": "extract-text"}}},
+        {"name": "enforce", "local": True, "model": "vision", "supportsImages": True,
+         "attachments": {"images": {"mode": "forward-normalized"}}},
+        {"name": "strict", "local": True, "model": "vision", "supportsImages": True,
+         "attachments": {"images": {"mode": "forward-normalized", "policy": "strict"}}},
+        {"name": "unchecked", "local": True, "model": "vision", "supportsImages": True,
+         "piiEnabled": False,
+         "attachments": {"images": {"mode": "forward-normalized", "policy": "unchecked"}}},
+    ]
+    typed_catalog = catalog()
+    typed_catalog["models"][0]["attachments"] = {}
+    typed_values = agent_values(typed_catalog, typed_models)
+    typed_values["guardrails"]["llmPolicyEngine"]["attachmentPolicyVersion"] = 4
+    typed_values["authKeycloak"]["agentgatewayClientRoles"] += [
+        f"model:{model['name']}:invoke" for model in typed_models
+    ]
+    typed_values["docling"] = {"enabled": True, "inference": {"mode": "internal-standard"}}
+    payloads.append(rendered_payload(typed_values))
 
     # Run the actual consumer, not a copied schema; -B prevents external bytecode writes.
     subprocess.run([str(args.consumer_python.absolute()), "-B", "-c", '''
@@ -85,6 +115,43 @@ def parse(payload):
 payloads = json.load(sys.stdin)
 for payload in payloads:
     policy = parse(payload)
+    if payload["contract_version"] == 4:
+        assert "attachment_modes" not in payload
+        assert len(policy.models) == 7
+        assert policy.document_modes == {
+            "blocked": "block", "document": "extract-text", "enforce": "block",
+            "image-text": "block", "remote/openrouter/acme/model": "block",
+            "strict": "block", "unchecked": "block",
+        }
+        assert policy.image_modes == {
+            "blocked": "block", "document": "block", "enforce": "forward-normalized",
+            "image-text": "extract-text", "remote/openrouter/acme/model": "block",
+            "strict": "forward-normalized", "unchecked": "forward-normalized",
+        }
+        assert policy.image_forwarding["enforce"] == "if-policy-allows"
+        assert policy.image_forwarding["strict"] == "if-no-pii-detected"
+        assert policy.image_forwarding["unchecked"] == "pii-unchecked"
+        assert policy.protects_faces("document") is True
+        assert policy.protects_faces("image-text") is True
+        assert policy.protects_faces("enforce") is True
+        assert policy.protects_faces("strict") is True
+        assert policy.protects_faces("unchecked") is False
+        assert policy.image_models["enforce"] is True
+        assert policy.image_models["strict"] is True
+        assert policy.image_models["unchecked"] is True
+        assert policy.image_reroutes == {}
+        for invalid in (
+            {**payload, "attachment_modes": {}},
+            {key: value for key, value in payload.items() if key != "document_modes"},
+            {key: value for key, value in payload.items() if key != "image_modes"},
+        ):
+            try:
+                parse(invalid)
+            except TrustedMetadataError:
+                pass
+            else:
+                raise AssertionError("consumer accepted an invalid v4 typed attachment contract")
+        continue
     assert policy.attachment_modes["passthrough"] == "passthrough"
     assert policy.models["passthrough"] is False
     assert len(policy.models) == 3
@@ -138,8 +205,8 @@ for payload in payloads:
         else:
             raise AssertionError("consumer accepted the original passthrough regression")
 source = pathlib.Path(destination.__file__)
-print("PASS: eight rendered v1/v2/v3 mixed catalogs accepted by actual protobuf consumer parser;")
-print("exact local image bindings preserved; version/capability/passthrough regressions rejected.")
+print("PASS: nine rendered v1-v4 catalogs accepted by actual protobuf consumer parser;")
+print("typed modes and exact local image bindings preserved; version/capability regressions rejected.")
 print("Consumer destination.py SHA256:", hashlib.sha256(source.read_bytes()).hexdigest())
 ''', str(args.consumer_source.absolute() / "src")], input=json.dumps(payloads), text=True, check=True)
 

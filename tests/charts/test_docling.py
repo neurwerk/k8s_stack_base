@@ -534,5 +534,10 @@ class DoclingTests(unittest.TestCase):
         for text in ("imageOutputType: png", "'^image/jpeg$'", "'^image/png$'", "'^image/heic$'"):
             self.assertIn(text, images)
         self.assertNotIn("'^image/webp$'", images)
+        values["guardrails"]["llmPolicyEngine"]["attachmentPolicyVersion"] = 4
+        v4_images = render("librechat/shared", values).stdout
+        for text in ("imageOutputType: png", "'^image/jpeg$'", "'^image/png$'",
+                     "'^image/heic$'", "'^image/webp$'"):
+            self.assertIn(text, v4_images)
         values["frontendLibrechat"]["documentAttachments"]["enabled"] = False
         self.assertIn("image uploads require", render("librechat/shared", values, check=False).stderr)

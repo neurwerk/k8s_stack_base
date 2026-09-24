@@ -10,7 +10,12 @@
 - CPU clients use `releases/docling/secret-sync/internal`; remote clients use `releases/docling/secret-sync`. Follow the package's pinned CLI prerequisite.
 - Shared `documentAttachments` defaults: 20 MiB/file, 40 MiB/request, 5 files and 200 pages. Override them in client-wide values; maxima are 40 MiB/file and total, 20 files and 1000 pages.
 - Only the trusted gateway may submit fixed conversion options. See the [architecture docs](https://github.com/neurwerk/documentation/blob/main/dev/architecture/docling.md) for setup, cleanup and limits.
-- Mode aliases do not enable images. Verified extProc `0.10.0` and PII Engine `0.10.0-cpu` are pinned in Base; extProc retains `cpu` / `remote` environment values. Deploy compatible services before separately enabling version-3 CPU/HEIC image processing; see the root README.
+- Mode aliases do not enable images. Attachment policy v4 accepts the same
+  `internal-standard`/`cpu` and `private-vlm`/`remote` modes as v3. Document/image
+  text extraction and checked image forwarding require enabled Docling;
+  unchecked image normalization alone uses only extProc's local helper. This
+  chart source does not pin or publish a v4 extProc consumer. Deploy compatible
+  services before separately enabling v3 or v4 image processing; see the root README.
 
 ## Private Image Preset
 

@@ -228,8 +228,9 @@ guardrails:
   # Concrete target models are visibility: Internal — not callable directly.
   llmPolicyEngine:
     enabled: false
-    # Rollout guard: integer 1, 2, or 3. The pinned extProc 0.9.0 supports v2,
-    # NOT v3. Keep 1 until compatible services and activation are authorized.
+    # Rollout guard: integer 1, 2, 3, or 4. Version 4 requires a compatible
+    # extProc consumer that is not pinned by this source-only chart change.
+    # Keep 1 until compatible services and activation are authorized.
     attachmentPolicyVersion: 1
 
     # extProc timeout — implemented via AgentgatewayBackend wrapper
@@ -311,6 +312,27 @@ guardrails:
     # explicit mode (even block): older consumers reject unknown metadata.
     # With no explicit effective modes, the chart omits attachment_modes entirely.
     # The default version keeps contract_version=1 and the models ID-to-bool map.
+    #
+    # Version 4 replaces the three flat attachment fields with a required nested
+    # attachments map on every effective model. Omitted categories default block:
+    #     attachments:
+    #       documents:
+    #         mode: block | extract-text
+    #       images:
+    #         mode: block | extract-text | forward-normalized
+    #         policy: enforce | strict | unchecked
+    # images.policy is allowed only with forward-normalized and defaults enforce.
+    # enforce maps to policy-aware forwarding, strict to zero-detection forwarding,
+    # and unchecked to local PII-unchecked forwarding. forward-normalized always
+    # requires supportsImages:true. unchecked additionally requires piiEnabled:false,
+    # local:true, no piiReroute and a concrete configured local backend. V4 derives
+    # face protection; it rejects attachmentMode, imageForwarding and
+    # faceProtectionEnabled instead of accepting per-model legacy switches.
+    # Document/image text extraction and checked image forwarding require enabled
+    # Docling in internal-standard/cpu or private-vlm/remote mode. Unchecked image
+    # normalization alone needs no Docling service. V4 metadata emits complete
+    # document_modes and image_modes maps instead of attachment_modes, while keeping
+    # the existing safety and routing maps. Deploy the v4 consumer before selection.
     # Set direct model values here; Helm list overrides replace the whole list.
     #
     # Entry shapes:
@@ -351,8 +373,8 @@ openrouterCatalog:
   enabled: false
   excludedModels: []
   grantToAccessGroups: false
-  # Rows may set attachmentMode, imageForwarding, faceProtectionEnabled and
-  # v3-only supportsImages using the same version-gated contract above.
+  # Rows may set attachmentMode, imageForwarding, faceProtectionEnabled, nested
+  # v4 attachments, and v3/v4 supportsImages using the version-gated contract above.
   # No mode is inserted by default. Derived rows keep piiEnabled: true, so
   # passthrough requires a same-name direct model replacement with PII disabled;
   # catalog rows cannot override piiEnabled. Replacement does not inherit modes.
