@@ -94,6 +94,12 @@
 {{- if not (regexMatch `^[1-9][0-9]*$` (toJson $inference.timeoutSeconds)) -}}
   {{- fail "docling inference timeout must be positive integer seconds" -}}
 {{- end -}}
+{{- if or
+    (not (regexMatch `^[1-9][0-9]*$` (toJson $inference.maxOutputTokens)))
+    (gt (int $inference.maxOutputTokens) 8192)
+-}}
+  {{- fail "docling inference maxOutputTokens must be a positive integer at most 8192" -}}
+{{- end -}}
 {{- if gt (int $inference.timeoutSeconds) (int $docling.documentTimeoutSeconds) -}}
   {{- fail "docling inference timeout must not exceed the document timeout" -}}
 {{- end -}}

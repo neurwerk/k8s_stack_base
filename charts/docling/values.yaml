@@ -29,6 +29,8 @@ docling:
     cidrs: []
     port: 443
     timeoutSeconds: 90
+    # Output budget within the private model's total context window.
+    maxOutputTokens: 8192
     # Optional public CA bundle, with key ca.crt (include all required roots).
     caConfigMap: ""
   # Native conversion budget, NOT a hard job cancellation deadline.
