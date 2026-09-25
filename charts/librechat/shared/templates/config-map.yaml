@@ -47,7 +47,7 @@ data:
     {{- $attachmentPolicyVersion := toJson .Values.guardrails.llmPolicyEngine.attachmentPolicyVersion }}
     {{- if not (kindIs "bool" $imagesEnabled) }}{{ fail "frontendLibrechat.documentAttachments.imagesEnabled must be boolean" }}{{ end }}
     {{- if $imagesEnabled }}
-    {{- if not (and .Values.frontendLibrechat.documentAttachments.enabled (has $attachmentPolicyVersion (list "3" "4"))) }}{{ fail "LibreChat image uploads require documentAttachments.enabled and attachmentPolicyVersion: 3 or 4 with compatible deployed services" }}{{ end }}
+    {{- if not (and .Values.frontendLibrechat.documentAttachments.enabled (has $attachmentPolicyVersion (list "3" "4" `"4.1"`))) }}{{ fail "LibreChat image uploads require documentAttachments.enabled and attachmentPolicyVersion: 3, 4, or 4.1 with compatible deployed services" }}{{ end }}
     # The pinned browser converts HEIC to JPEG before upload. Store and deliver
     # PNG, never WebP, for the gateway's bounded image-processing path.
     imageOutputType: png
@@ -76,7 +76,7 @@ data:
             - '^image/jpeg$'
             - '^image/png$'
             - '^image/heic$'
-            {{- if eq $attachmentPolicyVersion "4" }}
+            {{- if has $attachmentPolicyVersion (list "4" `"4.1"`) }}
             - '^image/webp$'
             {{- end }}
             {{- end }}

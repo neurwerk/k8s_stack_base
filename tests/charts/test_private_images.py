@@ -21,7 +21,7 @@ class PrivateImageTests(unittest.TestCase):
         return {
             key: json.loads(json.loads(value))
             for key, value in re.findall(
-                r'(?m)^                (contract_version|models|attachment_modes|document_modes|image_modes|image_forwarding|face_protection|local_models|image_models|image_reroutes): (".*")$',
+                r'(?m)^                (contract_version|models|attachment_modes|document_modes|image_modes|image_inspection|image_textless|image_forwarding|face_protection|local_models|image_models|image_reroutes): (".*")$',
                 result.stdout,
             )
         }
@@ -126,7 +126,7 @@ class PrivateImageTests(unittest.TestCase):
         self.assertNotEqual(render("agentgateway", values, check=False).returncode, 0)
 
     def test_strict_types(self):
-        for version in ("2", "3", True, False, 0, 4, 1.5, None, [], {}):
+        for version in ("2", "3", True, False, 0, 4, 4.1, 1.5, None, [], {}):
             values = self.values()
             values["guardrails"]["llmPolicyEngine"]["attachmentPolicyVersion"] = version
             self.assertNotEqual(render("agentgateway", values, check=False).returncode, 0)
@@ -281,6 +281,8 @@ class PrivateImageTests(unittest.TestCase):
         self.assertEqual(metadata["image_modes"], {name: "block" for name in names})
         self.assertEqual(metadata["image_forwarding"], {name: "none" for name in names})
         self.assertEqual(metadata["face_protection"], {name: False for name in names})
+        self.assertNotIn("image_inspection", metadata)
+        self.assertNotIn("image_textless", metadata)
 
         for field, value in (("attachmentMode", "block"), ("imageForwarding", "none"),
                              ("faceProtectionEnabled", False)):
@@ -367,6 +369,99 @@ class PrivateImageTests(unittest.TestCase):
                                  {"enabled": True, "inference": {"mode": inference}})
             self.assertIn("attachment extraction requires enabled Docling",
                           render("agentgateway", values, check=False).stderr)
+
+    def test_v4_1_image_inspection_and_textless_policy(self):
+        values = self.values(version="4.1", attachments={})
+        values["openrouterCatalog"]["models"][0]["attachments"] = {}
+        metadata = self.metadata(values)
+        names = set(metadata["models"])
+        self.assertEqual(metadata["contract_version"], "4.1")
+        self.assertEqual(metadata["image_inspection"], {
+            name: "document-only" for name in names
+        })
+        self.assertEqual(metadata["image_textless"], {name: "block" for name in names})
+
+        row = values["guardrails"]["llmPolicyEngine"]["models"][0]
+        row.update(
+            supportsImages=True,
+            attachments={"images": {
+                "mode": "forward-normalized",
+                "inspection": "document-and-vision",
+                "textless": "allow-if-inspected",
+            }},
+        )
+        values["openrouterCatalog"]["models"] = []
+        values["docling"] = {"enabled": True, "inference": {"mode": "private-vlm"}}
+        metadata = self.metadata(values)
+        self.assertEqual(metadata["image_inspection"], {"direct": "document-and-vision"})
+        self.assertEqual(metadata["image_textless"], {"direct": "allow-if-inspected"})
+
+        for mode in ("cpu", "internal-standard", "public"):
+            values["docling"]["inference"]["mode"] = mode
+            self.assertIn("requires enabled Docling private-vlm or remote",
+                          render("agentgateway", values, check=False).stderr)
+
+        values["docling"]["inference"]["mode"] = "private-vlm"
+        for images in (
+            {"mode": "forward-normalized", "textless": "allow-if-inspected"},
+            {"mode": "extract-text", "inspection": "document-and-vision",
+             "textless": "allow-if-inspected"},
+            {"mode": "forward-normalized", "policy": "unchecked",
+             "inspection": "document-and-vision", "textless": "allow-if-inspected"},
+        ):
+            row["attachments"]["images"] = images
+            self.assertIn("requires document-and-vision inspection and checked forward-normalized",
+                          render("agentgateway", values, check=False).stderr)
+
+        values["guardrails"]["llmPolicyEngine"]["attachmentPolicyVersion"] = 4
+        row["attachments"]["images"] = {
+            "mode": "block", "inspection": "document-only",
+        }
+        self.assertIn('contains unknown field "inspection"',
+                      render("agentgateway", values, check=False).stderr)
+
+    def test_v4_1_extproc_image_inspection_wiring(self):
+        disabled = render("agentgateway-extproc", {"docling": {"enabled": False}})
+        self.assertNotIn("EXTPROC_IMAGE_INSPECTION__", disabled.stdout)
+
+        inspection = {
+            "enabled": True,
+            "allowHttp": False,
+            "baseUrl": "https://inspection.internal:8443",
+            "model": "private-vision",
+            "tokenSecretRef": {
+                "name": "monitor-agentgateway-extproc-image-inspection-secret",
+                "key": "api-key",
+            },
+            "timeout": 120,
+            "caConfigMap": "",
+            "cidrs": ["10.20.30.40/32"],
+            "port": 8443,
+        }
+        values = {
+            "docling": {"enabled": False},
+            "monitorAgentgatewayExtproc": {"imageInspection": inspection},
+        }
+        result = render("agentgateway-extproc", values)
+        self.assertEqual(env_value(result, "EXTPROC_IMAGE_INSPECTION__ENABLED"), "true")
+        container = resource(result, "Deployment")["spec"]["template"]["spec"]["containers"][0]
+        api_key = next(item for item in container["env"] if item["name"] ==
+                       "EXTPROC_IMAGE_INSPECTION__API_KEY")
+        self.assertEqual(api_key["valueFrom"]["secretKeyRef"], {
+            "name": "monitor-agentgateway-extproc-image-inspection-secret", "key": "api-key",
+        })
+
+        for override in (
+            {"baseUrl": "http://10.20.30.40:8080", "port": 8080},
+            {"cidrs": ["8.8.8.8/32"]},
+        ):
+            failed = render("agentgateway-extproc", {
+                "docling": {"enabled": False},
+                "monitorAgentgatewayExtproc": {
+                    "imageInspection": inspection | override,
+                },
+            }, check=False)
+            self.assertNotEqual(failed.returncode, 0, override)
 
     def test_v4_reroutes_preserve_concrete_destination_proof(self):
         values = self.values(

@@ -45,6 +45,15 @@ spec:
         - port: {{ .Values.monitorAgentgatewayExtproc.ports.container.http }}
           protocol: TCP
   egress:
+    {{- if .Values.monitorAgentgatewayExtproc.imageInspection.enabled }}
+    - to:
+        {{- range .Values.monitorAgentgatewayExtproc.imageInspection.cidrs }}
+        - ipBlock: {cidr: {{ . | quote }}}
+        {{- end }}
+      ports:
+        - port: {{ .Values.monitorAgentgatewayExtproc.imageInspection.port }}
+          protocol: TCP
+    {{- end }}
     {{- if .Values.docling.enabled }}
     - to:
         - namespaceSelector:

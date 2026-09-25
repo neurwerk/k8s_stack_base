@@ -14,7 +14,7 @@
   "engine_type" "api"
   "url" $docling.inference.url
   "headers" (dict)
-  "params" (dict "model" $docling.inference.model)
+  "params" (dict "model" $docling.inference.model "skip_special_tokens" false)
   "timeout" $docling.inference.timeoutSeconds
   "concurrency" 1
 }}

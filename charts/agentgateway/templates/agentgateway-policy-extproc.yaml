@@ -3,6 +3,7 @@
 {{- $piiCatalog := dict }}
 {{- $attachmentModes := dict }}
 {{- $attachmentPolicy := include "infra-agentgateway.attachmentPolicy" . | fromJson }}
+{{- $attachmentPolicyVersion := toJson .Values.guardrails.llmPolicyEngine.attachmentPolicyVersion }}
 {{- range $model := $models }}
 {{-   $piiEnabled := true }}
 {{-   if hasKey $model "piiEnabled" }}{{- $piiEnabled = $model.piiEnabled }}{{- end }}
@@ -43,25 +44,29 @@ spec:
             failureMode: FailClosed
             metadataContext:
               neurwerk.destination_policy:
-                contract_version: {{ .Values.guardrails.llmPolicyEngine.attachmentPolicyVersion | toString | quote }}
+                contract_version: {{ .Values.guardrails.llmPolicyEngine.attachmentPolicyVersion | toJson | quote }}
                 destination_kind: '"model"'
                 principal_id: 'has(jwt.sub) ? jwt.sub : extauthz.principal_id'
                 models: {{ $piiCatalog | toJson | quote }}
-                {{- if and (ne (int .Values.guardrails.llmPolicyEngine.attachmentPolicyVersion) 4) $attachmentModes }}
+                {{- if and (not (has $attachmentPolicyVersion (list "4" `"4.1"`))) $attachmentModes }}
                 attachment_modes: {{ $attachmentModes | toJson | quote }}
                 {{- end }}
-                {{- if ge (int .Values.guardrails.llmPolicyEngine.attachmentPolicyVersion) 2 }}
+                {{- if has $attachmentPolicyVersion (list "2" "3" "4" `"4.1"`) }}
                 image_forwarding: {{ $attachmentPolicy.image_forwarding | toJson | quote }}
                 face_protection: {{ $attachmentPolicy.face_protection | toJson | quote }}
                 local_models: {{ $attachmentPolicy.local_models | toJson | quote }}
                 {{- end }}
-                {{- if ge (int .Values.guardrails.llmPolicyEngine.attachmentPolicyVersion) 3 }}
+                {{- if has $attachmentPolicyVersion (list "3" "4" `"4.1"`) }}
                 image_models: {{ $attachmentPolicy.image_models | toJson | quote }}
                 image_reroutes: {{ $attachmentPolicy.image_reroutes | toJson | quote }}
                 {{- end }}
-                {{- if eq (int .Values.guardrails.llmPolicyEngine.attachmentPolicyVersion) 4 }}
+                {{- if has $attachmentPolicyVersion (list "4" `"4.1"`) }}
                 document_modes: {{ $attachmentPolicy.document_modes | toJson | quote }}
                 image_modes: {{ $attachmentPolicy.image_modes | toJson | quote }}
+                {{- end }}
+                {{- if eq $attachmentPolicyVersion `"4.1"` }}
+                image_inspection: {{ $attachmentPolicy.image_inspection | toJson | quote }}
+                image_textless: {{ $attachmentPolicy.image_textless | toJson | quote }}
                 {{- end }}
             processingOptions:
               requestBodyMode: Buffered

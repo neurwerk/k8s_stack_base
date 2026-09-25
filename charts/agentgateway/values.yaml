@@ -228,8 +228,8 @@ guardrails:
   # Concrete target models are visibility: Internal — not callable directly.
   llmPolicyEngine:
     enabled: false
-    # Rollout guard: integer 1, 2, 3, or 4. Version 4 requires a compatible
-    # extProc consumer that is not pinned by this source-only chart change.
+    # Rollout guard: integer 1, 2, 3, or 4, or exact string "4.1". New versions
+    # require compatible extProc consumers not pinned by source-only changes.
     # Keep 1 until compatible services and activation are authorized.
     attachmentPolicyVersion: 1
 
@@ -333,6 +333,11 @@ guardrails:
     # normalization alone needs no Docling service. V4 metadata emits complete
     # document_modes and image_modes maps instead of attachment_modes, while keeping
     # the existing safety and routing maps. Deploy the v4 consumer before selection.
+    # Version "4.1" additionally accepts images.inspection as document-only
+    # (default) or document-and-vision, and images.textless as block (default) or
+    # allow-if-inspected. It alone emits dense image_inspection and image_textless
+    # maps. document-and-vision requires private-vlm/remote Docling;
+    # allow-if-inspected also requires checked forward-normalized delivery.
     # Set direct model values here; Helm list overrides replace the whole list.
     #
     # Entry shapes:

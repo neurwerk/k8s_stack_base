@@ -4,6 +4,7 @@
 - Prefer `docling.inference.mode: internal-standard` or `private-vlm`. Legacy `cpu` and `remote` are exact aliases; the shipped default remains `remote`. There is no automatic failover.
 - Internal-standard mode uses built-in OCR, layout and table models in the same Pod, without an external server or runtime downloads.
 - Private-vlm mode needs the server URL, model, private IPv4 CIDRs, port and token reference. An optional CA applies only there; llama.cpp needs `--special` for Granite-Docling.
+- Private presets explicitly keep `skip_special_tokens: false` so DocTags remain available.
 - `docling.inference.maxOutputTokens` defaults to 8192 and must fit beside the prompt and image tokens inside the private model's total context window. Lower it for servers whose total context is 8192.
 - HTTPS is required by default. Set `docling.inference.allowHttp: true` to explicitly allow a private HTTP endpoint; set `port` to its matching port (80 when omitted from an HTTP URL). RFC1918 egress restrictions and the TLS-protected Docling service remain unchanged.
 - Both modes need `docling.apiKeySecretRef`; only remote needs `docling.inference.tokenSecretRef`. Never put keys in values.
@@ -14,8 +15,10 @@
   `internal-standard`/`cpu` and `private-vlm`/`remote` modes as v3. Document/image
   text extraction and checked image forwarding require enabled Docling;
   unchecked image normalization alone uses only extProc's local helper. This
-  chart source does not pin or publish a v4 extProc consumer. Deploy compatible
-  services before separately enabling v3 or v4 image processing; see the root README.
+  Policy v4.1 document-and-vision inspection specifically requires enabled
+  private-vlm/remote mode. This chart source does not pin or publish a compatible
+  extProc consumer. Deploy compatible services before separately enabling image
+  processing; see the root README.
 
 ## Private Image Preset
 

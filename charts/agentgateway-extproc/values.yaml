@@ -43,6 +43,22 @@ monitorAgentgatewayExtproc:
     # Keep the dependency handshake below the outer Kubernetes probe timeout.
     readinessTimeout: 1
 
+  # Optional private OpenAI-compatible image inspection for attachment policy 4.1.
+  # The referenced Secret is provisioned separately; never put its token in values.
+  imageInspection:
+    enabled: false
+    allowHttp: false
+    baseUrl: ""
+    model: ""
+    tokenSecretRef: {name: "", key: ""}
+    timeout: 90
+    # Optional ConfigMap key ca.crt mounted at caFile.
+    caConfigMap: ""
+    caFile: /var/run/image-inspection/ca.crt
+    # Explicit RFC1918 IPv4 destinations; DNS alone is not an egress allowlist.
+    cidrs: []
+    port: 443
+
   # Text-only limits. Docling derives 64 MiB requests and a 68222976-byte gRPC
   # envelope instead, even if an existing client still supplies these values.
   maxRequestBytes: "5242880"
