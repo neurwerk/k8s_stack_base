@@ -3,8 +3,10 @@ the concrete routing branch, never names, groups, URLs or policy route classes. 
 {{- define "infra-agentgateway.attachmentPolicy" -}}
 {{- $engine := .Values.guardrails.llmPolicyEngine -}}
 {{- $version := toJson $engine.attachmentPolicyVersion -}}
-{{- if not (has $version (list "1" "2" "3" "4")) -}}
-{{- fail "guardrails.llmPolicyEngine.attachmentPolicyVersion must be integer 1, 2, 3, or 4" -}}
+{{- $version41 := eq $version `"4.1"` -}}
+{{- $typedVersion := or (eq $version "4") $version41 -}}
+{{- if not (or (has $version (list "1" "2" "3" "4")) $version41) -}}
+{{- fail `guardrails.llmPolicyEngine.attachmentPolicyVersion must be integer 1, 2, 3, or 4, or exact string "4.1"` -}}
 {{- end -}}
 {{- $maps := dict "image_forwarding" (dict) "face_protection" (dict) "local_models" (dict) -}}
 {{- $forwardingImages := dict -}}
@@ -13,37 +15,45 @@ the concrete routing branch, never names, groups, URLs or policy route classes. 
 {{- $backend := .Values.infraAgentgatewayWrapper.llamacpp -}}
 {{- $fallback := $engine.localTarget | default dict -}}
 {{- if hasKey $fallback "supportsImages" -}}
-{{- if not (has $version (list "3" "4")) -}}
-{{- fail "guardrails.llmPolicyEngine.localTarget.supportsImages requires attachmentPolicyVersion: 3 or 4 and compatible deployed services" -}}
+{{- if not (or (has $version (list "3" "4")) $version41) -}}
+{{- fail "guardrails.llmPolicyEngine.localTarget.supportsImages requires attachmentPolicyVersion: 3, 4, or 4.1 and compatible deployed services" -}}
 {{- end -}}
 {{- if not (kindIs "bool" $fallback.supportsImages) -}}
 {{- fail "guardrails.llmPolicyEngine.localTarget.supportsImages must be a boolean" -}}
 {{- end -}}
 {{- end -}}
-{{- if has $version (list "3" "4") -}}
+{{- if or (has $version (list "3" "4")) $version41 -}}
 {{- $_ := set $maps "image_models" (dict) -}}
 {{- $_ := set $maps "image_reroutes" (dict) -}}
 {{- end -}}
-{{- if eq $version "4" -}}
+{{- if $typedVersion -}}
 {{- $_ := set $maps "document_modes" (dict) -}}
 {{- $_ := set $maps "image_modes" (dict) -}}
+{{- end -}}
+{{- if $version41 -}}
+{{- $_ := set $maps "image_inspection" (dict) -}}
+{{- $_ := set $maps "image_textless" (dict) -}}
 {{- end -}}
 {{- range $model := $models -}}
 {{- $name := $model.name -}}
 {{- $_ := set $modelsByName $name $model -}}
-{{- if and (hasKey $model "supportsImages") (not (has $version (list "3" "4"))) -}}
-{{- fail (printf "model %q supportsImages requires attachmentPolicyVersion: 3 or 4 and compatible deployed services" $name) -}}
+{{- if and (hasKey $model "supportsImages") (not (or (has $version (list "3" "4")) $version41)) -}}
+{{- fail (printf "model %q supportsImages requires attachmentPolicyVersion: 3, 4, or 4.1 and compatible deployed services" $name) -}}
 {{- end -}}
-{{- if and (hasKey $model "attachments") (ne $version "4") -}}
+{{- if and (hasKey $model "attachments") (not $typedVersion) -}}
 {{- fail (printf "model %q nested attachments requires attachmentPolicyVersion: 4 and a deployed v4 consumer" $name) -}}
 {{- end -}}
-{{- if eq $version "4" -}}
+{{- if $typedVersion -}}
 {{- if not (hasKey $model "attachments") -}}
+{{- if $version41 -}}
+{{- fail (printf "model %q attachmentPolicyVersion: 4.1 requires nested attachments" $name) -}}
+{{- else -}}
 {{- fail (printf "model %q attachmentPolicyVersion: 4 requires nested attachments" $name) -}}
+{{- end -}}
 {{- end -}}
 {{- range $field := list "attachmentMode" "imageForwarding" "faceProtectionEnabled" -}}
 {{- if hasKey $model $field -}}
-{{- fail (printf "model %q %s is not allowed with attachmentPolicyVersion: 4; use nested attachments" $name $field) -}}
+{{- fail (printf "model %q %s is not allowed with attachmentPolicyVersion: %s; use nested attachments" $name $field (ternary "4.1" "4" $version41)) -}}
 {{- end -}}
 {{- end -}}
 {{- end -}}
@@ -61,7 +71,9 @@ the concrete routing branch, never names, groups, URLs or policy route classes. 
 {{- $documentMode := "block" -}}
 {{- $imageMode := "block" -}}
 {{- $imagePolicy := "enforce" -}}
-{{- if eq $version "4" -}}
+{{- $imageInspection := "document-only" -}}
+{{- $imageTextless := "block" -}}
+{{- if $typedVersion -}}
 {{- $attachments := $model.attachments -}}
 {{- if not (kindIs "map" $attachments) -}}
 {{- fail (printf "model %q attachments must be a map" $name) -}}
@@ -95,7 +107,7 @@ the concrete routing branch, never names, groups, URLs or policy route classes. 
 {{- fail (printf "model %q attachments.images must be a map" $name) -}}
 {{- end -}}
 {{- range $field, $_ := $imagesConfig -}}
-{{- if not (has $field (list "mode" "policy")) -}}
+{{- if not (or (has $field (list "mode" "policy")) (and $version41 (has $field (list "inspection" "textless")))) -}}
 {{- fail (printf "model %q attachments.images contains unknown field %q" $name $field) -}}
 {{- end -}}
 {{- end -}}
@@ -115,6 +127,18 @@ the concrete routing branch, never names, groups, URLs or policy route classes. 
 {{- fail (printf "model %q attachments.images.policy is only allowed with mode forward-normalized" $name) -}}
 {{- end -}}
 {{- end -}}
+{{- if hasKey $imagesConfig "inspection" -}}
+{{- $imageInspection = $imagesConfig.inspection -}}
+{{- if not (and (kindIs "string" $imageInspection) (has $imageInspection (list "document-only" "document-and-vision"))) -}}
+{{- fail (printf "model %q attachments.images.inspection must be document-only or document-and-vision" $name) -}}
+{{- end -}}
+{{- end -}}
+{{- if hasKey $imagesConfig "textless" -}}
+{{- $imageTextless = $imagesConfig.textless -}}
+{{- if not (and (kindIs "string" $imageTextless) (has $imageTextless (list "block" "allow-if-inspected"))) -}}
+{{- fail (printf "model %q attachments.images.textless must be block or allow-if-inspected" $name) -}}
+{{- end -}}
+{{- end -}}
 {{- end -}}
 {{- end -}}
 {{- $pii := true -}}
@@ -128,7 +152,7 @@ the concrete routing branch, never names, groups, URLs or policy route classes. 
 {{- fail (printf "model %q imageForwarding must be none, if-no-pii-detected, if-policy-allows, or pii-unchecked" $name) -}}
 {{- end -}}
 {{- end -}}
-{{- if eq $version "4" -}}
+{{- if $typedVersion -}}
 {{- $face = or (eq $documentMode "extract-text") (has $imageMode (list "extract-text" "forward-normalized")) -}}
 {{- if eq $imageMode "forward-normalized" -}}
 {{- if eq $imagePolicy "enforce" }}{{- $forward = "if-policy-allows" -}}
@@ -137,17 +161,15 @@ the concrete routing branch, never names, groups, URLs or policy route classes. 
 {{- end -}}
 {{- end -}}
 {{- end -}}
-{{- if and (eq $forward "if-policy-allows") (ne $version "3") -}}
-{{- if ne $version "4" -}}
+{{- if and (eq $forward "if-policy-allows") (not (or (eq $version "3") $typedVersion)) -}}
 {{- fail (printf "model %q if-policy-allows requires attachmentPolicyVersion: 3 and extProc 0.11.0 or newer" $name) -}}
-{{- end -}}
 {{- end -}}
 {{- $local := and (eq (toJson $model.local) "true") (not $model.piiReroute) (eq (toJson $backend.enabled) "true") (kindIs "string" $backend.host) (not (empty $backend.host)) (kindIs "string" $model.model) (not (empty $model.model)) -}}
 {{- $images := and $local (eq (toJson $model.supportsImages) "true") -}}
 {{- if and (eq $mode "passthrough") (or $pii $face (hasKey $model "imageForwarding")) -}}
 {{- fail (printf "model %q passthrough requires piiEnabled:false, faceProtectionEnabled:false and no explicit imageForwarding" $name) -}}
 {{- end -}}
-{{- if and (ne $version "4") (ne $forward "none") (not $processing) -}}
+{{- if and (not $typedVersion) (ne $forward "none") (not $processing) -}}
 {{- fail (printf "model %q image forwarding requires attachmentMode process or extract" $name) -}}
 {{- end -}}
 {{- if and (eq $version "2") (ne $forward "none") (not (and $.Values.docling.enabled (has $.Values.docling.inference.mode (list "private-vlm" "remote")))) -}}
@@ -157,8 +179,14 @@ the concrete routing branch, never names, groups, URLs or policy route classes. 
 {{- fail (printf "model %q image forwarding requires enabled Docling internal-standard/cpu or private-vlm/remote mode" $name) -}}
 {{- end -}}
 {{- $needsExtraction := or (eq $documentMode "extract-text") (eq $imageMode "extract-text") (and (eq $imageMode "forward-normalized") (ne $imagePolicy "unchecked")) -}}
-{{- if and (eq $version "4") $needsExtraction (not (and $.Values.docling.enabled (has $.Values.docling.inference.mode (list "internal-standard" "cpu" "private-vlm" "remote")))) -}}
+{{- if and $version41 (eq $imageInspection "document-and-vision") (not (and $.Values.docling.enabled (has $.Values.docling.inference.mode (list "private-vlm" "remote")))) -}}
+{{- fail (printf "model %q document-and-vision inspection requires enabled Docling private-vlm or remote mode" $name) -}}
+{{- end -}}
+{{- if and $typedVersion $needsExtraction (not (and $.Values.docling.enabled (has $.Values.docling.inference.mode (list "internal-standard" "cpu" "private-vlm" "remote")))) -}}
 {{- fail (printf "model %q attachment extraction requires enabled Docling internal-standard/cpu or private-vlm/remote mode" $name) -}}
+{{- end -}}
+{{- if and $version41 (eq $imageTextless "allow-if-inspected") (not (and (eq $imageInspection "document-and-vision") (eq $imageMode "forward-normalized") (has $imagePolicy (list "enforce" "strict")))) -}}
+{{- fail (printf "model %q allow-if-inspected requires document-and-vision inspection and checked forward-normalized image delivery" $name) -}}
 {{- end -}}
 {{- if has $forward (list "if-no-pii-detected" "if-policy-allows") -}}
 {{- if not (and $pii $face) -}}
@@ -171,10 +199,10 @@ the concrete routing branch, never names, groups, URLs or policy route classes. 
 {{- if and (eq $version "3") (eq $forward "pii-unchecked") (not $images) -}}
 {{- fail (printf "model %q v3 pii-unchecked requires supportsImages:true on its concrete local target" $name) -}}
 {{- end -}}
-{{- if and (eq $version "4") (eq $imageMode "forward-normalized") (ne (toJson $model.supportsImages) "true") -}}
+{{- if and $typedVersion (eq $imageMode "forward-normalized") (ne (toJson $model.supportsImages) "true") -}}
 {{- fail (printf "model %q forward-normalized requires supportsImages:true" $name) -}}
 {{- end -}}
-{{- if and (eq $version "4") (eq $imagePolicy "unchecked") (or $pii $face (not $images) $model.piiReroute) -}}
+{{- if and $typedVersion (eq $imagePolicy "unchecked") (or $pii $face (not $images) $model.piiReroute) -}}
 {{- fail (printf "model %q unchecked forwarding requires piiEnabled:false, no face protection, supportsImages:true, and a concrete local:true target without piiReroute" $name) -}}
 {{- end -}}
 {{- if ne $mode "passthrough" -}}
@@ -182,19 +210,23 @@ the concrete routing branch, never names, groups, URLs or policy route classes. 
 {{- end -}}
 {{- $_ := set $maps.face_protection $name $face -}}
 {{- $_ := set $maps.local_models $name $local -}}
-{{- if has $version (list "3" "4") -}}
+{{- if or (has $version (list "3" "4")) $version41 -}}
 {{- $_ := set $maps.image_models $name $images -}}
 {{- end -}}
-{{- if eq $version "4" -}}
+{{- if $typedVersion -}}
 {{- $_ := set $maps.document_modes $name $documentMode -}}
 {{- $_ := set $maps.image_modes $name $imageMode -}}
 {{- end -}}
-{{- if or (and (ne $version "4") $processing (ne $forward "none")) (and (eq $version "4") (eq $imageMode "forward-normalized")) -}}
+{{- if $version41 -}}
+{{- $_ := set $maps.image_inspection $name $imageInspection -}}
+{{- $_ := set $maps.image_textless $name $imageTextless -}}
+{{- end -}}
+{{- if or (and (not $typedVersion) $processing (ne $forward "none")) (and $typedVersion (eq $imageMode "forward-normalized")) -}}
 {{- $_ := set $forwardingImages $name true -}}
 {{- end -}}
 {{- end -}}
 {{- end -}}
-{{- if has $version (list "3" "4") -}}
+{{- if or (has $version (list "3" "4")) $version41 -}}
 {{- $policy := (.Values.monitorPiiEngine | default dict).policy | default dict -}}
 {{- $faces := ($policy.attachments | default dict).faces | default dict -}}
 {{- $routing := $policy.routing | default dict -}}

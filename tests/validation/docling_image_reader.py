@@ -1,6 +1,6 @@
 # /// script
 # requires-python = ">=3.13"
-# dependencies = ["pillow==11.3.0"]
+# dependencies = ["pillow==11.3.0", "pyyaml==6.0.2"]
 # ///
 """Opt-in upstream-backed image contract; fetches source, never calls inference.
 
@@ -141,7 +141,9 @@ def main():
                 pass
             else:
                 raise AssertionError("upstream did not reach the intercepted HTTP boundary")
-            url = captured.pop()["messages"][0]["content"][0]["image_url"]["url"]
+            request = captured.pop()
+            assert request["skip_special_tokens"] is False
+            url = request["messages"][0]["content"][0]["image_url"]["url"]
             actual = Image.open(io.BytesIO(base64.b64decode(url.split(",", 1)[1]))).convert("RGB")
             if preset_name == "images" and dpi is None:
                 assert actual.size == original.size

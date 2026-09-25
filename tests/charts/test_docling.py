@@ -65,6 +65,10 @@ class DoclingTests(unittest.TestCase):
         preset = settings["custom_vlm_presets"]["default"]
         self.assertEqual(preset["engine_options"]["engine_type"], "api")
         self.assertEqual(preset["engine_options"]["headers"], {})
+        for rendered_preset in settings["custom_vlm_presets"].values():
+            self.assertEqual(
+                rendered_preset["engine_options"]["params"]["skip_special_tokens"], False
+            )
         self.assertEqual(preset["model_spec"]["response_format"], "doctags")
         self.assertEqual(preset["model_spec"]["max_new_tokens"], 4096)
         for name, value in {
@@ -539,5 +543,9 @@ class DoclingTests(unittest.TestCase):
         for text in ("imageOutputType: png", "'^image/jpeg$'", "'^image/png$'",
                      "'^image/heic$'", "'^image/webp$'"):
             self.assertIn(text, v4_images)
+        values["guardrails"]["llmPolicyEngine"]["attachmentPolicyVersion"] = "4.1"
+        self.assertEqual(render("librechat/shared", values).stdout, v4_images)
+        values["guardrails"]["llmPolicyEngine"]["attachmentPolicyVersion"] = 4.1
+        self.assertIn("image uploads require", render("librechat/shared", values, check=False).stderr)
         values["frontendLibrechat"]["documentAttachments"]["enabled"] = False
         self.assertIn("image uploads require", render("librechat/shared", values, check=False).stderr)

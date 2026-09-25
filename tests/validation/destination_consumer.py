@@ -6,6 +6,7 @@ The v4 fixture is the producer-side schema expected by the coordinated extProc t
 """
 
 import argparse
+import copy
 import json
 from pathlib import Path
 import re
@@ -99,6 +100,19 @@ def main():
     typed_values["docling"] = {"enabled": True, "inference": {"mode": "internal-standard"}}
     payloads.append(rendered_payload(typed_values))
 
+    v41_values = copy.deepcopy(typed_values)
+    v41_values["guardrails"]["llmPolicyEngine"]["attachmentPolicyVersion"] = "4.1"
+    enforce = next(
+        model
+        for model in v41_values["guardrails"]["llmPolicyEngine"]["models"]
+        if model["name"] == "enforce"
+    )
+    enforce["attachments"]["images"].update(
+        inspection="document-and-vision", textless="allow-if-inspected"
+    )
+    v41_values["docling"]["inference"]["mode"] = "private-vlm"
+    payloads.append(rendered_payload(v41_values))
+
     # Run the actual consumer, not a copied schema; -B prevents external bytecode writes.
     subprocess.run([str(args.consumer_python.absolute()), "-B", "-c", '''
 import hashlib, json, pathlib, sys
@@ -115,6 +129,29 @@ def parse(payload):
 payloads = json.load(sys.stdin)
 for payload in payloads:
     policy = parse(payload)
+    if payload["contract_version"] == "4.1":
+        names = set(payload["models"])
+        assert policy.image_inspection == {
+            name: "document-and-vision" if name == "enforce" else "document-only"
+            for name in names
+        }
+        assert policy.image_textless == {
+            name: "allow-if-inspected" if name == "enforce" else "block"
+            for name in names
+        }
+        for invalid in (
+            {**payload, "contract_version": 4.1},
+            {key: value for key, value in payload.items() if key != "image_inspection"},
+            {**payload, "image_textless": {"enforce": "allow-if-inspected"}},
+            {**payload, "image_inspection": {**payload["image_inspection"], "extra": "document-only"}},
+        ):
+            try:
+                parse(invalid)
+            except TrustedMetadataError:
+                pass
+            else:
+                raise AssertionError("consumer accepted an invalid v4.1 attachment contract")
+        continue
     if payload["contract_version"] == 4:
         assert "attachment_modes" not in payload
         assert len(policy.models) == 7
@@ -205,7 +242,7 @@ for payload in payloads:
         else:
             raise AssertionError("consumer accepted the original passthrough regression")
 source = pathlib.Path(destination.__file__)
-print("PASS: nine rendered v1-v4 catalogs accepted by actual protobuf consumer parser;")
+print("PASS: ten rendered v1-v4.1 catalogs accepted by actual protobuf consumer parser;")
 print("typed modes and exact local image bindings preserved; version/capability regressions rejected.")
 print("Consumer destination.py SHA256:", hashlib.sha256(source.read_bytes()).hexdigest())
 ''', str(args.consumer_source.absolute() / "src")], input=json.dumps(payloads), text=True, check=True)

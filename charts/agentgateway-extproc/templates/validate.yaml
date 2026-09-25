@@ -5,6 +5,77 @@
 {{- if not (and (kindIs "string" $docling.inference.mode) (has $docling.inference.mode (list "cpu" "remote" "internal-standard" "private-vlm"))) -}}
   {{- fail "docling.inference.mode must be internal-standard or private-vlm (aliases: cpu or remote)" -}}
 {{- end -}}
+{{- $inspection := .Values.monitorAgentgatewayExtproc.imageInspection -}}
+{{- if not (kindIs "bool" $inspection.enabled) -}}
+  {{- fail "monitorAgentgatewayExtproc.imageInspection.enabled must be boolean" -}}
+{{- end -}}
+{{- if $inspection.enabled -}}
+{{- if not (kindIs "bool" $inspection.allowHttp) -}}
+  {{- fail "monitorAgentgatewayExtproc.imageInspection.allowHttp must be boolean" -}}
+{{- end -}}
+{{- $endpointPattern := `^https?://[a-zA-Z0-9]([a-zA-Z0-9.-]*[a-zA-Z0-9])?(:[1-9][0-9]{0,4})?/?$` -}}
+{{- if not (and (kindIs "string" $inspection.baseUrl) (regexMatch $endpointPattern $inspection.baseUrl)) -}}
+  {{- fail "monitorAgentgatewayExtproc.imageInspection.baseUrl must be a full HTTP(S) origin without userinfo, path, query or fragment" -}}
+{{- end -}}
+{{- $url := urlParse $inspection.baseUrl -}}
+{{- if and (eq $url.scheme "http") (not $inspection.allowHttp) -}}
+  {{- fail "HTTP image inspection requires monitorAgentgatewayExtproc.imageInspection.allowHttp=true; HTTPS is the default" -}}
+{{- end -}}
+{{- if not (regexMatch `^[1-9][0-9]*$` (toJson $inspection.port)) -}}
+  {{- fail "monitorAgentgatewayExtproc.imageInspection.port must be an integer" -}}
+{{- end -}}
+{{- $urlPort := ternary "80" "443" (eq $url.scheme "http") -}}
+{{- if contains ":" $url.host -}}
+  {{- $urlPort = last (splitList ":" $url.host) -}}
+{{- end -}}
+{{- if or (ne (int $urlPort) (int $inspection.port)) (gt (int $urlPort) 65535) -}}
+  {{- fail "monitorAgentgatewayExtproc.imageInspection.port must match the URL port" -}}
+{{- end -}}
+{{- if not (and (kindIs "string" $inspection.model) (regexMatch `^[^\s]+$` $inspection.model)) -}}
+  {{- fail "monitorAgentgatewayExtproc.imageInspection.model must be nonempty without whitespace" -}}
+{{- end -}}
+{{- if or
+    (not (regexMatch `^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$` $inspection.tokenSecretRef.name))
+    (not (regexMatch `^[a-zA-Z0-9._-]+$` $inspection.tokenSecretRef.key))
+-}}
+  {{- fail "monitorAgentgatewayExtproc.imageInspection requires an existing token Secret name/key reference" -}}
+{{- end -}}
+{{- if or (not (regexMatch `^[1-9][0-9]*$` (toJson $inspection.timeout))) (gt (int $inspection.timeout) 600) -}}
+  {{- fail "monitorAgentgatewayExtproc.imageInspection.timeout must be positive integer seconds at most 600" -}}
+{{- end -}}
+{{- if $inspection.caConfigMap -}}
+  {{- if or
+      (not (regexMatch `^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$` $inspection.caConfigMap))
+      (not (regexMatch `^/[A-Za-z0-9._/-]*[A-Za-z0-9._-]+$` $inspection.caFile))
+  -}}
+    {{- fail "monitorAgentgatewayExtproc.imageInspection CA requires a valid ConfigMap name and absolute caFile" -}}
+  {{- end -}}
+{{- end -}}
+{{- if not $inspection.cidrs -}}
+  {{- fail "monitorAgentgatewayExtproc.imageInspection.cidrs requires private inspection destinations" -}}
+{{- end -}}
+{{- range $cidr := $inspection.cidrs -}}
+  {{- if not (regexMatch `^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+/[0-9]+$` $cidr) -}}
+    {{- fail "image inspection CIDRs must be RFC1918 IPv4" -}}
+  {{- end -}}
+  {{- $parts := splitList "/" $cidr -}}
+  {{- $octets := splitList "." (first $parts) -}}
+  {{- $prefix := int (last $parts) -}}
+  {{- range $octet := $octets -}}
+    {{- if or (gt (int $octet) 255) (ne (toString (int $octet)) $octet) -}}
+      {{- fail "invalid image inspection IPv4 CIDR" -}}
+    {{- end -}}
+  {{- end -}}
+  {{- $firstOctet := int (index $octets 0) -}}
+  {{- $secondOctet := int (index $octets 1) -}}
+  {{- $in10Range := and (eq $firstOctet 10) (ge $prefix 8) -}}
+  {{- $in172Range := and (eq $firstOctet 172) (ge $secondOctet 16) (le $secondOctet 31) (ge $prefix 12) -}}
+  {{- $in192Range := and (eq $firstOctet 192) (eq $secondOctet 168) (ge $prefix 16) -}}
+  {{- if not (and (le $prefix 32) (or $in10Range $in172Range $in192Range)) -}}
+    {{- fail "image inspection CIDRs must stay within RFC1918 ranges" -}}
+  {{- end -}}
+{{- end -}}
+{{- end -}}
 {{- $rpcs := .Values.monitorAgentgatewayExtproc.grpcMaximumConcurrentRpcs -}}
 {{- if or (not (regexMatch `^[1-9][0-9]*$` (toJson $rpcs))) (gt (float64 $rpcs) 128.0) -}}
   {{- fail "monitorAgentgatewayExtproc.grpcMaximumConcurrentRpcs must be an integer from 1 to 128" -}}

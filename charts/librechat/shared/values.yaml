@@ -4,8 +4,8 @@ frontendLibrechat:
   documentAttachments:
     enabled: false
     # JPEG/PNG and browser-converted iPhone HEIC. V4 also allows WebP input while
-    # retaining PNG output. Requires enabled above and attachmentPolicyVersion: 3
-    # or 4 after compatible Engine/extProc deployment.
+    # retaining PNG output. Requires enabled above and attachmentPolicyVersion: 3,
+    # 4, or exact string "4.1" after compatible Engine/extProc deployment.
     imagesEnabled: false
   hostname: librechat.example.invalid
   memory:

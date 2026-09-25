@@ -7,6 +7,14 @@
 {{- fail "monitorAgentgatewayExtproc.engine.readinessTimeout must be greater than zero and at most one second" -}}
 {{- end }}
 {{- $docling := .Values.docling -}}
+{{- $imageInspection := .Values.monitorAgentgatewayExtproc.imageInspection -}}
+{{- $reloadSecrets := "monitor-agentgateway-extproc-engine-client-tls" -}}
+{{- if $docling.enabled -}}
+{{- $reloadSecrets = printf "%s,monitor-agentgateway-extproc-docling-secret" $reloadSecrets -}}
+{{- end -}}
+{{- if $imageInspection.enabled -}}
+{{- $reloadSecrets = printf "%s,%s" $reloadSecrets $imageInspection.tokenSecretRef.name -}}
+{{- end -}}
 {{- $resources := deepCopy .Values.monitorAgentgatewayExtproc.resources -}}
 {{- if $docling.enabled -}}
 {{- $resources = mergeOverwrite $resources .Values.monitorAgentgatewayExtproc.doclingResources -}}
@@ -17,7 +25,10 @@ metadata:
   name: monitor-agentgateway-extproc-deployment
   namespace: monitor-agentgateway-extproc
   annotations:
-    secret.reloader.stakater.com/reload: monitor-agentgateway-extproc-engine-client-tls{{ if $docling.enabled }},monitor-agentgateway-extproc-docling-secret{{ end }}
+    secret.reloader.stakater.com/reload: {{ $reloadSecrets }}
+    {{- if and $imageInspection.enabled $imageInspection.caConfigMap }}
+    configmap.reloader.stakater.com/reload: {{ $imageInspection.caConfigMap | quote }}
+    {{- end }}
   labels:
     app.kubernetes.io/name: monitor-agentgateway-extproc
     app.kubernetes.io/instance: monitor-agentgateway-extproc
@@ -71,6 +82,25 @@ spec:
               value: {{ .Values.monitorAgentgatewayExtproc.engine.maxResponseBytes | quote }}
             - name: EXTPROC_ENGINE__READINESS_TIMEOUT
               value: {{ .Values.monitorAgentgatewayExtproc.engine.readinessTimeout | quote }}
+            {{- if $imageInspection.enabled }}
+            - name: EXTPROC_IMAGE_INSPECTION__ENABLED
+              value: "true"
+            - name: EXTPROC_IMAGE_INSPECTION__BASE_URL
+              value: {{ $imageInspection.baseUrl | quote }}
+            - name: EXTPROC_IMAGE_INSPECTION__ALLOW_HTTP
+              value: {{ $imageInspection.allowHttp | quote }}
+            {{- if $imageInspection.caConfigMap }}
+            - name: EXTPROC_IMAGE_INSPECTION__CA_CERT
+              value: {{ $imageInspection.caFile | quote }}
+            {{- end }}
+            - name: EXTPROC_IMAGE_INSPECTION__API_KEY
+              valueFrom:
+                secretKeyRef: {{ $imageInspection.tokenSecretRef | toJson }}
+            - name: EXTPROC_IMAGE_INSPECTION__MODEL
+              value: {{ $imageInspection.model | quote }}
+            - name: EXTPROC_IMAGE_INSPECTION__TIMEOUT
+              value: {{ $imageInspection.timeout | quote }}
+            {{- end }}
             {{- if $docling.enabled }}
             - name: EXTPROC_DOCLING__ENABLED
               value: "true"
@@ -117,6 +147,12 @@ spec:
             - name: engine-tls
               mountPath: /var/run/pii-engine/tls
               readOnly: true
+            {{- if and $imageInspection.enabled $imageInspection.caConfigMap }}
+            - name: image-inspection-ca
+              mountPath: {{ $imageInspection.caFile | quote }}
+              subPath: ca.crt
+              readOnly: true
+            {{- end }}
           readinessProbe:
             httpGet:
               path: /ready
@@ -138,6 +174,13 @@ spec:
         - name: engine-tls
           secret:
             secretName: monitor-agentgateway-extproc-engine-client-tls
+        {{- if and $imageInspection.enabled $imageInspection.caConfigMap }}
+        - name: image-inspection-ca
+          configMap:
+            name: {{ $imageInspection.caConfigMap | quote }}
+            items:
+              - {key: ca.crt, path: ca.crt}
+        {{- end }}
       {{- with .Values.monitorAgentgatewayExtproc.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

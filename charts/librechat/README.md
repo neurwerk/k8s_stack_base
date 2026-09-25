@@ -3,10 +3,10 @@
 ## Optional Attachments
 
 `frontendLibrechat.documentAttachments.imagesEnabled` requires document uploads
-and attachment policy version 3 or 4. Version 3 allows JPEG, PNG and HEIC and does
-not allow WebP. Version 4 additionally allows `image/webp`; both versions retain
-`imageOutputType: png`. Upload configuration does not grant any model attachment
-mode or image-forwarding permission.
+and attachment policy version 3, 4, or exact string `"4.1"`. Version 3 allows
+JPEG, PNG and HEIC and does not allow WebP. Versions 4 and 4.1 additionally allow
+`image/webp`; all versions retain `imageOutputType: png`. Upload configuration
+does not grant any model attachment mode or image-forwarding permission.
 
 ## Optional Memory
 
