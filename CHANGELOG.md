@@ -9,6 +9,8 @@ upgrade path.
 
 ## [Unreleased]
 
+- Adopt neurwerk studio `0.11.0` with its light dashboard and daisyUI theme.
+
 ## [0.3.16] - 2026-09-24
 
 - Adopt extProc `0.12.0` for typed attachment policy v4 and local unchecked image normalization.
