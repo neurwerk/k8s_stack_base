@@ -188,6 +188,9 @@ the concrete routing branch, never names, groups, URLs or policy route classes. 
 {{- if and $version41 (eq $imageTextless "allow-if-inspected") (not (and (eq $imageInspection "document-and-vision") (eq $imageMode "forward-normalized") (has $imagePolicy (list "enforce" "strict")))) -}}
 {{- fail (printf "model %q allow-if-inspected requires document-and-vision inspection and checked forward-normalized image delivery" $name) -}}
 {{- end -}}
+{{- if and $version41 (eq $imageInspection "document-and-vision") (eq $imagePolicy "unchecked") -}}
+{{- fail (printf "model %q document-and-vision inspection requires checked image policy" $name) -}}
+{{- end -}}
 {{- if has $forward (list "if-no-pii-detected" "if-policy-allows") -}}
 {{- if not (and $pii $face) -}}
 {{- fail (printf "model %q %s requires PII and face protection" $name $forward) -}}
