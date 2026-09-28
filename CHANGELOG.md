@@ -9,6 +9,8 @@ upgrade path.
 
 ## [Unreleased]
 
+## [0.3.17] - 2026-09-28
+
 - Adopt neurwerk studio `0.11.0` with its light dashboard and daisyUI theme.
 - Adopt extProc `0.13.0` for attachment policy 4.1 image inspection and bounded failure reports.
 - Adopt API-key bridge `0.7.1` for consistent validation error responses.

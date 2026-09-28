@@ -1,11 +1,11 @@
 apiVersion: platform.neurwerk.com/v1alpha1
 kind: PlatformRelease
 metadata:
-  name: v0.3.16
+  name: v0.3.17
 spec:
-  version: 0.3.16
-  releaseDate: '2026-09-24'
-  summary: Fix log ingestion and add typed attachment support.
+  version: 0.3.17
+  releaseDate: '2026-09-28'
+  summary: Adopt current service releases and optional image inspection prerequisites.
   trust:
     signerIdentity: platform-release
     algorithm: ssh-ed25519
@@ -1157,13 +1157,12 @@ spec:
       node: 24.20.0
       lua: 5.4.9
   provenance:
-    previousTag: v0.3.15
-    includedThrough: 4db49f0418874cdacd19c8e9fa2887fea4baae14
+    previousTag: v0.3.16
+    includedThrough: 0a3b7f63d21829f93a1654c38ba4f5de8daed1bf
     commits:
-    - 2053cdec7d9d47e573bd0f7d83218be2e64a0759
-    - 10393a65ed2a134c5b9e63912eb03422398ec5b2
-    - 2d2d212eb8c55b13383cf86129f90f2ef9ea0df2
-    - 3851c9294d9448eaee06701d64799c9593da8378
-    - f7863eee3618dc758515804e1bf4c50dd5e37414
-    - 4db49f0418874cdacd19c8e9fa2887fea4baae14
-    compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.15...4db49f0418874cdacd19c8e9fa2887fea4baae14
+    - c9cededba18e7ef745b7d3446487354726b66235
+    - 5733dc6da7e988c36363c62949812b0be1cb156b
+    - 53dd1139ede02dccde24d423bcc3601651c90b70
+    - 0b90716fbfa69615ecee21521ee60ce540d5065d
+    - 0a3b7f63d21829f93a1654c38ba4f5de8daed1bf
+    compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.16...0a3b7f63d21829f93a1654c38ba4f5de8daed1bf
