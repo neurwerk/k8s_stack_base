@@ -13,7 +13,7 @@
 
 # --- Studio web configuration ---
 frontendStudio:
-  webImage: "ghcr.io/neurwerk/k8s-stack-studio-web:0.10.0@sha256:4079d5bea5f9723069365e553d654e450e383a3a021dcfc4723cf9e17d1f3f92"
+  webImage: "ghcr.io/neurwerk/k8s-stack-studio-web:0.11.0@sha256:0a501898c7ab5806d5d1e89a6d21d8024ed35bd2fe34b93b017eb41a22e753e2"
   studio:
     hostname: ""          # set in client_*/config/client.yaml
     replicas: 1
