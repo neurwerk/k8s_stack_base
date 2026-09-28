@@ -413,6 +413,13 @@ class PrivateImageTests(unittest.TestCase):
             self.assertIn("requires document-and-vision inspection and checked forward-normalized",
                           render("agentgateway", values, check=False).stderr)
 
+        row["attachments"]["images"] = {
+            "mode": "forward-normalized", "policy": "unchecked",
+            "inspection": "document-and-vision", "textless": "block",
+        }
+        self.assertIn("document-and-vision inspection requires checked image policy",
+                      render("agentgateway", values, check=False).stderr)
+
         values["guardrails"]["llmPolicyEngine"]["attachmentPolicyVersion"] = 4
         row["attachments"]["images"] = {
             "mode": "block", "inspection": "document-only",
