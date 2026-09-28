@@ -29,7 +29,7 @@ openrouterCatalog:
 
 # ── Chart own values ────────────────────────────────────────────────────────
 authKeycloakApiKeyBridge:
-  bridgeImage: ghcr.io/neurwerk/k8s-stack-keycloak-api-key-bridge:0.7.0@sha256:885d5050e335a17ed1f60321fc277f4f886f994ced583aedf4f97502b4fe280e
+  bridgeImage: ghcr.io/neurwerk/k8s-stack-keycloak-api-key-bridge:0.7.1@sha256:7f0d4d86f7ba1268ef1f7aac40df34a124a2c6e8cd1683e77fd894eef4ffd3ee
   hostname: ""
 
   ports:

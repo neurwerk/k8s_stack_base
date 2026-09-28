@@ -16,6 +16,17 @@ packages:
   - releases/infrastructure
   - releases/applications
   optional:
+  - path: releases/docling/image-inspection-secret-sync
+    status: included
+    reason: Optional private image-reader credential delivery; provision the runtime and API key before activation.
+    chartPrefixes: []
+    prerequisites:
+    - name: inference-runtime-manager
+      version: 0.2.0
+      source: https://github.com/neurwerk/k8s_stack_tooling/commit/50b0c29c60482033bc0ceac58ca5a68733e5b075
+    - name: openbao-stack-setup
+      version: 0.2.22
+      source: https://github.com/neurwerk/k8s_stack_tooling/commit/50b0c29c60482033bc0ceac58ca5a68733e5b075
   - path: releases/docling/secret-sync/internal
     status: included
     reason: Optional CPU API-key delivery; provision operator credentials before startup, without an external
@@ -23,8 +34,8 @@ packages:
     chartPrefixes: []
     prerequisites:
     - name: openbao-stack-setup
-      version: 0.2.21
-      source: https://github.com/neurwerk/k8s_stack_tooling/commit/5524da01f186559a96501724198c449fbe6c5467
+      version: 0.2.22
+      source: https://github.com/neurwerk/k8s_stack_tooling/commit/50b0c29c60482033bc0ceac58ca5a68733e5b075
   - path: releases/docling/secret-sync
     status: included
     reason: Optional remote-mode credential delivery; provision the API key and inference token before
@@ -32,8 +43,8 @@ packages:
     chartPrefixes: []
     prerequisites:
     - name: openbao-stack-setup
-      version: 0.2.21
-      source: https://github.com/neurwerk/k8s_stack_tooling/commit/5524da01f186559a96501724198c449fbe6c5467
+      version: 0.2.22
+      source: https://github.com/neurwerk/k8s_stack_tooling/commit/50b0c29c60482033bc0ceac58ca5a68733e5b075
   - path: releases/docling/reloader
     status: included
     reason: Optional Docling namespace watch and rotation RBAC; compose only after its namespace exists.
@@ -50,8 +61,8 @@ packages:
     - charts/docling
     prerequisites:
     - name: openbao-stack-setup
-      version: 0.2.21
-      source: https://github.com/neurwerk/k8s_stack_tooling/commit/5524da01f186559a96501724198c449fbe6c5467
+      version: 0.2.22
+      source: https://github.com/neurwerk/k8s_stack_tooling/commit/50b0c29c60482033bc0ceac58ca5a68733e5b075
   - path: releases/namespaces/maintenance
     status: included
     reason: Operator-tested optional maintenance; enable only when selected by the client.
@@ -115,8 +126,8 @@ prerequisites:
   version: 2.9.4
   source: client bootstrap manifests
 - name: openbao-stack-setup
-  version: 0.2.21
-  source: https://github.com/neurwerk/k8s_stack_tooling/commit/5524da01f186559a96501724198c449fbe6c5467
+  version: 0.2.22
+  source: https://github.com/neurwerk/k8s_stack_tooling/commit/50b0c29c60482033bc0ceac58ca5a68733e5b075
 - name: gateway-api-experimental
   version: 1.6.0
   source: https://github.com/kubernetes-sigs/gateway-api/releases/tag/v1.6.0

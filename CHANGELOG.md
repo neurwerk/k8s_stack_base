@@ -10,6 +10,13 @@ upgrade path.
 ## [Unreleased]
 
 - Adopt neurwerk studio `0.11.0` with its light dashboard and daisyUI theme.
+- Adopt extProc `0.13.0` for attachment policy 4.1 image inspection and bounded failure reports.
+- Adopt API-key bridge `0.7.1` for consistent validation error responses.
+- Include optional private image-reader credential delivery with Tooling `openbao-stack-setup` `0.2.22` and `inference-runtime-manager` `0.2.0`.
+
+### Upgrade Steps
+
+Before enabling image inspection, install the exact Tooling prerequisites from the release manifest, reconcile OpenBao, provision the image-reader API key, and verify the optional Secret delivery.
 
 ## [0.3.16] - 2026-09-24
 

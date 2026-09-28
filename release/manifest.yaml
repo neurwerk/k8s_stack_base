@@ -21,6 +21,18 @@ spec:
     - releases/infrastructure
     - releases/applications
     optional:
+    - path: releases/docling/image-inspection-secret-sync
+      status: included
+      reason: Optional private image-reader credential delivery; provision the runtime and API key before
+        activation.
+      chartPrefixes: []
+      prerequisites:
+      - name: inference-runtime-manager
+        version: 0.2.0
+        source: https://github.com/neurwerk/k8s_stack_tooling/commit/50b0c29c60482033bc0ceac58ca5a68733e5b075
+      - name: openbao-stack-setup
+        version: 0.2.22
+        source: https://github.com/neurwerk/k8s_stack_tooling/commit/50b0c29c60482033bc0ceac58ca5a68733e5b075
     - path: releases/docling/secret-sync/internal
       status: included
       reason: Optional CPU API-key delivery; provision operator credentials before startup, without an
@@ -28,8 +40,8 @@ spec:
       chartPrefixes: []
       prerequisites:
       - name: openbao-stack-setup
-        version: 0.2.21
-        source: https://github.com/neurwerk/k8s_stack_tooling/commit/5524da01f186559a96501724198c449fbe6c5467
+        version: 0.2.22
+        source: https://github.com/neurwerk/k8s_stack_tooling/commit/50b0c29c60482033bc0ceac58ca5a68733e5b075
     - path: releases/docling/secret-sync
       status: included
       reason: Optional remote-mode credential delivery; provision the API key and inference token before
@@ -37,8 +49,8 @@ spec:
       chartPrefixes: []
       prerequisites:
       - name: openbao-stack-setup
-        version: 0.2.21
-        source: https://github.com/neurwerk/k8s_stack_tooling/commit/5524da01f186559a96501724198c449fbe6c5467
+        version: 0.2.22
+        source: https://github.com/neurwerk/k8s_stack_tooling/commit/50b0c29c60482033bc0ceac58ca5a68733e5b075
     - path: releases/docling/reloader
       status: included
       reason: Optional Docling namespace watch and rotation RBAC; compose only after its namespace exists.
@@ -55,8 +67,8 @@ spec:
       - charts/docling
       prerequisites:
       - name: openbao-stack-setup
-        version: 0.2.21
-        source: https://github.com/neurwerk/k8s_stack_tooling/commit/5524da01f186559a96501724198c449fbe6c5467
+        version: 0.2.22
+        source: https://github.com/neurwerk/k8s_stack_tooling/commit/50b0c29c60482033bc0ceac58ca5a68733e5b075
     - path: releases/namespaces/maintenance
       status: included
       reason: Operator-tested optional maintenance; enable only when selected by the client.
@@ -120,8 +132,8 @@ spec:
     version: 2.9.4
     source: client bootstrap manifests
   - name: openbao-stack-setup
-    version: 0.2.21
-    source: https://github.com/neurwerk/k8s_stack_tooling/commit/5524da01f186559a96501724198c449fbe6c5467
+    version: 0.2.22
+    source: https://github.com/neurwerk/k8s_stack_tooling/commit/50b0c29c60482033bc0ceac58ca5a68733e5b075
   - name: gateway-api-experimental
     version: 1.6.0
     source: https://github.com/kubernetes-sigs/gateway-api/releases/tag/v1.6.0
@@ -170,8 +182,8 @@ spec:
           sha256: a22cfb7dcc56da05d31b18c0a969e1b8eee35d19a4493d88b5d4720efcc85945
     - path: charts/agentgateway-extproc
       name: agentgateway-extproc
-      version: 1.4.0
-      appVersion: 0.12.0
+      version: 1.4.1
+      appVersion: 0.13.0
     - path: charts/cert-manager/approval-policy
       name: infra-cert-manager-approval-policy
       version: 1.2.1
@@ -319,8 +331,8 @@ spec:
       appVersion: 26.7.2
     - path: charts/keycloak-api-key-bridge
       name: auth-keycloak-api-key-bridge
-      version: 1.1.3
-      appVersion: 0.7.0
+      version: 1.1.4
+      appVersion: 0.7.1
     - path: charts/kube-prometheus-stack
       name: monitor-kube-prometheus-stack
       version: 1.0.4
@@ -911,12 +923,12 @@ spec:
       eligibility: included
       origins:
       - charts/dify/web/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.12.0@sha256:65f5142b2a9742f2ce9583a4aad32921a537447666e3bedd47d78bb87c2b9eb9
+    - reference: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.13.0@sha256:e4dc916429902602ffec579e433621868eee9bfcfadc23f3bfc8de49032b2de9
       pinned: true
       eligibility: included
       origins:
       - charts/agentgateway-extproc/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-keycloak-api-key-bridge:0.7.0@sha256:885d5050e335a17ed1f60321fc277f4f886f994ced583aedf4f97502b4fe280e
+    - reference: ghcr.io/neurwerk/k8s-stack-keycloak-api-key-bridge:0.7.1@sha256:7f0d4d86f7ba1268ef1f7aac40df34a124a2c6e8cd1683e77fd894eef4ffd3ee
       pinned: true
       eligibility: included
       origins:
