@@ -13,7 +13,7 @@
 
 # --- Studio API configuration ---
 frontendStudio:
-  apiImage: "ghcr.io/neurwerk/k8s-stack-studio-api:0.11.0@sha256:8f9b9fb2d0c3dd791657f21218639c97225dffaeb37591cc17da2cfcf0fd1179"
+  apiImage: "ghcr.io/neurwerk/k8s-stack-studio-api:0.12.0@sha256:408d1a16914a64b300d3d050fee2013f5d716b7cf76d0aa9354dc1afb68f3a50"
   api:
     replicas: 1
     securityContext:

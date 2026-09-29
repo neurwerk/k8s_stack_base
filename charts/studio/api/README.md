@@ -1,10 +1,11 @@
 # Notice preference rollout contract (staged)
 
-The chart wiring is opt-in. The pinned Studio API `0.11.0`, extProc `0.13.0`,
-and currently pinned API-key bridge must not be assumed to implement this
-feature. Keep the database, private listener, extProc lookup and gateway
-credential-context switches off until matching service images have been
-released, verified, pinned and rolled out in dependency order:
+The chart wiring is opt-in. Studio API `0.12.0` and extProc `0.14.0` implement
+notice preferences, but the pinned API-key bridge `0.7.1` does not provide
+personal key identity and cannot use the PostgreSQL-only `0.8.0` image with its
+current SQLite default. Keep the database, private listener, extProc lookup and
+gateway credential-context switches off until their dependencies are provisioned
+and the bridge cutover is coordinated in dependency order:
 
 1. Provision the same new database password in OpenBao at
    `frontend-studio/internal:postgresqlPassword` and
@@ -50,6 +51,7 @@ released, verified, pinned and rolled out in dependency order:
    contains any new fields. The existing attachment `contract_version` stays
    independent of this credential-context version.
 
-The three service implementations and the exact image pins still need to be
-coordinated with their owning repositories. Chart rendering alone cannot
-establish that their environment names and wire schemas match.
+Studio `0.12.0` and extProc `0.14.0` are pinned in the platform defaults;
+the PostgreSQL-only bridge `0.8.0` remains a separate, coordinated client
+cutover. Chart rendering alone cannot establish live availability or that
+the optional database and credential prerequisites are ready.
