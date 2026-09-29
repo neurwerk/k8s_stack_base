@@ -12,6 +12,8 @@ upgrade path.
 - Upgrade Dify to 1.17.1 with reviewed, digest-pinned API/Web images, Agent backend, isolated local sandbox, and scoped proxy.
 - Align the plugin daemon with upstream 0.6.10 and deliver Dify Agent credentials from OpenBao.
 - Before adoption, reconcile OpenBao with `openbao-stack-setup` 0.2.23 from Tooling commit `566c0a00fc186afa377ffce537d99d6aa7f411f8`; reset Dify-only state as documented.
+- Require Studio `0.12.0`, extProc `0.14.0`, and PostgreSQL-only API-key bridge `0.8.0` for personal notice settings. New user settings default on; each personal key inherits them unless changed in Studio.
+- Require the two database credential Secret-sync packages and `openbao-stack-setup` `0.2.23` from Tooling commit `2d4af9c757366ecdf573c9aac64614545bf6a5ba`. Before adopting this level, reconcile the credential catalog and confirm both namespace-local database Secrets are ready. Start with an empty bridge PostgreSQL database; the operator confirmed that no API keys need copying from SQLite. Remove only the old bridge PVC after the new bridge is healthy.
 
 ## [0.3.17] - 2026-09-28
 

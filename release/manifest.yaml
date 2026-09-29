@@ -220,18 +220,22 @@ spec:
     - path: charts/cert-manager/issuers
       name: infra-cert-manager-issuers
       version: 1.0.0
+    - path: charts/dify/agent
+      name: frontend-dify-agent
+      version: 1.0.0
+      appVersion: 1.17.1
     - path: charts/dify/api
       name: frontend-dify-api
-      version: 1.0.3
-      appVersion: 1.15.0
+      version: 1.0.4
+      appVersion: 1.17.1
     - path: charts/dify/beat
       name: frontend-dify-beat
-      version: 1.0.0
-      appVersion: 1.15.0
+      version: 1.0.1
+      appVersion: 1.17.1
     - path: charts/dify/plugin-daemon
       name: frontend-dify-plugin-daemon
-      version: 1.0.0
-      appVersion: 0.6.3
+      version: 1.0.1
+      appVersion: 0.6.10
     - path: charts/dify/redis
       name: frontend-dify-redis
       version: 1.0.0
@@ -242,16 +246,16 @@ spec:
       appVersion: 0.2.15
     - path: charts/dify/shared
       name: frontend-dify-shared
-      version: 1.0.0
+      version: 1.0.1
       appVersion: 1.0.0
     - path: charts/dify/web
       name: frontend-dify-web-gui
-      version: 1.0.0
-      appVersion: 1.15.0
+      version: 1.0.1
+      appVersion: 1.17.1
     - path: charts/dify/worker
       name: frontend-dify-worker
-      version: 1.0.0
-      appVersion: 1.15.0
+      version: 1.0.1
+      appVersion: 1.17.1
     - path: charts/docling
       name: docling
       version: 0.4.7
@@ -552,6 +556,10 @@ spec:
       namespace: infra-cert-manager
       name: cert-manager-issuers
       chart: ./charts/cert-manager/issuers
+    - path: releases/dify/agent.yaml
+      namespace: frontend-dify
+      name: frontend-dify-agent
+      chart: ./charts/dify/agent
     - path: releases/dify/api.yaml
       namespace: frontend-dify
       name: frontend-dify-api
@@ -831,7 +839,17 @@ spec:
       eligibility: included
       origins:
       - charts/langfuse/values.yaml
-    - reference: docker.io/langgenius/dify-plugin-daemon:0.6.3-local
+    - reference: docker.io/langgenius/dify-agent-backend:1.17.1@sha256:a30c039bbead65d7fd8baf8c53fc867373f515c5721e46070ce03ed04c5f1e32
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/dify/agent/values.yaml
+    - reference: docker.io/langgenius/dify-agent-local-sandbox:1.17.1@sha256:f4d404c9dcdf80bd72f65e84c3f2bbd1f3404fd4b363db837176da8aaf771b1d
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/dify/agent/values.yaml
+    - reference: docker.io/langgenius/dify-plugin-daemon:0.6.10-local@sha256:34412a22d1e1d1a6c73727fef88cffbcdd9be7a21bf9ad3076b4bf5c1b88fd9b
       pinned: true
       eligibility: included
       origins:
@@ -876,6 +894,11 @@ spec:
       eligibility: included
       origins:
       - charts/rook-ceph/values.yaml
+    - reference: docker.io/ubuntu/squid:6.6-24.04_beta@sha256:6a097f68bae708cedbabd6188d68c7e2e7a38cedd05a176e1cc0ba29e3bbe029
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/dify/agent/values.yaml
     - reference: docker.io/valkey/valkey:9.1.1-alpine
       pinned: true
       eligibility: included
@@ -913,14 +936,14 @@ spec:
       eligibility: included
       origins:
       - charts/wireguard/values.yaml
-    - reference: ghcr.io/neurwerk/addon-dify-ce-builder-api:1.15.0-kc-v2
+    - reference: ghcr.io/neurwerk/addon-dify-ce-builder-api:1.17.1-kc-v1@sha256:c5b486052d0da75aa140310511655c8a6f9f910f5179a55bcfdb3b1b88c70202
       pinned: true
       eligibility: included
       origins:
       - charts/dify/api/values.yaml
       - charts/dify/beat/values.yaml
       - charts/dify/worker/values.yaml
-    - reference: ghcr.io/neurwerk/addon-dify-ce-builder-web:1.15.0-kc-v2
+    - reference: ghcr.io/neurwerk/addon-dify-ce-builder-web:1.17.1-kc-v1@sha256:2de3b4ad387a8a77205b83f004a72f8d5ddc4e85ac40f1bdfe06747b24a47b8e
       pinned: true
       eligibility: included
       origins:
