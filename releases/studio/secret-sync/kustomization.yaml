@@ -1,0 +1,6 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+# Stage separately after the two OpenBao properties exist. Do not put these
+# ExternalSecrets in the always-on shared secret-sync inventory.
+resources:
+  - postgres.yaml

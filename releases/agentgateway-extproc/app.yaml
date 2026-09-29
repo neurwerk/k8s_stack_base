@@ -19,6 +19,8 @@ spec:
       namespace: monitor-pii-engine
     - name: agentgateway
       namespace: infra-agentgateway
+    - name: studio-api
+      namespace: frontend-studio
     - name: kube-prometheus-stack
       namespace: monitor-kube-prometheus-stack
   chart:

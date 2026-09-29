@@ -13,6 +13,15 @@ spec:
     - Ingress
   ingress:
     - from:
+        {{- if .Values.apiKeyBridge.enabled }}
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: auth-keycloak-api-key-bridge
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: auth-keycloak-api-key-bridge
+              app.kubernetes.io/instance: auth-keycloak-api-key-bridge
+        {{- end }}
         {{- if .Values.forgejo.enabled }}
         - namespaceSelector:
             matchLabels:
@@ -21,6 +30,15 @@ spec:
             matchLabels:
               app.kubernetes.io/name: forgejo
               app.kubernetes.io/instance: forgejo
+        {{- end }}
+        {{- if .Values.studio.enabled }}
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: frontend-studio
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: studio-api
+              app.kubernetes.io/instance: frontend-studio-api
         {{- end }}
         - namespaceSelector:
             matchLabels:

@@ -3,6 +3,7 @@
 # Its versioned name intentionally prevents a pre-versioned bridge database
 # from being attached to this release.
 # =============================================================================
+{{- if not .Values.authKeycloakApiKeyBridge.postgres.enabled }}
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -20,3 +21,4 @@ spec:
   {{- with .Values.authKeycloakApiKeyBridge.persistence.storageClass }}
   storageClassName: {{ . }}
   {{- end }}
+{{- end }}

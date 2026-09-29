@@ -1,3 +1,8 @@
+{{- if .Values.authKeycloakApiKeyBridge.postgres.enabled }}
+{{- if or (not (regexMatch "@sha256:[0-9a-f]{64}$" .Values.authKeycloakApiKeyBridge.bridgeImage)) (eq .Values.authKeycloakApiKeyBridge.bridgeImage "ghcr.io/neurwerk/k8s-stack-keycloak-api-key-bridge:0.7.1@sha256:7f0d4d86f7ba1268ef1f7aac40df34a124a2c6e8cd1683e77fd894eef4ffd3ee") }}
+{{- fail "bridge postgres requires a verified PostgreSQL-compatible image pin; current 0.7.1 image uses SQLite" }}
+{{- end }}
+{{- end }}
 # =============================================================================
 # keycloak-api-key-bridge Deployment
 # =============================================================================
@@ -17,7 +22,7 @@ metadata:
   namespace: auth-keycloak-api-key-bridge
   annotations:
     ignore-check.kube-linter.io/non-existent-service-account: "Rendered by this chart."
-    secret.reloader.stakater.com/reload: "auth-keycloak-api-key-bridge-openbao-secret"
+    secret.reloader.stakater.com/reload: {{ ternary "auth-keycloak-api-key-bridge-openbao-secret,auth-keycloak-api-key-bridge-postgres-secret" "auth-keycloak-api-key-bridge-openbao-secret" .Values.authKeycloakApiKeyBridge.postgres.enabled | quote }}
   labels:
     {{- include "auth-keycloak-api-key-bridge.labels" . | nindent 4 }}
 spec:
@@ -41,6 +46,32 @@ spec:
         fsGroup: {{ .Values.authKeycloakApiKeyBridge.securityContext.fsGroup }}
         seccompProfile:
           type: RuntimeDefault
+      {{- if .Values.authKeycloakApiKeyBridge.postgres.enabled }}
+      initContainers:
+        - name: keycloak-api-key-bridge-init-db
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            readOnlyRootFilesystem: true
+          image: {{ .Values.authKeycloakApiKeyBridge.bridgeImage | quote }}
+          imagePullPolicy: Always
+          command: ["keycloak-api-key-bridge-init-db"]
+          env:
+            - name: KEYCLOAK_API_KEY_BRIDGE_POSTGRES_HOST
+              value: {{ .Values.authKeycloakApiKeyBridge.postgres.host | quote }}
+            - name: KEYCLOAK_API_KEY_BRIDGE_POSTGRES_PORT
+              value: {{ .Values.authKeycloakApiKeyBridge.postgres.port | quote }}
+            - name: KEYCLOAK_API_KEY_BRIDGE_POSTGRES_DATABASE
+              value: {{ .Values.authKeycloakApiKeyBridge.postgres.database | quote }}
+            - name: KEYCLOAK_API_KEY_BRIDGE_POSTGRES_USER
+              value: {{ .Values.authKeycloakApiKeyBridge.postgres.user | quote }}
+            - name: KEYCLOAK_API_KEY_BRIDGE_POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: auth-keycloak-api-key-bridge-postgres-secret
+                  key: password
+      {{- end }}
       containers:
         - name: keycloak-api-key-bridge
           securityContext:
@@ -51,8 +82,10 @@ spec:
           image: {{ .Values.authKeycloakApiKeyBridge.bridgeImage | quote }}
           imagePullPolicy: Always
           env:
+            {{- if not .Values.authKeycloakApiKeyBridge.postgres.enabled }}
             - name: SQLITE_TMPDIR
               value: /data
+            {{- end }}
             - name: KEYCLOAK_API_KEY_BRIDGE_KEYCLOAK_URL
               value: "http://auth-keycloak-keycloak-service.auth-keycloak.svc.cluster.local"
             - name: KEYCLOAK_API_KEY_BRIDGE_KEYCLOAK_ISSUER
@@ -66,8 +99,24 @@ spec:
                 secretKeyRef:
                   name: auth-keycloak-api-key-bridge-openbao-secret
                   key: KEYCLOAK_API_KEY_BRIDGE_KEYCLOAK_CLIENT_SECRET
+            {{- if .Values.authKeycloakApiKeyBridge.postgres.enabled }}
+            - name: KEYCLOAK_API_KEY_BRIDGE_POSTGRES_HOST
+              value: {{ .Values.authKeycloakApiKeyBridge.postgres.host | quote }}
+            - name: KEYCLOAK_API_KEY_BRIDGE_POSTGRES_PORT
+              value: {{ .Values.authKeycloakApiKeyBridge.postgres.port | quote }}
+            - name: KEYCLOAK_API_KEY_BRIDGE_POSTGRES_DATABASE
+              value: {{ .Values.authKeycloakApiKeyBridge.postgres.database | quote }}
+            - name: KEYCLOAK_API_KEY_BRIDGE_POSTGRES_USER
+              value: {{ .Values.authKeycloakApiKeyBridge.postgres.user | quote }}
+            - name: KEYCLOAK_API_KEY_BRIDGE_POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: auth-keycloak-api-key-bridge-postgres-secret
+                  key: password
+            {{- else }}
             - name: KEYCLOAK_API_KEY_BRIDGE_DATABASE_URL
               value: {{ .Values.authKeycloakApiKeyBridge.config.database_url | quote }}
+            {{- end }}
             - name: KEYCLOAK_API_KEY_BRIDGE_MAX_KEYS_PER_USER
               value: {{ .Values.authKeycloakApiKeyBridge.config.max_keys_per_user | quote }}
             - name: KEYCLOAK_API_KEY_BRIDGE_LOG_LEVEL
@@ -96,8 +145,10 @@ spec:
             timeoutSeconds: 2
             failureThreshold: 1
           volumeMounts:
+            {{- if not .Values.authKeycloakApiKeyBridge.postgres.enabled }}
             - name: data
               mountPath: /data
+            {{- end }}
             - name: managed-grants
               mountPath: /var/run/managed-api-key-grants
               readOnly: true
@@ -107,9 +158,11 @@ spec:
           resources:
             {{- toYaml .Values.authKeycloakApiKeyBridge.resources | nindent 12 }}
       volumes:
+        {{- if not .Values.authKeycloakApiKeyBridge.postgres.enabled }}
         - name: data
           persistentVolumeClaim:
             claimName: auth-keycloak-api-key-bridge-v2-pvc
+        {{- end }}
         - name: managed-grants
           configMap:
             name: auth-keycloak-api-key-bridge-managed-key-grants

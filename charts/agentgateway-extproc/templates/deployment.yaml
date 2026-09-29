@@ -15,6 +15,9 @@
 {{- if $imageInspection.enabled -}}
 {{- $reloadSecrets = printf "%s,%s" $reloadSecrets $imageInspection.tokenSecretRef.name -}}
 {{- end -}}
+{{- if .Values.monitorAgentgatewayExtproc.noticePreferences.enabled -}}
+{{- $reloadSecrets = printf "%s,monitor-agentgateway-extproc-studio-client-tls" $reloadSecrets -}}
+{{- end -}}
 {{- $resources := deepCopy .Values.monitorAgentgatewayExtproc.resources -}}
 {{- if $docling.enabled -}}
 {{- $resources = mergeOverwrite $resources .Values.monitorAgentgatewayExtproc.doclingResources -}}
@@ -82,6 +85,20 @@ spec:
               value: {{ .Values.monitorAgentgatewayExtproc.engine.maxResponseBytes | quote }}
             - name: EXTPROC_ENGINE__READINESS_TIMEOUT
               value: {{ .Values.monitorAgentgatewayExtproc.engine.readinessTimeout | quote }}
+            {{- if .Values.monitorAgentgatewayExtproc.noticePreferences.enabled }}
+            - name: EXTPROC_NOTICE_PREFERENCES__ENABLED
+              value: "true"
+            - name: EXTPROC_NOTICE_PREFERENCES__BASE_URL
+              value: {{ .Values.monitorAgentgatewayExtproc.noticePreferences.url | quote }}
+            - name: EXTPROC_NOTICE_PREFERENCES__CA_CERT
+              value: {{ .Values.monitorAgentgatewayExtproc.noticePreferences.caFile | quote }}
+            - name: EXTPROC_NOTICE_PREFERENCES__CLIENT_CERT
+              value: {{ .Values.monitorAgentgatewayExtproc.noticePreferences.clientCertFile | quote }}
+            - name: EXTPROC_NOTICE_PREFERENCES__CLIENT_KEY
+              value: {{ .Values.monitorAgentgatewayExtproc.noticePreferences.clientKeyFile | quote }}
+            - name: EXTPROC_NOTICE_PREFERENCES__TIMEOUT
+              value: {{ .Values.monitorAgentgatewayExtproc.noticePreferences.timeout | quote }}
+            {{- end }}
             {{- if $imageInspection.enabled }}
             - name: EXTPROC_IMAGE_INSPECTION__ENABLED
               value: "true"
@@ -147,6 +164,11 @@ spec:
             - name: engine-tls
               mountPath: /var/run/pii-engine/tls
               readOnly: true
+            {{- if .Values.monitorAgentgatewayExtproc.noticePreferences.enabled }}
+            - name: studio-tls
+              mountPath: /var/run/studio/tls
+              readOnly: true
+            {{- end }}
             {{- if and $imageInspection.enabled $imageInspection.caConfigMap }}
             - name: image-inspection-ca
               mountPath: {{ $imageInspection.caFile | quote }}
@@ -174,6 +196,11 @@ spec:
         - name: engine-tls
           secret:
             secretName: monitor-agentgateway-extproc-engine-client-tls
+        {{- if .Values.monitorAgentgatewayExtproc.noticePreferences.enabled }}
+        - name: studio-tls
+          secret:
+            secretName: monitor-agentgateway-extproc-studio-client-tls
+        {{- end }}
         {{- if and $imageInspection.enabled $imageInspection.caConfigMap }}
         - name: image-inspection-ca
           configMap:

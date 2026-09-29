@@ -1,0 +1,40 @@
+# Keep the provisioner password separate from the StatefulSet's watched Secret.
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: api-key-bridge-postgres-values
+  namespace: infra-postgres-operations
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: infra-postgres-operations-openbao-secret-store
+    kind: SecretStore
+  target:
+    name: api-key-bridge-postgres-values
+    creationPolicy: Owner
+    deletionPolicy: Retain
+  data:
+    - secretKey: password
+      remoteRef:
+        key: infra-postgres-operations/internal
+        property: apiKeyBridgePassword
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: auth-keycloak-api-key-bridge-postgres-secret
+  namespace: auth-keycloak-api-key-bridge
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: auth-keycloak-api-key-bridge-openbao-secret-store
+    kind: SecretStore
+  target:
+    name: auth-keycloak-api-key-bridge-postgres-secret
+    creationPolicy: Owner
+    deletionPolicy: Retain
+  data:
+    - secretKey: password
+      remoteRef:
+        key: auth-keycloak-api-key-bridge/internal
+        property: postgresqlPassword

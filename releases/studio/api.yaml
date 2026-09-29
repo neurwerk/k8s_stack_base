@@ -25,6 +25,8 @@ spec:
       namespace: monitor-opensearch
     - name: agentgateway
       namespace: infra-agentgateway
+    - name: postgres-operations
+      namespace: infra-postgres-operations
     - name: keycloak-studio-oidc
       namespace: auth-keycloak
   chart:

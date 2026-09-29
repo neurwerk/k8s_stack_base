@@ -33,20 +33,30 @@ spec:
     # PostRouting policies and destination metadata.
     extProc:
       conditional:
-        - condition: 'request.method == "POST" && request.path.startsWith("/v1/")'
+        {{- $variants := list "all" }}
+        {{- if .Values.guardrails.llmPolicyEngine.credentialContextEnabled }}
+        {{- $variants = list "key" "jwt" "legacy" }}
+        {{- end }}
+        {{- range $variant := $variants }}
+        - condition: 'request.method == "POST" && request.path.startsWith("/v1/"){{ if eq $variant "key" }} && !has(jwt.sub) && has(extauthz.credential_id) && has(extauthz.credential_kind){{ else if eq $variant "jwt" }} && has(jwt.sub){{ else if eq $variant "legacy" }} && !has(jwt.sub) && !(has(extauthz.credential_id) && has(extauthz.credential_kind)){{ end }}'
           policy:
             backendRef:
               group: ""
               kind: Service
               name: monitor-agentgateway-extproc-service
               namespace: monitor-agentgateway-extproc
-              port: {{ .Values.guardrails.llmPolicyEngine.extProcPort | default 9000 }}
+              port: {{ $.Values.guardrails.llmPolicyEngine.extProcPort | default 9000 }}
             failureMode: FailClosed
             metadataContext:
               neurwerk.destination_policy:
-                contract_version: {{ .Values.guardrails.llmPolicyEngine.attachmentPolicyVersion | toJson | quote }}
+                contract_version: {{ $.Values.guardrails.llmPolicyEngine.attachmentPolicyVersion | toJson | quote }}
                 destination_kind: '"model"'
                 principal_id: 'has(jwt.sub) ? jwt.sub : extauthz.principal_id'
+                {{- if eq $variant "key" }}
+                credential_context_version: '"1"'
+                credential_id: 'extauthz.credential_id'
+                credential_kind: 'extauthz.credential_kind'
+                {{- end }}
                 models: {{ $piiCatalog | toJson | quote }}
                 {{- if and (not (has $attachmentPolicyVersion (list "4" `"4.1"`))) $attachmentModes }}
                 attachment_modes: {{ $attachmentModes | toJson | quote }}
@@ -76,4 +86,5 @@ spec:
               # already scheduled them; only an all-disabled catalog can skip
               # response callbacks from the request-header phase.
               allowModeOverride: true
+        {{- end }}
 {{- end }}

@@ -74,3 +74,16 @@ spec:
       ports:
         - port: 8080
           protocol: TCP
+    {{- if .Values.authKeycloakApiKeyBridge.postgres.enabled }}
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: infra-postgres-operations
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: postgres-operations
+              app.kubernetes.io/instance: postgres-operations
+      ports:
+        - port: 9712
+          protocol: TCP
+    {{- end }}
