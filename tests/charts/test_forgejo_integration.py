@@ -36,7 +36,7 @@ class ForgejoIntegrationTests(unittest.TestCase):
                 )
                 self.assertIn("RAISE EXCEPTION 'DocumentDB background worker CONNECT verification failed';", job)
                 databases = (
-                    "'agentgateway', 'dify', 'dify_plugin', 'dify_vector', 'postgres_langfuse', 'librechat_rag'"
+                    "'agentgateway', 'dify', 'dify_plugin', 'dify_vector', 'postgres_langfuse', 'postgres_langfuse_v4', 'librechat_rag'"
                     + (" , 'forgejo'" if selected else "")
                 )
                 self.assertIn(
