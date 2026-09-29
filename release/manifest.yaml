@@ -195,8 +195,8 @@ spec:
           sha256: a22cfb7dcc56da05d31b18c0a969e1b8eee35d19a4493d88b5d4720efcc85945
     - path: charts/agentgateway-extproc
       name: agentgateway-extproc
-      version: 1.4.2
-      appVersion: 0.13.0
+      version: 1.4.3
+      appVersion: 0.14.0
     - path: charts/cert-manager/approval-policy
       name: infra-cert-manager-approval-policy
       version: 1.2.2
@@ -509,15 +509,15 @@ spec:
       appVersion: v1.20.3
     - path: charts/studio/api
       name: studio-api
-      version: 1.1.11
-      appVersion: 0.11.0
+      version: 1.1.12
+      appVersion: 0.12.0
     - path: charts/studio/shared
       name: studio-shared
       version: 1.0.0
     - path: charts/studio/web
       name: studio
-      version: 1.0.9
-      appVersion: 0.11.0
+      version: 1.0.10
+      appVersion: 0.12.0
     - path: charts/traefik
       name: traefik
       version: 1.0.2
@@ -954,7 +954,7 @@ spec:
       eligibility: included
       origins:
       - charts/dify/web/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.13.0@sha256:e4dc916429902602ffec579e433621868eee9bfcfadc23f3bfc8de49032b2de9
+    - reference: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.14.0@sha256:be03163bf63a159d33073c4f87618c407b1413d99ff47d4b280cb90f45cf5856
       pinned: true
       eligibility: included
       origins:
@@ -980,12 +980,12 @@ spec:
       origins:
       - charts/pii-engine-model-sync/values.yaml
       - charts/pii-engine/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-studio-api:0.11.0@sha256:8f9b9fb2d0c3dd791657f21218639c97225dffaeb37591cc17da2cfcf0fd1179
+    - reference: ghcr.io/neurwerk/k8s-stack-studio-api:0.12.0@sha256:408d1a16914a64b300d3d050fee2013f5d716b7cf76d0aa9354dc1afb68f3a50
       pinned: true
       eligibility: included
       origins:
       - charts/studio/api/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-studio-web:0.11.0@sha256:0a501898c7ab5806d5d1e89a6d21d8024ed35bd2fe34b93b017eb41a22e753e2
+    - reference: ghcr.io/neurwerk/k8s-stack-studio-web:0.12.0@sha256:818d88b73254f4db51947913a28ff0f348fbc764e5e0457dcf248a54711c78f8
       pinned: true
       eligibility: included
       origins:
