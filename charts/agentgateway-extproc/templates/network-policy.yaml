@@ -45,6 +45,19 @@ spec:
         - port: {{ .Values.monitorAgentgatewayExtproc.ports.container.http }}
           protocol: TCP
   egress:
+    {{- if .Values.monitorAgentgatewayExtproc.noticePreferences.enabled }}
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: frontend-studio
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: studio-api
+              app.kubernetes.io/instance: frontend-studio-api
+      ports:
+        - port: 8443
+          protocol: TCP
+    {{- end }}
     {{- if .Values.monitorAgentgatewayExtproc.imageInspection.enabled }}
     - to:
         {{- range .Values.monitorAgentgatewayExtproc.imageInspection.cidrs }}

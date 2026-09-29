@@ -298,6 +298,57 @@ spec:
 apiVersion: policy.cert-manager.io/v1alpha1
 kind: CertificateRequestPolicy
 metadata:
+  name: cert-manager-internal-studio-notice-preferences-server
+  labels:
+    {{- include "cert-manager-approval-policy.labels" . | nindent 4 }}
+spec:
+  allowed:
+    commonName:
+      value: frontend-studio-notice-preferences
+      required: true
+    dnsNames:
+      values:
+        - frontend-studio-notice-preferences
+        - frontend-studio-notice-preferences.frontend-studio
+        - frontend-studio-notice-preferences.frontend-studio.svc
+        - frontend-studio-notice-preferences.frontend-studio.svc.cluster.local
+      required: true
+    isCA: false
+    usages: [server auth]
+  constraints:
+    minDuration: 2160h
+    maxDuration: 2160h
+    privateKey: {algorithm: RSA, minSize: 2048, maxSize: 2048}
+  selector:
+    issuerRef: {group: cert-manager.io, kind: ClusterIssuer, name: infra-cert-manager-internal-ca-issuer}
+    namespace:
+      matchNames: [frontend-studio]
+---
+apiVersion: policy.cert-manager.io/v1alpha1
+kind: CertificateRequestPolicy
+metadata:
+  name: cert-manager-internal-agentgateway-extproc-studio-client
+  labels:
+    {{- include "cert-manager-approval-policy.labels" . | nindent 4 }}
+spec:
+  allowed:
+    commonName:
+      value: monitor-agentgateway-extproc-studio
+      required: true
+    isCA: false
+    usages: [client auth]
+  constraints:
+    minDuration: 2160h
+    maxDuration: 2160h
+    privateKey: {algorithm: RSA, minSize: 2048, maxSize: 2048}
+  selector:
+    issuerRef: {group: cert-manager.io, kind: ClusterIssuer, name: infra-cert-manager-internal-ca-issuer}
+    namespace:
+      matchNames: [monitor-agentgateway-extproc]
+---
+apiVersion: policy.cert-manager.io/v1alpha1
+kind: CertificateRequestPolicy
+metadata:
   name: cert-manager-internal-trust-manager-webhook
   labels:
     {{- include "cert-manager-approval-policy.labels" . | nindent 4 }}

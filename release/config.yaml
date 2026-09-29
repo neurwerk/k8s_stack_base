@@ -16,6 +16,14 @@ packages:
   - releases/infrastructure
   - releases/applications
   optional:
+  - path: releases/keycloak-api-key-bridge/secret-sync
+    status: included
+    reason: Optional bridge PostgreSQL passwords; select only with compatible bridge image, provisioned database and matching OpenBao copies.
+    chartPrefixes: []
+  - path: releases/studio/secret-sync
+    status: included
+    reason: Optional Studio notice database credentials; compose only after compatible Tooling reconciles both password copies and compatible service images are pinned.
+    chartPrefixes: []
   - path: releases/docling/image-inspection-secret-sync
     status: included
     reason: Optional private image-reader credential delivery; provision the runtime and API key before

@@ -1,0 +1,28 @@
+{{- if .Values.frontendStudio.api.noticePreferences.enabled }}
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: frontend-studio-notice-preferences-certificate
+  namespace: {{ .Release.Namespace }}
+spec:
+  commonName: frontend-studio-notice-preferences
+  dnsNames:
+    - frontend-studio-notice-preferences
+    - frontend-studio-notice-preferences.frontend-studio
+    - frontend-studio-notice-preferences.frontend-studio.svc
+    - frontend-studio-notice-preferences.frontend-studio.svc.cluster.local
+  secretName: {{ .Values.frontendStudio.api.noticePreferences.serverSecretName }}
+  privateKey:
+    algorithm: RSA
+    size: 2048
+    encoding: PKCS8
+    rotationPolicy: Always
+  duration: 2160h
+  renewBefore: 360h
+  usages:
+    - server auth
+  issuerRef:
+    name: infra-cert-manager-internal-ca-issuer
+    kind: ClusterIssuer
+    group: cert-manager.io
+{{- end }}

@@ -1,0 +1,40 @@
+# Separate from the shared StatefulSet Secret: adding Studio must not restart it.
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: studio-postgres-values
+  namespace: infra-postgres-operations
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: infra-postgres-operations-openbao-secret-store
+    kind: SecretStore
+  target:
+    name: studio-postgres-values
+    creationPolicy: Owner
+    deletionPolicy: Retain
+  data:
+    - secretKey: password
+      remoteRef:
+        key: infra-postgres-operations/internal
+        property: studioPassword
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: frontend-studio-postgres-secret
+  namespace: frontend-studio
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: frontend-studio-openbao-secret-store
+    kind: SecretStore
+  target:
+    name: frontend-studio-postgres-secret
+    creationPolicy: Owner
+    deletionPolicy: Retain
+  data:
+    - secretKey: password
+      remoteRef:
+        key: frontend-studio/internal
+        property: postgresqlPassword

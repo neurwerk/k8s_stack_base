@@ -43,6 +43,15 @@ authKeycloakApiKeyBridge:
     log_level: "info"
     max_keys_per_user: 20
 
+  # Off until a verified PostgreSQL-capable bridge image is pinned and the
+  # dedicated operations database and namespace-local Secret are ready.
+  postgres:
+    enabled: false
+    host: postgres-operations.infra-postgres-operations.svc.cluster.local
+    port: 5432
+    database: api_key_bridge
+    user: api_key_bridge
+
   persistence:
     size: 1Gi
     storageClass: infra-rook-ceph-rbd

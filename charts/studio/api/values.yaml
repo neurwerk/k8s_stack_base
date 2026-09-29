@@ -54,6 +54,22 @@ frontendStudio:
     agentgatewayAdminUrl: "http://infra-agentgateway-gateway.infra-agentgateway.svc.cluster.local:15000"
     usageTimezone: "UTC"
 
+    # Enable only with a Studio API image that implements persistent preferences.
+    postgres:
+      enabled: false
+      host: postgres-operations.infra-postgres-operations.svc.cluster.local
+      port: 5432
+      database: studio
+      user: studio
+      secretName: frontend-studio-postgres-secret
+
+    # Dedicated private HTTPS/mTLS listener; never expose on the public route.
+    noticePreferences:
+      enabled: false
+      port: 8443
+      servicePort: 443
+      serverSecretName: frontend-studio-notice-preferences-tls
+
     # --- Keycloak / OIDC (set via client_*/config/client.yaml) ---
     keycloakServerUrl: ""
     keycloakRealm: ""

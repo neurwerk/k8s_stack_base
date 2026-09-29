@@ -32,3 +32,11 @@ postgresOperationsSecrets: {}
 # Disabling stops reconciliation, not access to or retention of existing data.
 forgejo:
   enabled: false
+
+# Enable only after matching OpenBao credentials have been copied and synced.
+studio:
+  enabled: false
+
+# Enable only after the namespace-local password Secret is synced.
+apiKeyBridge:
+  enabled: false
