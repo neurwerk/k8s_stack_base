@@ -4,7 +4,7 @@ metadata:
   name: frontend-dify-beat-deployment
   namespace: frontend-dify
   annotations:
-    secret.reloader.stakater.com/reload: "frontend-dify-secret"
+    secret.reloader.stakater.com/reload: "frontend-dify-secret,frontend-dify-openbao-secret"
   labels:
     app.kubernetes.io/name: beat
     app.kubernetes.io/instance: frontend-dify-beat
@@ -49,6 +49,11 @@ spec:
               value: disable
             - name: LOG_LEVEL
               value: {{ .Values.frontendDify.config.LOG_LEVEL | quote }}
+            - name: KEYCLOAK_OIDC_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: frontend-dify-openbao-secret
+                  key: KEYCLOAK_OIDC_CLIENT_SECRET
             - name: REDIS_PASSWORD
               valueFrom:
                 secretKeyRef:
