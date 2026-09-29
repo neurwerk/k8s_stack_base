@@ -78,3 +78,42 @@ spec:
       ports:
         - port: 9200
           protocol: TCP
+    {{- if .Values.frontendStudio.api.postgres.enabled }}
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: infra-postgres-operations
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: postgres-operations
+              app.kubernetes.io/instance: postgres-operations
+      ports:
+        - port: 9712
+          protocol: TCP
+    {{- end }}
+{{- if .Values.frontendStudio.api.noticePreferences.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: frontend-studio-notice-preferences-ingress
+  namespace: {{ .Release.Namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: studio-api
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitor-agentgateway-extproc
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: monitor-agentgateway-extproc
+              app.kubernetes.io/instance: monitor-agentgateway-extproc
+      ports:
+        - port: {{ .Values.frontendStudio.api.noticePreferences.port }}
+          protocol: TCP
+{{- end }}

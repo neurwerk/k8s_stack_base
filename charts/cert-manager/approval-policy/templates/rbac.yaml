@@ -24,6 +24,8 @@ rules:
       - cert-manager-internal-pii-engine-server
       - cert-manager-internal-agentgateway-extproc-client
       - cert-manager-internal-studio-pii-engine-client
+      - cert-manager-internal-studio-notice-preferences-server
+      - cert-manager-internal-agentgateway-extproc-studio-client
       - cert-manager-internal-trust-manager-webhook
       - cert-manager-internal-postgres-auth
       - cert-manager-internal-postgres-operations-documentdb

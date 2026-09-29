@@ -64,6 +64,80 @@ spec:
               SET log_statement = 'none';
               SET log_min_duration_statement = -1;
               SET log_min_error_statement = 'panic';
+              {{- if .Values.apiKeyBridge.enabled }}
+              \getenv api_key_bridge_password API_KEY_BRIDGE_PASSWORD
+              DO $$
+              BEGIN
+                IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'api_key_bridge') !=
+                   EXISTS (SELECT 1 FROM pg_database WHERE datname = 'api_key_bridge') THEN
+                  RAISE EXCEPTION 'Existing API key bridge role/database pair is incomplete; refusing takeover';
+                END IF;
+                IF EXISTS (
+                  SELECT 1 FROM pg_database d JOIN pg_roles r ON r.oid = d.datdba
+                  WHERE d.datname = 'api_key_bridge' AND r.rolname != 'api_key_bridge'
+                ) OR EXISTS (
+                  SELECT 1 FROM pg_roles WHERE rolname = 'api_key_bridge'
+                    AND (rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls)
+                ) OR EXISTS (
+                  SELECT 1 FROM pg_auth_members m JOIN pg_roles r ON r.oid = m.member
+                  WHERE r.rolname = 'api_key_bridge'
+                ) OR EXISTS (
+                  SELECT 1 FROM pg_auth_members m JOIN pg_roles r ON r.oid = m.roleid
+                  WHERE r.rolname = 'api_key_bridge'
+                ) THEN
+                  RAISE EXCEPTION 'Existing API key bridge database or role is not owned by this provisioner';
+                END IF;
+                IF EXISTS (SELECT 1 FROM pg_database WHERE datname = 'api_key_bridge') AND NOT EXISTS (
+                  SELECT 1 FROM pg_database d JOIN pg_shdescription s
+                    ON s.objoid = d.oid AND s.classoid = 'pg_database'::regclass
+                  WHERE d.datname = 'api_key_bridge' AND s.description = 'neurwerk-api-key-bridge-v1'
+                ) THEN
+                  RAISE EXCEPTION 'Existing API key bridge database lacks the provisioner marker; refusing takeover';
+                END IF;
+              END $$;
+              SELECT format('CREATE ROLE api_key_bridge LOGIN PASSWORD %L', :'api_key_bridge_password')
+              WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'api_key_bridge') \gexec
+              SELECT format('ALTER ROLE api_key_bridge WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD %L', :'api_key_bridge_password') \gexec
+              SELECT 'CREATE DATABASE api_key_bridge OWNER api_key_bridge'
+              WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'api_key_bridge') \gexec
+              COMMENT ON DATABASE api_key_bridge IS 'neurwerk-api-key-bridge-v1';
+              REVOKE ALL ON DATABASE api_key_bridge FROM PUBLIC;
+              GRANT CONNECT, TEMPORARY ON DATABASE api_key_bridge TO api_key_bridge;
+              {{- end }}
+              {{- if .Values.studio.enabled }}
+              \getenv studio_password STUDIO_PASSWORD
+              DO $$
+              BEGIN
+                IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'studio') !=
+                   EXISTS (SELECT 1 FROM pg_database WHERE datname = 'studio') THEN
+                  RAISE EXCEPTION 'Existing Studio role/database pair is incomplete; refusing takeover';
+                END IF;
+                IF EXISTS (
+                  SELECT 1 FROM pg_database d JOIN pg_roles r ON r.oid = d.datdba
+                  WHERE d.datname = 'studio' AND r.rolname != 'studio'
+                ) OR EXISTS (
+                  SELECT 1 FROM pg_roles
+                  WHERE rolname = 'studio' AND (rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls)
+                ) THEN
+                  RAISE EXCEPTION 'Existing Studio database or role is not owned by this provisioner';
+                END IF;
+                IF EXISTS (SELECT 1 FROM pg_database WHERE datname = 'studio') AND NOT EXISTS (
+                  SELECT 1 FROM pg_database d JOIN pg_shdescription s
+                    ON s.objoid = d.oid AND s.classoid = 'pg_database'::regclass
+                  WHERE d.datname = 'studio' AND s.description = 'neurwerk-studio-notice-preferences-v1'
+                ) THEN
+                  RAISE EXCEPTION 'Existing Studio database lacks the provisioner marker; refusing takeover';
+                END IF;
+              END $$;
+              SELECT format('CREATE ROLE studio LOGIN PASSWORD %L', :'studio_password')
+              WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'studio') \gexec
+              SELECT format('ALTER ROLE studio WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD %L', :'studio_password') \gexec
+              SELECT 'CREATE DATABASE studio OWNER studio'
+              WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'studio') \gexec
+              COMMENT ON DATABASE studio IS 'neurwerk-studio-notice-preferences-v1';
+              REVOKE ALL ON DATABASE studio FROM PUBLIC;
+              GRANT CONNECT, TEMPORARY ON DATABASE studio TO studio;
+              {{- end }}
               {{- if .Values.forgejo.enabled }}
               \getenv forgejo_password FORGEJO_PASSWORD
               SELECT format('CREATE ROLE forgejo LOGIN PASSWORD %L', :'forgejo_password')
@@ -174,8 +248,14 @@ spec:
                   WHERE datname IN (
                     'agentgateway', 'dify', 'dify_plugin', 'dify_vector', 'postgres_langfuse', 'librechat_rag'
                     {{- if .Values.forgejo.enabled }}
-                    , 'forgejo'
-                    {{- end }}
+                     , 'forgejo'
+                     {{- end }}
+                     {{- if .Values.studio.enabled }}
+                      , 'studio'
+                      {{- end }}
+                      {{- if .Values.apiKeyBridge.enabled }}
+                      , 'api_key_bridge'
+                      {{- end }}
                   ) AND has_database_privilege('documentdb_bg_worker_role', oid, 'CONNECT')
                 ) THEN
                   RAISE EXCEPTION 'DocumentDB background worker unexpectedly has application database access';
@@ -226,6 +306,24 @@ spec:
                   exit 1
                 fi
               done
+              {{- if .Values.studio.enabled }}
+              verify_studio_isolation() {
+                user=$1
+                password=$2
+                if PGPASSWORD="$password" PGUSER="$user" PGDATABASE=studio \
+                  psql --tuples-only --command='SELECT 1' >/dev/null 2>&1; then
+                  echo "$user unexpectedly connected to Studio database" >&2
+                  exit 1
+                fi
+              }
+              verify_studio_isolation librechat "$DOCUMENTDB_PASSWORD"
+              verify_studio_isolation agentgateway "$AGENTGATEWAY_PASSWORD"
+              verify_studio_isolation dify "$DIFY_PASSWORD"
+              verify_studio_isolation langfuse "$LANGFUSE_PASSWORD"
+              verify_studio_isolation librechat_rag "$LIBRECHAT_RAG_PASSWORD"
+              PGPASSWORD="$STUDIO_PASSWORD" PGUSER=studio PGDATABASE=studio \
+                psql --set=ON_ERROR_STOP=1 --command='BEGIN; CREATE TABLE public.__studio_provisioning_verification (id integer); INSERT INTO public.__studio_provisioning_verification VALUES (1); ROLLBACK;' >/dev/null
+              {{- end }}
 
               PGPASSWORD="$AGENTGATEWAY_PASSWORD" PGUSER=agentgateway PGDATABASE=agentgateway \
                 psql --tuples-only --command='SELECT current_user' | grep -qx '[[:space:]]*agentgateway'
@@ -253,10 +351,35 @@ spec:
               verify_isolation dify "$DIFY_PASSWORD" agentgateway postgres_langfuse librechat_rag
               verify_isolation langfuse "$LANGFUSE_PASSWORD" agentgateway dify dify_plugin dify_vector librechat_rag
               verify_isolation librechat_rag "$LIBRECHAT_RAG_PASSWORD" agentgateway dify dify_plugin dify_vector postgres_langfuse
+              {{- if .Values.apiKeyBridge.enabled }}
+              PGPASSWORD="$API_KEY_BRIDGE_PASSWORD" PGUSER=api_key_bridge PGDATABASE=api_key_bridge \
+                psql --set=ON_ERROR_STOP=1 --command='BEGIN; CREATE TABLE public.__bridge_provisioning_verification (id integer); ROLLBACK;' >/dev/null
+              verify_isolation api_key_bridge "$API_KEY_BRIDGE_PASSWORD" postgres template1 agentgateway dify dify_plugin dify_vector postgres_langfuse librechat_rag
+              verify_isolation librechat "$DOCUMENTDB_PASSWORD" api_key_bridge
+              verify_isolation agentgateway "$AGENTGATEWAY_PASSWORD" api_key_bridge
+              verify_isolation dify "$DIFY_PASSWORD" api_key_bridge
+              verify_isolation langfuse "$LANGFUSE_PASSWORD" api_key_bridge
+              verify_isolation librechat_rag "$LIBRECHAT_RAG_PASSWORD" api_key_bridge
+              {{- if .Values.studio.enabled }}
+              verify_isolation studio "$STUDIO_PASSWORD" api_key_bridge
+              verify_isolation api_key_bridge "$API_KEY_BRIDGE_PASSWORD" studio
+              {{- end }}
+              {{- if .Values.forgejo.enabled }}
+              verify_isolation forgejo "$FORGEJO_PASSWORD" api_key_bridge
+              verify_isolation api_key_bridge "$API_KEY_BRIDGE_PASSWORD" forgejo
+              {{- end }}
+              {{- end }}
+              {{- if .Values.studio.enabled }}
+              verify_isolation studio "$STUDIO_PASSWORD" postgres template1 agentgateway dify dify_plugin dify_vector postgres_langfuse librechat_rag
+              {{- end }}
               {{- if .Values.forgejo.enabled }}
               PGPASSWORD="$FORGEJO_PASSWORD" PGUSER=forgejo PGDATABASE=forgejo \
                 psql --set=ON_ERROR_STOP=1 --command='BEGIN; CREATE TABLE public.__forgejo_provisioning_verification (id integer); INSERT INTO public.__forgejo_provisioning_verification VALUES (1); ROLLBACK;' >/dev/null
               verify_isolation forgejo "$FORGEJO_PASSWORD" postgres template1 agentgateway dify dify_plugin dify_vector postgres_langfuse librechat_rag
+              {{- if .Values.studio.enabled }}
+              verify_isolation forgejo "$FORGEJO_PASSWORD" studio
+              verify_isolation studio "$STUDIO_PASSWORD" forgejo
+              {{- end }}
               verify_isolation agentgateway "$AGENTGATEWAY_PASSWORD" forgejo
               verify_isolation dify "$DIFY_PASSWORD" forgejo
               verify_isolation langfuse "$LANGFUSE_PASSWORD" forgejo
@@ -287,6 +410,20 @@ spec:
                 - ALL
             readOnlyRootFilesystem: true
           env:
+            {{- if .Values.apiKeyBridge.enabled }}
+            - name: API_KEY_BRIDGE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: api-key-bridge-postgres-values
+                  key: password
+            {{- end }}
+            {{- if .Values.studio.enabled }}
+            - name: STUDIO_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: studio-postgres-values
+                  key: password
+            {{- end }}
             {{- if .Values.forgejo.enabled }}
             - name: FORGEJO_PASSWORD
               valueFrom:

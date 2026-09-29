@@ -1,3 +1,6 @@
+{{- if and .Values.frontendStudio.api.noticePreferences.enabled (not .Values.frontendStudio.api.postgres.enabled) }}
+{{- fail "noticePreferences.enabled requires postgres.enabled and a migrated Studio database" }}
+{{- end }}
 # =============================================================================
 # frontend-studio API Deployment (authenticated API + management server)
 # =============================================================================
@@ -7,7 +10,7 @@ metadata:
   name: frontend-studio-api-deployment
   namespace: {{ .Release.Namespace }}
   annotations:
-    secret.reloader.stakater.com/reload: "frontend-studio-openbao-secret,{{ .Values.frontendStudio.api.piiEngineClientSecretName }}"
+    secret.reloader.stakater.com/reload: "frontend-studio-openbao-secret,{{ .Values.frontendStudio.api.piiEngineClientSecretName }}{{ if .Values.frontendStudio.api.postgres.enabled }},{{ .Values.frontendStudio.api.postgres.secretName }}{{ end }}{{ if .Values.frontendStudio.api.noticePreferences.enabled }},{{ .Values.frontendStudio.api.noticePreferences.serverSecretName }}{{ end }}"
   labels:
     app.kubernetes.io/name: studio-api
     app.kubernetes.io/instance: {{ .Release.Name }}
@@ -31,6 +34,32 @@ spec:
         runAsUser: {{ .Values.frontendStudio.api.securityContext.runAsUser }}
         runAsNonRoot: {{ .Values.frontendStudio.api.securityContext.runAsNonRoot }}
         fsGroup: {{ .Values.frontendStudio.api.securityContext.fsGroup }}
+      {{- if .Values.frontendStudio.api.postgres.enabled }}
+      initContainers:
+        - name: notice-schema-migrate
+          image: {{ .Values.frontendStudio.apiImage }}
+          imagePullPolicy: Always
+          command: ["k8s-stack-studio-migrate"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            readOnlyRootFilesystem: true
+          env:
+            - name: K8S_STUDIO_NOTICE_POSTGRES_HOST
+              value: {{ .Values.frontendStudio.api.postgres.host | quote }}
+            - name: K8S_STUDIO_NOTICE_POSTGRES_PORT
+              value: {{ .Values.frontendStudio.api.postgres.port | quote }}
+            - name: K8S_STUDIO_NOTICE_POSTGRES_DATABASE
+              value: {{ .Values.frontendStudio.api.postgres.database | quote }}
+            - name: K8S_STUDIO_NOTICE_POSTGRES_USER
+              value: {{ .Values.frontendStudio.api.postgres.user | quote }}
+            - name: K8S_STUDIO_NOTICE_POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.frontendStudio.api.postgres.secretName }}
+                  key: password
+      {{- end }}
       containers:
         # --- Authenticated API (port 4010) ---
         - name: {{ .Release.Name }}-api
@@ -76,6 +105,21 @@ spec:
               value: {{ .Values.frontendStudio.api.agentgatewayAdminUrl | quote }}
             - name: K8S_STUDIO_USAGE_TIMEZONE
               value: {{ .Values.frontendStudio.api.usageTimezone | quote }}
+            {{- if .Values.frontendStudio.api.postgres.enabled }}
+            - name: K8S_STUDIO_NOTICE_POSTGRES_HOST
+              value: {{ .Values.frontendStudio.api.postgres.host | quote }}
+            - name: K8S_STUDIO_NOTICE_POSTGRES_PORT
+              value: {{ .Values.frontendStudio.api.postgres.port | quote }}
+            - name: K8S_STUDIO_NOTICE_POSTGRES_DATABASE
+              value: {{ .Values.frontendStudio.api.postgres.database | quote }}
+            - name: K8S_STUDIO_NOTICE_POSTGRES_USER
+              value: {{ .Values.frontendStudio.api.postgres.user | quote }}
+            - name: K8S_STUDIO_NOTICE_POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.frontendStudio.api.postgres.secretName }}
+                  key: password
+            {{- end }}
           command: ["k8s-stack-studio"]
           ports:
             - name: http
@@ -108,6 +152,58 @@ spec:
               readOnly: true
           resources:
             {{- toYaml .Values.frontendStudio.api.resources | nindent 12 }}
+        {{- if .Values.frontendStudio.api.noticePreferences.enabled }}
+        # The private mTLS endpoint runs separately from the public ASGI server.
+        - name: notice-preferences
+          image: {{ .Values.frontendStudio.apiImage }}
+          imagePullPolicy: Always
+          command: ["k8s-stack-studio-notices"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            readOnlyRootFilesystem: true
+          env:
+            - name: K8S_STUDIO_NOTICE_POSTGRES_HOST
+              value: {{ .Values.frontendStudio.api.postgres.host | quote }}
+            - name: K8S_STUDIO_NOTICE_POSTGRES_PORT
+              value: {{ .Values.frontendStudio.api.postgres.port | quote }}
+            - name: K8S_STUDIO_NOTICE_POSTGRES_DATABASE
+              value: {{ .Values.frontendStudio.api.postgres.database | quote }}
+            - name: K8S_STUDIO_NOTICE_POSTGRES_USER
+              value: {{ .Values.frontendStudio.api.postgres.user | quote }}
+            - name: K8S_STUDIO_NOTICE_POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.frontendStudio.api.postgres.secretName }}
+                  key: password
+            - name: K8S_STUDIO_NOTICE_PORT
+              value: {{ .Values.frontendStudio.api.noticePreferences.port | quote }}
+            - name: K8S_STUDIO_NOTICE_TLS_CERT
+              value: /var/run/notice-preferences/tls.crt
+            - name: K8S_STUDIO_NOTICE_TLS_KEY
+              value: /var/run/notice-preferences/tls.key
+            - name: K8S_STUDIO_NOTICE_TLS_CA
+              value: /var/run/notice-preferences/ca.crt
+            - name: K8S_STUDIO_NOTICE_CLIENT_CN
+              value: monitor-agentgateway-extproc-studio
+          ports:
+            - name: preferences
+              containerPort: {{ .Values.frontendStudio.api.noticePreferences.port }}
+              protocol: TCP
+          readinessProbe:
+            tcpSocket:
+              port: preferences
+          livenessProbe:
+            tcpSocket:
+              port: preferences
+          volumeMounts:
+            - name: notice-preferences-tls
+              mountPath: /var/run/notice-preferences
+              readOnly: true
+          resources:
+            {{- toYaml .Values.frontendStudio.api.resources | nindent 12 }}
+        {{- end }}
         # --- Management server (port 4090) — internal-only, no auth ---
         - name: {{ .Release.Name }}-mgmt
           securityContext:
@@ -143,3 +239,8 @@ spec:
         - name: pii-engine-tls
           secret:
             secretName: {{ .Values.frontendStudio.api.piiEngineClientSecretName }}
+        {{- if .Values.frontendStudio.api.noticePreferences.enabled }}
+        - name: notice-preferences-tls
+          secret:
+            secretName: {{ .Values.frontendStudio.api.noticePreferences.serverSecretName }}
+        {{- end }}

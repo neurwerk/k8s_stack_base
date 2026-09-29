@@ -24,3 +24,21 @@ spec:
       targetPort: {{ .Values.frontendStudio.api.ports.container.mgmt }}
       protocol: TCP
       name: mgmt
+{{- if .Values.frontendStudio.api.noticePreferences.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-studio-notice-preferences
+  namespace: {{ .Release.Namespace }}
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: studio-api
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  ports:
+    - name: https
+      port: {{ .Values.frontendStudio.api.noticePreferences.servicePort }}
+      targetPort: preferences
+      protocol: TCP
+{{- end }}
