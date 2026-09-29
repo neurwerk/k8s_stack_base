@@ -151,10 +151,8 @@ spec:
                 permissions: 'json(response.headers["x-agentgateway-auth-context"]).permissions'
                 # Bridge 0.6.0 omits groups; present values are validated below.
                 groups: '"groups" in json(response.headers["x-agentgateway-auth-context"]) ? json(response.headers["x-agentgateway-auth-context"]).groups : []'
-                {{- if .Values.guardrails.llmPolicyEngine.credentialContextEnabled }}
                 credential_id: '"credential_id" in json(response.headers["x-agentgateway-auth-context"]) ? json(response.headers["x-agentgateway-auth-context"]).credential_id : ""'
                 credential_kind: '"credential_kind" in json(response.headers["x-agentgateway-auth-context"]) ? json(response.headers["x-agentgateway-auth-context"]).credential_kind : ""'
-                {{- end }}
     # Do not cache authorization decisions in AgentGateway. The bridge already
     # bounds entitlement caching and must observe revocation after its TTL.
     # ── CEL Authorization ──────────────────────────────────────────────────

@@ -232,9 +232,8 @@ guardrails:
     # require compatible extProc consumers not pinned by source-only changes.
     # Keep 1 until compatible services and activation are authorized.
     attachmentPolicyVersion: 1
-    # Only enable after a compatible extProc release is pinned and deployed.
-    # Keeps credential fields out of the old destination metadata schema.
-    credentialContextEnabled: false
+    # Required trusted API-key credential metadata for notice lookup.
+    credentialContextEnabled: true
 
     # extProc timeout — implemented via AgentgatewayBackend wrapper
     # (extProc CRD field has no native timeout; same pattern as extAuth).

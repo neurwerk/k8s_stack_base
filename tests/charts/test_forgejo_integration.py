@@ -38,6 +38,7 @@ class ForgejoIntegrationTests(unittest.TestCase):
                 databases = (
                     "'agentgateway', 'dify', 'dify_plugin', 'dify_vector', 'postgres_langfuse', 'postgres_langfuse_v4', 'librechat_rag'"
                     + (" , 'forgejo'" if selected else "")
+                    + " , 'studio' , 'api_key_bridge'"
                 )
                 self.assertIn(
                     f"IF EXISTS ( SELECT FROM pg_database WHERE datname IN ( {databases} ) "

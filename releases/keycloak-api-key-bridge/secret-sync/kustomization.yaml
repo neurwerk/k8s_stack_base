@@ -1,5 +1,6 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-# Opt in only after both OpenBao properties exist; not in the default app inventory.
+# Required standalone package: reconcile after OpenBao records and SecretStores
+# are ready, before updating the infrastructure and applications releases.
 resources:
   - postgres.yaml

@@ -54,9 +54,9 @@ frontendStudio:
     agentgatewayAdminUrl: "http://infra-agentgateway-gateway.infra-agentgateway.svc.cluster.local:15000"
     usageTimezone: "UTC"
 
-    # Enable only with a Studio API image that implements persistent preferences.
+    # Required notice preference database and namespace-local password Secret.
     postgres:
-      enabled: false
+      enabled: true
       host: postgres-operations.infra-postgres-operations.svc.cluster.local
       port: 5432
       database: studio
@@ -65,7 +65,7 @@ frontendStudio:
 
     # Dedicated private HTTPS/mTLS listener; never expose on the public route.
     noticePreferences:
-      enabled: false
+      enabled: true
       port: 8443
       servicePort: 443
       serverSecretName: frontend-studio-notice-preferences-tls

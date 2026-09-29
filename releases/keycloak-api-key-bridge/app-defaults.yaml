@@ -4,7 +4,5 @@
 # Clients override these through client-values or
 # keycloak-api-key-bridge-product-values.
 # =============================================================================
-authKeycloakApiKeyBridge:
-  persistence:
-    size: 1Gi
-    storageClass: infra-rook-ceph-rbd
+# PostgreSQL is the only supported bridge runtime. Passwords are delivered by
+# releases/keycloak-api-key-bridge/secret-sync, not Helm values.
