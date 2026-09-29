@@ -2,7 +2,7 @@
 # Base: langgenius/dify-web + dify_ce_builder Keycloak OIDC overlay
 # Pinned here (chart defaults)
 frontendDify:
-  webImage: ghcr.io/neurwerk/addon-dify-ce-builder-web:1.15.0-kc-v2
+  webImage: ghcr.io/neurwerk/addon-dify-ce-builder-web:1.17.1-kc-v1@sha256:2de3b4ad387a8a77205b83f004a72f8d5ddc4e85ac40f1bdfe06747b24a47b8e
   pullPolicy: IfNotPresent
   api:
     ports:
