@@ -37,6 +37,8 @@ spec:
               value: {{ .Values.frontendDify.hostname | quote }}
             - name: NEXT_PUBLIC_SOCKET_URL
               value: {{ printf "https://%s" .Values.frontendDify.hostname | quote }}
+            - name: NEXT_PUBLIC_ENABLE_AGENT_V2
+              value: "true"
           livenessProbe:
             tcpSocket:
               port: http

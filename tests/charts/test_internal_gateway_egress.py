@@ -15,6 +15,7 @@ class InternalGatewayEgressTests(unittest.TestCase):
                     ("postgres-operations", "infra-postgres-operations", 9712),
                     ("redis", None, 6379),
                     ("plugin-daemon", None, 5002),
+                    ("agent-backend", None, 5050),
                     ("sandbox", None, 8194),
                     ("infra-agentgateway-gateway", "infra-agentgateway", 80),
                 ),
