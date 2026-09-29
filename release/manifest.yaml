@@ -230,7 +230,7 @@ spec:
       appVersion: 1.17.1
     - path: charts/dify/beat
       name: frontend-dify-beat
-      version: 1.0.1
+      version: 1.0.2
       appVersion: 1.17.1
     - path: charts/dify/plugin-daemon
       name: frontend-dify-plugin-daemon
