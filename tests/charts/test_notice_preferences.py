@@ -1,5 +1,6 @@
 """Guard the mandatory private notice preference wire contract."""
 
+import re
 import unittest
 from pathlib import Path
 
@@ -81,6 +82,10 @@ class NoticePreferenceBoundaryTests(unittest.TestCase):
         self.assertIn("Existing Studio database lacks the provisioner marker; refusing takeover", script)
         self.assertIn("Existing Studio role/database pair is incomplete", script)
         self.assertIn("CREATE DATABASE studio OWNER studio", script)
+        # Kubelet collapses every $$ in container args before the shell reads the quoted heredoc.
+        runtime_script = script.replace("$$", "$")
+        self.assertEqual(len(re.findall(r"^DO \$\$$", runtime_script, re.MULTILINE)), 2)
+        self.assertEqual(len(re.findall(r"^END \$\$;$", runtime_script, re.MULTILINE)), 2)
         root = Path(__file__).resolve().parents[2]
         sync = list(yaml.safe_load_all((root / "releases/studio/secret-sync/postgres.yaml").read_text()))
         self.assertEqual(sync[1]["spec"]["data"][0]["remoteRef"]["property"], "postgresqlPassword")
