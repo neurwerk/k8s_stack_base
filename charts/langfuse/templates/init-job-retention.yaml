@@ -62,7 +62,7 @@ spec:
                   name: monitor-langfuse-secret
                   key: postgresql-password
             - name: PGDATABASE
-              value: postgres_langfuse
+              value: postgres_langfuse_v4
             - name: PGSSLMODE
               value: disable
 {{- end }}

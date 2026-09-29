@@ -158,7 +158,7 @@ authKeycloak:
 #   langfuse.replicas: 1          (global — falls back to both web + worker)
 #   langfuse.web.replicas: null   (overrides global for web, if set)
 #   langfuse.worker.replicas: null (overrides global for worker, if set)
-#   clickhouse.replicaCount: 1    (set to 1 for single-node, default in subchart is 3)
+#   clickhouse.cluster.replicas: 1
 #
 # Langfuse official docs (langfuse.com/self-hosting/configuration/scaling):
 #   MINIMUM for production:
@@ -174,10 +174,7 @@ authKeycloak:
 # still allow burst to official levels when idle CPU is available.
 # If Langfuse becomes slow under real load, scale requests up first.
 #
-# Memory sizing note: ClickHouse's historical system diagnostics previously
-# exhausted the 90%-of-container server budget during background merges. The
-# Langfuse chart disables those system.* writers and sampling profilers. Keep
-# enough headroom for ordinary application merges and queries.
+# Keep enough headroom for ClickHouse merges and queries.
 monitorLangfuseWrapper:
   otelCollector:
     resources:
@@ -198,46 +195,33 @@ langfuse:
       limits:
         cpu: 2000m
         memory: 4Gi
-  # NOTE: Langfuse subchart resources (postgresql, clickhouse, redis, s3) are
-  # passed through the parent values.yaml's subchart keys. The parent chart
-  # merges these into the subchart's .Values.postgresql.*, .Values.redis.*, etc.
-  # Zookeeper is disabled (clusterEnabled: false in chart values).
-  postgresql:
-    resources:
-      requests:
-        cpu: 100m
-        memory: 128Mi
-      limits:
-        cpu: 500m
-        memory: 384Mi
+  # PostgreSQL and object storage are external; the chart owns ClickHouse
+  # and Valkey. Keeper is required even for a single ClickHouse replica.
   clickhouse:
-    replicaCount: 1
-    resourcesPreset: custom
-    resources:
-      requests:
-        cpu: 300m
-        memory: 1024Mi
-      limits:
-        cpu: 2000m
-        memory: 3Gi
-  redis:
-    primary:
+    cluster:
       resources:
         requests:
-          cpu: 50m
-          memory: 64Mi
+          cpu: 300m
+          memory: 1024Mi
         limits:
-          cpu: 200m
-          memory: 128Mi
-  s3:
-    deploy: false
+          cpu: 2000m
+          memory: 4Gi
+    keeper:
+      resources:
+        requests:
+          cpu: 100m
+          memory: 256Mi
+        limits:
+          cpu: 500m
+          memory: 512Mi
+  redis:
     resources:
       requests:
-        cpu: 100m
-        memory: 256Mi
+        cpu: 50m
+        memory: 64Mi
       limits:
-        cpu: 500m
-        memory: 512Mi
+        cpu: 200m
+        memory: 128Mi
 
 # ── frontend-studio-studio ─────────────────────────────────────────────────────
 # Template: deployment.yaml  →  replicas: {{ .Values.frontendStudio.studio.replicas }}

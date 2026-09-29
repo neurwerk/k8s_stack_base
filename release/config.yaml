@@ -134,6 +134,9 @@ prerequisites:
 - name: flux
   version: 2.9.4
   source: client bootstrap manifests
+- name: clickhouse-operator
+  version: 0.0.5
+  source: oci://ghcr.io/clickhouse/clickhouse-operator-helm
 - name: openbao-stack-setup
   version: 0.2.22
   source: https://github.com/neurwerk/k8s_stack_tooling/commit/50b0c29c60482033bc0ceac58ca5a68733e5b075

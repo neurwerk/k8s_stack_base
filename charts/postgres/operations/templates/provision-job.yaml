@@ -173,6 +173,8 @@ spec:
               WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'dify_vector') \gexec
               SELECT 'CREATE DATABASE postgres_langfuse OWNER langfuse'
               WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'postgres_langfuse') \gexec
+              SELECT 'CREATE DATABASE postgres_langfuse_v4 OWNER langfuse'
+              WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'postgres_langfuse_v4') \gexec
               SELECT 'CREATE DATABASE librechat_rag OWNER librechat_rag'
               WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'librechat_rag') \gexec
               SELECT 'CREATE DATABASE agentgateway OWNER agentgateway'
@@ -183,14 +185,17 @@ spec:
               ALTER DATABASE dify_plugin OWNER TO dify;
               ALTER DATABASE dify_vector OWNER TO dify;
               ALTER DATABASE postgres_langfuse OWNER TO langfuse;
+              ALTER DATABASE postgres_langfuse_v4 OWNER TO langfuse;
               ALTER DATABASE librechat_rag OWNER TO librechat_rag;
               REVOKE CONNECT, TEMPORARY ON DATABASE postgres, template1 FROM PUBLIC;
               GRANT CONNECT ON DATABASE postgres TO documentdb, operations_admin;
               GRANT CONNECT ON DATABASE postgres TO documentdb_bg_worker_role;
               REVOKE ALL ON DATABASE agentgateway, dify, dify_plugin, dify_vector, postgres_langfuse, librechat_rag FROM PUBLIC;
+              REVOKE ALL ON DATABASE postgres_langfuse_v4 FROM PUBLIC;
               GRANT CONNECT, TEMPORARY ON DATABASE agentgateway TO agentgateway;
               GRANT CONNECT, TEMPORARY ON DATABASE dify, dify_plugin, dify_vector TO dify;
               GRANT CONNECT, TEMPORARY ON DATABASE postgres_langfuse TO langfuse;
+              GRANT CONNECT, TEMPORARY ON DATABASE postgres_langfuse_v4 TO langfuse;
               GRANT CONNECT, TEMPORARY ON DATABASE librechat_rag TO librechat_rag;
 
               \connect dify_vector
@@ -246,7 +251,7 @@ spec:
                 IF EXISTS (
                   SELECT FROM pg_database
                   WHERE datname IN (
-                    'agentgateway', 'dify', 'dify_plugin', 'dify_vector', 'postgres_langfuse', 'librechat_rag'
+                     'agentgateway', 'dify', 'dify_plugin', 'dify_vector', 'postgres_langfuse', 'postgres_langfuse_v4', 'librechat_rag'
                     {{- if .Values.forgejo.enabled }}
                      , 'forgejo'
                      {{- end }}
@@ -299,7 +304,7 @@ spec:
 
               PGPASSWORD="$DOCUMENTDB_PASSWORD" PGUSER=librechat PGDATABASE=postgres \
                 psql --tuples-only --command='SELECT current_user' | grep -qx '[[:space:]]*librechat'
-              for database in agentgateway dify dify_plugin dify_vector postgres_langfuse librechat_rag; do
+              for database in agentgateway dify dify_plugin dify_vector postgres_langfuse postgres_langfuse_v4 librechat_rag; do
                 if PGPASSWORD="$DOCUMENTDB_PASSWORD" PGUSER=librechat PGDATABASE="$database" \
                   psql --tuples-only --command='SELECT 1' >/dev/null 2>&1; then
                   echo "DocumentDB application role unexpectedly connected to PostgreSQL database $database" >&2
@@ -331,6 +336,8 @@ spec:
                 psql --tuples-only --command='SELECT current_user' | grep -qx '[[:space:]]*dify'
               PGPASSWORD="$LANGFUSE_PASSWORD" PGUSER=langfuse PGDATABASE=postgres_langfuse \
                 psql --tuples-only --command='SELECT current_user' | grep -qx '[[:space:]]*langfuse'
+              PGPASSWORD="$LANGFUSE_PASSWORD" PGUSER=langfuse PGDATABASE=postgres_langfuse_v4 \
+                psql --tuples-only --command='SELECT current_user' | grep -qx '[[:space:]]*langfuse'
               PGPASSWORD="$LIBRECHAT_RAG_PASSWORD" PGUSER=librechat_rag PGDATABASE=librechat_rag \
                 psql --tuples-only --command="SELECT extname FROM pg_extension WHERE extname = 'vector'" | grep -qx '[[:space:]]*vector'
               PGPASSWORD="$DIFY_PASSWORD" PGUSER=dify PGDATABASE=dify_vector \
@@ -350,11 +357,15 @@ spec:
               verify_isolation agentgateway "$AGENTGATEWAY_PASSWORD" dify dify_plugin dify_vector postgres_langfuse librechat_rag
               verify_isolation dify "$DIFY_PASSWORD" agentgateway postgres_langfuse librechat_rag
               verify_isolation langfuse "$LANGFUSE_PASSWORD" agentgateway dify dify_plugin dify_vector librechat_rag
+              verify_isolation agentgateway "$AGENTGATEWAY_PASSWORD" postgres_langfuse_v4
+              verify_isolation dify "$DIFY_PASSWORD" postgres_langfuse_v4
+              verify_isolation librechat_rag "$LIBRECHAT_RAG_PASSWORD" postgres_langfuse_v4
               verify_isolation librechat_rag "$LIBRECHAT_RAG_PASSWORD" agentgateway dify dify_plugin dify_vector postgres_langfuse
               {{- if .Values.apiKeyBridge.enabled }}
               PGPASSWORD="$API_KEY_BRIDGE_PASSWORD" PGUSER=api_key_bridge PGDATABASE=api_key_bridge \
                 psql --set=ON_ERROR_STOP=1 --command='BEGIN; CREATE TABLE public.__bridge_provisioning_verification (id integer); ROLLBACK;' >/dev/null
               verify_isolation api_key_bridge "$API_KEY_BRIDGE_PASSWORD" postgres template1 agentgateway dify dify_plugin dify_vector postgres_langfuse librechat_rag
+              verify_isolation api_key_bridge "$API_KEY_BRIDGE_PASSWORD" postgres_langfuse_v4
               verify_isolation librechat "$DOCUMENTDB_PASSWORD" api_key_bridge
               verify_isolation agentgateway "$AGENTGATEWAY_PASSWORD" api_key_bridge
               verify_isolation dify "$DIFY_PASSWORD" api_key_bridge
@@ -371,11 +382,13 @@ spec:
               {{- end }}
               {{- if .Values.studio.enabled }}
               verify_isolation studio "$STUDIO_PASSWORD" postgres template1 agentgateway dify dify_plugin dify_vector postgres_langfuse librechat_rag
+              verify_isolation studio "$STUDIO_PASSWORD" postgres_langfuse_v4
               {{- end }}
               {{- if .Values.forgejo.enabled }}
               PGPASSWORD="$FORGEJO_PASSWORD" PGUSER=forgejo PGDATABASE=forgejo \
                 psql --set=ON_ERROR_STOP=1 --command='BEGIN; CREATE TABLE public.__forgejo_provisioning_verification (id integer); INSERT INTO public.__forgejo_provisioning_verification VALUES (1); ROLLBACK;' >/dev/null
               verify_isolation forgejo "$FORGEJO_PASSWORD" postgres template1 agentgateway dify dify_plugin dify_vector postgres_langfuse librechat_rag
+              verify_isolation forgejo "$FORGEJO_PASSWORD" postgres_langfuse_v4
               {{- if .Values.studio.enabled }}
               verify_isolation forgejo "$FORGEJO_PASSWORD" studio
               verify_isolation studio "$STUDIO_PASSWORD" forgejo
