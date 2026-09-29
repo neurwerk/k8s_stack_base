@@ -141,6 +141,9 @@ spec:
   - name: flux
     version: 2.9.4
     source: client bootstrap manifests
+  - name: clickhouse-operator
+    version: 0.0.5
+    source: oci://ghcr.io/clickhouse/clickhouse-operator-helm
   - name: openbao-stack-setup
     version: 0.2.22
     source: https://github.com/neurwerk/k8s_stack_tooling/commit/50b0c29c60482033bc0ceac58ca5a68733e5b075
@@ -228,18 +231,22 @@ spec:
     - path: charts/cert-manager/issuers
       name: infra-cert-manager-issuers
       version: 1.0.0
+    - path: charts/dify/agent
+      name: frontend-dify-agent
+      version: 1.0.0
+      appVersion: 1.17.1
     - path: charts/dify/api
       name: frontend-dify-api
-      version: 1.0.3
-      appVersion: 1.15.0
+      version: 1.0.4
+      appVersion: 1.17.1
     - path: charts/dify/beat
       name: frontend-dify-beat
-      version: 1.0.0
-      appVersion: 1.15.0
+      version: 1.0.1
+      appVersion: 1.17.1
     - path: charts/dify/plugin-daemon
       name: frontend-dify-plugin-daemon
-      version: 1.0.0
-      appVersion: 0.6.3
+      version: 1.0.1
+      appVersion: 0.6.10
     - path: charts/dify/redis
       name: frontend-dify-redis
       version: 1.0.0
@@ -250,16 +257,16 @@ spec:
       appVersion: 0.2.15
     - path: charts/dify/shared
       name: frontend-dify-shared
-      version: 1.0.0
+      version: 1.0.1
       appVersion: 1.0.0
     - path: charts/dify/web
       name: frontend-dify-web-gui
-      version: 1.0.0
-      appVersion: 1.15.0
+      version: 1.0.1
+      appVersion: 1.17.1
     - path: charts/dify/worker
       name: frontend-dify-worker
-      version: 1.0.0
-      appVersion: 1.15.0
+      version: 1.0.1
+      appVersion: 1.17.1
     - path: charts/docling
       name: docling
       version: 0.4.7
@@ -358,17 +365,17 @@ spec:
           sha256: b344a03d0006aba69a8c20ae1ff0354ac7687bdf72c3611c4f330b59a22b7548
     - path: charts/langfuse
       name: monitor-langfuse
-      version: 1.0.0
-      appVersion: 3.179.1
+      version: 2.0.0
+      appVersion: 4.28.1
       dependencyLock:
-        digest: sha256:7cf67e5faa4c8c8f8003ec78dacb365443e246ecd982a2bca43ffb34992b6496
+        digest: sha256:68156b8f74aa153f2e33eb76f6ac11e9277c1a8fe8073c3f37da8834a97292cc
         dependencies:
         - name: langfuse
           repository: https://langfuse.github.io/langfuse-k8s
-          version: 1.5.34
+          version: 2.1.0
         archives:
-        - path: charts/langfuse/charts/langfuse-1.5.34.tgz
-          sha256: 1334697bf93ea6b4fed2503e30551c3b3a1ecfa9fcacff4a5bd8980f385c9ffa
+        - path: charts/langfuse/charts/langfuse-2.1.0.tgz
+          sha256: 66cea2e1b6fa9f215e5f09b0b378ea1ed755ebe5881c68caa4ceba66774d7258
     - path: charts/librechat/admin-panel
       name: librechat-admin-panel
       version: 1.0.0
@@ -481,7 +488,7 @@ spec:
       appVersion: '18.6'
     - path: charts/postgres/operations
       name: infra-postgres-operations
-      version: 1.2.4
+      version: 1.2.5
       appVersion: pg18-0.116.0
     - path: charts/reloader
       name: infra-reloader
@@ -560,6 +567,10 @@ spec:
       namespace: infra-cert-manager
       name: cert-manager-issuers
       chart: ./charts/cert-manager/issuers
+    - path: releases/dify/agent.yaml
+      namespace: frontend-dify
+      name: frontend-dify-agent
+      chart: ./charts/dify/agent
     - path: releases/dify/api.yaml
       namespace: frontend-dify
       name: frontend-dify-api
@@ -809,17 +820,7 @@ spec:
       eligibility: included
       origins:
       - charts/rook-ceph/values.yaml
-    - reference: docker.io/bitnamilegacy/clickhouse:25.2.1-debian-12-r0
-      pinned: true
-      eligibility: included
-      origins:
-      - charts/langfuse/values.yaml
     - reference: docker.io/bitnamilegacy/postgresql:17.3.0-debian-12-r1
-      pinned: true
-      eligibility: included
-      origins:
-      - charts/langfuse/values.yaml
-    - reference: docker.io/bitnamilegacy/valkey:8.0.2-debian-12-r2
       pinned: true
       eligibility: included
       origins:
@@ -829,17 +830,17 @@ spec:
       eligibility: included
       origins:
       - charts/librechat/meilisearch/values.yaml
-    - reference: docker.io/langfuse/langfuse-worker:3.179.1
+    - reference: docker.io/langgenius/dify-agent-backend:1.17.1@sha256:a30c039bbead65d7fd8baf8c53fc867373f515c5721e46070ce03ed04c5f1e32
       pinned: true
       eligibility: included
       origins:
-      - charts/langfuse/values.yaml
-    - reference: docker.io/langfuse/langfuse:3.179.1
+      - charts/dify/agent/values.yaml
+    - reference: docker.io/langgenius/dify-agent-local-sandbox:1.17.1@sha256:f4d404c9dcdf80bd72f65e84c3f2bbd1f3404fd4b363db837176da8aaf771b1d
       pinned: true
       eligibility: included
       origins:
-      - charts/langfuse/values.yaml
-    - reference: docker.io/langgenius/dify-plugin-daemon:0.6.3-local
+      - charts/dify/agent/values.yaml
+    - reference: docker.io/langgenius/dify-plugin-daemon:0.6.10-local@sha256:34412a22d1e1d1a6c73727fef88cffbcdd9be7a21bf9ad3076b4bf5c1b88fd9b
       pinned: true
       eligibility: included
       origins:
@@ -884,6 +885,16 @@ spec:
       eligibility: included
       origins:
       - charts/rook-ceph/values.yaml
+    - reference: docker.io/ubuntu/squid:6.6-24.04_beta@sha256:6a097f68bae708cedbabd6188d68c7e2e7a38cedd05a176e1cc0ba29e3bbe029
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/dify/agent/values.yaml
+    - reference: docker.io/valkey/valkey:8.0
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/langfuse/values.yaml
     - reference: docker.io/valkey/valkey:9.1.1-alpine
       pinned: true
       eligibility: included
@@ -891,6 +902,16 @@ spec:
       - charts/librechat/code-interpreter/valkey/values.yaml
       - charts/librechat/valkey/values.yaml
       - charts/pii-engine/values.yaml
+    - reference: docker.langfuse.com/langfuse/langfuse-worker:4.28.1
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/langfuse/values.yaml
+    - reference: docker.langfuse.com/langfuse/langfuse:4.28.1
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/langfuse/values.yaml
     - reference: ghcr.io/clickhouse/librechat-admin-panel:1.0.0
       pinned: true
       eligibility: included
@@ -921,14 +942,14 @@ spec:
       eligibility: included
       origins:
       - charts/wireguard/values.yaml
-    - reference: ghcr.io/neurwerk/addon-dify-ce-builder-api:1.15.0-kc-v2
+    - reference: ghcr.io/neurwerk/addon-dify-ce-builder-api:1.17.1-kc-v1@sha256:c5b486052d0da75aa140310511655c8a6f9f910f5179a55bcfdb3b1b88c70202
       pinned: true
       eligibility: included
       origins:
       - charts/dify/api/values.yaml
       - charts/dify/beat/values.yaml
       - charts/dify/worker/values.yaml
-    - reference: ghcr.io/neurwerk/addon-dify-ce-builder-web:1.15.0-kc-v2
+    - reference: ghcr.io/neurwerk/addon-dify-ce-builder-web:1.17.1-kc-v1@sha256:2de3b4ad387a8a77205b83f004a72f8d5ddc4e85ac40f1bdfe06747b24a47b8e
       pinned: true
       eligibility: included
       origins:

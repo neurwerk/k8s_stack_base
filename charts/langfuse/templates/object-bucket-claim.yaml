@@ -1,12 +1,12 @@
 apiVersion: objectbucket.io/v1alpha1
 kind: ObjectBucketClaim
 metadata:
-  name: monitor-langfuse-langfuse-object-bucket-claim
+  name: monitor-langfuse-v4-object-bucket-claim
   namespace: {{ .Release.Namespace }}
   labels:
     app.kubernetes.io/name: langfuse-object-bucket-claim
     app.kubernetes.io/instance: {{ .Release.Name }}
     app.kubernetes.io/part-of: monitor-langfuse
 spec:
-  bucketName: langfuse
+  bucketName: langfuse-v4
   storageClassName: infra-rook-ceph-object-bucket
