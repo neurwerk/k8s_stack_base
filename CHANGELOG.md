@@ -9,6 +9,10 @@ upgrade path.
 
 ## [Unreleased]
 
+- Upgrade Dify to 1.17.1 with reviewed, digest-pinned API/Web images, Agent backend, isolated local sandbox, and scoped proxy.
+- Align the plugin daemon with upstream 0.6.10 and deliver Dify Agent credentials from OpenBao.
+- Before adoption, reconcile OpenBao with `openbao-stack-setup` 0.2.23 from Tooling commit `566c0a00fc186afa377ffce537d99d6aa7f411f8`; reset Dify-only state as documented.
+
 ## [0.3.17] - 2026-09-28
 
 - Adopt neurwerk studio `0.11.0` with its light dashboard and daisyUI theme.

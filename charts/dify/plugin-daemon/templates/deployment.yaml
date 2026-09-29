@@ -72,7 +72,7 @@ spec:
               value: /app/storage/cwd
             - name: PYTHON_ENV_INIT_TIMEOUT
               value: "320"
-            - name: PLUGIN_MAX_PACKAGE_SIZE
+            - name: MAX_PLUGIN_PACKAGE_SIZE
               value: "52428800"
             - name: REDIS_HOST
               value: frontend-dify-redis-service

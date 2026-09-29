@@ -2,7 +2,7 @@
 # Pulled directly from: docker.io/langgenius/dify-plugin-daemon
 # Pinned here (chart defaults)
 frontendDify:
-  pluginDaemonImage: docker.io/langgenius/dify-plugin-daemon:0.6.3-local
+  pluginDaemonImage: docker.io/langgenius/dify-plugin-daemon:0.6.10-local@sha256:34412a22d1e1d1a6c73727fef88cffbcdd9be7a21bf9ad3076b4bf5c1b88fd9b
   pullPolicy: IfNotPresent
   postgres:
     host: postgres-operations.infra-postgres-operations.svc.cluster.local
