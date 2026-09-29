@@ -9,6 +9,7 @@ upgrade path.
 
 ## [Unreleased]
 
+- Give the required Studio and API-key bridge PostgreSQL provisioner a new chart version so Flux runs its database-creation Job after the previous PostgreSQL chart update.
 - Deliver the existing Keycloak OIDC client Secret to Dify Beat so it can start with the Dify 1.17.1 image.
 - Upgrade Dify to 1.17.1 with reviewed, digest-pinned API/Web images, Agent backend, isolated local sandbox, and scoped proxy.
 - Align the plugin daemon with upstream 0.6.10 and deliver Dify Agent credentials from OpenBao.
