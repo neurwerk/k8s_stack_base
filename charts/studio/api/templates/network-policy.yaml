@@ -105,6 +105,17 @@ spec:
       app.kubernetes.io/instance: {{ .Release.Name }}
   policyTypes: [Ingress]
   ingress:
+    # The private listener policy isolates the entire API Pod; preserve its public API route.
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: traefik
+      ports:
+        - port: {{ .Values.frontendStudio.api.ports.container.http }}
+          protocol: TCP
     - from:
         - namespaceSelector:
             matchLabels:

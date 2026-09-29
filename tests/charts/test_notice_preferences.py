@@ -55,6 +55,19 @@ class NoticePreferenceBoundaryTests(unittest.TestCase):
         client_cert = resource(extproc, "Certificate", "monitor-agentgateway-extproc-studio-client-certificate")
         self.assertEqual(server_cert["spec"]["usages"], ["server auth"])
         self.assertEqual(client_cert["spec"]["usages"], ["client auth"])
+        ingress = resource(studio, "NetworkPolicy", "frontend-studio-notice-preferences-ingress")
+        self.assertEqual(len(ingress["spec"]["ingress"]), 2)
+        allowed = {
+            (rule["ports"][0]["port"], peer["namespaceSelector"]["matchLabels"]["kubernetes.io/metadata.name"],
+             peer["podSelector"]["matchLabels"]["app.kubernetes.io/name"])
+            for rule in ingress["spec"]["ingress"] for peer in rule["from"]
+        }
+        api_service = resource(studio, "Service", "frontend-studio-api-service")
+        private_container = next(c for c in pod["containers"] if c["name"] == "notice-preferences")
+        self.assertEqual(allowed, {
+            (api_service["spec"]["ports"][0]["targetPort"], "kube-system", "traefik"),
+            (private_container["ports"][0]["containerPort"], "monitor-agentgateway-extproc", "monitor-agentgateway-extproc"),
+        })
         policies = render("cert-manager/approval-policy")
         for certificate, policy_name in ((server_cert, "cert-manager-internal-studio-notice-preferences-server"),
                                          (client_cert, "cert-manager-internal-agentgateway-extproc-studio-client")):
