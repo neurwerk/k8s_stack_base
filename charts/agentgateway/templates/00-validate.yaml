@@ -1,4 +1,7 @@
 {{- $engine := .Values.guardrails.llmPolicyEngine -}}
+{{- if ne $engine.credentialContextEnabled true -}}
+  {{- fail "guardrails.llmPolicyEngine.credentialContextEnabled is required for this Base release" -}}
+{{- end -}}
 {{- $_ := include "infra-agentgateway.attachmentPolicy" . -}}
 {{- if not (kindIs "bool" .Values.docling.enabled) -}}
   {{- fail "docling.enabled must be boolean" -}}

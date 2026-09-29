@@ -1,5 +1,5 @@
-{{- if and .Values.frontendStudio.api.noticePreferences.enabled (not .Values.frontendStudio.api.postgres.enabled) }}
-{{- fail "noticePreferences.enabled requires postgres.enabled and a migrated Studio database" }}
+{{- if or (ne .Values.frontendStudio.api.noticePreferences.enabled true) (ne .Values.frontendStudio.api.postgres.enabled true) }}
+{{- fail "Studio noticePreferences.enabled and postgres.enabled are required for this Base release" }}
 {{- end }}
 # =============================================================================
 # frontend-studio API Deployment (authenticated API + management server)

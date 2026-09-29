@@ -43,9 +43,9 @@ monitorAgentgatewayExtproc:
     # Keep the dependency handshake below the outer Kubernetes probe timeout.
     readinessTimeout: 1
 
-  # Activate only with a compatible extProc and Studio API release.
+  # Required private mTLS lookup; failed lookups use all-on display.
   noticePreferences:
-    enabled: false
+    enabled: true
     url: https://frontend-studio-notice-preferences.frontend-studio.svc.cluster.local:443
     caFile: /var/run/studio/tls/ca.crt
     clientCertFile: /var/run/studio/tls/tls.crt

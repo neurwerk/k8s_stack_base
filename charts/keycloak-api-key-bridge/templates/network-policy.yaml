@@ -74,7 +74,6 @@ spec:
       ports:
         - port: 8080
           protocol: TCP
-    {{- if .Values.authKeycloakApiKeyBridge.postgres.enabled }}
     - to:
         - namespaceSelector:
             matchLabels:
@@ -86,4 +85,3 @@ spec:
       ports:
         - port: 9712
           protocol: TCP
-    {{- end }}

@@ -1,6 +1,6 @@
 version: 0.3.17
 releaseDate: '2026-09-28'
-summary: Adopt current service releases and optional image inspection prerequisites.
+summary: Require PostgreSQL-backed notice preferences and pinned service images.
 trust:
   signerIdentity: platform-release
   algorithm: ssh-ed25519
@@ -13,17 +13,11 @@ compatibility:
 packages:
   default:
   - releases/namespaces
+  - releases/keycloak-api-key-bridge/secret-sync
+  - releases/studio/secret-sync
   - releases/infrastructure
   - releases/applications
   optional:
-  - path: releases/keycloak-api-key-bridge/secret-sync
-    status: included
-    reason: Optional bridge PostgreSQL passwords; select only with compatible bridge image, provisioned database and matching OpenBao copies.
-    chartPrefixes: []
-  - path: releases/studio/secret-sync
-    status: included
-    reason: Optional Studio notice database credentials; compose only after compatible Tooling reconciles both password copies and compatible service images are pinned.
-    chartPrefixes: []
   - path: releases/docling/image-inspection-secret-sync
     status: included
     reason: Optional private image-reader credential delivery; provision the runtime and API key before
@@ -135,8 +129,8 @@ prerequisites:
   version: 2.9.4
   source: client bootstrap manifests
 - name: openbao-stack-setup
-  version: 0.2.22
-  source: https://github.com/neurwerk/k8s_stack_tooling/commit/50b0c29c60482033bc0ceac58ca5a68733e5b075
+  version: 0.2.23
+  source: https://github.com/neurwerk/k8s_stack_tooling/commit/2d4af9c757366ecdf573c9aac64614545bf6a5ba
 - name: gateway-api-experimental
   version: 1.6.0
   source: https://github.com/kubernetes-sigs/gateway-api/releases/tag/v1.6.0

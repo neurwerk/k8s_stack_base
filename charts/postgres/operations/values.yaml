@@ -33,10 +33,9 @@ postgresOperationsSecrets: {}
 forgejo:
   enabled: false
 
-# Enable only after matching OpenBao credentials have been copied and synced.
+# Required roles; matching OpenBao credentials must be synced before reconciliation.
 studio:
-  enabled: false
+  enabled: true
 
-# Enable only after the namespace-local password Secret is synced.
 apiKeyBridge:
-  enabled: false
+  enabled: true

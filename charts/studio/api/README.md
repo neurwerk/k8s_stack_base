@@ -1,57 +1,53 @@
-# Notice preference rollout contract (staged)
+# Required notice preference contract
 
-The chart wiring is opt-in. Studio API `0.12.0` and extProc `0.14.0` implement
-notice preferences, but the pinned API-key bridge `0.7.1` does not provide
-personal key identity and cannot use the PostgreSQL-only `0.8.0` image with its
-current SQLite default. Keep the database, private listener, extProc lookup and
-gateway credential-context switches off until their dependencies are provisioned
-and the bridge cutover is coordinated in dependency order:
+This Base level pins Studio API/Web `0.12.0`, extProc `0.14.0`, and the
+PostgreSQL-only API-key bridge `0.8.0`. It requires both notice databases,
+Studio's private mTLS listener, extProc's preference lookup, and AgentGateway's
+trusted API-key credential context. Client values cannot disable these parts.
+Older signed Base tags remain the choice for clients that decline this upgrade.
 
-1. Provision the same new database password in OpenBao at
-   `frontend-studio/internal:postgresqlPassword` and
-   `infra-postgres-operations/internal:studioPassword` using the supported
-   credential-copy workflow. The two ExternalSecrets deliver separate
-   namespace-local Secrets through the optional
-   `releases/studio/secret-sync/` package, composed after those records exist;
-   no password belongs in a ConfigMap or chart value.
-2. Enable `studio.enabled` in the operations PostgreSQL chart. Its Job must
-   finish provisioning and checking the `studio` role and database before
-   enabling `frontendStudio.api.postgres.enabled` in the Studio API chart.
-3. Roll out a compatible extProc image before a Studio image returning the new
-   response shape. extProc must accept both the legacy five-field response and
-   the nine-field response below during the transition, treating the four
-   absent new fields as `true`. It must verify the private Studio Service DNS
-   against the internal CA, present its dedicated client certificate, bound
-   preference lookup time, and show all optional notices on lookup failure.
-4. Studio API must implement the configured Postgres environment variables,
-   persistent preferences and the dedicated HTTPS listener selected by
-   `frontendStudio.api.noticePreferences.enabled`. Its private
-   `GET /internal/v1/notice-preferences` must require a valid client certificate
-   with CN `monitor-agentgateway-extproc-studio` and validate the trusted
-   principal and optional personal-key identifier/kind. The effective response
-   contains exactly nine booleans: `notices_enabled`, `show_no_pii`, `show_pass`,
-   `show_changes`, `show_reroutes`, `show_timing`, `show_no_faces`,
-   `show_detected_faces`, and `show_unscanned_faces`. Each defaults to `true`;
-   Studio resolves each personal-key `inherit`/`on`/`off` override against its
-   user's setting independently. `notices_enabled: false` suppresses all
-   optional notices regardless of the other eight values. Face notices are
-   separate from the five text/timing notices; these settings change display
-   only, never blocks, errors, policy decisions or reports. No browser bearer
-   token or caller-controlled identity may authorize this route. The public
-   Studio HTTPRoute must never point to its private Service. After verifying
-   the private API with the new extProc image running, enable
-   `monitorAgentgatewayExtproc.noticePreferences.enabled`.
-5. A compatible bridge release may return optional `credential_id` and
-   `credential_kind` in its trusted v1 auth header. After the compatible
-   extProc is running, enable
-   `guardrails.llmPolicyEngine.credentialContextEnabled`. This adds
-    `credential_context_version: "1"` and the credential fields to
-    API-key model destination metadata only; JWT and MCP metadata omit them.
-   With the switch off, neither responseMetadata nor destination metadata
-   contains any new fields. The existing attachment `contract_version` stays
-   independent of this credential-context version.
+Before this level reconciles, use the global `openbao-stack-setup` `0.2.23`
+prerequisite at Tooling commit `2d4af9c757366ecdf573c9aac64614545bf6a5ba`
+to provision matching source/provisioner password copies in OpenBao:
 
-Studio `0.12.0` and extProc `0.14.0` are pinned in the platform defaults;
-the PostgreSQL-only bridge `0.8.0` remains a separate, coordinated client
-cutover. Chart rendering alone cannot establish live availability or that
-the optional database and credential prerequisites are ready.
+| Consumer record | Operations provisioner record |
+| --- | --- |
+| `frontend-studio/internal:postgresqlPassword` | `infra-postgres-operations/internal:studioPassword` |
+| `auth-keycloak-api-key-bridge/internal:postgresqlPassword` | `infra-postgres-operations/internal:apiKeyBridgePassword` |
+
+The required standalone packages `releases/studio/secret-sync` and
+`releases/keycloak-api-key-bridge/secret-sync` deliver these as namespace-local
+Secrets. They must be composed by the client as **two distinct Flux
+Kustomizations**, each checking its two ExternalSecrets and two target Secrets
+for readiness. The owning namespaces, External Secrets controller, OpenBao,
+and both namespace-local SecretStores must already exist. Stage and verify the
+credential-sync Kustomizations **before** allowing the updated infrastructure
+or application stage to reconcile. Do not make them depend on the updated
+infrastructure stage while that stage waits for their readiness: that forms a
+cycle. For an existing alpha installation, hold the updated infrastructure and
+applications stages while staging the two standalone packages using the
+previously installed SecretStores; resume infrastructure first, then
+applications. For a fresh installation, first bring up the prerequisite
+SecretStores/OpenBao without starting the new database-dependent releases;
+follow the supported bootstrap sequence, then gate the new releases on the
+ready standalone packages. The Base stage indexes do not own those packages
+and Kustomization directory ordering cannot replace explicit `dependsOn` and
+health checks.
+
+PostgreSQL operations provisioning creates and verifies dedicated `studio` and
+`api_key_bridge` roles and databases. It refuses collisions or incompatible
+ownership markers rather than taking over existing data. The bridge init
+container creates or checks its schema; it does not import SQLite data. Preserve
+any existing bridge PVC and arrange an explicit data migration if it contains
+keys; do not remove the old claim during adoption. Both databases share the
+operations instance's backup and recovery point. Verify backups and database
+readiness before enabling the consumers.
+
+Studio's private `GET /internal/v1/notice-preferences` serves nine effective
+booleans over mTLS using only trusted principal and personal-key identifiers.
+The client certificate CN is `monitor-agentgateway-extproc-studio`; the
+browser-facing route does not expose this listener. ExtProc uses all-on display
+when the bounded lookup fails. Preferences change notice display only; policy
+blocks, errors and PII enforcement remain in force. The cert-manager approval
+policy already has exact server DNS and client CN policies for these two
+certificates.

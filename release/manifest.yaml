@@ -5,7 +5,7 @@ metadata:
 spec:
   version: 0.3.17
   releaseDate: '2026-09-28'
-  summary: Adopt current service releases and optional image inspection prerequisites.
+  summary: Require PostgreSQL-backed notice preferences and pinned service images.
   trust:
     signerIdentity: platform-release
     algorithm: ssh-ed25519
@@ -18,19 +18,11 @@ spec:
   packages:
     default:
     - releases/namespaces
+    - releases/keycloak-api-key-bridge/secret-sync
+    - releases/studio/secret-sync
     - releases/infrastructure
     - releases/applications
     optional:
-    - path: releases/keycloak-api-key-bridge/secret-sync
-      status: included
-      reason: Optional bridge PostgreSQL passwords; select only with compatible bridge image, provisioned
-        database and matching OpenBao copies.
-      chartPrefixes: []
-    - path: releases/studio/secret-sync
-      status: included
-      reason: Optional Studio notice database credentials; compose only after compatible Tooling reconciles
-        both password copies and compatible service images are pinned.
-      chartPrefixes: []
     - path: releases/docling/image-inspection-secret-sync
       status: included
       reason: Optional private image-reader credential delivery; provision the runtime and API key before
@@ -142,8 +134,8 @@ spec:
     version: 2.9.4
     source: client bootstrap manifests
   - name: openbao-stack-setup
-    version: 0.2.22
-    source: https://github.com/neurwerk/k8s_stack_tooling/commit/50b0c29c60482033bc0ceac58ca5a68733e5b075
+    version: 0.2.23
+    source: https://github.com/neurwerk/k8s_stack_tooling/commit/2d4af9c757366ecdf573c9aac64614545bf6a5ba
   - name: gateway-api-experimental
     version: 1.6.0
     source: https://github.com/kubernetes-sigs/gateway-api/releases/tag/v1.6.0
@@ -179,7 +171,7 @@ spec:
     charts:
     - path: charts/agentgateway
       name: infra-agentgateway
-      version: 1.9.1
+      version: 1.9.2
       appVersion: 1.5.0
       dependencyLock:
         digest: sha256:e5b8cfb3b1e062b8e9268a42405a466d71d22bdb18ae83ff7496788af21abedd
@@ -192,7 +184,7 @@ spec:
           sha256: a22cfb7dcc56da05d31b18c0a969e1b8eee35d19a4493d88b5d4720efcc85945
     - path: charts/agentgateway-extproc
       name: agentgateway-extproc
-      version: 1.4.3
+      version: 1.4.4
       appVersion: 0.14.0
     - path: charts/cert-manager/approval-policy
       name: infra-cert-manager-approval-policy
@@ -341,8 +333,8 @@ spec:
       appVersion: 26.7.2
     - path: charts/keycloak-api-key-bridge
       name: auth-keycloak-api-key-bridge
-      version: 1.1.5
-      appVersion: 0.7.1
+      version: 1.1.6
+      appVersion: 0.8.0
     - path: charts/kube-prometheus-stack
       name: monitor-kube-prometheus-stack
       version: 1.0.4
@@ -481,7 +473,7 @@ spec:
       appVersion: '18.6'
     - path: charts/postgres/operations
       name: infra-postgres-operations
-      version: 1.2.4
+      version: 1.2.5
       appVersion: pg18-0.116.0
     - path: charts/reloader
       name: infra-reloader
@@ -502,7 +494,7 @@ spec:
       appVersion: v1.20.3
     - path: charts/studio/api
       name: studio-api
-      version: 1.1.12
+      version: 1.1.13
       appVersion: 0.12.0
     - path: charts/studio/shared
       name: studio-shared
@@ -938,7 +930,7 @@ spec:
       eligibility: included
       origins:
       - charts/agentgateway-extproc/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-keycloak-api-key-bridge:0.7.1@sha256:7f0d4d86f7ba1268ef1f7aac40df34a124a2c6e8cd1683e77fd894eef4ffd3ee
+    - reference: ghcr.io/neurwerk/k8s-stack-keycloak-api-key-bridge:0.8.0@sha256:02db93c4b824391de00929d33b2adc6b459b20d4cb4163ef8924ac112f288d5a
       pinned: true
       eligibility: included
       origins:

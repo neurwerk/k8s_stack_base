@@ -1,4 +1,7 @@
 {{- $readinessTimeoutValue := .Values.monitorAgentgatewayExtproc.engine.readinessTimeout -}}
+{{- if ne .Values.monitorAgentgatewayExtproc.noticePreferences.enabled true -}}
+{{- fail "monitorAgentgatewayExtproc.noticePreferences.enabled is required for this Base release" -}}
+{{- end -}}
 {{- if not (or (kindIs "int" $readinessTimeoutValue) (kindIs "int64" $readinessTimeoutValue) (kindIs "float64" $readinessTimeoutValue)) -}}
 {{- fail "monitorAgentgatewayExtproc.engine.readinessTimeout must be a number" -}}
 {{- end }}

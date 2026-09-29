@@ -1,3 +1,6 @@
+{{- if or (ne .Values.studio.enabled true) (ne .Values.apiKeyBridge.enabled true) -}}
+{{- fail "studio.enabled and apiKeyBridge.enabled are required for this Base release" -}}
+{{- end -}}
 {{- if .Values.forgejo.enabled -}}
 {{- $_ := required "postgresOperationsSecrets.forgejoPassword is required when forgejo.enabled" .Values.postgresOperationsSecrets.forgejoPassword -}}
 {{- end -}}
