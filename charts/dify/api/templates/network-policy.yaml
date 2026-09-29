@@ -61,6 +61,14 @@ spec:
     - to:
         - podSelector:
             matchLabels:
+              app.kubernetes.io/name: agent-backend
+              app.kubernetes.io/instance: frontend-dify-agent
+      ports:
+        - port: 5050
+          protocol: TCP
+    - to:
+        - podSelector:
+            matchLabels:
               app.kubernetes.io/name: sandbox
               app.kubernetes.io/instance: frontend-dify-sandbox
       ports:

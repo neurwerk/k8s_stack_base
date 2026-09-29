@@ -11,6 +11,9 @@ difySecrets:
   REDIS_PASSWORD: ""
   SANDBOX_API_KEY: ""
   PLUGIN_DAEMON_KEY: ""
+  DIFY_AGENT_API_TOKEN: ""
+  DIFY_AGENT_SERVER_SECRET_KEY: ""
+  DIFY_AGENT_SANDBOX_AUTH_TOKEN: ""
 
 # Auth Keycloak — sourced from shared-oidc-clients-config-map
 authKeycloak:

@@ -4,7 +4,7 @@ metadata:
   name: frontend-dify-worker-deployment
   namespace: frontend-dify
   annotations:
-    secret.reloader.stakater.com/reload: "frontend-dify-secret"
+    secret.reloader.stakater.com/reload: "frontend-dify-secret,frontend-dify-openbao-secret"
   labels:
     app.kubernetes.io/name: worker
     app.kubernetes.io/instance: frontend-dify-worker
@@ -66,6 +66,17 @@ spec:
               value: {{ .Values.frontendDify.postgres.vectorDatabase | quote }}
             - name: PLUGIN_DAEMON_URL
               value: {{ .Values.frontendDify.config.PLUGIN_DAEMON_URL | quote }}
+            - name: INNER_API_KEY_FOR_PLUGIN
+              valueFrom:
+                secretKeyRef: { name: frontend-dify-secret, key: PLUGIN_DAEMON_KEY }
+            - name: AGENT_BACKEND_BASE_URL
+              value: http://frontend-dify-agent-backend-service:5050
+            - name: AGENT_BACKEND_API_TOKEN
+              valueFrom:
+                secretKeyRef: { name: frontend-dify-secret, key: DIFY_AGENT_API_TOKEN }
+            - name: KEYCLOAK_OIDC_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef: { name: frontend-dify-openbao-secret, key: KEYCLOAK_OIDC_CLIENT_SECRET }
             - name: SANDBOX_API_URL
               value: {{ .Values.frontendDify.config.SANDBOX_API_URL | quote }}
             - name: REDIS_PASSWORD
