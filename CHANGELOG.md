@@ -9,6 +9,10 @@ upgrade path.
 
 ## [Unreleased]
 
+## [0.3.19] - 2026-09-30
+
+
+
 ## [0.3.18] - 2026-09-30
 
 - Fix PostgreSQL provisioning so Kubernetes preserves its SQL delimiters, and restore public Studio API access after adding the private notice listener.

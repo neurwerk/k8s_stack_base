@@ -1,11 +1,11 @@
 apiVersion: platform.neurwerk.com/v1alpha1
 kind: PlatformRelease
 metadata:
-  name: v0.3.18
+  name: v0.3.19
 spec:
-  version: 0.3.18
+  version: 0.3.19
   releaseDate: '2026-09-30'
-  summary: Upgrade Dify and Langfuse, add personal notice settings, and repair Studio and PostgreSQL provisioning
+  summary: Use Docker Hub for Langfuse and remove optional Git hosting
   trust:
     signerIdentity: platform-release
     algorithm: ssh-ed25519
@@ -191,7 +191,7 @@ spec:
       appVersion: 0.14.0
     - path: charts/cert-manager/approval-policy
       name: infra-cert-manager-approval-policy
-      version: 1.2.2
+      version: 1.2.3
     - path: charts/cert-manager/approver-policy
       name: infra-cert-manager-approver-policy
       version: 1.0.0
@@ -293,10 +293,6 @@ spec:
       name: monitor-fluent-bit-shared
       version: 1.0.0
       appVersion: '1.0'
-    - path: charts/forgejo
-      name: forgejo
-      version: 0.1.1
-      appVersion: 15.0.8
     - path: charts/keycloak/oidc/agentgateway
       name: agentgateway
       version: 1.1.5
@@ -308,10 +304,6 @@ spec:
     - path: charts/keycloak/oidc/dify-agentgateway
       name: dify-agentgateway
       version: 1.1.5
-      appVersion: '1.0'
-    - path: charts/keycloak/oidc/forgejo
-      name: keycloak-forgejo-oidc
-      version: 0.1.4
       appVersion: '1.0'
     - path: charts/keycloak/oidc/keycloak-api-key-bridge
       name: keycloak-api-key-bridge
@@ -327,16 +319,16 @@ spec:
       appVersion: '1.0'
     - path: charts/keycloak/realm-config/active-directory
       name: keycloak-active-directory
-      version: 1.1.3
+      version: 1.1.4
     - path: charts/keycloak/realm-config/initial-admin
       name: keycloak-oidc-configurations-initial-admin
       version: 1.1.4
     - path: charts/keycloak/realm-config/realm-roles
       name: keycloak-oidc-configurations-realm-roles
-      version: 2.2.3
+      version: 2.3.0
     - path: charts/keycloak/server
       name: keycloak
-      version: 1.1.3
+      version: 1.1.4
       appVersion: 26.7.2
     - path: charts/keycloak-api-key-bridge
       name: auth-keycloak-api-key-bridge
@@ -357,7 +349,7 @@ spec:
           sha256: b344a03d0006aba69a8c20ae1ff0354ac7687bdf72c3611c4f330b59a22b7548
     - path: charts/langfuse
       name: monitor-langfuse
-      version: 2.0.0
+      version: 2.0.1
       appVersion: 4.28.1
       dependencyLock:
         digest: sha256:68156b8f74aa153f2e33eb76f6ac11e9277c1a8fe8073c3f37da8834a97292cc
@@ -480,7 +472,7 @@ spec:
       appVersion: '18.6'
     - path: charts/postgres/operations
       name: infra-postgres-operations
-      version: 1.2.7
+      version: 1.2.8
       appVersion: pg18-0.116.0
     - path: charts/reloader
       name: infra-reloader
@@ -528,7 +520,7 @@ spec:
           sha256: 0de4bbef2d1a013bd4a91c6f59a9cb0273dda9a785e018a9a16e8f2b096af823
     - path: charts/wireguard
       name: wireguard
-      version: 0.1.0
+      version: 0.2.0
       appVersion: 1.0.20260223
     helmReleases:
     - path: releases/agentgateway/app.yaml
@@ -611,14 +603,6 @@ spec:
       namespace: monitor-fluent-bit
       name: fluent-bit-shared
       chart: ./charts/fluent-bit/shared
-    - path: releases/forgejo/app/app.yaml
-      namespace: forgejo
-      name: forgejo
-      chart: ./charts/forgejo
-    - path: releases/forgejo/app/oidc.yaml
-      namespace: auth-keycloak
-      name: keycloak-forgejo-oidc
-      chart: ./charts/keycloak/oidc/forgejo
     - path: releases/keycloak/active-directory.yaml
       namespace: auth-keycloak
       name: keycloak-active-directory
@@ -792,11 +776,6 @@ spec:
       name: wireguard
       chart: ./charts/wireguard
     images:
-    - reference: code.forgejo.org/forgejo/forgejo:15.0.8-rootless@sha256:8f97b55ca162ef3b538c6c78a2a077df9f2143c41d80b2bc6b6920f8d430df34
-      pinned: true
-      eligibility: included
-      origins:
-      - charts/forgejo/values.yaml
     - reference: cr.agentgateway.dev/controller:v1.5.0
       pinned: true
       eligibility: included
@@ -822,6 +801,16 @@ spec:
       eligibility: included
       origins:
       - charts/librechat/meilisearch/values.yaml
+    - reference: docker.io/langfuse/langfuse-worker:4.28.1
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/langfuse/values.yaml
+    - reference: docker.io/langfuse/langfuse:4.28.1
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/langfuse/values.yaml
     - reference: docker.io/langgenius/dify-agent-backend:1.17.1@sha256:a30c039bbead65d7fd8baf8c53fc867373f515c5721e46070ce03ed04c5f1e32
       pinned: true
       eligibility: included
@@ -894,16 +883,6 @@ spec:
       - charts/librechat/code-interpreter/valkey/values.yaml
       - charts/librechat/valkey/values.yaml
       - charts/pii-engine/values.yaml
-    - reference: docker.langfuse.com/langfuse/langfuse-worker:4.28.1
-      pinned: true
-      eligibility: included
-      origins:
-      - charts/langfuse/values.yaml
-    - reference: docker.langfuse.com/langfuse/langfuse:4.28.1
-      pinned: true
-      eligibility: included
-      origins:
-      - charts/langfuse/values.yaml
     - reference: ghcr.io/clickhouse/librechat-admin-panel:1.0.0
       pinned: true
       eligibility: included
@@ -989,7 +968,6 @@ spec:
       - charts/keycloak/oidc/agentgateway/values.yaml
       - charts/keycloak/oidc/dify-agentgateway/values.yaml
       - charts/keycloak/oidc/dify/values.yaml
-      - charts/keycloak/oidc/forgejo/values.yaml
       - charts/keycloak/oidc/keycloak-api-key-bridge/values.yaml
       - charts/keycloak/oidc/librechat/values.yaml
       - charts/keycloak/oidc/studio/values.yaml
@@ -1180,39 +1158,12 @@ spec:
       node: 24.20.0
       lua: 5.4.9
   provenance:
-    previousTag: v0.3.17
-    includedThrough: 5fbcc29c2dc2d3ab977849b737bfc56d36665df1
+    previousTag: v0.3.18
+    includedThrough: e0d7616dc2b7837d691e1ce6cc246f20b55c102b
     commits:
-    - 79ae02897a4fa799ced1a128766ef3e7d15fc504
-    - 86f1d0a5a4e08c4def803521ab8e1eedb606ad08
-    - 7b9e48b91a8fd60bc1406c7b19be3955ed820f65
-    - 449379725ff56f0e81a0cedb19198d988045afe0
-    - 36e864c33a15cff1d1ce815879416043cae46ced
-    - 6950a7b5de61110f3382ed47c80e69698ca346c1
-    - 7ec76908b37d089c3a40bc533cc9fa31cddc8b40
-    - 0ce7eeb38ab470072cfaab34f68cff0487be531e
-    - a3065eca0459e8d25579ea8754adca0ef037d9ba
-    - df64a3ba05f541c6403594d3e21b1fe99a34ed6a
-    - ef09acb26f7be3f1792497a2f6a034c8d87eb9c4
-    - 6c38f4e4b3adc03b657eb77810df7b2cf77471e3
-    - 525995b32ed1c8a829e7cc0f1b3cb768c2596622
-    - 2897c491762424e217870e67bfb9d33efb72971c
-    - 1fc3dfb5a372031c81356040894f036be33962f8
-    - e228733c3974859125d064c189d051b4379556e6
-    - 0da8ac543634a28afbb40f38c8047bc8cbba7de2
-    - 1ad11613fbaf47710913c45ba45d3714f6a703e0
-    - 4c004ad09fba0d593bd381dd03f5445f63f46050
-    - 789bc25d08a39cfc64f315080e30a2163bc7f8c9
-    - f3da8490769b86a0b8fb8219bc2d53257e54c958
-    - d5eaee452dd47dd71c22d008b9eeb9afb08887f5
-    - 8715dc2b1aa3f553f4ddc8e259259e093b021aa3
-    - bb6056dcd4c5628cc78c0d700a34dc68016ecad4
-    - 2b0e5e9e518c719b0cfd35b3c1d835c5ffa93abd
-    - 00cd205befc5a5dd257e442da17812d1f2568263
-    - 24e9dd26d9550067c27c4cc479bcb83cbe4bd81c
-    - 2cf9812e4ef84cd7e56acae75260e96bde22a39a
-    - bb3550b6fb659dbd65c2e968f70f404fe29fd852
-    - 44ceaf3e531b238f2744c66e2eefe136332d05be
-    - c5a8da80e1f8fc86d03181de9b7fc535a9c8dbc3
-    - 5fbcc29c2dc2d3ab977849b737bfc56d36665df1
-    compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.17...5fbcc29c2dc2d3ab977849b737bfc56d36665df1
+    - 21371bba032274f51ddd2e9dde93da37c6e2aec0
+    - 4a8b89d9d347f60515630af21f1ab46532de560b
+    - fabbc89a8d7908af037b08fbde6beb9fca2e8b8f
+    - c7846ceb94b19718ea753220b4b56ff864c4f1f8
+    - e0d7616dc2b7837d691e1ce6cc246f20b55c102b
+    compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.18...e0d7616dc2b7837d691e1ce6cc246f20b55c102b
