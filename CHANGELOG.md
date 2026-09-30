@@ -9,13 +9,17 @@ upgrade path.
 
 ## [Unreleased]
 
+## [0.3.18] - 2026-09-30
+
 - Fix PostgreSQL provisioning so Kubernetes preserves its SQL delimiters, and restore public Studio API access after adding the private notice listener.
 - Deliver the existing Keycloak OIDC client Secret to Dify Beat so it can start with the Dify 1.17.1 image.
 - Upgrade Dify to 1.17.1 with reviewed, digest-pinned API/Web images, Agent backend, isolated local sandbox, and scoped proxy.
 - Align the plugin daemon with upstream 0.6.10 and deliver Dify Agent credentials from OpenBao.
 - Dify's schema migration runs automatically; pgvector installations need no manual data move or Dify reset solely for this upgrade.
 - Replace Langfuse with v4 and fresh storage. Previous Langfuse projects, traces, prompts, datasets, and other data are not migrated.
-- Require Studio `0.12.0`, extProc `0.14.0`, and PostgreSQL-only API-key bridge `0.8.0` for personal notice settings. New user settings default on; each personal key inherits them unless changed in Studio.
+- Require Studio `0.12.0`, extProc `0.14.0`, and PostgreSQL-only API-key bridge `0.8.0` for private, verified notice-preference lookups.
+- Add nine per-user notice-display settings: a master switch plus no sensitive data, policy pass, changed sensitive data, reroutes, timing, no faces, detected faces, and faces not scanned. All user settings default On.
+- Let each personal API key choose Inherit, On, or Off for each setting, including the master switch; a key can turn notices On even if its user's master is Off. Master Off hides extra notices on successful answers only. Blocks and errors stay visible, and PII enforcement is unchanged.
 - Require the two database credential Secret-sync packages and `openbao-stack-setup` `0.2.23` from Tooling commit `2d4af9c757366ecdf573c9aac64614545bf6a5ba`. Before adopting this level, reconcile the credential catalog and confirm both namespace-local database Secrets are ready. The bridge starts with an empty PostgreSQL database; existing SQLite keys are not copied. The operator confirmed no relevant keys need preserving for the current clients. Remove only the old bridge PVC after the new bridge is healthy.
 
 ## [0.3.17] - 2026-09-28
