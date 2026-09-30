@@ -130,7 +130,7 @@ class ApplicationAccessTest(unittest.TestCase):
 
     def test_mandatory_dependencies_and_admin_chain(self) -> None:
         for name, target in (
-            ("librechat", "keycloak"), ("studio", "keycloak"), ("forgejo", "keycloak"),
+            ("librechat", "keycloak"), ("studio", "keycloak"),
             ("librechat-admin", "librechat"), ("librechat-admin", "keycloak"),
         ):
             with self.subTest(name=name, target=target):

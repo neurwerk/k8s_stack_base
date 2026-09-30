@@ -12,11 +12,13 @@ wireguard:
   enabled: true
   serverKeySecret: wireguard-server-key
   virtualIP: 192.0.2.10
-  forgejoServiceIP: 198.51.100.10
+  target:
+    serviceIP: 198.51.100.10
+    servicePort: 443
+    namespace: example-app
+    podSelector: {app.kubernetes.io/name: example-app}
+    podPort: 3000
   outerSourceCIDRs: [203.0.113.1/32]
-forgejo:
-  enabled: true
-  hostname: forgejo.example.com
 authKeycloak:
   hostname: lint.example
   adminUser: lint-admin
@@ -159,7 +161,6 @@ postgresOperations:
   persistence:
     storageClassName: infra-rook-ceph-rbd
 postgresOperationsSecrets:
-  forgejoPassword: lint-forgejo-not-a-real-password
   adminPassword: lint-postgres-operations-admin
   agentgatewayPassword: lint-postgres-operations-agentgateway
   documentdbPassword: lint-postgres-operations-documentdb

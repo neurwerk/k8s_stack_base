@@ -32,10 +32,6 @@ spec:
       interval: 1m
   valuesFrom:
     - kind: Secret
-      name: forgejo-postgres-values
-      valuesKey: values.yaml
-      optional: true
-    - kind: Secret
       name: postgres-operations-values
       valuesKey: values.yaml
     - kind: ConfigMap
@@ -44,3 +40,7 @@ spec:
     - kind: ConfigMap
       name: postgres-product-values
       valuesKey: values.yaml
+    - kind: Secret
+      name: addon-postgres-values
+      valuesKey: values.yaml
+      optional: true

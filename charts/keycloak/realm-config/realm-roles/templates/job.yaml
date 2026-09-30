@@ -9,24 +9,45 @@
 {{- $inheritedRoles := include "keycloak-realm-roles.inheritedRoles" . | fromYamlArray }}
 {{- $agentgatewayRoles := concat (.Values.authKeycloak.agentgatewayClientRoles | default list) $inheritedRoles | uniq }}
 {{- $standard := .Files.Get "files/standard-access.yaml" | fromYaml }}
-{{- $forgejo := .Files.Get "files/forgejo-access.yaml" | fromYaml }}
 {{- $platformAdminRoles := index $standard.realmRoleComposites "platform-admin" }}
-{{- $knownPlatformAdminRoles := concat $platformAdminRoles $forgejo.platformAdminRoles }}
+{{- $addon := .Values.addonApplicationAccess | default dict }}
+{{- $addonRoles := $addon.realmRoles | default list }}
+{{- if not (kindIs "slice" $addonRoles) }}{{- fail "addonApplicationAccess.realmRoles must be a list" }}{{- end }}
+{{- if gt (len $addonRoles) 8 }}{{- fail "addonApplicationAccess supports at most eight realm roles" }}{{- end }}
+{{- $standardRoles := splitList "," $standard.realmRoles }}
+{{- range $addonRoles }}
+{{- if or (not (kindIs "string" .)) (not (regexMatch `^[a-z][a-z0-9-]{0,62}$` .)) (has . $standardRoles) }}{{- fail "addonApplicationAccess contains an invalid or existing realm role" }}{{- end }}
+{{- end }}
+{{- if ne (len ($addonRoles | uniq)) (len $addonRoles) }}{{- fail "addonApplicationAccess has duplicate roles" }}{{- end }}
+{{- $addonComposites := $addon.realmRoleComposites | default dict }}
+{{- range $role, $children := $addonComposites }}
+{{- if not (has $role $addonRoles) }}{{- fail "addonApplicationAccess composite must be owned by the addon" }}{{- end }}
+{{- if not (kindIs "slice" $children) }}{{- fail "addonApplicationAccess composite children must be a list" }}{{- end }}
+{{- range $children }}{{- if not (has . $addonRoles) }}{{- fail "addonApplicationAccess composite child must be owned by the addon" }}{{- end }}{{- end }}
+{{- end }}
+{{- $addonGroups := $addon.accessGroups | default dict }}
+{{- range $name, $group := $addonGroups }}
+{{- if or (hasKey $standard.accessGroups $name) (not (regexMatch `^/access/neurwerk-[a-z0-9-]+$` $name)) }}{{- fail "addonApplicationAccess group must be a new access group" }}{{- end }}
+{{- if or (not (kindIs "map" $group)) (ne (len $group) 1) (not (kindIs "slice" $group.realmRoles)) }}{{- fail "addonApplicationAccess groups may only map realm roles" }}{{- end }}
+{{- range $group.realmRoles }}{{- if not (has . $addonRoles) }}{{- fail "addonApplicationAccess group role must be owned by the addon" }}{{- end }}{{- end }}
+{{- end }}
+{{- $addonAdminRoles := $addon.platformAdminRoles | default list }}
+{{- if not (kindIs "slice" $addonAdminRoles) }}{{- fail "addonApplicationAccess.platformAdminRoles must be a list" }}{{- end }}
+{{- range $addonAdminRoles }}{{- if not (has . $addonRoles) }}{{- fail "addonApplicationAccess admin role must be owned by the addon" }}{{- end }}{{- end }}
+{{- if $addonRoles }}
+{{- $_ := set $standard "realmRoles" (printf "%s,%s" $standard.realmRoles (join "," $addonRoles)) }}
+{{- $_ := merge $standard.realmRoleComposites $addonComposites }}
+{{- $_ := merge $standard.accessGroups $addonGroups }}
+{{- $platformAdminRoles = concat $platformAdminRoles $addonAdminRoles }}
+{{- end }}
 {{- $exclusions := .Values.authKeycloak.platformAdminRoleExclusions }}
 {{- if not (kindIs "slice" $exclusions) }}{{- fail "authKeycloak.platformAdminRoleExclusions must be a list" }}{{- end }}
 {{- $seen := dict }}
 {{- range $exclusions }}
 {{- if not (kindIs "string" .) }}{{- fail "authKeycloak.platformAdminRoleExclusions entries must be strings" }}{{- end }}
-{{- if not (has . $knownPlatformAdminRoles) }}{{- fail (printf "authKeycloak.platformAdminRoleExclusions contains unknown direct application grant %q" .) }}{{- end }}
+{{- if not (has . $platformAdminRoles) }}{{- fail (printf "authKeycloak.platformAdminRoleExclusions contains unknown direct application grant %q" .) }}{{- end }}
 {{- if hasKey $seen . }}{{- fail (printf "authKeycloak.platformAdminRoleExclusions contains duplicate role %q" .) }}{{- end }}
 {{- $_ := set $seen . true }}
-{{- end }}
-{{/* Omission stops reconciliation; the add-only tooling does not delete roles or groups. */}}
-{{- if .Values.forgejo.enabled }}
-{{- $_ := set $standard "realmRoles" (printf "%s,%s" $standard.realmRoles $forgejo.realmRoles) }}
-{{- $_ := merge $standard.realmRoleComposites $forgejo.realmRoleComposites }}
-{{- $_ := merge $standard.accessGroups $forgejo.accessGroups }}
-{{- $platformAdminRoles = concat $platformAdminRoles $forgejo.platformAdminRoles }}
 {{- end }}
 {{- $filteredRoles := list }}
 {{- range $platformAdminRoles }}

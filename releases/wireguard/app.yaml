@@ -7,9 +7,6 @@ spec:
   releaseName: wireguard
   interval: 5m
   timeout: 5m
-  dependsOn:
-    - name: forgejo
-      namespace: forgejo
   chart:
     spec:
       chart: ./charts/wireguard

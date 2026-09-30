@@ -1,8 +1,15 @@
 {{- if or (ne .Values.studio.enabled true) (ne .Values.apiKeyBridge.enabled true) -}}
 {{- fail "studio.enabled and apiKeyBridge.enabled are required for this Base release" -}}
 {{- end -}}
-{{- if .Values.forgejo.enabled -}}
-{{- $_ := required "postgresOperationsSecrets.forgejoPassword is required when forgejo.enabled" .Values.postgresOperationsSecrets.forgejoPassword -}}
+{{- $addonName := .Values.postgresOperationsAddon.name | default "" -}}
+{{- if and $addonName (not (regexMatch `^[a-z][a-z0-9_]{0,62}$` $addonName)) -}}
+{{- fail "postgresOperationsAddon.name must be a simple PostgreSQL identifier" -}}
+{{- end -}}
+{{- if has $addonName (list "postgres" "template0" "template1" "operations_admin" "documentdb" "agentgateway" "dify" "dify_plugin" "dify_vector" "langfuse" "postgres_langfuse" "postgres_langfuse_v4" "librechat" "librechat_rag" "studio" "api_key_bridge") -}}
+{{- fail "postgresOperationsAddon.name conflicts with a Base-owned role or database" -}}
+{{- end -}}
+{{- if not (kindIs "bool" .Values.postgresOperationsAddon.adoptExisting) -}}
+{{- fail "postgresOperationsAddon.adoptExisting must be a boolean" -}}
 {{- end -}}
 apiVersion: batch/v1
 kind: Job
@@ -141,16 +148,47 @@ spec:
               REVOKE ALL ON DATABASE studio FROM PUBLIC;
               GRANT CONNECT, TEMPORARY ON DATABASE studio TO studio;
               {{- end }}
-              {{- if .Values.forgejo.enabled }}
-              \getenv forgejo_password FORGEJO_PASSWORD
-              SELECT format('CREATE ROLE forgejo LOGIN PASSWORD %L', :'forgejo_password')
-              WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'forgejo') \gexec
-              SELECT format('ALTER ROLE forgejo WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD %L', :'forgejo_password') \gexec
-              SELECT 'CREATE DATABASE forgejo OWNER forgejo'
-              WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'forgejo') \gexec
-              ALTER DATABASE forgejo OWNER TO forgejo;
-              REVOKE ALL ON DATABASE forgejo FROM PUBLIC;
-              GRANT CONNECT, TEMPORARY ON DATABASE forgejo TO forgejo;
+              {{- if $addonName }}
+              \getenv addon_name ADDON_DATABASE_NAME
+              \getenv addon_password ADDON_DATABASE_PASSWORD
+              \getenv addon_adopt_existing ADDON_DATABASE_ADOPT_EXISTING
+              SELECT set_config('addon.name', :'addon_name', false);
+              SELECT set_config('addon.adopt_existing', :'addon_adopt_existing', false);
+              DO $$$$
+              DECLARE name text := current_setting('addon.name', true);
+              BEGIN
+                -- Names are validated by Helm before the Job is created. Never
+                -- adopt an existing mismatched role or database.
+                IF EXISTS (SELECT FROM pg_roles WHERE rolname = name) !=
+                   EXISTS (SELECT FROM pg_database WHERE datname = name) THEN
+                  RAISE EXCEPTION 'Addon database role/database pair is incomplete';
+                END IF;
+                IF EXISTS (SELECT FROM pg_database d JOIN pg_roles r ON r.oid = d.datdba
+                           WHERE d.datname = name AND r.rolname != name) OR
+                   EXISTS (SELECT FROM pg_roles WHERE rolname = name AND
+                           (rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls)) OR
+                   EXISTS (SELECT FROM pg_auth_members m JOIN pg_roles r ON r.oid = m.member
+                           WHERE r.rolname = name) OR
+                   EXISTS (SELECT FROM pg_auth_members m JOIN pg_roles r ON r.oid = m.roleid
+                           WHERE r.rolname = name) THEN
+                  RAISE EXCEPTION 'Addon database or role has unexpected ownership or privileges';
+                END IF;
+                IF EXISTS (SELECT FROM pg_database WHERE datname = name)
+                   AND current_setting('addon.adopt_existing', true) != 'true'
+                   AND NOT EXISTS (SELECT FROM pg_database d JOIN pg_shdescription s
+                     ON s.objoid = d.oid AND s.classoid = 'pg_database'::regclass
+                     WHERE d.datname = name AND s.description = 'neurwerk-addon-database-v1') THEN
+                  RAISE EXCEPTION 'Existing addon database lacks ownership marker; refusing takeover';
+                END IF;
+              END $$$$;
+              SELECT format('CREATE ROLE %I LOGIN PASSWORD %L', :'addon_name', :'addon_password')
+              WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = :'addon_name') \gexec
+              SELECT format('ALTER ROLE %I WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD %L', :'addon_name', :'addon_password') \gexec
+              SELECT format('CREATE DATABASE %I OWNER %I', :'addon_name', :'addon_name')
+              WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = :'addon_name') \gexec
+              SELECT format('COMMENT ON DATABASE %I IS %L', :'addon_name', 'neurwerk-addon-database-v1') \gexec
+              SELECT format('REVOKE ALL ON DATABASE %I FROM PUBLIC', :'addon_name') \gexec
+              SELECT format('GRANT CONNECT, TEMPORARY ON DATABASE %I TO %I', :'addon_name', :'addon_name') \gexec
               {{- end }}
               SELECT format('CREATE ROLE agentgateway LOGIN PASSWORD %L', :'agentgateway_password')
               WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'agentgateway') \gexec
@@ -255,8 +293,8 @@ spec:
                   SELECT FROM pg_database
                   WHERE datname IN (
                      'agentgateway', 'dify', 'dify_plugin', 'dify_vector', 'postgres_langfuse', 'postgres_langfuse_v4', 'librechat_rag'
-                    {{- if .Values.forgejo.enabled }}
-                     , 'forgejo'
+                     {{- if $addonName }}
+                      , '{{ $addonName }}'
                      {{- end }}
                      {{- if .Values.studio.enabled }}
                       , 'studio'
@@ -378,45 +416,23 @@ spec:
               verify_isolation studio "$STUDIO_PASSWORD" api_key_bridge
               verify_isolation api_key_bridge "$API_KEY_BRIDGE_PASSWORD" studio
               {{- end }}
-              {{- if .Values.forgejo.enabled }}
-              verify_isolation forgejo "$FORGEJO_PASSWORD" api_key_bridge
-              verify_isolation api_key_bridge "$API_KEY_BRIDGE_PASSWORD" forgejo
-              {{- end }}
               {{- end }}
               {{- if .Values.studio.enabled }}
               verify_isolation studio "$STUDIO_PASSWORD" postgres template1 agentgateway dify dify_plugin dify_vector postgres_langfuse librechat_rag
               verify_isolation studio "$STUDIO_PASSWORD" postgres_langfuse_v4
               {{- end }}
-              {{- if .Values.forgejo.enabled }}
-              PGPASSWORD="$FORGEJO_PASSWORD" PGUSER=forgejo PGDATABASE=forgejo \
-                psql --set=ON_ERROR_STOP=1 --command='BEGIN; CREATE TABLE public.__forgejo_provisioning_verification (id integer); INSERT INTO public.__forgejo_provisioning_verification VALUES (1); ROLLBACK;' >/dev/null
-              verify_isolation forgejo "$FORGEJO_PASSWORD" postgres template1 agentgateway dify dify_plugin dify_vector postgres_langfuse librechat_rag
-              verify_isolation forgejo "$FORGEJO_PASSWORD" postgres_langfuse_v4
-              {{- if .Values.studio.enabled }}
-              verify_isolation forgejo "$FORGEJO_PASSWORD" studio
-              verify_isolation studio "$STUDIO_PASSWORD" forgejo
-              {{- end }}
-              verify_isolation agentgateway "$AGENTGATEWAY_PASSWORD" forgejo
-              verify_isolation dify "$DIFY_PASSWORD" forgejo
-              verify_isolation langfuse "$LANGFUSE_PASSWORD" forgejo
-              verify_isolation librechat_rag "$LIBRECHAT_RAG_PASSWORD" forgejo
-              verify_isolation librechat "$DOCUMENTDB_PASSWORD" forgejo
-              psql --set=ON_ERROR_STOP=1 <<'SQL'
-              DO $verify$
-              BEGIN
-                IF EXISTS (
-                  SELECT FROM pg_auth_members membership
-                  JOIN pg_roles child ON child.oid = membership.member
-                  WHERE child.rolname = 'forgejo'
-                ) THEN
-                  RAISE EXCEPTION 'Forgejo must not inherit other database roles';
-                END IF;
-                IF has_database_privilege('operations_admin', 'forgejo', 'CONNECT') THEN
-                  RAISE EXCEPTION 'DocumentDB administrator unexpectedly has Forgejo access';
-                END IF;
-              END
-              $verify$;
-              SQL
+              {{- if $addonName }}
+              PGPASSWORD="$ADDON_DATABASE_PASSWORD" PGUSER="$ADDON_DATABASE_NAME" PGDATABASE="$ADDON_DATABASE_NAME" \
+                psql --set=ON_ERROR_STOP=1 --command='BEGIN; CREATE TABLE public.__addon_provisioning_verification (id integer); ROLLBACK;' >/dev/null
+              verify_isolation "$ADDON_DATABASE_NAME" "$ADDON_DATABASE_PASSWORD" postgres template1 agentgateway dify dify_plugin dify_vector postgres_langfuse postgres_langfuse_v4 librechat_rag studio api_key_bridge
+              verify_isolation agentgateway "$AGENTGATEWAY_PASSWORD" "$ADDON_DATABASE_NAME"
+              verify_isolation dify "$DIFY_PASSWORD" "$ADDON_DATABASE_NAME"
+              verify_isolation langfuse "$LANGFUSE_PASSWORD" "$ADDON_DATABASE_NAME"
+              verify_isolation librechat_rag "$LIBRECHAT_RAG_PASSWORD" "$ADDON_DATABASE_NAME"
+              verify_isolation librechat "$DOCUMENTDB_PASSWORD" "$ADDON_DATABASE_NAME"
+              verify_isolation studio "$STUDIO_PASSWORD" "$ADDON_DATABASE_NAME"
+              verify_isolation api_key_bridge "$API_KEY_BRIDGE_PASSWORD" "$ADDON_DATABASE_NAME"
+              psql --set=ON_ERROR_STOP=1 --command="DO \$verify\$ BEGIN IF has_database_privilege('operations_admin', '$ADDON_DATABASE_NAME', 'CONNECT') THEN RAISE EXCEPTION 'Shared database administrator unexpectedly has addon access'; END IF; END \$verify\$;"
               {{- end }}
               echo "Operations PostgreSQL provisioning verified."
           securityContext:
@@ -440,12 +456,16 @@ spec:
                   name: studio-postgres-values
                   key: password
             {{- end }}
-            {{- if .Values.forgejo.enabled }}
-            - name: FORGEJO_PASSWORD
+            {{- if $addonName }}
+            - name: ADDON_DATABASE_NAME
+              value: {{ $addonName | quote }}
+            - name: ADDON_DATABASE_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: forgejo-postgres-values
+                  name: addon-postgres-values
                   key: password
+            - name: ADDON_DATABASE_ADOPT_EXISTING
+              value: {{ .Values.postgresOperationsAddon.adoptExisting | quote }}
             {{- end }}
             - name: PGHOST
               value: postgres-operations.{{ .Release.Namespace }}.svc.{{ .Values.postgresOperations.clusterDomain }}

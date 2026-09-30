@@ -66,7 +66,14 @@
     {{- $_ := set $seenGroups $groupName true -}}
   {{- end -}}
 
-  {{- $targets := list "api-key-admins" "dify-admins" "dify-users" "keycloak-admins" "langfuse-admins" "librechat-admins" "librechat-users" "opensearch-admins" "pii-admins" "platform-admins" "studio-users" "llm-all-users" "mcp-all-users" "forgejo-admins" "forgejo-users" -}}
+  {{- $targets := list "api-key-admins" "dify-admins" "dify-users" "keycloak-admins" "langfuse-admins" "librechat-admins" "librechat-users" "opensearch-admins" "pii-admins" "platform-admins" "studio-users" "llm-all-users" "mcp-all-users" -}}
+  {{- $addonAccess := .Values.addonApplicationAccess | default dict -}}
+  {{- range $name, $_ := $addonAccess.accessGroups | default dict -}}
+    {{- if not (regexMatch `^/access/neurwerk-[a-z0-9-]+$` $name) -}}
+      {{- fail "addonApplicationAccess contains an invalid access group" -}}
+    {{- end -}}
+    {{- $targets = append $targets (trimPrefix "/access/neurwerk-" $name) -}}
+  {{- end -}}
   {{- $seenTargets := dict -}}
   {{- range $mapping := $ad.groupMappings -}}
     {{- if not (kindIs "map" $mapping) -}}

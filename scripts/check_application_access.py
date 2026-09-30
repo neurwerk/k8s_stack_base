@@ -21,7 +21,6 @@ BROWSER_DEPENDENCIES = {
     "dify": (),
     "langfuse": (),
     "agentgateway": (),
-    "forgejo": ("keycloak",),
 }
 OPTIONAL_BROWSER_DEPENDENCIES = {
     "librechat": {"files": "librechat-files"},
