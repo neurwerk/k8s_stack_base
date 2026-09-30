@@ -177,11 +177,17 @@ langfuse:
       format: json
 
     web:
+      image:
+        repository: docker.io/langfuse/langfuse
       readinessProbe:
         initialDelaySeconds: 60
         timeoutSeconds: 10
       service:
         port: 3000
+
+    worker:
+      image:
+        repository: docker.io/langfuse/langfuse-worker
 
   # -- PostgreSQL (becomes .Values.postgresql.*) --
   postgresql:
