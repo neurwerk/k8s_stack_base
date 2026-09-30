@@ -29,8 +29,5 @@ frontendStudio:
 
 monitorLangfuseWrapper:
   hostname: ""
-forgejo:
-  enabled: false
-  hostname: ""
 docling:
   enabled: false

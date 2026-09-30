@@ -25,13 +25,12 @@ postgresOperations:
   provisioning:
     activeDeadlineSeconds: 300
 
-# forgejoPassword is supplied by the optional forgejo-postgres-values Secret and
-# is required only when forgejo.enabled is true.
-postgresOperationsSecrets: {}
-
-# Disabling stops reconciliation, not access to or retention of existing data.
-forgejo:
-  enabled: false
+# A selected product may supply one reviewed database/role name using the
+# namespace-local addon-postgres-values Secret. The password is read only by
+# the provisioning Job, never rendered into Helm values.
+postgresOperationsAddon:
+  name: ""
+  adoptExisting: false
 
 # Required roles; matching OpenBao credentials must be synced before reconciliation.
 studio:

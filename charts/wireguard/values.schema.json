@@ -9,14 +9,24 @@
     "wireguard": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["enabled", "replicas", "image", "serverKeySecret", "virtualIP", "forgejoServiceIP", "outerSourceCIDRs", "peers", "mtu", "service", "resources"],
+      "required": ["enabled", "replicas", "image", "serverKeySecret", "virtualIP", "target", "outerSourceCIDRs", "peers", "mtu", "service", "resources"],
       "properties": {
         "enabled": {"type": "boolean"},
         "replicas": {"type": "integer", "minimum": 0, "maximum": 1},
         "image": {"type": "string", "const": "ghcr.io/linuxserver/wireguard:1.0.20260223-r0-ls122@sha256:dca67384e3e9a5bcc288461fa983e6fcb0e248e5a2d8e5b3e5d3f753bfac3e35"},
         "serverKeySecret": {"type": "string"},
         "virtualIP": {"type": "string"},
-        "forgejoServiceIP": {"type": "string"},
+        "target": {
+          "type": "object", "additionalProperties": false,
+          "required": ["serviceIP", "servicePort", "namespace", "podSelector", "podPort"],
+          "properties": {
+            "serviceIP": {"type": "string"},
+            "servicePort": {"type": "integer", "minimum": 1, "maximum": 65535},
+            "namespace": {"type": "string", "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$", "maxLength": 63},
+            "podSelector": {"type": "object", "additionalProperties": {"type": "string"}},
+            "podPort": {"type": "integer", "minimum": 1, "maximum": 65535}
+          }
+        },
         "outerSourceCIDRs": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/definitions/cidr"}},
         "peers": {
           "type": "array", "maxItems": 1,
@@ -45,7 +55,13 @@
         "then": {
           "properties": {
             "virtualIP": {"$ref": "#/definitions/ipv4"},
-            "forgejoServiceIP": {"$ref": "#/definitions/ipv4"},
+            "target": {
+              "properties": {
+                "serviceIP": {"$ref": "#/definitions/ipv4"},
+                "namespace": {"minLength": 1},
+                "podSelector": {"minProperties": 1}
+              }
+            },
             "outerSourceCIDRs": {"minItems": 1},
             "serverKeySecret": {"pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$", "maxLength": 63}
           }

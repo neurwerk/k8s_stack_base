@@ -8,7 +8,13 @@ wireguard:
   serverKeySecret: ""
   # Reviewed non-overlapping IPv4 addresses, not DNS names or CIDRs.
   virtualIP: ""
-  forgejoServiceIP: ""
+  # Explicit destination Service IP and exact workload selector; one HTTPS target.
+  target:
+    serviceIP: ""
+    servicePort: 443
+    namespace: ""
+    podSelector: {}
+    podPort: 3000
   # Pod-visible encrypted-packet source CIDRs, after any upstream SNAT.
   outerSourceCIDRs: []
   # At most one manually approved Mac in this pilot; [] admits no device.

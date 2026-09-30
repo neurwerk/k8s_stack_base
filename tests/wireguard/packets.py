@@ -61,7 +61,10 @@ def main():
             peer_private, peer_public = key()
             values = {"wireguard": {"enabled": True, "replicas": 1,
                       "serverKeySecret": "synthetic", "virtualIP": "192.0.2.10",
-                      "forgejoServiceIP": ip(backend), "outerSourceCIDRs": [ip(client) + "/32", ip(stranger) + "/32"],
+                      "target": {"serviceIP": ip(backend), "servicePort": 443,
+                                 "namespace": "example-app", "podSelector": {"app": "example-app"},
+                                 "podPort": 3000},
+                      "outerSourceCIDRs": [ip(client) + "/32", ip(stranger) + "/32"],
                       "peers": [{"owner": "synthetic", "address": "192.0.2.2", "publicKey": peer_public}]}}
 
             def start():

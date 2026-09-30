@@ -1,10 +1,16 @@
 {{- if .Values.wireguard.enabled }}
 {{- $w := .Values.wireguard }}
-{{- if eq $w.virtualIP $w.forgejoServiceIP }}
-{{- fail "wireguard virtualIP and forgejoServiceIP must differ" }}
+{{- if eq $w.virtualIP $w.target.serviceIP }}
+{{- fail "wireguard virtualIP and target.serviceIP must differ" }}
+{{- end }}
+{{- if ne (int $w.target.servicePort) 443 }}
+{{- fail "wireguard target.servicePort must be 443 for this HTTPS-only gateway" }}
+{{- end }}
+{{- if not $w.target.podSelector }}
+{{- fail "wireguard target.podSelector must select an exact workload" }}
 {{- end }}
 {{- range $w.peers }}
-{{- if or (eq .address $w.virtualIP) (eq .address $w.forgejoServiceIP) }}
+{{- if or (eq .address $w.virtualIP) (eq .address $w.target.serviceIP) }}
 {{- fail "wireguard peer and destination addresses must differ" }}
 {{- end }}
 {{- end }}
@@ -46,20 +52,20 @@ data:
         type filter hook forward priority filter; policy drop;
         ct state invalid drop
         {{- range $w.peers }}
-        iifname "wg0" oifname "eth0" ip saddr {{ .address }} ip daddr {{ $w.forgejoServiceIP }} tcp dport 443 ct status dnat ct original ip daddr {{ $w.virtualIP }} ct original proto-dst 443 accept
-        iifname "eth0" oifname "wg0" ip saddr {{ $w.forgejoServiceIP }} ip daddr {{ .address }} tcp sport 443 ct state established ct original ip saddr {{ .address }} ct original ip daddr {{ $w.virtualIP }} ct original proto-dst 443 accept
+        iifname "wg0" oifname "eth0" ip saddr {{ .address }} ip daddr {{ $w.target.serviceIP }} tcp dport 443 ct status dnat ct original ip daddr {{ $w.virtualIP }} ct original proto-dst 443 accept
+        iifname "eth0" oifname "wg0" ip saddr {{ $w.target.serviceIP }} ip daddr {{ .address }} tcp sport 443 ct state established ct original ip saddr {{ .address }} ct original ip daddr {{ $w.virtualIP }} ct original proto-dst 443 accept
         {{- end }}
       }
       chain prerouting {
         type nat hook prerouting priority dstnat; policy accept;
         {{- range $w.peers }}
-        iifname "wg0" ip saddr {{ .address }} ip daddr {{ $w.virtualIP }} tcp dport 443 dnat ip to {{ $w.forgejoServiceIP }}:443
+        iifname "wg0" ip saddr {{ .address }} ip daddr {{ $w.virtualIP }} tcp dport 443 dnat ip to {{ $w.target.serviceIP }}:443
         {{- end }}
       }
       chain postrouting {
         type nat hook postrouting priority srcnat; policy accept;
         {{- range $w.peers }}
-        oifname "eth0" ip saddr {{ .address }} ip daddr {{ $w.forgejoServiceIP }} tcp dport 443 ct status dnat masquerade
+        oifname "eth0" ip saddr {{ .address }} ip daddr {{ $w.target.serviceIP }} tcp dport 443 ct status dnat masquerade
         {{- end }}
       }
     }
@@ -189,12 +195,11 @@ spec:
     - to:
         - namespaceSelector:
             matchLabels:
-              kubernetes.io/metadata.name: forgejo
+              kubernetes.io/metadata.name: {{ $w.target.namespace | quote }}
           podSelector:
             matchLabels:
-              app.kubernetes.io/name: forgejo
-              app.kubernetes.io/instance: forgejo
+              {{- toYaml $w.target.podSelector | nindent 14 }}
       ports:
         - protocol: TCP
-          port: 3000
+          port: {{ $w.target.podPort }}
 {{- end }}

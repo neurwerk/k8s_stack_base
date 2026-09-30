@@ -50,8 +50,8 @@ class WireguardTests(unittest.TestCase):
         self.assertIn("ct original ip daddr 192.0.2.10 ct original proto-dst 443 accept", config)
         self.assertIn("iifname \"wg0\" ip saddr 192.0.2.2 ip daddr 192.0.2.10 tcp dport 443 dnat ip to 198.51.100.10:443", config)
         policy = resources(enabled, "NetworkPolicy")[0]
-        self.assertIn("kubernetes.io/metadata.name: forgejo", policy)
-        self.assertIn("app.kubernetes.io/instance: forgejo", policy)
+        self.assertIn('kubernetes.io/metadata.name: "example-app"', policy)
+        self.assertIn("app.kubernetes.io/name: example-app", policy)
         self.assertIn("port: 3000", policy)
         self.assertNotIn("port: 443", policy)
         self.assertNotIn("2222", policy)
@@ -60,6 +60,8 @@ class WireguardTests(unittest.TestCase):
         for values, diagnostic in [
             ({"service": {"type": "NodePort"}}, "explicit port"),
             ({"virtualIP": "198.51.100.10"}, "must differ"),
+            ({"target": {"namespace": ""}}, "namespace"),
+            ({"target": {"servicePort": 80}}, "HTTPS-only"),
         ]:
             with self.subTest(values=values):
                 result = render("wireguard", {"wireguard": values}, check=False)

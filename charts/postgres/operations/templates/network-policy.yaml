@@ -22,15 +22,6 @@ spec:
               app.kubernetes.io/name: auth-keycloak-api-key-bridge
               app.kubernetes.io/instance: auth-keycloak-api-key-bridge
         {{- end }}
-        {{- if .Values.forgejo.enabled }}
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: forgejo
-          podSelector:
-            matchLabels:
-              app.kubernetes.io/name: forgejo
-              app.kubernetes.io/instance: forgejo
-        {{- end }}
         {{- if .Values.studio.enabled }}
         - namespaceSelector:
             matchLabels:
