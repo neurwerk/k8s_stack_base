@@ -1,6 +1,6 @@
-version: 0.3.18
+version: 0.3.19
 releaseDate: '2026-09-30'
-summary: Upgrade Dify and Langfuse, add personal notice settings, and repair Studio and PostgreSQL provisioning
+summary: Use Docker Hub for Langfuse and remove optional Git hosting
 trust:
   signerIdentity: platform-release
   algorithm: ssh-ed25519
@@ -96,24 +96,6 @@ packages:
     - name: openbao-stack-setup
       version: 0.2.13
       source: https://github.com/neurwerk/k8s_stack_tooling/commit/0c0d5b35fc9e68b70e0cb48f3741e1888f7a287b
-  - path: releases/namespaces/forgejo
-    status: included
-    reason: Operator-tested optional Forgejo hosting; enable only when selected by the client.
-    chartPrefixes: []
-  - path: releases/forgejo/secret-sync
-    status: included
-    reason: Optional Forgejo credentials; provision the selected OpenBao catalog before startup.
-    chartPrefixes: []
-  - path: releases/forgejo/app
-    status: included
-    reason: Operator-tested Forgejo hosting with Keycloak login; disabled by default.
-    chartPrefixes:
-    - charts/forgejo
-    - charts/keycloak/oidc/forgejo
-    prerequisites:
-    - name: openbao-stack-setup
-      version: 0.2.12
-      source: https://github.com/neurwerk/k8s_stack_tooling/commit/7a00c0d7a725a500ca251d699ce3f00dff57e660
   - path: releases/librechat/rag
     status: excluded
     reason: Deployment readiness and effective client rendering are not complete.
@@ -166,39 +148,12 @@ exceptions:
   reason: The reviewed upstream DocumentDB local image requires passwordless sudo to prepare runtime directories
     before dropping back to UID 1000.
 provenance:
-  previousTag: v0.3.17
-  includedThrough: 5fbcc29c2dc2d3ab977849b737bfc56d36665df1
+  previousTag: v0.3.18
+  includedThrough: e0d7616dc2b7837d691e1ce6cc246f20b55c102b
   commits:
-  - 79ae02897a4fa799ced1a128766ef3e7d15fc504
-  - 86f1d0a5a4e08c4def803521ab8e1eedb606ad08
-  - 7b9e48b91a8fd60bc1406c7b19be3955ed820f65
-  - 449379725ff56f0e81a0cedb19198d988045afe0
-  - 36e864c33a15cff1d1ce815879416043cae46ced
-  - 6950a7b5de61110f3382ed47c80e69698ca346c1
-  - 7ec76908b37d089c3a40bc533cc9fa31cddc8b40
-  - 0ce7eeb38ab470072cfaab34f68cff0487be531e
-  - a3065eca0459e8d25579ea8754adca0ef037d9ba
-  - df64a3ba05f541c6403594d3e21b1fe99a34ed6a
-  - ef09acb26f7be3f1792497a2f6a034c8d87eb9c4
-  - 6c38f4e4b3adc03b657eb77810df7b2cf77471e3
-  - 525995b32ed1c8a829e7cc0f1b3cb768c2596622
-  - 2897c491762424e217870e67bfb9d33efb72971c
-  - 1fc3dfb5a372031c81356040894f036be33962f8
-  - e228733c3974859125d064c189d051b4379556e6
-  - 0da8ac543634a28afbb40f38c8047bc8cbba7de2
-  - 1ad11613fbaf47710913c45ba45d3714f6a703e0
-  - 4c004ad09fba0d593bd381dd03f5445f63f46050
-  - 789bc25d08a39cfc64f315080e30a2163bc7f8c9
-  - f3da8490769b86a0b8fb8219bc2d53257e54c958
-  - d5eaee452dd47dd71c22d008b9eeb9afb08887f5
-  - 8715dc2b1aa3f553f4ddc8e259259e093b021aa3
-  - bb6056dcd4c5628cc78c0d700a34dc68016ecad4
-  - 2b0e5e9e518c719b0cfd35b3c1d835c5ffa93abd
-  - 00cd205befc5a5dd257e442da17812d1f2568263
-  - 24e9dd26d9550067c27c4cc479bcb83cbe4bd81c
-  - 2cf9812e4ef84cd7e56acae75260e96bde22a39a
-  - bb3550b6fb659dbd65c2e968f70f404fe29fd852
-  - 44ceaf3e531b238f2744c66e2eefe136332d05be
-  - c5a8da80e1f8fc86d03181de9b7fc535a9c8dbc3
-  - 5fbcc29c2dc2d3ab977849b737bfc56d36665df1
-  compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.17...5fbcc29c2dc2d3ab977849b737bfc56d36665df1
+  - 21371bba032274f51ddd2e9dde93da37c6e2aec0
+  - 4a8b89d9d347f60515630af21f1ab46532de560b
+  - fabbc89a8d7908af037b08fbde6beb9fca2e8b8f
+  - c7846ceb94b19718ea753220b4b56ff864c4f1f8
+  - e0d7616dc2b7837d691e1ce6cc246f20b55c102b
+  compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.18...e0d7616dc2b7837d691e1ce6cc246f20b55c102b
