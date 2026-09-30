@@ -9,6 +9,8 @@ upgrade path.
 
 ## [Unreleased]
 
+## [0.3.18] - 2026-09-30
+
 - Fix PostgreSQL provisioning so Kubernetes preserves its SQL delimiters, and restore public Studio API access after adding the private notice listener.
 - Deliver the existing Keycloak OIDC client Secret to Dify Beat so it can start with the Dify 1.17.1 image.
 - Upgrade Dify to 1.17.1 with reviewed, digest-pinned API/Web images, Agent backend, isolated local sandbox, and scoped proxy.
