@@ -11,7 +11,8 @@ upgrade path.
 
 ## [0.3.19] - 2026-09-30
 
-
+- Pull Langfuse 4.28.1 web and worker directly from Docker Hub instead of the vendor registry.
+- Remove the optional Forgejo package from Base. Clients selecting it must migrate to an independently published add-on before adopting this release; clients without it need no Forgejo action.
 
 ## [0.3.18] - 2026-09-30
 

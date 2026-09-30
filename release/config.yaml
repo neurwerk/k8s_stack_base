@@ -96,24 +96,6 @@ packages:
     - name: openbao-stack-setup
       version: 0.2.13
       source: https://github.com/neurwerk/k8s_stack_tooling/commit/0c0d5b35fc9e68b70e0cb48f3741e1888f7a287b
-  - path: releases/namespaces/forgejo
-    status: included
-    reason: Operator-tested optional Forgejo hosting; enable only when selected by the client.
-    chartPrefixes: []
-  - path: releases/forgejo/secret-sync
-    status: included
-    reason: Optional Forgejo credentials; provision the selected OpenBao catalog before startup.
-    chartPrefixes: []
-  - path: releases/forgejo/app
-    status: included
-    reason: Operator-tested Forgejo hosting with Keycloak login; disabled by default.
-    chartPrefixes:
-    - charts/forgejo
-    - charts/keycloak/oidc/forgejo
-    prerequisites:
-    - name: openbao-stack-setup
-      version: 0.2.12
-      source: https://github.com/neurwerk/k8s_stack_tooling/commit/7a00c0d7a725a500ca251d699ce3f00dff57e660
   - path: releases/librechat/rag
     status: excluded
     reason: Deployment readiness and effective client rendering are not complete.
