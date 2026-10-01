@@ -19,7 +19,7 @@ frontendDify:
         http: 5001
   config:
     MODE: worker
-    LOG_LEVEL: INFO
+    LOG_LEVEL: WARNING
     STORAGE_TYPE: local
     STORAGE_LOCAL_PATH: /app/api/storage
     VECTOR_STORE: pgvector

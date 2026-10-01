@@ -14,7 +14,7 @@ frontendDify:
     database: dify
   config:
     MODE: beat
-    LOG_LEVEL: INFO
+    LOG_LEVEL: WARNING
   beat:
     replicas: 1
     # Runs the same heavy api image as worker/api (MODE=beat) — celery beat

@@ -24,7 +24,7 @@ frontendDify:
     vectorDatabase: dify_vector
   config:
     MODE: api
-    LOG_LEVEL: INFO
+    LOG_LEVEL: WARNING
     SERVER_WORKER_AMOUNT: "2"
     STORAGE_TYPE: local
     STORAGE_LOCAL_PATH: /app/api/storage
