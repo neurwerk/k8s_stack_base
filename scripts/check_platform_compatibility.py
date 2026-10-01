@@ -42,6 +42,7 @@ CLUSTER_RESOURCES = [
     "applications.yaml",
     "flux-system",
 ]
+ADDON_SOURCE_RESOURCE = "addon-source.yaml"
 FLUX_RESOURCES = ["gotk-components.yaml", "gotk-sync.yaml"]
 TAG_PATTERN = re.compile(r"^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$")
 FINGERPRINT_PATTERN = re.compile(r"^SHA256:[A-Za-z0-9+/]{43}$")
@@ -210,16 +211,27 @@ def parse_platform_source(
     return PlatformSource("stable", "tag", tag, mode, promoted)
 
 
-def parse_kustomization(content: str, *, origin: str, resources: list[str]) -> None:
+def parse_kustomization(
+    content: str, *, origin: str, resources: list[str], allow_addon_source: bool = False
+) -> None:
     try:
         document = yaml.safe_load(content)
     except (ValueError, RecursionError, yaml.YAMLError) as error:
         raise CompatibilityError(f"cannot parse {origin}; details withheld") from error
-    if document != {
-        "apiVersion": "kustomize.config.k8s.io/v1beta1",
-        "kind": "Kustomization",
-        "resources": resources,
-    }:
+    allowed = [resources]
+    if allow_addon_source:
+        with_addon = resources.copy()
+        with_addon.insert(with_addon.index("platform-source.yaml") + 1, ADDON_SOURCE_RESOURCE)
+        allowed.append(with_addon)
+    if not isinstance(document, dict) or not any(
+        document
+        == {
+            "apiVersion": "kustomize.config.k8s.io/v1beta1",
+            "kind": "Kustomization",
+            "resources": allowed_resources,
+        }
+        for allowed_resources in allowed
+    ):
         raise CompatibilityError(
             f"{origin} must remain transform-free with the canonical resources"
         )
@@ -277,6 +289,7 @@ def read_control_plane_contract(
             revision_reader(root, revision, path),
             origin="composition Kustomization",
             resources=resources,
+            allow_addon_source=path == CLUSTER_KUSTOMIZATION_PATH,
         )
     sync = parse_flux_sync(
         revision_reader(root, revision, FLUX_SYNC_PATH), origin="Flux bootstrap sync"
