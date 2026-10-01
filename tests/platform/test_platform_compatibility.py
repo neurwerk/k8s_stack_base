@@ -367,6 +367,26 @@ class CompatibilityTests(unittest.TestCase):
                 self.check(classify_only=True)
             self.files[HEAD][path] = original
 
+    def test_optional_addon_source_does_not_change_bootstrap_controls(self):
+        self.files[BASE][gate.PLATFORM_SOURCE_PATH] = yaml.safe_dump(source("main"))
+        self.files[HEAD][gate.PLATFORM_SOURCE_PATH] = yaml.safe_dump(source("main"))
+        original = self.files[HEAD][gate.CLUSTER_KUSTOMIZATION_PATH]
+        root = yaml.safe_load(original)
+        root["resources"].insert(2, gate.ADDON_SOURCE_RESOURCE)
+        self.files[HEAD][gate.CLUSTER_KUSTOMIZATION_PATH] = yaml.safe_dump(root)
+        result = self.check(allow_alpha=True, classify_only=True)
+        self.assertFalse(result.changed)
+        for resources in (
+            root["resources"] + [gate.ADDON_SOURCE_RESOURCE],
+            root["resources"][1:],
+            root["resources"][::-1],
+        ):
+            with self.subTest(resources=resources):
+                root["resources"] = resources
+                self.files[HEAD][gate.CLUSTER_KUSTOMIZATION_PATH] = yaml.safe_dump(root)
+                with self.assertRaisesRegex(gate.CompatibilityError, "transform-free"):
+                    self.check(allow_alpha=True, classify_only=True)
+
     def test_forward_upgrade_and_legacy_contracts(self):
         cases = [
             ("skipped versions", "v0.9.0", "v1.2.4", "supported", "upgrade", True),
