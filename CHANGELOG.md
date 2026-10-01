@@ -9,6 +9,10 @@ upgrade path.
 
 ## [Unreleased]
 
+## [0.3.20] - 2026-10-01
+
+
+
 ## [0.3.19] - 2026-09-30
 
 - Pull Langfuse 4.28.1 web and worker directly from Docker Hub instead of the vendor registry.
