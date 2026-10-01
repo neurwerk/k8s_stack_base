@@ -1,6 +1,6 @@
-version: 0.3.19
-releaseDate: '2026-09-30'
-summary: Use Docker Hub for Langfuse and remove optional Git hosting
+version: 0.3.20
+releaseDate: '2026-10-01'
+summary: Reduce routine platform logging
 trust:
   signerIdentity: platform-release
   algorithm: ssh-ed25519
@@ -148,12 +148,12 @@ exceptions:
   reason: The reviewed upstream DocumentDB local image requires passwordless sudo to prepare runtime directories
     before dropping back to UID 1000.
 provenance:
-  previousTag: v0.3.18
-  includedThrough: e0d7616dc2b7837d691e1ce6cc246f20b55c102b
+  previousTag: v0.3.19
+  includedThrough: 27676188d713ee51595871ba5503670075eefecc
   commits:
-  - 21371bba032274f51ddd2e9dde93da37c6e2aec0
-  - 4a8b89d9d347f60515630af21f1ab46532de560b
-  - fabbc89a8d7908af037b08fbde6beb9fca2e8b8f
-  - c7846ceb94b19718ea753220b4b56ff864c4f1f8
-  - e0d7616dc2b7837d691e1ce6cc246f20b55c102b
-  compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.18...e0d7616dc2b7837d691e1ce6cc246f20b55c102b
+  - 27b3c192e3b5ae906d56d16a08e2539e16dfdfc8
+  - 16e0d9d25ba7dec5853c172b7fba78fe168292a5
+  - 8ccd6e7132d5a20584baa9baf780df591876206b
+  - 33ccedbca986f73ddb7b02332eeefb2d52d1a685
+  - 27676188d713ee51595871ba5503670075eefecc
+  compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.19...27676188d713ee51595871ba5503670075eefecc
