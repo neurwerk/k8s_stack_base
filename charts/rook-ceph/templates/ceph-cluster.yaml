@@ -71,3 +71,10 @@ spec:
       mon_data_avail_warn: "10"
       bdev_flock_retry: "20"
       bluefs_buffered_io: "false"
+      # Keep detailed crash-buffer diagnostics without routine daemon output.
+      debug_rocksdb: "0/5"
+      debug_mon: "0/5"
+      debug_osd: "0/5"
+      debug_rgw: "0/5"
+      # Level 1 retains WARNING and ERROR messages from mgr Python modules.
+      debug_mgr: "1/5"

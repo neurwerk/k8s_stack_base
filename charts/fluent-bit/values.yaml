@@ -7,6 +7,8 @@ monitorFluentBit:
 
 # --- Subchart dependency: fluent-bit ---
 fluent-bit:
+  # Keep collector warnings and failures, including OpenSearch delivery errors.
+  logLevel: warn
   # Use DaemonSet to run on every node
   kind: DaemonSet
 

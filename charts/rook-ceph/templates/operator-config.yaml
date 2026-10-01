@@ -6,7 +6,7 @@ metadata:
   labels:
     {{- include "infra-rook-ceph.labels" . | nindent 4 }}
 data:
-  ROOK_LOG_LEVEL: "INFO"
+  ROOK_LOG_LEVEL: "WARNING"
   ROOK_OPERATOR_METRICS_BIND_ADDRESS: "0"
   ROOK_CEPH_ALLOW_LOOP_DEVICES: "false"
   ROOK_DELETE_UNUSED_CRUSH_RULES: "true"
