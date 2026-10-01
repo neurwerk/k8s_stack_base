@@ -39,7 +39,7 @@ authKeycloakApiKeyBridge:
       http: 3010
 
   config:
-    log_level: "info"
+    log_level: "warning"
     max_keys_per_user: 20
 
   # Required operations PostgreSQL database; password comes only from the

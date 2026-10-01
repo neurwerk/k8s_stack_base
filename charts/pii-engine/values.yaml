@@ -13,7 +13,7 @@ monitorPiiEngine:
   policyVersion: foundation-0.1
   logging:
     # DEBUG includes full exception messages and tracebacks and may contain sensitive data.
-    level: INFO
+    level: WARNING
   modelBundle:
     version: "0.1.2"
     manifestSha256: a24eb93bc245e220f76ac010a57cf540a6399b2046b2782a07035ae660cc3926
