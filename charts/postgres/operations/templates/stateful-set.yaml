@@ -76,6 +76,8 @@ spec:
               value: "true"
             - name: ENABLE_TELEMETRY
               value: "false"
+            - name: DOCUMENTDB_LOG_LEVEL
+              value: warn
             - name: INIT_DATA
               value: "false"
             - name: TLS_MODE

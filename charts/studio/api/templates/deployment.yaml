@@ -71,6 +71,8 @@ spec:
           image: {{ .Values.frontendStudio.apiImage }}
           imagePullPolicy: Always
           env:
+            - name: K8S_STUDIO_LOG_LEVEL
+              value: {{ .Values.frontendStudio.api.logLevel | quote }}
             - name: K8S_STUDIO_PII_ENGINE_URL
               value: {{ .Values.frontendStudio.api.piiEngineUrl | quote }}
             - name: K8S_STUDIO_PII_ENGINE_CA_CERT
@@ -164,6 +166,8 @@ spec:
               drop: ["ALL"]
             readOnlyRootFilesystem: true
           env:
+            - name: K8S_STUDIO_LOG_LEVEL
+              value: {{ .Values.frontendStudio.api.logLevel | quote }}
             - name: K8S_STUDIO_NOTICE_POSTGRES_HOST
               value: {{ .Values.frontendStudio.api.postgres.host | quote }}
             - name: K8S_STUDIO_NOTICE_POSTGRES_PORT
@@ -214,6 +218,9 @@ spec:
           image: {{ .Values.frontendStudio.apiImage }}
           imagePullPolicy: Always
           command: ["k8s-stack-studio-mgmt"]
+          env:
+            - name: K8S_STUDIO_LOG_LEVEL
+              value: {{ .Values.frontendStudio.api.logLevel | quote }}
           ports:
             - name: mgmt
               containerPort: {{ .Values.frontendStudio.api.ports.container.mgmt }}

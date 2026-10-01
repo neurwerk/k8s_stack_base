@@ -51,9 +51,11 @@ spec:
     # ── Logs ─────────────────────────────────────────────────────────────────
     logs:
       general:
-        level: INFO
+        level: WARN
       access:
         enabled: true
+        filters:
+          statuscodes: "400-599"
 
     # ── Additional arguments ─────────────────────────────────────────────────
     additionalArguments:
