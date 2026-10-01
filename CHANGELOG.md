@@ -11,7 +11,9 @@ upgrade path.
 
 ## [0.3.20] - 2026-10-01
 
-
+- Lower routine service, storage, gateway, and collector log volume while retaining warnings and errors.
+- Disable unused ClickHouse diagnostic tables without changing application traces or Prometheus metrics.
+- Allow one optional add-on source in client compatibility checks.
 
 ## [0.3.19] - 2026-09-30
 
