@@ -1,6 +1,9 @@
 {{- if or (ne .Values.frontendStudio.api.noticePreferences.enabled true) (ne .Values.frontendStudio.api.postgres.enabled true) }}
 {{- fail "Studio noticePreferences.enabled and postgres.enabled are required for this Base release" }}
 {{- end }}
+{{- if not (kindIs "bool" .Values.frontendStudio.api.llmLogs.enabled) }}
+{{- fail "Studio llmLogs.enabled must be a boolean" }}
+{{- end }}
 # =============================================================================
 # frontend-studio API Deployment (authenticated API + management server)
 # =============================================================================
@@ -10,7 +13,7 @@ metadata:
   name: frontend-studio-api-deployment
   namespace: {{ .Release.Namespace }}
   annotations:
-    secret.reloader.stakater.com/reload: "frontend-studio-openbao-secret,{{ .Values.frontendStudio.api.piiEngineClientSecretName }}{{ if .Values.frontendStudio.api.postgres.enabled }},{{ .Values.frontendStudio.api.postgres.secretName }}{{ end }}{{ if .Values.frontendStudio.api.noticePreferences.enabled }},{{ .Values.frontendStudio.api.noticePreferences.serverSecretName }}{{ end }}"
+    secret.reloader.stakater.com/reload: "frontend-studio-openbao-secret,{{ .Values.frontendStudio.api.piiEngineClientSecretName }}{{ if .Values.frontendStudio.api.postgres.enabled }},{{ .Values.frontendStudio.api.postgres.secretName }}{{ end }}{{ if .Values.frontendStudio.api.noticePreferences.enabled }},{{ .Values.frontendStudio.api.noticePreferences.serverSecretName }}{{ end }}{{ if .Values.frontendStudio.api.llmLogs.enabled }},{{ .Values.frontendStudio.api.llmLogs.secretName }}{{ end }}"
   labels:
     app.kubernetes.io/name: studio-api
     app.kubernetes.io/instance: {{ .Release.Name }}
@@ -107,6 +110,22 @@ spec:
               value: {{ .Values.frontendStudio.api.agentgatewayAdminUrl | quote }}
             - name: K8S_STUDIO_USAGE_TIMEZONE
               value: {{ .Values.frontendStudio.api.usageTimezone | quote }}
+            - name: K8S_STUDIO_LLM_LOGS_ENABLED
+              value: {{ .Values.frontendStudio.api.llmLogs.enabled | quote }}
+            {{- if .Values.frontendStudio.api.llmLogs.enabled }}
+            - name: K8S_STUDIO_LANGFUSE_URL
+              value: {{ .Values.frontendStudio.api.llmLogs.url | quote }}
+            - name: K8S_STUDIO_LANGFUSE_PUBLIC_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.frontendStudio.api.llmLogs.secretName }}
+                  key: public-key
+            - name: K8S_STUDIO_LANGFUSE_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.frontendStudio.api.llmLogs.secretName }}
+                  key: secret-key
+            {{- end }}
             {{- if .Values.frontendStudio.api.postgres.enabled }}
             - name: K8S_STUDIO_NOTICE_POSTGRES_HOST
               value: {{ .Values.frontendStudio.api.postgres.host | quote }}

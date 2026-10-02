@@ -78,6 +78,20 @@ spec:
       ports:
         - port: 9200
           protocol: TCP
+    {{- if .Values.frontendStudio.api.llmLogs.enabled }}
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitor-langfuse
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: langfuse
+              app.kubernetes.io/instance: monitor-langfuse
+              app.kubernetes.io/component: web
+      ports:
+        - port: 3000
+          protocol: TCP
+    {{- end }}
     {{- if .Values.frontendStudio.api.postgres.enabled }}
     - to:
         - namespaceSelector:
