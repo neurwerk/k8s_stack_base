@@ -1141,11 +1141,17 @@ spec:
       lua: 5.4.9
   provenance:
     previousTag: v0.3.19
-    includedThrough: 27676188d713ee51595871ba5503670075eefecc
+    includedThrough: 307e8569f6088dc6a23262fa9305d14c63292eea
     commits:
     - 27b3c192e3b5ae906d56d16a08e2539e16dfdfc8
     - 16e0d9d25ba7dec5853c172b7fba78fe168292a5
     - 8ccd6e7132d5a20584baa9baf780df591876206b
     - 33ccedbca986f73ddb7b02332eeefb2d52d1a685
     - 27676188d713ee51595871ba5503670075eefecc
-    compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.19...27676188d713ee51595871ba5503670075eefecc
+    - 27b385dfe6eb21bd9a30b06568e94589dac32b89
+    - 27c2e42b16eceadb1226f73f2c45bc02c0aa8bef
+    - fd1b83e163e88b3813eee61a6c8f0ca52b712cce
+    - 4b831bdd0f522180cef7657acb69a30a67fb9217
+    - 124ad4575391c8349e574f8d60a8fcadc9c1acb6
+    - 307e8569f6088dc6a23262fa9305d14c63292eea
+    compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.19...307e8569f6088dc6a23262fa9305d14c63292eea
