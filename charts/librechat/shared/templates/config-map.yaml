@@ -202,6 +202,8 @@ data:
         type: streamable-http
         url: {{ printf "%s/mcp/%s" (trimSuffix "/v1" $.Values.frontendLibrechat.agentGateway.baseUrl) .name | quote }}
         requiresOAuth: true
+        headers:
+          X-Session-ID: {{ printf "{{LIBRECHAT_BODY_CONVERSATIONID}}" | quote }}
         oauth:
           client_id: "${OPENID_CLIENT_ID}"
           client_secret: "${OPENID_CLIENT_SECRET}"

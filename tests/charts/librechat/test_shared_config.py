@@ -207,6 +207,8 @@ class SharedConfigTests(unittest.TestCase):
                     type: streamable-http
                     url: "http://infra-agentgateway-gateway.infra-agentgateway.svc.cluster.local:80/mcp/search"
                     requiresOAuth: true
+                    headers:
+                      X-Session-ID: "{{LIBRECHAT_BODY_CONVERSATIONID}}"
                     oauth:
                       client_id: "${OPENID_CLIENT_ID}"
                       client_secret: "${OPENID_CLIENT_SECRET}"
