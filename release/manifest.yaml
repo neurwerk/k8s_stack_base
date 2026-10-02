@@ -119,8 +119,8 @@ spec:
     version: 0.0.5
     source: oci://ghcr.io/clickhouse/clickhouse-operator-helm
   - name: openbao-stack-setup
-    version: 0.2.23
-    source: https://github.com/neurwerk/k8s_stack_tooling/commit/2d4af9c757366ecdf573c9aac64614545bf6a5ba
+    version: 0.2.24
+    source: https://github.com/neurwerk/k8s_stack_tooling/commit/6029d6f961f99c89874cba8718d669a4b33abc3a
   - name: gateway-api-experimental
     version: 1.6.0
     source: https://github.com/kubernetes-sigs/gateway-api/releases/tag/v1.6.0

@@ -11,7 +11,9 @@ upgrade path.
 
 ## [0.3.21] - 2026-10-02
 
-
+- Adopt verified Studio 0.13.0 API and Web images with personal LLM and MCP activity, log and notice improvements. Personal activity remains off unless a client enables it.
+- Require `openbao-stack-setup` 0.2.24 before adoption; reconcile the credential catalog before enabling personal activity so Studio receives its separate Langfuse project keys.
+- Group MCP traces by session and reduce routine gateway, ClickHouse, and chart-source logs without disabling application traces or warnings.
 
 ## [0.3.20] - 2026-10-02
 
