@@ -78,3 +78,5 @@ spec:
       debug_rgw: "0/5"
       # Level 1 retains WARNING and ERROR messages from mgr Python modules.
       debug_mgr: "1/5"
+      # Cluster-channel INFO/DEBUG is separate from daemon debug subsystems.
+      mon_cluster_log_level: "warn"
