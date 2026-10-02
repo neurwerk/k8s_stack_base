@@ -9,11 +9,12 @@ upgrade path.
 
 ## [Unreleased]
 
-## [0.3.20] - 2026-10-01
+## [0.3.20] - 2026-10-02
 
-- Lower routine service, storage, gateway, and collector log volume while retaining warnings and errors.
+- Lower routine service, storage, gateway, and collector log volume while retaining warnings and errors; pin extProc 0.14.1.
 - Disable unused ClickHouse diagnostic tables without changing application traces or Prometheus metrics.
-- Allow one optional add-on source in client compatibility checks.
+- Preserve Meilisearch storage across chart upgrades.
+- Allow an optional add-on source and configurable Flux log levels in client compatibility checks.
 
 ## [0.3.19] - 2026-09-30
 
