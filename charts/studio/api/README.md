@@ -52,10 +52,10 @@ blocks, errors and PII enforcement remain in force. The cert-manager approval
 policy already has exact server DNS and client CN policies for these two
 certificates.
 
-## Optional personal LLM activity
+## Optional personal LLM and MCP activity
 
 `frontendStudio.api.llmLogs.enabled` is false by default. Enabling it requires
-a Studio API/Web image with the new self-only LLM activity API and the planned
+a Studio API/Web image with the self-only LLM and MCP activity API and the
 Tooling `openbao-stack-setup` `0.2.24` catalog already reconciled. The catalog
 copies the canonical Langfuse project keys into dedicated fields of
 `frontend-studio/internal`; it refuses conflicting existing copies. The API
@@ -63,6 +63,6 @@ chart conditionally creates an ExternalSecret from the Studio namespace's
 existing OpenBao SecretStore, mounts only those fields in the API container,
 and opens Studio API Pod egress only to the Langfuse web Pod on port 3000.
 Disabling it removes the Secret consumer and egress, and the API returns 404.
-The currently pinned Studio image `0.12.0` does not implement this API: do not
-enable the value until a compatible image has been published and pinned under
-separate authorization. Operator access to Langfuse outside Studio is separate.
+Studio image `0.13.0` implements the personal LLM and MCP activity API. Reconcile
+the `0.2.24` credential catalog before enabling this value for a client.
+Operator access to Langfuse outside Studio is separate.
