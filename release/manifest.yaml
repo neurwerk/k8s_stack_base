@@ -1,11 +1,11 @@
 apiVersion: platform.neurwerk.com/v1alpha1
 kind: PlatformRelease
 metadata:
-  name: v0.3.20
+  name: v0.3.21
 spec:
-  version: 0.3.20
+  version: 0.3.21
   releaseDate: '2026-10-02'
-  summary: Reduce routine platform logging
+  summary: Studio personal LLM and MCP activity with platform fixes
   trust:
     signerIdentity: platform-release
     algorithm: ssh-ed25519
@@ -331,7 +331,7 @@ spec:
           sha256: b344a03d0006aba69a8c20ae1ff0354ac7687bdf72c3611c4f330b59a22b7548
     - path: charts/langfuse
       name: monitor-langfuse
-      version: 2.0.3
+      version: 2.0.4
       appVersion: 4.28.1
       dependencyLock:
         digest: sha256:68156b8f74aa153f2e33eb76f6ac11e9277c1a8fe8073c3f37da8834a97292cc
@@ -392,7 +392,7 @@ spec:
       appVersion: v0.9.0
     - path: charts/librechat/shared
       name: frontend-librechat-shared
-      version: 1.8.0
+      version: 1.8.1
       appVersion: v0.8.8-rc4
     - path: charts/librechat/valkey
       name: frontend-librechat-valkey
@@ -471,19 +471,19 @@ spec:
           sha256: 5389fb496a120d6aac8f2b33c54ba21ed59014131def14cfc78f9d4a9374d2b7
     - path: charts/rook-ceph
       name: rook-ceph
-      version: 1.0.6
+      version: 1.0.7
       appVersion: v1.20.3
     - path: charts/studio/api
       name: studio-api
-      version: 1.1.15
-      appVersion: 0.12.0
+      version: 1.1.17
+      appVersion: 0.13.0
     - path: charts/studio/shared
       name: studio-shared
       version: 1.0.0
     - path: charts/studio/web
       name: studio
-      version: 1.0.10
-      appVersion: 0.12.0
+      version: 1.0.11
+      appVersion: 0.13.0
     - path: charts/traefik
       name: traefik
       version: 1.0.3
@@ -933,12 +933,12 @@ spec:
       origins:
       - charts/pii-engine-model-sync/values.yaml
       - charts/pii-engine/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-studio-api:0.12.0@sha256:408d1a16914a64b300d3d050fee2013f5d716b7cf76d0aa9354dc1afb68f3a50
+    - reference: ghcr.io/neurwerk/k8s-stack-studio-api:0.13.0@sha256:46ef3671034802cd70c4d3cd523123059287b5f89d84ceb6b83d5b03fa4fa106
       pinned: true
       eligibility: included
       origins:
       - charts/studio/api/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-studio-web:0.12.0@sha256:818d88b73254f4db51947913a28ff0f348fbc764e5e0457dcf248a54711c78f8
+    - reference: ghcr.io/neurwerk/k8s-stack-studio-web:0.13.0@sha256:d4e4521ef9eec94ed8d076c1c06aecdac1b0774927283c802269a05cd28094d0
       pinned: true
       eligibility: included
       origins:
@@ -1140,21 +1140,14 @@ spec:
       node: 24.20.0
       lua: 5.4.9
   provenance:
-    previousTag: v0.3.19
-    includedThrough: c6eacc0edaa25b7432e2e35950e8f19bb0b7b95a
+    previousTag: v0.3.20
+    includedThrough: e72ebbbc61ffc48ada7578cecda463b83db60c18
     commits:
-    - 27b3c192e3b5ae906d56d16a08e2539e16dfdfc8
-    - 16e0d9d25ba7dec5853c172b7fba78fe168292a5
-    - 8ccd6e7132d5a20584baa9baf780df591876206b
-    - 33ccedbca986f73ddb7b02332eeefb2d52d1a685
-    - 27676188d713ee51595871ba5503670075eefecc
-    - 27b385dfe6eb21bd9a30b06568e94589dac32b89
-    - 27c2e42b16eceadb1226f73f2c45bc02c0aa8bef
-    - fd1b83e163e88b3813eee61a6c8f0ca52b712cce
-    - 4b831bdd0f522180cef7657acb69a30a67fb9217
-    - 124ad4575391c8349e574f8d60a8fcadc9c1acb6
-    - 307e8569f6088dc6a23262fa9305d14c63292eea
-    - beb8ee3a455155249c1461e64abf31deffc2de1a
-    - b5f9a1ee3eb9d2ec4a3ae40489a2ed7c878275b1
-    - c6eacc0edaa25b7432e2e35950e8f19bb0b7b95a
-    compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.19...c6eacc0edaa25b7432e2e35950e8f19bb0b7b95a
+    - 2cf4a9f4d60ad518e1b70118480ae0a762b024b1
+    - 0b40a4ce06f1d7a52b789088ce1b58ce71a23439
+    - 7b6dcefc7efa784f18f0e0383e8d600cda7e2a64
+    - f79a1fd3c25bdf1c4758a9e62fe89a763b172223
+    - 36acb313c8edf70c58685a7ee016e4fdece24403
+    - 4dc7f5def0e48d7526e13e1c8930d2541df5abd3
+    - e72ebbbc61ffc48ada7578cecda463b83db60c18
+    compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.20...e72ebbbc61ffc48ada7578cecda463b83db60c18

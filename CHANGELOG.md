@@ -9,6 +9,10 @@ upgrade path.
 
 ## [Unreleased]
 
+## [0.3.21] - 2026-10-02
+
+
+
 ## [0.3.20] - 2026-10-02
 
 - Lower routine service, storage, gateway, and collector log volume while retaining warnings and errors; pin extProc 0.14.1.
