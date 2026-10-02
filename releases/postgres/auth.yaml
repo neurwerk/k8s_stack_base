@@ -29,7 +29,7 @@ spec:
         kind: GitRepository
         name: k8s-stack
         namespace: flux-system
-      interval: 1m
+      interval: 10m
   valuesFrom:
     - kind: Secret
       name: postgres-auth-values
