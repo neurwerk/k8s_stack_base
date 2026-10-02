@@ -56,6 +56,13 @@ frontendStudio:
     agentgatewayAdminUrl: "http://infra-agentgateway-gateway.infra-agentgateway.svc.cluster.local:15000"
     usageTimezone: "UTC"
 
+    # Explicit opt-in for the self-only LLM activity viewer. Both credentials
+    # and egress are absent from the API Pod when this is false.
+    llmLogs:
+      enabled: false
+      url: "http://monitor-langfuse-web.monitor-langfuse.svc.cluster.local:3000"
+      secretName: frontend-studio-llm-logs-secret
+
     # Required notice preference database and namespace-local password Secret.
     postgres:
       enabled: true

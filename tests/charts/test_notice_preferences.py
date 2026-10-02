@@ -10,6 +10,32 @@ from helm import documents, render, resource
 
 
 class NoticePreferenceBoundaryTests(unittest.TestCase):
+    def test_optional_llm_viewer_credentials_and_egress_share_one_switch(self):
+        for enabled in (False, True):
+            with self.subTest(enabled=enabled):
+                rendered = render("studio/api", {"frontendStudio": {"api": {"llmLogs": {
+                    "enabled": enabled,
+                }}}}, namespace="frontend-studio")
+                deployment = resource(rendered, "Deployment", "frontend-studio-api-deployment")
+                api = next(c for c in deployment["spec"]["template"]["spec"]["containers"]
+                           if c["name"].endswith("-api"))
+                env = {item["name"]: item for item in api["env"]}
+                self.assertEqual(env["K8S_STUDIO_LLM_LOGS_ENABLED"]["value"], str(enabled).lower())
+                self.assertEqual("K8S_STUDIO_LANGFUSE_SECRET_KEY" in env, enabled)
+                external_secrets = [item for item in documents(rendered)
+                                    if item["kind"] == "ExternalSecret"]
+                self.assertEqual(bool(external_secrets), enabled)
+                egress = resource(rendered, "NetworkPolicy", "frontend-studio-api-egress-network-policy")
+                langfuse = [peer for rule in egress["spec"]["egress"] for peer in rule.get("to", [])
+                            if peer["namespaceSelector"]["matchLabels"].get("kubernetes.io/metadata.name")
+                            == "monitor-langfuse"]
+                self.assertEqual(bool(langfuse), enabled)
+                if enabled:
+                    self.assertEqual(external_secrets[0]["spec"]["secretStoreRef"]["name"],
+                                     "frontend-studio-openbao-secret-store")
+                    self.assertEqual(langfuse[0]["podSelector"]["matchLabels"]["app.kubernetes.io/component"],
+                                     "web")
+
     def test_credential_metadata_uses_verified_key_identity_only(self):
         models = {"guardrails": {"llmPolicyEngine": {"models": [{
             "name": "remote/example/model", "provider": "OpenAI",
