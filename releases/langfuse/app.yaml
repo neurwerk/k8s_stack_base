@@ -31,6 +31,21 @@ spec:
         name: k8s-stack
         namespace: flux-system
       interval: 1m
+  # The vendored chart does not expose KeeperCluster settings as values.
+  postRenderers:
+    - kustomize:
+        patches:
+          - target:
+              group: clickhouse.com
+              version: v1alpha1
+              kind: KeeperCluster
+              name: monitor-langfuse
+            patch: |-
+              - op: add
+                path: /spec/settings
+                value:
+                  logger:
+                    level: warning
   valuesFrom:
     - kind: ConfigMap
       name: base-shared-hostnames-config-map
