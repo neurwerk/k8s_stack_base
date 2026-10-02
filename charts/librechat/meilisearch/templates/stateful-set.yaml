@@ -99,10 +99,18 @@ spec:
     - metadata:
         name: frontend-librechat-meilisearch-data
         labels:
-          {{- include "frontend-librechat-meilisearch.labels" . | nindent 10 }}
+          # Keep the labels from the original chart; this template cannot be updated.
+          helm.sh/chart: frontend-librechat-meilisearch-1.0.0
+          {{- include "frontend-librechat-meilisearch.selectorLabels" . | nindent 10 }}
+          app.kubernetes.io/version: "v1.35.1"
+          app.kubernetes.io/managed-by: {{ .Release.Service }}
+          app.kubernetes.io/part-of: frontend-librechat
+          app.kubernetes.io/component: search
       spec:
         accessModes:
           - ReadWriteOnce
+        # Match the existing Kubernetes default in this immutable claim template.
+        volumeMode: Filesystem
         resources:
           requests:
             storage: {{ .Values.frontendLibrechat.meilisearch.persistence.size }}

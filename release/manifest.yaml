@@ -169,8 +169,8 @@ spec:
           sha256: a22cfb7dcc56da05d31b18c0a969e1b8eee35d19a4493d88b5d4720efcc85945
     - path: charts/agentgateway-extproc
       name: agentgateway-extproc
-      version: 1.4.4
-      appVersion: 0.14.0
+      version: 1.4.6
+      appVersion: 0.14.1
     - path: charts/cert-manager/approval-policy
       name: infra-cert-manager-approval-policy
       version: 1.2.3
@@ -384,7 +384,7 @@ spec:
       appVersion: fea707467600f3802d65596a6875c7822f25cfd8
     - path: charts/librechat/meilisearch
       name: frontend-librechat-meilisearch
-      version: 1.0.0
+      version: 1.0.1
       appVersion: v1.35.1
     - path: charts/librechat/rag-api
       name: frontend-librechat-rag-api
@@ -471,7 +471,7 @@ spec:
           sha256: 5389fb496a120d6aac8f2b33c54ba21ed59014131def14cfc78f9d4a9374d2b7
     - path: charts/rook-ceph
       name: rook-ceph
-      version: 1.0.5
+      version: 1.0.6
       appVersion: v1.20.3
     - path: charts/studio/api
       name: studio-api
@@ -907,7 +907,7 @@ spec:
       eligibility: included
       origins:
       - charts/dify/web/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.14.0@sha256:be03163bf63a159d33073c4f87618c407b1413d99ff47d4b280cb90f45cf5856
+    - reference: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.14.1@sha256:b40b5a0dcb0d11e91c3eec6712fbb55a70738a2e6239236e5d316288e778afe0
       pinned: true
       eligibility: included
       origins:
@@ -1141,11 +1141,17 @@ spec:
       lua: 5.4.9
   provenance:
     previousTag: v0.3.19
-    includedThrough: 27676188d713ee51595871ba5503670075eefecc
+    includedThrough: 307e8569f6088dc6a23262fa9305d14c63292eea
     commits:
     - 27b3c192e3b5ae906d56d16a08e2539e16dfdfc8
     - 16e0d9d25ba7dec5853c172b7fba78fe168292a5
     - 8ccd6e7132d5a20584baa9baf780df591876206b
     - 33ccedbca986f73ddb7b02332eeefb2d52d1a685
     - 27676188d713ee51595871ba5503670075eefecc
-    compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.19...27676188d713ee51595871ba5503670075eefecc
+    - 27b385dfe6eb21bd9a30b06568e94589dac32b89
+    - 27c2e42b16eceadb1226f73f2c45bc02c0aa8bef
+    - fd1b83e163e88b3813eee61a6c8f0ca52b712cce
+    - 4b831bdd0f522180cef7657acb69a30a67fb9217
+    - 124ad4575391c8349e574f8d60a8fcadc9c1acb6
+    - 307e8569f6088dc6a23262fa9305d14c63292eea
+    compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.19...307e8569f6088dc6a23262fa9305d14c63292eea
