@@ -151,8 +151,8 @@ spec:
             - name: EXTPROC_DOCLING__MAX_RESPONSE_BYTES
               value: "16777216"
             {{- end }}
-            - name: EXTPROC_DEBUG
-              value: {{ .Values.monitorAgentgatewayExtproc.debug | quote }}
+            - name: EXTPROC_LOG_LEVEL
+              value: {{ .Values.monitorAgentgatewayExtproc.logging.level | quote }}
             - name: EXTPROC_MAX_REQUEST_BYTES
               value: {{ if $docling.enabled }}"67108864"{{ else }}{{ .Values.monitorAgentgatewayExtproc.maxRequestBytes | quote }}{{ end }}
             - name: EXTPROC_MAX_RESPONSE_BYTES

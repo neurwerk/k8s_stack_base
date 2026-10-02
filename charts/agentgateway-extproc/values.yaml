@@ -79,7 +79,8 @@ monitorAgentgatewayExtproc:
   shutdownGraceSeconds: 300
 
   # ── Adapter logging ───────────────────────────────────────────────────────
-  debug: false
+  logging:
+    level: WARNING
   securityContext:
     runAsUser: 1000
     runAsGroup: 1000
