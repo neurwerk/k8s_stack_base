@@ -54,6 +54,8 @@ spec:
               value: /meili_data/dumps
             - name: MEILI_ENV
               value: production
+            - name: MEILI_LOG_LEVEL
+              value: {{ .Values.frontendLibrechat.meilisearch.logLevel | quote }}
             - name: MEILI_HTTP_ADDR
               value: {{ printf "0.0.0.0:%v" .Values.frontendLibrechat.meilisearch.service.port | quote }}
             - name: MEILI_MASTER_KEY

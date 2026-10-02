@@ -2,6 +2,8 @@ frontendLibrechat:
   meilisearch:
     image: docker.io/getmeili/meilisearch:v1.35.1
     imagePullPolicy: IfNotPresent
+    # Keep unexpected events visible without routine HTTP request logs.
+    logLevel: WARN
     replicas: 1
     service:
       port: 7700
