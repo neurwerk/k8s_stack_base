@@ -44,6 +44,7 @@ CLUSTER_RESOURCES = [
 ]
 ADDON_SOURCE_RESOURCE = "addon-source.yaml"
 FLUX_RESOURCES = ["gotk-components.yaml", "gotk-sync.yaml"]
+FLUX_LOG_LEVEL_LINE = re.compile(r"(?m)^([ \t]*- --log-level=)(?:debug|info|error)([ \t]*)$")
 TAG_PATTERN = re.compile(r"^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$")
 FINGERPRINT_PATTERN = re.compile(r"^SHA256:[A-Za-z0-9+/]{43}$")
 SHA_PATTERN = re.compile(r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$")
@@ -295,6 +296,13 @@ def read_control_plane_contract(
         revision_reader(root, revision, FLUX_SYNC_PATH), origin="Flux bootstrap sync"
     )
     return sync, revision_reader(root, revision, FLUX_COMPONENTS_PATH)
+
+
+def normalize_flux_controller_log_levels(content: str) -> str:
+    """Ignore only the four generated controller log flags in a byte-for-byte comparison."""
+    if len(FLUX_LOG_LEVEL_LINE.findall(content)) != 4:
+        raise CompatibilityError("Flux controller logs require four debug, info, or error flags")
+    return FLUX_LOG_LEVEL_LINE.sub(r"\1info\2", content)
 
 
 def read_at_revision(root: Path, revision: str, path: Path) -> str:
@@ -758,7 +766,14 @@ def run_check(
     )
     old_controls = read_control_plane_contract(root, base_sha, revision_reader)
     new_controls = read_control_plane_contract(root, proposed_sha, revision_reader)
-    if old_controls != new_controls:
+    if old_controls[0] != new_controls[0] or (
+        old_controls[1] != new_controls[1]
+        and (
+            old_source != new_source
+            or normalize_flux_controller_log_levels(old_controls[1])
+            != normalize_flux_controller_log_levels(new_controls[1])
+        )
+    ):
         raise CompatibilityError(
             "Flux bootstrap controls may not change in a platform adoption pull request"
         )
