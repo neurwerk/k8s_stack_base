@@ -1,5 +1,5 @@
 version: 0.3.20
-releaseDate: '2026-10-01'
+releaseDate: '2026-10-02'
 summary: Reduce routine platform logging
 trust:
   signerIdentity: platform-release
@@ -149,7 +149,7 @@ exceptions:
     before dropping back to UID 1000.
 provenance:
   previousTag: v0.3.19
-  includedThrough: 307e8569f6088dc6a23262fa9305d14c63292eea
+  includedThrough: c6eacc0edaa25b7432e2e35950e8f19bb0b7b95a
   commits:
   - 27b3c192e3b5ae906d56d16a08e2539e16dfdfc8
   - 16e0d9d25ba7dec5853c172b7fba78fe168292a5
@@ -162,4 +162,7 @@ provenance:
   - 4b831bdd0f522180cef7657acb69a30a67fb9217
   - 124ad4575391c8349e574f8d60a8fcadc9c1acb6
   - 307e8569f6088dc6a23262fa9305d14c63292eea
-  compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.19...307e8569f6088dc6a23262fa9305d14c63292eea
+  - beb8ee3a455155249c1461e64abf31deffc2de1a
+  - b5f9a1ee3eb9d2ec4a3ae40489a2ed7c878275b1
+  - c6eacc0edaa25b7432e2e35950e8f19bb0b7b95a
+  compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.19...c6eacc0edaa25b7432e2e35950e8f19bb0b7b95a
