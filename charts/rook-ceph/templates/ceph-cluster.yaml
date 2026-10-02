@@ -76,6 +76,8 @@ spec:
       debug_mon: "0/5"
       debug_osd: "0/5"
       debug_rgw: "0/5"
+      # Beast request logs use a separate subsystem from RGW diagnostics.
+      debug_rgw_access: "0/5"
       # Level 1 retains WARNING and ERROR messages from mgr Python modules.
       debug_mgr: "1/5"
       # Cluster-channel INFO/DEBUG is separate from daemon debug subsystems.
