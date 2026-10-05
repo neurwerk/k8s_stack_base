@@ -83,3 +83,5 @@ spec:
       debug_mgr: "1/5"
       # Cluster-channel INFO/DEBUG is separate from daemon debug subsystems.
       mon_cluster_log_level: "warn"
+    mon:
+      mon_compact_on_trim: {{ .Values.infraRookCeph.mon.compactOnTrim | quote }}
