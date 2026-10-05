@@ -9,6 +9,10 @@ postgresOperations:
   containerPorts:
     postgresql: 9712
     documentdb: 10260
+  pgCron:
+    # Record new runs in cron.job_run_details; existing history and statement logs are retained.
+    # Changing this startup setting restarts the shared PostgreSQL/DocumentDB pod.
+    logRun: false
   persistence:
     size: 50Gi
     storageClassName: ""

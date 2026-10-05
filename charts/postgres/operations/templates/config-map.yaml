@@ -6,6 +6,16 @@ metadata:
   labels:
     {{- include "postgres-operations.labels" . | nindent 4 }}
 data:
+  pg-ctl.sh: |
+    #!/bin/bash
+    set -euo pipefail
+
+    # DocumentDB's pgctlPath override receives the verb first.
+    # pg_ctl appends repeated -o options, preserving the image's port setting.
+    if [ "${1:-}" = start ]; then
+      set -- "$@" -o "-c cron.log_run={{ ternary "on" "off" .Values.postgresOperations.pgCron.logRun }}"
+    fi
+    exec pg_ctl "$@"
   bootstrap-admin.sh: |
     #!/bin/bash
     set -euo pipefail
