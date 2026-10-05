@@ -45,6 +45,11 @@ CLUSTER_RESOURCES = [
 ADDON_SOURCE_RESOURCE = "addon-source.yaml"
 FLUX_RESOURCES = ["gotk-components.yaml", "gotk-sync.yaml"]
 FLUX_LOG_LEVEL_LINE = re.compile(r"(?m)^([ \t]*- --log-level=)(?:debug|info|error)([ \t]*)$")
+FLUX_SOURCE_SCRATCH_VOLUME = re.compile(
+    r"(?m)^(?P<indent> +)- emptyDir:(?: \{\}|\n"
+    r"(?P=indent)    medium: Memory\n(?P=indent)    sizeLimit: 256Mi)\n"
+    r"(?P=indent)  name: tmp$"
+)
 TAG_PATTERN = re.compile(r"^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$")
 FINGERPRINT_PATTERN = re.compile(r"^SHA256:[A-Za-z0-9+/]{43}$")
 SHA_PATTERN = re.compile(r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$")
@@ -303,6 +308,64 @@ def normalize_flux_controller_log_levels(content: str) -> str:
     if len(FLUX_LOG_LEVEL_LINE.findall(content)) != 4:
         raise CompatibilityError("Flux controller logs require four debug, info, or error flags")
     return FLUX_LOG_LEVEL_LINE.sub(r"\1info\2", content)
+
+
+def normalize_flux_controller_bundle(content: str) -> str:
+    """Normalize only approved log flags and the exact source-controller scratch volume."""
+    content = normalize_flux_controller_log_levels(content)
+    message = "Flux source scratch requires one canonical tmp volume, disk-backed or Memory/256Mi"
+
+    def field(node: yaml.Node, name: str) -> yaml.Node:
+        if not isinstance(node, yaml.MappingNode):
+            raise CompatibilityError(message)
+        matches = [value for key, value in node.value if key.value == name]
+        if len(matches) != 1:
+            raise CompatibilityError(message)
+        return matches[0]
+
+    try:
+        targets = [
+            node
+            for node, document in zip(
+                yaml.compose_all(content, Loader=yaml.SafeLoader), yaml.safe_load_all(content)
+            )
+            if isinstance(document, dict)
+            and document.get("apiVersion") == "apps/v1"
+            and document.get("kind") == "Deployment"
+            and isinstance(document.get("metadata"), dict)
+            and document["metadata"].get("name") == "source-controller"
+            and document["metadata"].get("namespace") == "flux-system"
+        ]
+        if len(targets) != 1:
+            raise CompatibilityError(message)
+        target = targets[0]
+        if any(
+            isinstance(token, (yaml.AnchorToken, yaml.AliasToken))
+            for token in yaml.scan(content[target.start_mark.index:target.end_mark.index])
+        ):
+            raise CompatibilityError(message)
+        volumes = target
+        for name in ("spec", "template", "spec", "volumes"):
+            volumes = field(volumes, name)
+        if not isinstance(volumes, yaml.SequenceNode):
+            raise CompatibilityError(message)
+        scratch = [volume for volume in volumes.value if field(volume, "name").value == "tmp"]
+        if len(scratch) != 1 or len(scratch[0].value) != 2:
+            raise CompatibilityError(message)
+        # Match the generated text at the parsed volume's exact location. Other documents,
+        # fields, formatting and comments stay byte-for-byte protected; aliases cannot match.
+        matches = [
+            match
+            for match in FLUX_SOURCE_SCRATCH_VOLUME.finditer(content)
+            if match.start() + len(match["indent"]) + 2 == scratch[0].start_mark.index
+        ]
+        if len(matches) != 1:
+            raise CompatibilityError(message)
+        match = matches[0]
+        canonical = f'{match["indent"]}- emptyDir: {{}}\n{match["indent"]}  name: tmp'
+        return content[:match.start()] + canonical + content[match.end():]
+    except (TypeError, ValueError, RecursionError, yaml.YAMLError) as error:
+        raise CompatibilityError(message) from error
 
 
 def read_at_revision(root: Path, revision: str, path: Path) -> str:
@@ -770,8 +833,8 @@ def run_check(
         old_controls[1] != new_controls[1]
         and (
             old_source != new_source
-            or normalize_flux_controller_log_levels(old_controls[1])
-            != normalize_flux_controller_log_levels(new_controls[1])
+            or normalize_flux_controller_bundle(old_controls[1])
+            != normalize_flux_controller_bundle(new_controls[1])
         )
     ):
         raise CompatibilityError(

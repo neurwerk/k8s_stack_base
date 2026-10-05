@@ -14,6 +14,13 @@ infraRookCeph:
     nodeName: ""
     devicePath: ""
 
+  mon:
+    # Extra manual range compactions after trimming monitor history.
+    # Disabling keeps history deletion, WAL/fsync and automatic RocksDB compaction.
+    # Reclamation may be delayed, growing the store and increasing read latency.
+    # Roll back with true; Rook does not unset removed cephConfig entries.
+    compactOnTrim: true
+
   rookImage: docker.io/rook/ceph:v1.20.3
   cephImage: quay.io/ceph/ceph:v20.2.2
   csiOperatorImage: quay.io/cephcsi/ceph-csi-operator:v1.0.4
