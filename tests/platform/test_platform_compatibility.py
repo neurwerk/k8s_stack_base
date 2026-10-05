@@ -99,6 +99,37 @@ def controls():
     return result
 
 
+def flux_components():
+    return [
+        {
+            "apiVersion": "apps/v1",
+            "kind": "Deployment",
+            "metadata": {"name": name, "namespace": "flux-system"},
+            "spec": {
+                "template": {
+                    "spec": {
+                        "containers": [
+                            {
+                                "name": "manager",
+                                "args": ["--log-level=info"],
+                                "resources": {"limits": {"memory": "1Gi"}},
+                                "volumeMounts": [{"name": "tmp", "mountPath": "/tmp"}],
+                            }
+                        ],
+                        "volumes": [
+                            {"name": "data", "emptyDir": {}},
+                            {"name": "tmp", "emptyDir": {}},
+                        ],
+                    }
+                }
+            },
+        }
+        for name in (
+            "source-controller", "kustomize-controller", "helm-controller", "notification-controller"
+        )
+    ]
+
+
 def manifest(tag="v1.2.4", **compatibility):
     return {
         "apiVersion": "platform.neurwerk.com/v1alpha1",
@@ -454,6 +485,103 @@ class CompatibilityTests(unittest.TestCase):
             self.files[HEAD][gate.CLUSTER_KUSTOMIZATION_PATH] = yaml.safe_dump(root)
             with self.subTest(label=label), self.assertRaises(gate.CompatibilityError):
                 self.check(classify_only=True)
+
+    def test_source_scratch_profile_and_log_levels_are_client_only(self):
+        original = yaml.safe_dump_all(flux_components())
+        documents = flux_components()
+        documents[0]["spec"]["template"]["spec"]["volumes"][1]["emptyDir"] = {
+            "medium": "Memory", "sizeLimit": "256Mi"
+        }
+        memory = yaml.safe_dump_all(documents)
+        for before, after in (
+            (original, memory),
+            (memory, original),
+            (original, original.replace("--log-level=info", "--log-level=error")),
+            (original, memory.replace("--log-level=info", "--log-level=debug")),
+        ):
+            with self.subTest(before=before == original, after=after == memory):
+                self.files[BASE][gate.FLUX_COMPONENTS_PATH] = before
+                self.files[HEAD][gate.FLUX_COMPONENTS_PATH] = after
+                self.assertFalse(self.check(new=source(), classify_only=True).changed)
+                with self.assertRaisesRegex(gate.CompatibilityError, "bootstrap controls"):
+                    self.check(new=source("v1.2.4"), classify_only=True)
+
+    def test_source_scratch_exception_preserves_other_bundle_fields(self):
+        original = yaml.safe_dump_all(flux_components())
+        mutations = [
+            (("metadata", "name"), "other-controller"),
+            (("metadata", "namespace"), "other-system"),
+            (("kind",), "StatefulSet"),
+            (("apiVersion",), "apps/v1beta1"),
+            (("spec", "template", "spec", "volumes", 1, "name"), "other"),
+            (("spec", "template", "spec", "volumes", 1, "hostPath"), {"path": "/tmp"}),
+            (("spec", "template", "spec", "volumes", 0, "emptyDir"), {"medium": "Memory"}),
+            (("spec", "template", "spec", "containers", 0, "args"), ["--log-level=trace"]),
+            (("spec", "template", "spec", "containers", 0, "image"), "example.invalid/other:v1"),
+            (("spec", "template", "spec", "containers", 0, "resources"), {}),
+            (("spec", "template", "spec", "containers", 0, "volumeMounts"), []),
+        ]
+        for profile in (
+            {"medium": "Memory"},
+            {"medium": "Memory", "sizeLimit": "512Mi"},
+            {"medium": "Disk", "sizeLimit": "256Mi"},
+            {"medium": "Memory", "sizeLimit": "256Mi", "other": True},
+        ):
+            mutations.append((("spec", "template", "spec", "volumes", 1, "emptyDir"), profile))
+        for path, value in mutations:
+            documents = flux_components()
+            documents[0]["spec"]["template"]["spec"]["volumes"][1]["emptyDir"] = {
+                "medium": "Memory", "sizeLimit": "256Mi"
+            }
+            node = documents[0]
+            for key in path[:-1]:
+                node = node[key]
+            node[path[-1]] = value
+            self.files[BASE][gate.FLUX_COMPONENTS_PATH] = original
+            self.files[HEAD][gate.FLUX_COMPONENTS_PATH] = yaml.safe_dump_all(documents)
+            with self.subTest(path=path, value=value), self.assertRaises(gate.CompatibilityError):
+                self.check(new=source(), classify_only=True)
+
+    def test_source_scratch_exception_rejects_ambiguous_or_other_targets(self):
+        original = yaml.safe_dump_all(flux_components())
+        documents = flux_components()
+        pod = documents[0]["spec"]["template"]["spec"]
+        pod["volumes"][1]["emptyDir"] = {"medium": "Memory", "sizeLimit": "256Mi"}
+        memory = yaml.safe_dump_all(documents)
+        other = flux_components()
+        other[1]["spec"]["template"]["spec"]["volumes"][1]["emptyDir"] = {
+            "medium": "Memory", "sizeLimit": "256Mi"
+        }
+        cases = [
+            yaml.safe_dump_all(other),
+            memory.replace(
+                "          medium: Memory", "          medium: Disk\n          medium: Memory", 1
+            ),
+            memory.replace(
+                "- emptyDir:\n          medium:", "- emptyDir: &scratch\n          medium:", 1
+            ),
+            memory.replace("        name: tmp", "        name: tmp\n        other: value", 1),
+            memory + "---\nkind: ClusterRole\nmetadata:\n  name: unrelated\n",
+        ]
+        pod["volumes"].append({"name": "tmp", "emptyDir": {}})
+        cases.append(yaml.safe_dump_all(documents))
+        documents = flux_components()
+        documents.append(documents[0])
+        cases.append(yaml.safe_dump_all(documents))
+        for proposed in cases:
+            self.files[BASE][gate.FLUX_COMPONENTS_PATH] = original
+            self.files[HEAD][gate.FLUX_COMPONENTS_PATH] = proposed
+            with self.subTest(proposed=proposed), self.assertRaises(gate.CompatibilityError):
+                self.check(new=source(), classify_only=True)
+        # Even a pre-existing anchor must not make the scratch exception affect its aliases.
+        self.files[BASE][gate.FLUX_COMPONENTS_PATH] = original.replace(
+            "      volumes:", "      volumes: &scratch", 1
+        )
+        self.files[HEAD][gate.FLUX_COMPONENTS_PATH] = memory.replace(
+            "      volumes:", "      volumes: &scratch", 1
+        )
+        with self.assertRaises(gate.CompatibilityError):
+            self.check(new=source(), classify_only=True)
 
     def test_forward_upgrade_and_legacy_contracts(self):
         cases = [
