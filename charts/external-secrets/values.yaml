@@ -9,6 +9,9 @@ external-secrets:
   systemAuthDelegator: false
   leaderElect: false
   openshiftFinalizers: false
+  # Reduce provider logins from standalone store checks; failures may take up to
+  # 15m to appear in store health status. ExternalSecret refresh timers are separate.
+  storeRequeueInterval: "15m"
   resources:
     requests:
       cpu: 50m
