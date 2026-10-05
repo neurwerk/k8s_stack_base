@@ -1,5 +1,16 @@
 # Synthetic, non-secret values used by the chart validation targets.
 # HelmRelease ConfigMaps and Secrets provide these values in deployments.
+addonAccess:
+  enabled: true
+  name: example
+  realmRoles: [example-user, example-admin]
+  realmRoleComposites:
+    example-admin: [example-user]
+  accessGroups:
+    /access/neurwerk-example-users: {realmRoles: [example-user]}
+  platformAdminRole: example-admin
+k8sTools:
+  image: ghcr.io/neurwerk/k8s-stack-tooling:0.7.2
 docling:
   enabled: true
   apiKeySecretRef: {name: docling-api, key: api-key}

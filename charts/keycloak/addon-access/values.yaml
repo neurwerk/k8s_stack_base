@@ -1,0 +1,24 @@
+authKeycloak:
+  adminUser: admin
+  realm: ""
+
+k8sTools:
+  # Select a verified image containing KC_REALM_ROLE_COMPOSITE_OWNERSHIP support.
+  image: ""
+
+addonAccess:
+  # Safe default: no resources until an addon explicitly selects this chart.
+  enabled: false
+  # A unique product name; roles must start with <name>- and groups with neurwerk-<name>-.
+  name: ""
+  realmRoles: []
+  # Keep formerly granted roles here until their composite links have been removed.
+  ownedRoles: []
+  # Parent and children must all be declared in realmRoles.
+  realmRoleComposites: {}
+  # Full /access/neurwerk-<name>-* paths mapped only to this addon's roles.
+  accessGroups: {}
+  # Optional, owned realm role directly granted to platform-admin.
+  platformAdminRole: ""
+  # Set false to remove only this addon's direct grant.
+  platformAdminGrant: true

@@ -1,0 +1,91 @@
+{{- if .Values.addonAccess.enabled -}}
+{{- $addon := .Values.addonAccess -}}
+{{- $name := required "addonAccess.name is required" $addon.name -}}
+{{- if not (regexMatch `^[a-z][a-z0-9]*$` $name) }}{{ fail "addonAccess.name must be a unique lowercase product key without hyphens" }}{{ end -}}
+{{- $roles := $addon.realmRoles -}}
+{{- if or (not (kindIs "slice" $roles)) (empty $roles) }}{{ fail "addonAccess.realmRoles must be a non-empty list" }}{{ end -}}
+{{- if ne (len $roles) (len ($roles | uniq)) }}{{ fail "addonAccess.realmRoles must be unique" }}{{ end -}}
+{{- range $roles -}}
+{{- if or (not (kindIs "string" .)) (not (regexMatch (printf `^%s-[a-z0-9][a-z0-9-]*$` $name) .)) (gt (len .) 63) }}{{ fail "addonAccess.realmRoles must belong to this product" }}{{ end -}}
+{{- end -}}
+{{- $owned := $addon.ownedRoles -}}
+{{- if empty $owned }}{{- $owned = $roles }}{{ end -}}
+{{- if or (not (kindIs "slice" $owned)) (ne (len $owned) (len ($owned | uniq))) }}{{ fail "addonAccess.ownedRoles must be a unique list" }}{{ end -}}
+{{- range $owned -}}
+{{- if or (not (kindIs "string" .)) (not (regexMatch (printf `^%s-[a-z0-9][a-z0-9-]*$` $name) .)) (gt (len .) 63) }}{{ fail "addonAccess.ownedRoles must belong to this product" }}{{ end -}}
+{{- end -}}
+{{- range $roles }}{{- if not (has . $owned) }}{{ fail "addonAccess.ownedRoles must include all desired roles" }}{{ end }}{{ end -}}
+{{- $composites := $addon.realmRoleComposites -}}
+{{- if not (kindIs "map" $composites) }}{{ fail "addonAccess.realmRoleComposites must be a map" }}{{ end -}}
+{{- range $parent, $children := $composites -}}
+{{- if not (has $parent $roles) }}{{ fail "addonAccess composite parent must be an owned role" }}{{ end -}}
+{{- if not (kindIs "slice" $children) }}{{ fail "addonAccess composite children must be a list" }}{{ end -}}
+{{- range $children }}{{- if not (has . $roles) }}{{ fail "addonAccess composite children must be owned roles" }}{{ end }}{{ end -}}
+{{- end -}}
+{{- $groups := $addon.accessGroups -}}
+{{- if not (kindIs "map" $groups) }}{{ fail "addonAccess.accessGroups must be a map" }}{{ end -}}
+{{- range $path, $mapping := $groups -}}
+{{- if or (not (regexMatch (printf `^/access/neurwerk-%s-[a-z0-9][a-z0-9-]*$` $name) $path)) (not (kindIs "map" $mapping)) }}{{ fail "addonAccess group must belong to this product" }}{{ end -}}
+{{- if or (ne (len $mapping) 1) (not (hasKey $mapping "realmRoles")) (not (kindIs "slice" $mapping.realmRoles)) }}{{ fail "addonAccess groups may only map realm roles" }}{{ end -}}
+{{- range $mapping.realmRoles }}{{- if not (has . $roles) }}{{ fail "addonAccess group roles must be owned roles" }}{{ end }}{{ end -}}
+{{- end -}}
+{{- $admin := $addon.platformAdminRole -}}
+{{- if and $admin (not (has $admin $roles)) }}{{ fail "addonAccess.platformAdminRole must be an owned role" }}{{ end -}}
+{{- if not (kindIs "bool" $addon.platformAdminGrant) }}{{ fail "addonAccess.platformAdminGrant must be a boolean" }}{{ end -}}
+{{- $desired := list -}}
+{{- $ownership := dict -}}
+{{- $configuredComposites := deepCopy $composites -}}
+{{- range $parent, $_ := $configuredComposites -}}
+{{- $_ := set $ownership $parent $owned -}}
+{{- end -}}
+{{- if $admin -}}
+{{- if $addon.platformAdminGrant }}{{- $desired = append $desired $admin }}{{ end -}}
+{{- $_ := set $ownership "platform-admin" (list $admin) -}}
+{{- $_ := set $composites "platform-admin" $desired -}}
+{{- end -}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ printf "auth-keycloak-%s-access-job" $name | quote }}
+  namespace: auth-keycloak
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 86400
+  activeDeadlineSeconds: 600
+  template:
+    metadata:
+      labels:
+        app: {{ printf "auth-keycloak-%s-access-job" $name | quote }}
+    spec:
+      automountServiceAccountToken: false
+      restartPolicy: OnFailure
+      containers:
+        - name: reconcile
+          image: {{ required "k8sTools.image must select a published, ownership-capable image" .Values.k8sTools.image | quote }}
+          command: [upsert-realm-roles]
+          env:
+            - name: KC_INTERNAL_URL
+              value: http://auth-keycloak-keycloak-service.auth-keycloak.svc.cluster.local
+            - name: KC_ADMIN_USER
+              value: {{ required "authKeycloak.adminUser is required" .Values.authKeycloak.adminUser | quote }}
+            - name: KC_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: auth-keycloak-secret
+                  key: adminPassword
+            - name: KC_REALM
+              value: {{ required "authKeycloak.realm is required" .Values.authKeycloak.realm | quote }}
+            - name: KC_REALM_ROLES
+              value: {{ join "," $roles | quote }}
+            - name: KC_REALM_ROLE_COMPOSITES
+              value: {{ $composites | toJson | quote }}
+            {{- if $ownership }}
+            - name: KC_REALM_ROLE_COMPOSITE_OWNERSHIP
+              value: {{ $ownership | toJson | quote }}
+            {{- end }}
+            - name: KC_ACCESS_GROUPS
+              value: {{ $groups | toJson | quote }}
+{{- end }}
