@@ -1,32 +1,3 @@
-# IMAGE SOURCE: upstream
-# AgentGateway images are controlled by the vendor subchart. MCP workloads require callers to provide complete pinned image URLs.
-# =============================================================================
-# charts/agentgateway/values.yaml - default values
-#
-# These defaults are overridden by:
-#   - ConfigMap: base-shared-hostnames-config-map
-#   - ConfigMap: base-shared-resources-config-map
-#   - ConfigMap: base-shared-oidc-clients-config-map
-#   - ConfigMap: base-shared-pii-config-map (releases/shared/default-pii-settings.yaml)
-#   - ConfigMap: client-values (client config/client.yaml)
-#   - Secret: infra-agentgateway-secrets
-#
-# ── Where each type of value lives ──────────────────────────────────────────
-#
-#   THIS FILE  (chart defaults / static config)
-#     infraAgentgatewayWrapper.*     — wrapper's own values (gateway, httproute,
-#                                      policy, secret templates)
-#     agentgateway.*                 — passed into the AgentGateway subchart
-#
-#   templates/secret.yaml            — LLM provider API keys from the OpenBao-backed Helm input Secret
-#   templates/database-secret.yaml   — request-log database password from the same input Secret
-#
-# ── To change hostnames / realm ──────────────────────────────────────────────
-#   Edit the client repository's config/client.yaml.
-#   JWT issuer and JWKS path are constructed from authKeycloak.hostname +
-#   authKeycloak.realm in the template (single source of truth).
-# =============================================================================
-
 # ── Wrapper chart own values ─────────────────────────────────────────────────
 # Used ONLY by our custom templates (gateway, http-route, policy, secret).
 # Nothing here is passed to the agentgateway subchart.
@@ -61,60 +32,14 @@ infraAgentgatewayWrapper:
         # Never derive this value from caller-supplied identity headers.
         langfuse.user.id: 'has(jwt.sub) ? jwt.sub : (has(extauthz.principal_id) ? extauthz.principal_id : "")'
 
-        # ── Session tracking ──
-        # Priority (first non-empty wins via CEL default() — handles missing keys gracefully):
-        #
-        #   1. x-session-id header — LibreChat sends conversationId here via
-        #      {{LIBRECHAT_BODY_CONVERSATIONID}} template in librechat.yaml.
-        #      NOTE: LibreChat STRIPS conversationId from the actual JSON body sent to the
-        #      upstream (only sends model, messages, stream — standard OpenAI format).
-        #      The value arrives in the header only.
-        #
-        #   2. x-conversation-id header — reserved for future apps.
-        #
-        #   3. session_id from JSON body — used by LangGraph apps and Cline/MCP
-        #      (these apps write their own request body and include session_id).
-        #
-        #   4. sessionId from JSON body — future app variant.
-        #
-        #   5. conversationId from JSON body — edge case: some non-LibreChat apps may
-        #      include conversationId directly in their OpenAI-compatible body.
-        #
-        #   6. "" — empty string if nothing matched.
+        # Prefer session headers, then request-body identifiers.
         langfuse.session.id: 'default(request.headers["x-session-id"], default(request.headers["x-conversation-id"], default(string(json(request.body).session_id), default(string(json(request.body).sessionId), default(string(json(request.body).conversationId), default(string(json(request.truncatedBody).session_id), default(string(json(request.truncatedBody).sessionId), default(string(json(request.truncatedBody).conversationId), ""))))))))'
 
 
-        # AgentGateway supports OpenTelemetry (OTLP).
-        # Convention available at: https://github.com/open-telemetry/semantic-conventions-genai/tree/main/docs/gen-ai
-
-        # ⚠️ PERFORMANCE NOTE: gen_ai.prompt and gen_ai.completion capture the full
-        # LLM request/response content as span attributes. For verbose conversations
-        # (e.g. Cline with large code diffs), spans can grow to several MB each.
-        # Configure Langfuse data retention (TTL) or S3 lifecycle rules to auto-purge
-        # traces older than N days if storage usage becomes a concern.
-        #
-        # gen_ai.prompt: the full LLM request prompt array. The template replaces
-        # this expression with the reviewed per-model contentTracingEnabled map.
-        # A missing requested-model identity omits content; this covers failures
-        # that stop in PreRouting extProc before model routing records metadata.
-        # Matches official agentgateway examples (openllmetry.yaml, langfuse.yaml).
+        # Content tracing must follow the selected model's policy.
         gen_ai.prompt: 'flattenRecursive(llm.prompt)'
-        #
-        # gen_ai.completion: the LLM response completion content. The template
-        # replaces this expression with the same per-model decision.
-        # llm.completion is []string — use .map() to wrap each string in a
-        # structured message object, then flattenRecursive() to serialize for OTel.
-        # Matches official agentgateway examples. Do NOT concatenate llm.completion
-        # with strings (CEL type error: string + []string).
-        # Do NOT use json(response.body) — fails when body exceeds maxBufferSize (v1.4+).
         gen_ai.completion: 'flattenRecursive(llm.completion.map(c, {"role":"assistant", "content": c}))'
 
-        # ── Cost tracking (v1.3.0+) ──
-        # gen_ai.usage.cost: realized USD cost of the LLM request (computed by
-        # AgentGateway from the model cost catalog). Langfuse reads this standard
-        # OTel semantic convention attribute to populate cost on generations.
-        # Uses double() (numeric) — Langfuse expects gen_ai.usage.cost as a number.
-        # Falls back to 0.0 when model is unpriced (no catalog entry).
         gen_ai.usage.cost: 'has(llm.cost) ? double(llm.cost.total) : 0.0'
 
         # ── Requested (virtual) model name ──
@@ -142,8 +67,7 @@ infraAgentgatewayWrapper:
         langfuse.observation.input: 'has(mcp.tool.arguments) ? flattenRecursive(mcp.tool.arguments) : ""'
         langfuse.observation.output: 'has(mcp.tool.result) ? flattenRecursive(mcp.tool.result) : ""'
 
-  # Optional client-owned model pricing catalogs (v1.3.0+). Sources are merged
-  # in order and later entries take precedence. Base supplies no pricing data.
+  # Client-owned pricing sources are merged in order; Base supplies no prices.
   modelCatalog:
     sources: []
 
@@ -228,17 +152,14 @@ guardrails:
   # Concrete target models are visibility: Internal — not callable directly.
   llmPolicyEngine:
     enabled: false
-    # Rollout guard: integer 1, 2, 3, or 4, or exact string "4.1". New versions
-    # require compatible extProc consumers not pinned by source-only changes.
-    # Keep 1 until compatible services and activation are authorized.
+    # Select only a policy version supported by the deployed extProc.
     attachmentPolicyVersion: 1
     # Required trusted API-key credential metadata for notice lookup.
     credentialContextEnabled: true
 
     # extProc timeout — implemented via AgentgatewayBackend wrapper
     # (extProc CRD field has no native timeout; same pattern as extAuth).
-    # With Docling enabled: syncWaitSeconds + 615 + 30. Gateway 1.5 applies this
-    # to initial response headers; extProc enforces conversion and PII deadlines.
+    # With Docling enabled, the timeout follows syncWaitSeconds + 615 + 30.
     extProcTimeout: 630s
     extProcPort: 9000
     # Buffer enough body data for extProc to return its controlled 5 MiB limit.
@@ -254,147 +175,27 @@ guardrails:
       model: ""
       provider: ""
       custom: {}
-      # V3-only explicit boolean; omission is false. Set only for a verified
-      # image-capable local backend. V1/v2 reject even an explicit false.
-      # supportsImages: false
 
-    # ── User-facing models (model-centric serving) ───────────────────────
-    # Client-owned custom/local entries are appended to the client OpenRouter
-    # catalog. A same-name custom entry replaces its catalog entry during
-    # migration. Served on /v1/chat/completions and discoverable on /v1/models.
-    #
-    # Every entry accepts piiEnabled and contentTracingEnabled. Omission defaults
-    # both to true. Only an explicit boolean false disables that behavior;
-    # content tracing true retains sensitive prompt/completion data for
-    # compatibility and is not a privacy-safe default. piiEnabled is independent
-    # from local/provider placement, but must remain true with piiReroute:true.
-    # Caller IDs may contain slashes, underscores, and uppercase characters.
-    # Long generated Kubernetes names use a deterministic truncated hash while
-    # preserving the caller-facing model ID.
-    #
-    # Optional attachmentMode: block (default), extract, or passthrough.
-    # Versions 2 and 3 also accept process (alias of extract), imageForwarding:
-    # none (default), if-no-pii-detected, or pii-unchecked, and boolean
-    # faceProtectionEnabled (default true for process/extract, false otherwise).
-    # V3 with extProc >=0.11.0 also accepts if-policy-allows: all-pass detections
-    # permit pixels; text transformations forward only policy-processed text.
-    # Both conditional modes require PII and face protection. Face actions and
-    # approved reroutes remain authoritative; empty/failed OCR is not clean PII.
-    # Version 1 rejects these new keys and process rather than dropping them.
-    # Non-none forwarding requires process/extract and enabled Docling in
-    # private-vlm/remote mode for v2; v3 also allows internal-standard/cpu.
-    # V3 adds supportsImages (strict boolean, omitted=false) on model rows and
-    # localTarget. V1/v2 reject this field. image_models approves only explicit
-    # true AND concrete local backend proof; v3 pii-unchecked requires both.
-    # V3 image_reroutes binds the configured face route class to the actual local
-    # target selected by existing ordered routing, not simply defaultTarget.
-    # Named targets keep their own permission; dedicated fallbacks keep the
-    # source permission. Missing approval blocks rather than rewriting a model.
-    # Central monitorPiiEngine.policy.attachments.faces is opt-in only after a
-    # compatible Engine/extProc rollout.
-    # It accepts action: block|text-only|reroute, and routeClass only for reroute.
-    # Reroute without routeClass uses routing.defaultTarget. Shipped policies
-    # omit faces. if-no-pii-detected requires PII and face protection;
-    # pii-unchecked requires
-    # face protection false and a concrete local:true target (never piiReroute).
-    # local:true binds to the trusted configured llamacpp host, not a row URL.
-    # passthrough requires PII/face protection false and NO imageForwarding key.
-    # Passthrough IDs are omitted from the trusted image_forwarding map entirely.
-    # process/extract with imageForwarding:none still supports CPU documents.
-    # block ignores face protection; ordinary text/PII/tracing are unchanged.
-    # block rejects typed attachments. extract converts supported documents to
-    # text before optional PII processing; it does not provide native multimodal
-    # input and never falls back to raw attachments if extraction fails.
-    # Deploy the compatible extProc runtime before activating a new mode.
-    # passthrough preserves native attachments for a capable upstream model,
-    # without extraction or PII scanning, and requires piiEnabled: false.
-    # block and extract allow either PII setting. Model capability alone never
-    # enables attachments. Missing modes are treated as block by the new consumer.
-    # Deploy an extProc consumer supporting attachment_modes BEFORE setting ANY
-    # explicit mode (even block): older consumers reject unknown metadata.
-    # With no explicit effective modes, the chart omits attachment_modes entirely.
-    # The default version keeps contract_version=1 and the models ID-to-bool map.
-    #
-    # Version 4 replaces the three flat attachment fields with a required nested
-    # attachments map on every effective model. Omitted categories default block:
-    #     attachments:
-    #       documents:
-    #         mode: block | extract-text
-    #       images:
-    #         mode: block | extract-text | forward-normalized
-    #         policy: enforce | strict | unchecked
-    # images.policy is allowed only with forward-normalized and defaults enforce.
-    # enforce maps to policy-aware forwarding, strict to zero-detection forwarding,
-    # and unchecked to local PII-unchecked forwarding. forward-normalized always
-    # requires supportsImages:true. unchecked additionally requires piiEnabled:false,
-    # local:true, no piiReroute and a concrete configured local backend. V4 derives
-    # face protection; it rejects attachmentMode, imageForwarding and
-    # faceProtectionEnabled instead of accepting per-model legacy switches.
-    # Document/image text extraction and checked image forwarding require enabled
-    # Docling in internal-standard/cpu or private-vlm/remote mode. Unchecked image
-    # normalization alone needs no Docling service. V4 metadata emits complete
-    # document_modes and image_modes maps instead of attachment_modes, while keeping
-    # the existing safety and routing maps. Deploy the v4 consumer before selection.
-    # Version "4.1" additionally accepts images.inspection as document-only
-    # (default) or document-and-vision, and images.textless as block (default) or
-    # allow-if-inspected. It alone emits dense image_inspection and image_textless
-    # maps. document-and-vision requires private-vlm/remote Docling;
-    # allow-if-inspected also requires checked forward-normalized delivery.
-    # Set direct model values here; Helm list overrides replace the whole list.
-    #
-    # Entry shapes:
-    #   Plain remote (no reroute) — Public concrete model → provider:
-    #     - name: <user-facing ID; also the "model" clients send, e.g. remote/example>
-    #       provider: OpenAI | Openrouter | Anthropic | ...
-    #       model: <provider model name>
-    #       baseURL: https://...
-    #       authSecret: <secret in infra-agentgateway ns>   # optional
-    #
-    #   Remote with PII reroute — Public virtual model that falls back to the
-    #   local model when the extProc sets x-remote-allowed=false:
-    #     - name: ...
-    #       provider / model / baseURL / authSecret: as above
-     #       piiReroute: true
-     #       # Remote selection is always gated by x-remote-allowed from extProc.
-    #
-    #   Local — Public concrete model → llama.cpp host:
-    #     - name: <user-facing name>
-    #       local: true
-    #       model: <concrete llama.cpp/Ollama model name>
-    #
-    # Guards (fail at render time): piiReroute:true requires
-    # llmPolicyEngine.enabled AND llamacpp.enabled; local:true requires
-    # llamacpp.enabled. Client OpenRouter catalog roles are derived automatically;
-    # client-owned models still require model:<name>:invoke in
-    # authKeycloak.agentgatewayClientRoles.
-    #
-    # monitorPiiEngine.policy.routing.targets maps trusted route classes to
-    # entries in this list. A target without classPrefix matches its name
-    # exactly; classPrefix performs an ordered prefix match. Remote targets are
-    # always additionally gated by x-remote-allowed=true.
+    # Client models replace matching catalog entries. Set piiEnabled and
+    # contentTracingEnabled explicitly; tracing may retain request content.
+    # Local and rerouted models require llamacpp.enabled. Attachment modes must
+    # match the selected policy version and deployed extProc. No attachment mode
+    # means block; passthrough requires PII disabled. Typed policies use
+    # attachments.documents and attachments.images. Helm replaces the whole list.
     models: []
 
-# Optional client-owned OpenRouter catalog. Base release values keep this empty
-# and disabled; a client may supply selected models through its later values layer.
+# The client supplies the reviewed OpenRouter catalog.
 openrouterCatalog:
   enabled: false
   excludedModels: []
   grantToAccessGroups: false
-  # Rows may set attachmentMode, imageForwarding, faceProtectionEnabled, nested
-  # v4 attachments, and v3/v4 supportsImages using the version-gated contract above.
-  # No mode is inserted by default. Derived rows keep piiEnabled: true, so
-  # passthrough requires a same-name direct model replacement with PII disabled;
-  # catalog rows cannot override piiEnabled. Replacement does not inherit modes.
+  # Catalog rows keep PII enabled; passthrough requires a client model override.
   models: []
 
 # ── Subchart values (agentgateway Helm chart) ────────────────────────────────
 # Top-level keys here become .Values.* INSIDE the subchart.
 agentgateway:
-  # Enable the experimental AgentgatewayModel API (model-centric LLM serving).
-  # Sets AGW_ENABLE_AGENTGATEWAY_MODELS on the control plane. Required for the
-  # models rendered by templates/agentgateway-models.yaml to be served.
-  # The internal Gateway listener must also allow the AgentgatewayModel route
-  # kind (see templates/gateway-internal.yaml).
+  # Enable model-centric serving for the rendered AgentgatewayModels.
   agentgatewayModels:
     enabled: true
 

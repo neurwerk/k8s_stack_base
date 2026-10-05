@@ -1,15 +1,3 @@
-# IMAGE SOURCE: neurwerk
-# The theme image extends upstream Keycloak without selecting a realm theme.
-# Pinned here (chart defaults).
-# =============================================================================
-# charts/keycloak/server/values.yaml — default values
-#
-# These defaults are overridden by:
-#   - ConfigMap: base-shared-hostnames-config-map (releases/shared/hostnames.yaml)
-#   - ConfigMap: base-shared-resources-config-map (releases/shared/resources.yaml)
-#   - Secret: auth-keycloak-secrets
-# =============================================================================
-
 authKeycloak:
   keycloakImage: ghcr.io/neurwerk/k8s-stack-keycloak-theme:0.1.2@sha256:ebadb5dd16baf2b516747cd9308bca0ea2fd215917e90d4dd2805b02acc311b9
   # hostname: "" => set in client_*/config/client.yaml
@@ -46,7 +34,6 @@ authKeycloak:
     # When enabled, select exactly one non-empty list. Legacy same-name groups:
     groupNames: []
     # Example: {sourceName: AD_Group, targetParent: /access/neurwerk-studio-users}.
-    # Mappings or plaintext require published Tooling >=0.7.0.
     groupMappings: []
     emailVerified: true
     # Required only for LDAPS; never used for plaintext LDAP.
@@ -88,7 +75,6 @@ externalGateway:
 publicCertificates:
   useProduction: false
 
-# k8sTools — init script image version
 k8sTools:
   image: ghcr.io/neurwerk/k8s-stack-tooling:0.7.2@sha256:bfc4d5e1d3e7009c23be9759ee91ef91e5befc8b42af7f743d13449b2b4973b6
 

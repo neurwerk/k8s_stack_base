@@ -14,8 +14,6 @@ frontendLibrechat:
     replicas: 1
 
     image:
-      # v1.0.0 is published by the upstream release workflow for linux/amd64
-      # and linux/arm64. Do not replace this version-specific tag with latest.
       repository: ghcr.io/clickhouse/librechat-admin-panel
       tag: "1.0.0"
       pullPolicy: IfNotPresent
