@@ -78,8 +78,7 @@ class KeycloakStandardAccessTests(unittest.TestCase):
             "realmRoleComposites": {"forgejo-admin": ["forgejo-user"]},
             "accessGroups": {"/access/neurwerk-forgejo-admins": {"realmRoles": ["forgejo-admin"]}},
         }
-        values = {"addonAccess": addon, "authKeycloak": {"realm": "example"},
-                  "k8sTools": {"image": "example.invalid/verified-tooling:reviewed"}}
+        values = {"addonAccess": addon, "authKeycloak": {"realm": "example"}}
         result = render("keycloak/addon-access", values, value_files=())
         job = resource(result, "Job", "auth-keycloak-forgejo-access-job")
         pod_labels = job["spec"]["template"]["metadata"]["labels"]
@@ -105,6 +104,11 @@ class KeycloakStandardAccessTests(unittest.TestCase):
         })
         groups = json.loads(env_value(result, "KC_ACCESS_GROUPS"))
         self.assertEqual(groups, addon["accessGroups"])
+        older_image = render("keycloak/addon-access", {
+            **values, "k8sTools": {"image": "ghcr.io/neurwerk/k8s-stack-tooling:0.7.2"},
+        }, check=False, value_files=())
+        self.assertNotEqual(older_image.returncode, 0)
+        self.assertIn("verified ownership-capable k8sTools.image pin", older_image.stderr)
         disabled = render("keycloak/addon-access", {**values, "addonAccess": {
             **addon, "platformAdminGrant": False,
         }}, value_files=())

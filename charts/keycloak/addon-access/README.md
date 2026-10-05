@@ -40,8 +40,9 @@ grants; reconcile with `platformAdminGrant: false` first and review cleanup.
 No AgentGateway client roles or model/MCP grants are provided by this chart.
 
 The addon HelmRelease needs namespace-local `auth-keycloak-secret` (the existing
-Base runtime Secret), realm and admin username values, and a **published and
-verified** Tooling image supporting `KC_REALM_ROLE_COMPOSITE_OWNERSHIP`.
+Base runtime Secret), realm and admin username values. When enabled, the chart
+requires the exact verified Tooling `0.7.3` tag and digest shown above; image
+overrides to older or unverified builds fail rendering.
 Base's realm-role Job must also run that image and publish an ownership scope
 covering its core `platform-admin` children. An older image silently ignores
 the scope and removes foreign addon grants. Coordinate migration of the previous
