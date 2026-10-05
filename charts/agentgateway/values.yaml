@@ -1,6 +1,3 @@
-# ── Wrapper chart own values ─────────────────────────────────────────────────
-# Used ONLY by our custom templates (gateway, http-route, policy, secret).
-# Nothing here is passed to the agentgateway subchart.
 infraAgentgatewayWrapper:
   hostname: ""                        # set in client_*/config/client.yaml
 
@@ -42,25 +39,11 @@ infraAgentgatewayWrapper:
 
         gen_ai.usage.cost: 'has(llm.cost) ? double(llm.cost.total) : 0.0'
 
-        # ── Requested (virtual) model name ──
-        # With model-centric serving, clients select a user-facing model name
-        # (e.g. "remote/deepseek/v4-pro") that a virtual model rewrites to the concrete
-        # provider model before the request leaves the gateway. gen_ai.request.model
-        # therefore carries the CONCRETE model (correct for cost catalog lookup),
-        # while the client-facing name lives in transformation metadata under
-        # agentgateway_user_model. Surface it in Langfuse for per-model attribution.
-        # AgentGateway records this caller-selected public ID before concrete or
-        # virtual resolution, so rerouting does not change the tracing policy owner.
+        # Keep the caller-selected model ID for attribution across reroutes.
         langfuse.observation.metadata.requested_model: 'has(metadata.agentgateway_user_model) ? metadata.agentgateway_user_model : ""'
 
-        # ── MCP audit fields ───────────────────────────────────────────────
-        # MCP tool arguments and results default to retained compatibility
-        # behavior. The template replaces the content expressions with the
-        # reviewed per-server contentTracingEnabled map. A CEL null omits the
-        # attribute; upstream authentication headers are never trace attributes.
+        # MCP content is gated by the per-server tracing policy.
         langfuse.observation.metadata.mcp.operation: 'has(mcp.methodName) ? mcp.methodName : ""'
-        # The chart renders each MCP backend target name from the canonical server
-        # ID without normalization; mcp.tool.target is that resolved target name.
         langfuse.observation.metadata.mcp.server: 'has(mcp.tool.target) ? mcp.tool.target : ""'
         langfuse.observation.metadata.mcp.tool: 'has(mcp.tool.name) ? mcp.tool.name : ""'
         langfuse.observation.metadata.mcp.session_id: 'has(mcp.sessionId) ? mcp.sessionId : ""'

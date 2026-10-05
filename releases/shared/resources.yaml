@@ -1,6 +1,3 @@
-# Platform sizing defaults. Client sizing belongs in client values.
-
-# ── agentgateway (subchart) ─────────────────────────────────────────────────
 agentgateway:
   controller:
     replicaCount: 1
@@ -20,7 +17,6 @@ agentgateway:
         cpu: 500m
         memory: 256Mi
 
-# ── auth-keycloak-api-key-bridge ───────────────────────────────────────────
 authKeycloakApiKeyBridge:
   resources:
     requests:
@@ -30,7 +26,6 @@ authKeycloakApiKeyBridge:
       cpu: 300m
       memory: 256Mi
 
-# ── frontend-librechat components ───────────────────────────────────────────
 frontendLibrechat:
   oidc:
     startupGate:
@@ -87,7 +82,6 @@ frontendLibrechat:
         cpu: 200m
         memory: 128Mi
 
-# ── auth-keycloak ──────────────────────────────────────────────────────────
 authKeycloak:
   keycloak:
     resources:
@@ -98,7 +92,6 @@ authKeycloak:
         cpu: 2000m
         memory: 2Gi
 
-# ── monitor-langfuse (subchart) ────────────────────────────────────────────
 monitorLangfuseWrapper:
   otelCollector:
     resources:
@@ -147,7 +140,6 @@ langfuse:
         cpu: 200m
         memory: 128Mi
 
-# ── frontend-studio-studio ─────────────────────────────────────────────────────
 frontendStudio:
   studio:
     replicas: 1
@@ -159,7 +151,6 @@ frontendStudio:
         cpu: 200m
         memory: 128Mi
 
-  # ── frontend-studio-api ────────────────────────────────────────────────────────
   api:
     replicas: 1
     resources:
@@ -170,7 +161,6 @@ frontendStudio:
         cpu: 500m
         memory: 256Mi
 
-# ── monitor-pii-engine ───────────────────────────────────────────────────────
 monitorPiiEngine:
   replicas: 1
   resources:
@@ -182,7 +172,6 @@ monitorPiiEngine:
       memory: 12Gi
   modelCacheSize: 12Gi
 
-# ── monitor-kube-prometheus-stack ─────────────────────────────────────────────
 kube-prometheus-stack:
   prometheus:
     prometheusSpec:
@@ -244,7 +233,6 @@ kube-prometheus-stack:
         cpu: 200m
         memory: 128Mi
 
-# ── frontend-dify components ──────────────────────────────────────────────
 frontendDify:
   api:
     replicas: 1

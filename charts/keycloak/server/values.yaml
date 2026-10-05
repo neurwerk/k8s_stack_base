@@ -1,8 +1,7 @@
 authKeycloak:
   keycloakImage: ghcr.io/neurwerk/k8s-stack-keycloak-theme:0.1.2@sha256:ebadb5dd16baf2b516747cd9308bca0ea2fd215917e90d4dd2805b02acc311b9
-  # hostname: "" => set in client_*/config/client.yaml
   adminUser: admin
-  realm: ""  # required from client_*/config/client.yaml
+  realm: ""
   # REQUIRED: set per client through keycloak-product-values
   realmDisplayName: ""
   # Empty theme selections are omitted, not cleared on an existing realm.
@@ -44,11 +43,6 @@ authKeycloak:
   adminActionTokenLifespan: 1800
   librechatClientId: librechat
   agentgatewayClientId: agentgateway
-  # librechatRedirectUri: "" => set in client_*/config/client.yaml
-  # librechatWebOrigin: "" => set in client_*/config/client.yaml
-  # agentgatewayRedirectUri: "" => set in client_*/config/client.yaml
-  # agentgatewayWebOrigin: "" => set in client_*/config/client.yaml
-
   database:
     host: postgres-auth.infra-postgres-auth.svc.cluster.local
     port: 5432
