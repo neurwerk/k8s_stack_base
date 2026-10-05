@@ -66,7 +66,6 @@ spec:
             adminPassword: {{ .adminPassword | quote }}
             agentgatewayPassword: {{ .agentgatewayPassword | quote }}
             documentdbPassword: {{ .documentdbPassword | quote }}
-            difyPassword: {{ .difyPassword | quote }}
             langfusePassword: {{ .langfusePassword | quote }}
             librechatRagPassword: {{ .librechatRagPassword | quote }}
   data:
@@ -82,10 +81,6 @@ spec:
       remoteRef:
         key: infra-postgres-operations/internal
         property: agentgatewayPassword
-    - secretKey: difyPassword
-      remoteRef:
-        key: infra-postgres-operations/internal
-        property: difyPassword
     - secretKey: langfusePassword
       remoteRef:
         key: infra-postgres-operations/internal

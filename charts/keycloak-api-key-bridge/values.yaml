@@ -15,17 +15,6 @@
 authKeycloak:
   hostname: ""
   realm: ""
-  agentgatewayClientRoles: []
-  difyAgentgatewayClientId: dify-agentgateway
-  difyAgentgatewayClientRoles: []
-
-# Platform-owned OpenRouter entries derive the complete role set used for Dify
-# managed-key subset validation. Client roles remain explicit for other models.
-openrouterCatalog:
-  enabled: true
-  excludedModels: []
-  grantToAccessGroups: false
-  models: []
 
 # ── Chart own values ────────────────────────────────────────────────────────
 authKeycloakApiKeyBridge:

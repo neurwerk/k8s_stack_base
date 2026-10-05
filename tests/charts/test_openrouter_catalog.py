@@ -259,35 +259,6 @@ class AgentGatewayCatalogTests(unittest.TestCase):
 
 
 class AuthorizationCatalogTests(unittest.TestCase):
-    def test_dify_default_model_requires_client_context_size(self) -> None:
-        permission = "model:remote/openrouter/acme/model:invoke"
-        values = {
-            "authKeycloak": {
-                "difyAgentgatewayClientRoles": ["llm:invoke", permission],
-            },
-            "frontendDify": {
-                "defaultModel": {"name": "remote/openrouter/acme/model"},
-            },
-        }
-
-        for context_size in (None, ""):
-            if context_size is not None:
-                values["frontendDify"]["defaultModel"]["contextSize"] = context_size
-            failed = render("dify/api", values, check=False)
-            self.assertNotEqual(failed.returncode, 0)
-            self.assertIn(
-                "frontendDify.defaultModel.contextSize is required",
-                failed.stderr,
-            )
-
-        values["frontendDify"]["defaultModel"]["contextSize"] = "32768"
-        rendered = render("dify/api", values)
-        providers = json.loads(env_value(rendered, "MODEL_PROVIDER_CREDENTIALS"))
-        self.assertEqual(
-            providers["openai_api_compatible"]["credentials"]["context_size"],
-            "32768",
-        )
-
     def test_oidc_roles_are_derived_and_legacy_roles_are_deduplicated(self) -> None:
         values = {
             "openrouterCatalog": catalog(),
@@ -325,44 +296,6 @@ class AuthorizationCatalogTests(unittest.TestCase):
         self.assertNotEqual(failed.returncode, 0)
         self.assertIn("grants undeclared role", failed.stderr)
 
-    def test_dify_and_bridge_validate_against_effective_roles(self) -> None:
-        permission = "model:remote/openrouter/acme/model:invoke"
-        values = {
-            "openrouterCatalog": catalog(),
-            "authKeycloak": {
-                "agentgatewayClientRoles": ["llm:invoke"],
-                "difyAgentgatewayClientRoles": ["llm:invoke", permission],
-            },
-            "frontendDify": {
-                "defaultModel": {
-                    "name": "remote/openrouter/acme/model",
-                    "contextSize": "65536",
-                }
-            },
-        }
-        dify = render("dify/api", values)
-        providers = json.loads(env_value(dify, "MODEL_PROVIDER_CREDENTIALS"))
-        self.assertEqual(
-            providers["openai_api_compatible"]["model"], "remote/openrouter/acme/model"
-        )
-        render("keycloak/oidc/dify-agentgateway", values)
-        bridge = render("keycloak-api-key-bridge", values)
-        self.assertIn(
-            permission,
-            json.loads(resource(bridge, "ConfigMap")["data"]["primary.json"])["permissions"],
-        )
-
-        for selection in ({"excludedModels": ["acme/model"]}, {"enabled": False}):
-            values["openrouterCatalog"] = {**catalog(), **selection}
-            for chart in ("keycloak/oidc/dify-agentgateway", "keycloak-api-key-bridge"):
-                with (
-                    self.subTest(chart=chart, selection=selection),
-                    self.assertRaisesRegex(
-                        AssertionError,
-                        "absent from authKeycloak.agentgatewayClientRoles",
-                    ),
-                ):
-                    render(chart, values)
 
     def test_access_group_environment_boundary(self) -> None:
         def boundary_values(over_limit: bool) -> tuple[dict, int]:
@@ -496,7 +429,6 @@ class CatalogOwnershipTests(unittest.TestCase):
         for path, product in (
             ("agentgateway/app.yaml", "agentgateway"),
             ("keycloak/oidc-agentgateway.yaml", "keycloak"),
-            ("keycloak/oidc-dify-agentgateway.yaml", "keycloak"),
             ("keycloak/realm-roles.yaml", "keycloak"),
             ("keycloak-api-key-bridge/app.yaml", "keycloak-api-key-bridge"),
             ("librechat/core/shared.yaml", "librechat"),

@@ -31,24 +31,6 @@ spec:
           podSelector:
             matchLabels:
               app.kubernetes.io/name: frontend-librechat
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: frontend-dify
-          podSelector:
-            matchLabels:
-              app.kubernetes.io/name: api
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: frontend-dify
-          podSelector:
-            matchLabels:
-              app.kubernetes.io/name: worker
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: frontend-dify
-          podSelector:
-            matchLabels:
-              app.kubernetes.io/name: plugin-daemon
       ports:
         - port: {{ .Values.infraAgentgatewayWrapper.ports.service.http }}
           protocol: TCP

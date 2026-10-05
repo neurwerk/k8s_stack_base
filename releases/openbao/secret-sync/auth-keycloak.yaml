@@ -99,14 +99,6 @@ spec:
         labels:
           reconcile.fluxcd.io/watch: Enabled
   data:
-    - secretKey: difyOidcClientSecret
-      remoteRef:
-        key: auth-keycloak/internal
-        property: difyOidcClientSecret
-    - secretKey: difyAgentgatewayClientSecret
-      remoteRef:
-        key: auth-keycloak/internal
-        property: difyAgentgatewayClientSecret
     - secretKey: bridgeOidcClientSecret
       remoteRef:
         key: auth-keycloak/internal

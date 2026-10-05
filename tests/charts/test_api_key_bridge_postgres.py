@@ -39,7 +39,7 @@ class BridgePostgresTests(unittest.TestCase):
             {e["name"]: e for e in init["env"]},
             {e["name"]: e for e in pod["containers"][0]["env"] if e["name"].startswith("KEYCLOAK_API_KEY_BRIDGE_POSTGRES_")},
         )
-        self.assertNotIn("data", [volume["name"] for volume in pod["volumes"]])
+        self.assertNotIn("data", [volume["name"] for volume in pod.get("volumes", [])])
         env = {item["name"]: item for item in pod["containers"][0]["env"]}
         self.assertNotIn("KEYCLOAK_API_KEY_BRIDGE_DATABASE_URL", env)
         self.assertEqual(env["KEYCLOAK_API_KEY_BRIDGE_POSTGRES_PASSWORD"]["valueFrom"]["secretKeyRef"],
