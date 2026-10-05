@@ -59,6 +59,7 @@ spec:
     metadata:
       labels:
         app: {{ printf "auth-keycloak-%s-access-job" $name | quote }}
+        app.kubernetes.io/component: configuration
     spec:
       automountServiceAccountToken: false
       restartPolicy: OnFailure

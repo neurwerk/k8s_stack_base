@@ -6,7 +6,7 @@ import json
 import unittest
 
 from catalog import catalog
-from helm import env_value, render
+from helm import env_value, render, resource
 
 CHART = "keycloak/realm-config/realm-roles"
 LLM = "/access/neurwerk-llm-all-users"
@@ -82,6 +82,21 @@ class KeycloakStandardAccessTests(unittest.TestCase):
         values = {"addonAccess": addon, "authKeycloak": {"realm": "example"},
                   "k8sTools": {"image": "example.invalid/verified-tooling:reviewed"}}
         result = render("keycloak/addon-access", values, value_files=())
+        job = resource(result, "Job", "auth-keycloak-forgejo-access-job")
+        pod_labels = job["spec"]["template"]["metadata"]["labels"]
+        egress = resource(result, "NetworkPolicy", "auth-keycloak-forgejo-access-egress")
+        ingress = resource(render("keycloak/server", namespace="auth-keycloak"),
+                           "NetworkPolicy", "auth-keycloak-keycloak-ingress")
+        self.assertEqual(egress["spec"]["podSelector"]["matchLabels"], {"app": pod_labels["app"]})
+        self.assertEqual(egress["metadata"]["namespace"], "auth-keycloak")
+        self.assertEqual(ingress["metadata"]["namespace"], "auth-keycloak")
+        self.assertEqual(ingress["spec"]["podSelector"]["matchLabels"],
+                         egress["spec"]["egress"][1]["to"][0]["podSelector"]["matchLabels"])
+        self.assertEqual(pod_labels["app.kubernetes.io/component"], "configuration")
+        self.assertEqual(ingress["spec"]["ingress"][1]["from"][0]["podSelector"]["matchLabels"],
+                         {"app.kubernetes.io/component": pod_labels["app.kubernetes.io/component"]})
+        self.assertEqual(egress["spec"]["egress"][1]["ports"],
+                         ingress["spec"]["ingress"][1]["ports"])
         composites = json.loads(env_value(result, "KC_REALM_ROLE_COMPOSITES"))
         self.assertEqual(composites, {"forgejo-admin": ["forgejo-user"],
                                       "platform-admin": ["forgejo-admin"]})
