@@ -26,13 +26,28 @@ network-policy admission on operations PostgreSQL Pod port `9712` (Service port
 namespace. Do not select a product until its secret delivery, network rules,
 ordering and consumer are reviewed together.
 
-Names cannot collide with existing roles or databases. Existing objects are
-accepted only with this release's ownership marker, matching database owner,
-and no elevated role privileges or memberships. The Job revokes PUBLIC database
-access and verifies that the new role cannot reach other databases and that
-other non-superuser login roles cannot reach its databases. Optional `vector`
-creates and checks the extension in the requested databases. Changing the
-database list or removing the release never drops databases, roles or passwords;
-coordinate any retirement or rotation with an operator. All databases share the
-operations instance's backup and recovery point. This chart does not replace
-the existing single-slot add-on provisioning in older Base releases.
+Names cannot collide with existing roles or databases. Existing objects require
+this release's ownership marker, matching database owner, and no elevated role
+privileges or memberships. For the one supported legacy pair, set
+`addon.adoptExisting: true` with role `forgejo` and exactly one database named
+`forgejo`, without `vector`. Before enabling adoption, the operator must verify
+that the former provisioner no longer selects this database, the backup covers
+the shared operations instance, and the product's password Secret matches its
+current credential. The Job checks the existing login, database ownership, sole
+database owned by the role, legacy database marker, role attributes, memberships,
+and isolation before taking ownership. It refuses an incomplete or unexpected
+pair; it never drops or recreates either object. This cannot independently prove
+the old provisioner is disabled, so do not select the add-on until the operator
+confirms that prerequisite. Reconciliation of an already adopted pair requires
+matching markers for the same release. Adoption does not change the password or
+database grants. Once the ownership markers are in place, set
+`addon.adoptExisting: false` for normal password reconciliation; keep the same
+role, database and release name.
+
+The Job revokes PUBLIC database access and verifies that the add-on role cannot
+reach other databases and that other non-superuser login roles cannot reach its
+databases. Optional `vector` creates and checks the extension in the requested
+databases. Changing the database list or removing the release never drops
+databases, roles or passwords; coordinate any retirement or rotation with an
+operator. All databases share the operations instance's backup and recovery
+point.

@@ -4,6 +4,7 @@ addon:
   role: ""
   databases: [] # [{name: example, vector: false}]; at least one is required.
   passwordSecret: "" # Namespace-local Secret with key "password"; never a Helm value.
+  adoptExisting: false # Only the verified legacy Forgejo role/database pair; requires operator review.
   postgresHost: postgres-operations.infra-postgres-operations.svc.cluster.local
   postgresPort: 5432
   image: ghcr.io/documentdb/documentdb/documentdb-local:pg18-0.116.0
