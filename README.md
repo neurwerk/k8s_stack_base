@@ -28,4 +28,4 @@ Report vulnerabilities privately by following the instructions in [SECURITY.md](
 
 Project-owned content is licensed under the [MIT License](LICENSE). Third-party content retains its upstream license.
 
-See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for provenance and licensing information for vendored charts. 
+See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for provenance and licensing information for vendored charts.
