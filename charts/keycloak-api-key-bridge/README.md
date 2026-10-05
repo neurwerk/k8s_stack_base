@@ -8,9 +8,8 @@ database URL and its PVC are no longer chart modes. Legacy client values for
 them fail chart rendering; an existing PVC must be retained and handled
 separately if it contains keys. No SQLite import is performed.
 
-Base no longer creates managed-key grants or mounts Dify verifier files. This
-image still runs without managed registrations; add-on-owned registrations need
-a compatible image and the separate bridge chart change before adoption.
+The bridge runs without managed-key registrations. This chart creates no
+managed-key grants or verifier mounts.
 
 Operations provisioning requires the `api_key_bridge` role and database and
 reads its own namespace-local `api-key-bridge-postgres-values` Secret. It
