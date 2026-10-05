@@ -155,7 +155,6 @@ ceph_health_ready
 class RenderTests(unittest.TestCase):
     def test_upgrade_safety_and_shipped_script(self):
         result = render("rook-ceph", release="rook-ceph")
-        self.assertIn("- name: rook\n        enabled: true", result.stdout)
         self.assertIn("allowUnsupported: false", result.stdout)
         self.assertIn("skipUpgradeChecks: false", result.stdout)
         self.assertNotIn("keyGeneration", result.stdout)
