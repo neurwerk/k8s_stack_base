@@ -23,6 +23,12 @@ spec:
     - releases/infrastructure
     - releases/applications
     optional:
+    - path: releases/keycloak/active-directory
+      status: included
+      reason: Optional Active Directory federation stage; select explicitly after Keycloak realm roles
+        and any mapped addon access release is Ready. Existing clients need reviewed stage adoption.
+      chartPrefixes:
+      - charts/keycloak/realm-config/active-directory
     - path: releases/docling/image-inspection-secret-sync
       status: included
       reason: Optional private image-reader credential delivery; provision the runtime and API key before
@@ -511,7 +517,7 @@ spec:
       namespace: monitor-fluent-bit
       name: fluent-bit-shared
       chart: ./charts/fluent-bit/shared
-    - path: releases/keycloak/active-directory.yaml
+    - path: releases/keycloak/active-directory/active-directory.yaml
       namespace: auth-keycloak
       name: keycloak-active-directory
       chart: ./charts/keycloak/realm-config/active-directory

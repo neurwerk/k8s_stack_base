@@ -64,7 +64,13 @@ authKeycloak:
 This is an allowlist, not proof that the group exists. The client must select the
 addon, verify the approved paths match its access release, and order that
 release **Ready before** the Active Directory mapping Job reconciles (including
-upgrades). Use client-owned Flux stages/readiness and avoid a dependency cycle;
-Base cannot depend unconditionally on an optional HelmRelease. Keep the list
-empty until that ordering is in place. Removing an addon also requires removing
-its AD mappings and allowlist, then reviewing existing access before cleanup.
+upgrades). Base exposes `releases/keycloak/active-directory` as a separate
+optional Flux stage; it is no longer in `releases/applications`. Order Base
+Keycloak/realm roles Ready -> selected addon access Ready -> Active Directory
+Ready with client-owned Flux dependencies and readiness. Without addon mappings,
+order the AD stage after Keycloak/realm roles. Avoid a dependency cycle; Base
+cannot depend unconditionally on an optional HelmRelease. Keep the list empty
+until that ordering is in place. Existing AD clients need a reviewed ownership
+handoff from `applications` to the optional stage; it is not automatic. Removing
+an addon also requires removing its AD mappings and allowlist, then reviewing
+existing access before cleanup.
