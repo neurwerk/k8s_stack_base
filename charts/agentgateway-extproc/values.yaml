@@ -68,6 +68,24 @@ monitorAgentgatewayExtproc:
     cidrs: []
     port: 443
 
+  # Reviewed non-content extensions; requires a segment-contract-capable image.
+  # Rules are validated by the shared inspection package at runtime startup.
+  compatibility:
+    controls: []
+
+  # Optional short-lived rejection diagnostics; requires a capture-capable image.
+  # No capture environment or writable volume is added while disabled.
+  rejectionCapture:
+    enabled: false
+    # Maximum bytes per capture and across captures in each pod (positive integers).
+    # The dedicated emptyDir allows maxTotalBytes plus 1 MiB filesystem overhead.
+    maxFileBytes: 6291456
+    maxTotalBytes: 31457280
+    # Maximum retained files and their lifetime in seconds (positive integers).
+    maxFiles: 20
+    retentionSeconds: 3600
+    # Runtime creates its private child at /var/run/extproc-diagnostics/captures.
+
   # Text-only limits. Docling derives 64 MiB requests and a 68222976-byte gRPC
   # envelope instead, even if an existing client still supplies these values.
   maxRequestBytes: "5242880"
