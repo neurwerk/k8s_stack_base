@@ -19,8 +19,9 @@ spec:
     count: 1
     allowMultiplePerNode: true
     modules:
+      # Ceph 20.2.2's Rook module retains large pod-list responses in mgr memory.
       - name: rook
-        enabled: true
+        enabled: false
   dashboard:
     enabled: false
   crashCollector:
