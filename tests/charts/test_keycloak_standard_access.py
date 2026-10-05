@@ -40,7 +40,7 @@ class KeycloakStandardAccessTests(unittest.TestCase):
         self.assertEqual(json.loads(env_value(rendered, "KC_REALM_ROLE_COMPOSITE_OWNERSHIP")), {
             "platform-admin": [
                 "keycloak-admin", "api-key-admin", "opensearch-admin", "langfuse-admin",
-                "pii-admin", "studio-user", "librechat-admin", "dify-admin",
+                "pii-admin", "studio-user", "librechat-admin",
             ],
         })
         self.assertEqual(env_value(rendered, "KC_PARENT_ROLE"), "keycloak-admin")
