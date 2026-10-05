@@ -31,6 +31,51 @@ BRAND = {"enabled": True, "logoConfigMapName": "keycloak-branding-logo"}
 
 
 class KeycloakDirectoryTests(unittest.TestCase):
+    def test_selected_addon_parents_require_exact_client_approval(self):
+        addon_path = "/access/neurwerk-forgejo-users"
+        other_path = "/access/neurwerk-widget-admins"
+        mappings = [
+            {**MAPPING, "sourceName": "ForgejoUsers", "targetParent": addon_path},
+            {**MAPPING, "sourceName": "WidgetAdmins", "targetParent": other_path},
+        ]
+        for chart in ("server", "realm-config/active-directory"):
+            path = f"keycloak/{chart}"
+            selected = {"forgejo": [addon_path], "widget": [other_path]}
+            auth = {
+                "activeDirectory": {**MAPPED, "groupMappings": mappings, "addonTargets": selected}
+            }
+            with self.subTest(chart=chart):
+                render(path, {"authKeycloak": auth})
+                for approved, error in (
+                    ({}, "canonical /access/"),
+                    ({"forgejo": [addon_path]}, "canonical /access/"),
+                    ({"widget": [addon_path]}, "must belong to their product"),
+                    ({"forgejo": [addon_path, addon_path]}, "duplicate group path"),
+                    ({"studio": ["/access/neurwerk-studio-users"]}, "cannot approve a core"),
+                    ({"bad-key": [addon_path]}, "product keys"),
+                    ({"forgejo": []}, "non-empty lists"),
+                    ({"forgejo": [addon_path + "/child"]}, "must belong"),
+                ):
+                    with self.subTest(approved=approved), self.assertRaisesRegex(
+                        AssertionError, error
+                    ):
+                        render(
+                            path,
+                            {
+                                "authKeycloak": {
+                                    "activeDirectory": {
+                                        **MAPPED,
+                                        "groupMappings": mappings,
+                                        "addonTargets": approved,
+                                    }
+                                }
+                            },
+                        )
+                with self.assertRaisesRegex(AssertionError, "addonApplicationAccess is retired"):
+                    render(
+                        path, {"authKeycloak": auth, "addonApplicationAccess": {"accessGroups": {}}}
+                    )
+
     def test_transport_and_job_inputs(self):
         for settings in (
             {**AD, "enabled": False},

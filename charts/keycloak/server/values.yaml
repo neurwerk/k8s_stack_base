@@ -34,6 +34,9 @@ authKeycloak:
     groupNames: []
     # Example: {sourceName: AD_Group, targetParent: /access/neurwerk-studio-users}.
     groupMappings: []
+    # Client-approved exact parents for selected addon access releases only.
+    # Example: forgejo: [/access/neurwerk-forgejo-users]. Order addon access Ready before AD.
+    addonTargets: {}
     emailVerified: true
     # Required only for LDAPS; never used for plaintext LDAP.
     caConfigMapName: auth-keycloak-active-directory-ca

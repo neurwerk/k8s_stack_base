@@ -1,4 +1,36 @@
 {{- $ad := .Values.authKeycloak.activeDirectory -}}
+{{- if hasKey .Values "addonApplicationAccess" -}}
+  {{- fail "addonApplicationAccess is retired; declare approved Active Directory addon targets under authKeycloak.activeDirectory.addonTargets" -}}
+{{- end -}}
+{{- $addonTargets := $ad.addonTargets -}}
+{{- if not (kindIs "map" $addonTargets) -}}
+  {{- fail "authKeycloak.activeDirectory.addonTargets must be a map keyed by product" -}}
+{{- end -}}
+{{- $approvedTargets := dict -}}
+{{- $coreTargets := list "api-key-admins" "keycloak-admins" "langfuse-admins" "librechat-admins" "librechat-users" "opensearch-admins" "pii-admins" "platform-admins" "studio-users" "llm-all-users" "mcp-all-users" -}}
+{{- range $product, $paths := $addonTargets -}}
+  {{- if not (regexMatch "^[a-z0-9]+$" $product) -}}
+    {{- fail "authKeycloak.activeDirectory.addonTargets product keys must contain lowercase letters and digits only" -}}
+  {{- end -}}
+  {{- if or (not (kindIs "slice" $paths)) (empty $paths) -}}
+    {{- fail "authKeycloak.activeDirectory.addonTargets entries must be non-empty lists of exact group paths" -}}
+  {{- end -}}
+  {{- range $path := $paths -}}
+    {{- if not (kindIs "string" $path) -}}
+      {{- fail "authKeycloak.activeDirectory.addonTargets entries must be group path strings" -}}
+    {{- end -}}
+    {{- if not (regexMatch (printf "^/access/neurwerk-%s-[a-z0-9]+(-[a-z0-9]+)*$" $product) $path) -}}
+      {{- fail "authKeycloak.activeDirectory.addonTargets paths must belong to their product under /access/neurwerk-" -}}
+    {{- end -}}
+    {{- if has (trimPrefix "/access/neurwerk-" $path) $coreTargets -}}
+      {{- fail "authKeycloak.activeDirectory.addonTargets cannot approve a core group path" -}}
+    {{- end -}}
+    {{- if hasKey $approvedTargets $path -}}
+      {{- fail "authKeycloak.activeDirectory.addonTargets contains a duplicate group path" -}}
+    {{- end -}}
+    {{- $_ := set $approvedTargets $path true -}}
+  {{- end -}}
+{{- end -}}
 {{- if not (kindIs "bool" $ad.enabled) -}}
   {{- fail "authKeycloak.activeDirectory.enabled must be a boolean" -}}
 {{- end -}}
@@ -58,14 +90,7 @@
     {{- end -}}
     {{- $_ := set $seenGroups $groupName true -}}
   {{- end -}}
-  {{- $targets := list "api-key-admins" "keycloak-admins" "langfuse-admins" "librechat-admins" "librechat-users" "opensearch-admins" "pii-admins" "platform-admins" "studio-users" "llm-all-users" "mcp-all-users" -}}
-  {{- $addonAccess := .Values.addonApplicationAccess | default dict -}}
-  {{- range $name, $_ := $addonAccess.accessGroups | default dict -}}
-    {{- if not (regexMatch `^/access/neurwerk-[a-z0-9-]+$` $name) -}}
-      {{- fail "addonApplicationAccess contains an invalid access group" -}}
-    {{- end -}}
-    {{- $targets = append $targets (trimPrefix "/access/neurwerk-" $name) -}}
-  {{- end -}}
+  {{- $targets := $coreTargets -}}
   {{- $seenTargets := dict -}}
   {{- range $mapping := $ad.groupMappings -}}
     {{- if not (kindIs "map" $mapping) -}}
@@ -90,7 +115,7 @@
     {{- if not (kindIs "string" $target) -}}
       {{- fail "authKeycloak.activeDirectory.groupMappings targetParent must be a canonical /access/neurwerk- group path" -}}
     {{- end -}}
-    {{- if or (not (hasPrefix "/access/neurwerk-" $target)) (not (has (trimPrefix "/access/neurwerk-" $target) $targets)) -}}
+    {{- if and (not (hasKey $approvedTargets $target)) (or (not (hasPrefix "/access/neurwerk-" $target)) (not (has (trimPrefix "/access/neurwerk-" $target) $targets))) -}}
       {{- fail "authKeycloak.activeDirectory.groupMappings targetParent must be a canonical /access/neurwerk- group path" -}}
     {{- end -}}
     {{- if hasKey $seenTargets $target -}}

@@ -49,3 +49,22 @@ the scope and removes foreign addon grants. Coordinate migration of the previous
 single addon-application-access-values source before selecting an addon. The
 addon must own the HelmRelease, values, and reconciliation ordering; this chart
 creates no HelmRelease and changes no client source or selected platform tag.
+
+For Active Directory mappings to an addon group, the client must explicitly
+approve each exact parent path in `authKeycloak.activeDirectory.addonTargets`
+in `keycloak-product-values`, keyed by product name. For example:
+
+```yaml
+authKeycloak:
+  activeDirectory:
+    addonTargets:
+      forgejo: [/access/neurwerk-forgejo-users]
+```
+
+This is an allowlist, not proof that the group exists. The client must select the
+addon, verify the approved paths match its access release, and order that
+release **Ready before** the Active Directory mapping Job reconciles (including
+upgrades). Use client-owned Flux stages/readiness and avoid a dependency cycle;
+Base cannot depend unconditionally on an optional HelmRelease. Keep the list
+empty until that ordering is in place. Removing an addon also requires removing
+its AD mappings and allowlist, then reviewing existing access before cleanup.
