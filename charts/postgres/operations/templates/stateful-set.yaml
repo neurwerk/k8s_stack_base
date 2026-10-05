@@ -70,6 +70,8 @@ spec:
               value: /data/postgresql
             - name: POSTGRESQL_PORT
               value: {{ .Values.postgresOperations.containerPorts.postgresql | quote }}
+            - name: pgctlPath
+              value: /opt/neurwerk/pg-ctl.sh
             - name: DOCUMENTDB_PORT
               value: {{ .Values.postgresOperations.containerPorts.documentdb | quote }}
             - name: ALLOW_EXTERNAL_CONNECTIONS
@@ -97,6 +99,10 @@ spec:
             - name: bootstrap
               mountPath: /opt/neurwerk/bootstrap-admin.sh
               subPath: bootstrap-admin.sh
+              readOnly: true
+            - name: bootstrap
+              mountPath: /opt/neurwerk/pg-ctl.sh
+              subPath: pg-ctl.sh
               readOnly: true
             - name: tls
               mountPath: /etc/documentdb/tls
