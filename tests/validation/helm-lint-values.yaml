@@ -16,8 +16,8 @@ addonAccess:
     /access/neurwerk-example-users: {realmRoles: [example-user]}
   platformAdminRole: example-admin
 k8sTools:
-  # Render-only existing Base pin; NOT ownership-aware. Do not select addon access until replaced.
-  image: ghcr.io/neurwerk/k8s-stack-tooling:0.7.2@sha256:bfc4d5e1d3e7009c23be9759ee91ef91e5befc8b42af7f743d13449b2b4973b6
+  # Render-only verified ownership-aware Tooling pin.
+  image: ghcr.io/neurwerk/k8s-stack-tooling:0.7.3@sha256:efa09b2f29d02fbd07fe12774fd7d3db6bf4e02ef403c7be2c18196fbc956d99
 docling:
   enabled: true
   apiKeySecretRef: {name: docling-api, key: api-key}

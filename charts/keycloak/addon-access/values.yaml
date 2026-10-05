@@ -3,8 +3,8 @@ authKeycloak:
   realm: ""
 
 k8sTools:
-  # Select a verified image containing KC_REALM_ROLE_COMPOSITE_OWNERSHIP support.
-  image: ""
+  # Verified image containing KC_REALM_ROLE_COMPOSITE_OWNERSHIP support.
+  image: ghcr.io/neurwerk/k8s-stack-tooling:0.7.3@sha256:efa09b2f29d02fbd07fe12774fd7d3db6bf4e02ef403c7be2c18196fbc956d99
 
 addonAccess:
   # Safe default: no resources until an addon explicitly selects this chart.

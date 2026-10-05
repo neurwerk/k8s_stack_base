@@ -14,7 +14,7 @@ Example non-secret values for the existing Forgejo identities:
 authKeycloak:
   realm: example
 k8sTools:
-  image: ghcr.io/neurwerk/k8s-stack-tooling:<verified-published-version>@sha256:<verified-digest>
+  image: ghcr.io/neurwerk/k8s-stack-tooling:0.7.3@sha256:efa09b2f29d02fbd07fe12774fd7d3db6bf4e02ef403c7be2c18196fbc956d99
 addonAccess:
   enabled: true
   name: forgejo
@@ -44,8 +44,7 @@ Base runtime Secret), realm and admin username values, and a **published and
 verified** Tooling image supporting `KC_REALM_ROLE_COMPOSITE_OWNERSHIP`.
 Base's realm-role Job must also run that image and publish an ownership scope
 covering its core `platform-admin` children. An older image silently ignores
-the scope and removes foreign addon grants. **Do not merge or select this draft
-until both Jobs use the verified image and migration of the previous single
-addon-application-access-values source is coordinated.** The addon must own
-the HelmRelease, values, and reconciliation ordering; this chart creates no
-HelmRelease and changes no client source or selected platform tag.
+the scope and removes foreign addon grants. Coordinate migration of the previous
+single addon-application-access-values source before selecting an addon. The
+addon must own the HelmRelease, values, and reconciliation ordering; this chart
+creates no HelmRelease and changes no client source or selected platform tag.

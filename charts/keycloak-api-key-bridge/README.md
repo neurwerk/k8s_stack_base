@@ -1,6 +1,6 @@
 # API-key bridge PostgreSQL contract
 
-The chart runs only the verified `0.8.0` bridge image with an operations
+The chart runs only the verified `0.8.1` bridge image with an operations
 PostgreSQL database. It always runs the `keycloak-api-key-bridge-init-db` init
 container and reads the password from the namespace-local
 `auth-keycloak-api-key-bridge-postgres-secret` (`password` key). SQLite, its
@@ -8,7 +8,7 @@ database URL and its PVC are no longer chart modes. Legacy client values for
 them fail chart rendering; an existing PVC must be retained and handled
 separately if it contains keys. No SQLite import is performed.
 
-## Managed registrations (draft; not ready for adoption)
+## Managed registrations
 
 `authKeycloakApiKeyBridge.managedRegistrations` defaults to `[]`. Each entry
 references `grantConfigMap`, `grantKey`, `verifierSecret`, and `verifierKey` in
@@ -20,11 +20,9 @@ the bridge starts. Missing files prevent the Pod from mounting; invalid files
 make validation fail closed. An empty list needs no managed-key volumes or
 registration environment setting and remains compatible with the pinned image.
 
-**Do not merge or adopt this chart yet.** The pinned `0.8.0` image does not
-understand `KEYCLOAK_API_KEY_BRIDGE_MANAGED_REGISTRATIONS`; nonempty lists fail
-chart rendering while that image is pinned. Publish and verify a compatible image,
-then update the image pin and gate in a reviewed change and implement add-on
-readiness and secret delivery before merge.
+The pinned `0.8.1` image supports nonempty managed registrations. An add-on
+must provide its own readiness and secret delivery before selecting a
+registration; this chart does not select an add-on or provide its credentials.
 
 Operations provisioning requires the `api_key_bridge` role and database and
 reads its own namespace-local `api-key-bridge-postgres-values` Secret. It

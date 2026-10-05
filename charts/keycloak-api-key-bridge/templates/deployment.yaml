@@ -1,13 +1,10 @@
-{{- if ne .Values.authKeycloakApiKeyBridge.bridgeImage "ghcr.io/neurwerk/k8s-stack-keycloak-api-key-bridge:0.8.0@sha256:02db93c4b824391de00929d33b2adc6b459b20d4cb4163ef8924ac112f288d5a" }}
-{{- fail "bridge requires the verified PostgreSQL-compatible 0.8.0 image pin" }}
+{{- if ne .Values.authKeycloakApiKeyBridge.bridgeImage "ghcr.io/neurwerk/k8s-stack-keycloak-api-key-bridge:0.8.1@sha256:6ffd0e45adfefefca7761aa6568dd0215899cbaf0792d93f958fadc7efa674a9" }}
+{{- fail "bridge requires the verified PostgreSQL-compatible 0.8.1 image pin" }}
 {{- end }}
 {{- if or (hasKey .Values.authKeycloakApiKeyBridge.postgres "enabled") (hasKey .Values.authKeycloakApiKeyBridge "persistence") (hasKey .Values.authKeycloakApiKeyBridge.config "database_url") }}
 {{- fail "bridge is PostgreSQL-only; remove legacy postgres.enabled, persistence and config.database_url values" }}
 {{- end }}
 {{- $registrations := .Values.authKeycloakApiKeyBridge.managedRegistrations | default list }}
-{{- if $registrations }}
-{{- fail "managedRegistrations requires a published, verified bridge image supporting registration lists; pinned 0.8.0 cannot use managed keys" }}
-{{- end }}
 {{- $managedFiles := list }}
 {{- range $index, $registration := $registrations }}
 {{- range $field := list "grantConfigMap" "grantKey" "verifierSecret" "verifierKey" }}
