@@ -6,6 +6,18 @@ addon:
   databases:
     - name: example_data
       vector: false
+addonAccess:
+  enabled: true
+  name: example
+  realmRoles: [example-user, example-admin]
+  realmRoleComposites:
+    example-admin: [example-user]
+  accessGroups:
+    /access/neurwerk-example-users: {realmRoles: [example-user]}
+  platformAdminRole: example-admin
+k8sTools:
+  # Render-only placeholder; this draft must not be selected until an ownership-aware image is published.
+  image: example.invalid/tooling:unpublished
 docling:
   enabled: true
   apiKeySecretRef: {name: docling-api, key: api-key}

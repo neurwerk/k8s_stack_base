@@ -28,8 +28,7 @@ authKeycloak:
   # Both groups exist without grants; application admission implies no access.
   agentgatewayAccessGroups: {}
 
-# A selected product owns the optional namespace-local addon-application-access-values
-# ConfigMap. Base still performs the one authoritative composite reconciliation.
+# Legacy addon values must be absent; each addon uses its own HelmRelease.
 addonApplicationAccess: {}
 
 openrouterCatalog:

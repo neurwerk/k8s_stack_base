@@ -6,7 +6,7 @@ import json
 import unittest
 
 from catalog import catalog
-from helm import env_value, render
+from helm import env_value, render, resource
 
 CHART = "keycloak/realm-config/realm-roles"
 LLM = "/access/neurwerk-llm-all-users"
@@ -35,6 +35,12 @@ class KeycloakStandardAccessTests(unittest.TestCase):
             "platform-admin": [
                 "keycloak-admin", "api-key-admin", "opensearch-admin",
                 "langfuse-admin", "pii-admin", "studio-user", "librechat-admin",
+            ],
+        })
+        self.assertEqual(json.loads(env_value(rendered, "KC_REALM_ROLE_COMPOSITE_OWNERSHIP")), {
+            "platform-admin": [
+                "keycloak-admin", "api-key-admin", "opensearch-admin", "langfuse-admin",
+                "pii-admin", "studio-user", "librechat-admin", "dify-admin",
             ],
         })
         self.assertEqual(env_value(rendered, "KC_PARENT_ROLE"), "keycloak-admin")
@@ -67,25 +73,50 @@ class KeycloakStandardAccessTests(unittest.TestCase):
 
     def test_selected_application_access_is_bounded_and_keeps_base_grants(self) -> None:
         addon = {
-            "realmRoles": ["catalog-user", "catalog-admin"],
-            "platformAdminRoles": ["catalog-admin"],
-            "realmRoleComposites": {"catalog-admin": ["catalog-user"]},
-            "accessGroups": {"/access/neurwerk-catalog-admins": {"realmRoles": ["catalog-admin"]}},
+            "enabled": True, "name": "forgejo", "realmRoles": ["forgejo-user", "forgejo-admin"],
+            "platformAdminRole": "forgejo-admin", "platformAdminGrant": True,
+            "realmRoleComposites": {"forgejo-admin": ["forgejo-user"]},
+            "accessGroups": {"/access/neurwerk-forgejo-admins": {"realmRoles": ["forgejo-admin"]}},
         }
-        result = render(CHART, {"addonApplicationAccess": addon})
+        values = {"addonAccess": addon, "authKeycloak": {"realm": "example"},
+                  "k8sTools": {"image": "example.invalid/verified-tooling:reviewed"}}
+        result = render("keycloak/addon-access", values, value_files=())
+        job = resource(result, "Job", "auth-keycloak-forgejo-access-job")
+        pod_labels = job["spec"]["template"]["metadata"]["labels"]
+        egress = resource(result, "NetworkPolicy", "auth-keycloak-forgejo-access-egress")
+        ingress = resource(render("keycloak/server", namespace="auth-keycloak"),
+                           "NetworkPolicy", "auth-keycloak-keycloak-ingress")
+        self.assertEqual(egress["spec"]["podSelector"]["matchLabels"], {"app": pod_labels["app"]})
+        self.assertEqual(egress["metadata"]["namespace"], "auth-keycloak")
+        self.assertEqual(ingress["metadata"]["namespace"], "auth-keycloak")
+        self.assertEqual(ingress["spec"]["podSelector"]["matchLabels"],
+                         egress["spec"]["egress"][1]["to"][0]["podSelector"]["matchLabels"])
+        self.assertEqual(pod_labels["app.kubernetes.io/component"], "configuration")
+        self.assertEqual(ingress["spec"]["ingress"][1]["from"][0]["podSelector"]["matchLabels"],
+                         {"app.kubernetes.io/component": pod_labels["app.kubernetes.io/component"]})
+        self.assertEqual(egress["spec"]["egress"][1]["ports"],
+                         ingress["spec"]["ingress"][1]["ports"])
         composites = json.loads(env_value(result, "KC_REALM_ROLE_COMPOSITES"))
-        self.assertEqual(composites["catalog-admin"], ["catalog-user"])
-        self.assertEqual(composites["platform-admin"][-1], "catalog-admin")
-        groups = json.loads(env_value(result, "KC_ACCESS_GROUPS"))
-        self.assertEqual(groups["/access/neurwerk-catalog-admins"], {
-            "realmRoles": ["catalog-admin"], "clientRoles": {"agentgateway": []},
+        self.assertEqual(composites, {"forgejo-admin": ["forgejo-user"],
+                                      "platform-admin": ["forgejo-admin"]})
+        self.assertEqual(json.loads(env_value(result, "KC_REALM_ROLE_COMPOSITE_OWNERSHIP")), {
+            "forgejo-admin": ["forgejo-user", "forgejo-admin"],
+            "platform-admin": ["forgejo-admin"],
         })
+        groups = json.loads(env_value(result, "KC_ACCESS_GROUPS"))
+        self.assertEqual(groups, addon["accessGroups"])
+        disabled = render("keycloak/addon-access", {**values, "addonAccess": {
+            **addon, "platformAdminGrant": False,
+        }}, value_files=())
+        self.assertEqual(json.loads(env_value(disabled, "KC_REALM_ROLE_COMPOSITES"))["platform-admin"], [])
         for bad in (
-            {**addon, "accessGroups": {"/access/neurwerk-platform-admins": {"realmRoles": ["catalog-admin"]}}},
-            {**addon, "accessGroups": {"/access/neurwerk-catalog-admins": {"realmRoles": ["catalog-admin"], "clientRoles": {"agentgateway": ["llm:invoke"]}}}},
-            {**addon, "platformAdminRoles": ["llm:invoke"]},
+            {**addon, "realmRoles": ["forgejo-admin", "studio-user"]},
+            {**addon, "platformAdminRole": "keycloak-admin"},
+            {**addon, "accessGroups": {"/access/neurwerk-platform-admins": {"realmRoles": ["forgejo-admin"]}}},
+            {**addon, "realmRoleComposites": {"forgejo-admin": ["studio-user"]}},
         ):
-            self.assertNotEqual(render(CHART, {"addonApplicationAccess": bad}, check=False).returncode, 0)
+            self.assertNotEqual(render("keycloak/addon-access", {**values, "addonAccess": bad}, check=False, value_files=()).returncode, 0)
+        self.assertNotEqual(render(CHART, {"addonApplicationAccess": addon}, check=False).returncode, 0)
 
     def test_invalid_platform_admin_exclusions_fail_closed(self) -> None:
         for value, message in [

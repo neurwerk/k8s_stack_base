@@ -1,5 +1,12 @@
 # Standard Access Groups
 
+The `platform-admin` composite is scoped to Base's eight owned children when
+using an ownership-capable Tooling image. Independent addons reconcile only
+their own roles and groups with `charts/keycloak/addon-access/`, each through
+its own HelmRelease. The old `addonApplicationAccess` single-source overlay is
+no longer accepted. Do not activate this transition while Base or any addon
+uses a Tooling image that ignores `KC_REALM_ROLE_COMPOSITE_OWNERSHIP`.
+
 `files/standard-access.yaml` owns the 11 application/administrator groups and
 their unchanged realm roles and composites, plus two resource-only groups.
 All 13 groups are direct children of `/access` and use the `neurwerk-` prefix.
