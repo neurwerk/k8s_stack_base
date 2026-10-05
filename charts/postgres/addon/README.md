@@ -26,9 +26,18 @@ network-policy admission on operations PostgreSQL Pod port `9712` (Service port
 namespace. Do not select a product until its secret delivery, network rules,
 ordering and consumer are reviewed together.
 
-Names cannot collide with existing roles or databases. Existing objects are
-accepted only with this release's ownership marker, matching database owner,
-and no elevated role privileges or memberships. The Job revokes PUBLIC database
+Names cannot collide with existing roles or databases. The Job keeps an administrator-owned
+ledger in the shared `postgres` database. It commits the release/role/database
+binding and pending database intent before `CREATE DATABASE`, while holding a
+session advisory lock across creation and marking. A retry accepts an unmarked
+database only with its pending intent, the exact recorded role as owner, and no
+conflicting comment. A new release never adopts preexisting roles or databases;
+marked existing objects require their recorded binding. Missing completed objects,
+changed names, conflicting comments or owners, elevated role privileges or
+memberships fail closed. An unrelated privileged actor creating a matching database
+in the brief gap after intent commits cannot be distinguished from the Job's own
+creation; restrict administrator access accordingly. Vector setup happens after
+the creation lock is released and is retried independently. The Job revokes PUBLIC database
 access and verifies that the new role cannot reach other databases and that
 other non-superuser login roles cannot reach its databases. Optional `vector`
 creates and checks the extension in the requested databases. Changing the

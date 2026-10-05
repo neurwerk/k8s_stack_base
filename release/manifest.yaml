@@ -409,7 +409,7 @@ spec:
       appVersion: 0.10.1
     - path: charts/postgres/addon
       name: infra-postgres-addon
-      version: 0.1.0
+      version: 0.1.1
     - path: charts/postgres/auth
       name: infra-postgres-auth
       version: 1.0.0
