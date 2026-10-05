@@ -1,5 +1,4 @@
 {{- $role := .Values.addon.role -}}
-{{- $adopt := .Values.addon.adoptExisting -}}
 {{- $reserved := list "postgres" "template0" "template1" -}}
 {{- if not (has .Release.Namespace (list "infra-postgres-operations" "default")) -}}{{- fail "addon provisioning must run in infra-postgres-operations" -}}{{- end -}}
 {{- if or (not (regexMatch `^[a-z][a-z0-9_]{0,62}$` $role)) (hasPrefix "pg_" $role) -}}{{- fail "addon.role must be a non-system PostgreSQL identifier" -}}{{- end -}}
@@ -14,8 +13,6 @@
 {{- if or (not (hasKey . "vector")) (not (kindIs "bool" .vector)) (ne (len .) 2) -}}{{- fail "addon databases require only name and boolean vector" -}}{{- end -}}
 {{- $names = append $names .name -}}
 {{- end -}}
-{{- if not (kindIs "bool" $adopt) -}}{{- fail "addon.adoptExisting must be a boolean" -}}{{- end -}}
-{{- if and $adopt (or (ne $role "forgejo") (ne (len .Values.addon.databases) 1) (ne (index .Values.addon.databases 0).name "forgejo") (index .Values.addon.databases 0).vector (ne .Values.addon.postgresHost "postgres-operations.infra-postgres-operations.svc.cluster.local") (ne (toString .Values.addon.postgresPort) "5432")) -}}{{- fail "addon.adoptExisting is limited to the legacy Forgejo pair on operations PostgreSQL" -}}{{- end -}}
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -62,12 +59,6 @@ spec:
                 fi
                 sleep 2
               done
-              {{- if $adopt }}
-              # Check the existing password and role/database identity before any mutation.
-              PGPASSWORD="$ADDON_PASSWORD" PGUSER=forgejo PGDATABASE=forgejo \
-                psql --set=ON_ERROR_STOP=1 --tuples-only --command='SELECT current_user, current_database()' |
-                grep -Eq '^[[:space:]]*forgejo[[:space:]]*\|[[:space:]]*forgejo[[:space:]]*$'
-              {{- end }}
               psql --set=ON_ERROR_STOP=1 <<'SQL'
               \getenv password ADDON_PASSWORD
               SET log_statement = 'none';
@@ -75,80 +66,38 @@ spec:
               SET log_min_error_statement = 'panic';
               DO $verify$
               BEGIN
-                {{- if $adopt }}
-                IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '{{ $role }}') OR
-                  NOT EXISTS (SELECT FROM pg_database WHERE datname = '{{ $role }}') THEN
-                  RAISE EXCEPTION 'Legacy addon role/database pair is incomplete; refusing adoption';
-                END IF;
-                {{- end }}
                 IF EXISTS (SELECT FROM pg_database WHERE datname = '{{ $role }}'
                   AND datname NOT IN ({{ range $i, $db := .Values.addon.databases }}{{ if $i }}, {{ end }}'{{ $db.name }}'{{ end }})) THEN
                   RAISE EXCEPTION 'Addon role collides with another database';
                 END IF;
                 IF EXISTS (SELECT FROM pg_roles WHERE rolname = '{{ $role }}' AND
-                  (rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls OR NOT rolcanlogin
-                    OR NOT rolinherit OR rolconnlimit != -1 OR rolvaliduntil IS NOT NULL)) OR
-                  EXISTS (SELECT FROM pg_database WHERE datdba =
-                    (SELECT oid FROM pg_roles WHERE rolname = '{{ $role }}')
-                    AND datname NOT IN ({{ range $i, $db := .Values.addon.databases }}{{ if $i }}, {{ end }}'{{ $db.name }}'{{ end }})) OR
+                  (rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls OR NOT rolcanlogin)) OR
                   EXISTS (SELECT FROM pg_auth_members m JOIN pg_roles r ON r.oid IN (m.member, m.roleid)
                     WHERE r.rolname = '{{ $role }}') OR
                   EXISTS (SELECT FROM pg_roles r LEFT JOIN pg_shdescription s
                     ON s.objoid = r.oid AND s.classoid = 'pg_authid'::regclass
-                    WHERE r.rolname = '{{ $role }}' AND s.description IS DISTINCT FROM 'neurwerk-addon:{{ .Release.Name }}'
-                    {{- if $adopt }}
-                    AND s.description IS NOT NULL
-                    {{- end }}) THEN
+                    WHERE r.rolname = '{{ $role }}' AND s.description IS DISTINCT FROM 'neurwerk-addon:{{ .Release.Name }}') THEN
                   RAISE EXCEPTION 'Addon role is not owned by this release or has elevated privileges';
                 END IF;
                 {{- range .Values.addon.databases }}
                 IF EXISTS (SELECT FROM pg_database d LEFT JOIN pg_shdescription s
                   ON s.objoid = d.oid AND s.classoid = 'pg_database'::regclass
                   JOIN pg_roles r ON r.oid = d.datdba WHERE d.datname = '{{ .name }}'
-                  AND (r.rolname != '{{ $role }}' OR
-                    (s.description IS DISTINCT FROM 'neurwerk-addon:{{ $.Release.Name }}'
-                    {{- if $adopt }}
-                    AND s.description IS DISTINCT FROM 'neurwerk-addon-database-v1'
-                    {{- end }}
-                    ))) THEN
+                  AND (s.description IS DISTINCT FROM 'neurwerk-addon:{{ $.Release.Name }}' OR r.rolname != '{{ $role }}')) THEN
                   RAISE EXCEPTION 'Addon database is not owned by this release';
                 END IF;
                 {{- end }}
-                {{- if $adopt }}
-                IF EXISTS (SELECT FROM pg_roles r JOIN pg_shdescription s
-                  ON s.objoid = r.oid AND s.classoid = 'pg_authid'::regclass
-                  WHERE r.rolname = '{{ $role }}' AND s.description = 'neurwerk-addon:{{ .Release.Name }}') !=
-                  EXISTS (SELECT FROM pg_database d JOIN pg_shdescription s
-                  ON s.objoid = d.oid AND s.classoid = 'pg_database'::regclass
-                  WHERE d.datname = '{{ $role }}' AND s.description = 'neurwerk-addon:{{ .Release.Name }}') THEN
-                  RAISE EXCEPTION 'Addon adoption markers are incomplete';
-                END IF;
-                IF EXISTS (SELECT FROM pg_database d WHERE d.datname NOT IN ('template0', 'forgejo')
-                    AND has_database_privilege('forgejo', d.oid, 'CONNECT')) OR
-                  EXISTS (SELECT FROM pg_roles r WHERE r.rolname != 'forgejo' AND NOT r.rolsuper
-                    AND (r.rolcanlogin OR r.rolname = 'documentdb_bg_worker_role')
-                    AND has_database_privilege(r.oid, 'forgejo', 'CONNECT')) OR
-                  EXISTS (SELECT FROM pg_database d, LATERAL aclexplode(
-                    COALESCE(d.datacl, acldefault('d', d.datdba))) acl
-                    WHERE d.datname = 'forgejo' AND acl.grantee = 0) OR
-                  NOT has_database_privilege('forgejo', 'forgejo', 'CONNECT') OR
-                  NOT has_database_privilege('forgejo', 'forgejo', 'TEMPORARY') THEN
-                  RAISE EXCEPTION 'Legacy addon database isolation failed; refusing adoption';
-                END IF;
-                {{- end }}
               END $verify$;
-              {{- if not $adopt }}
               SELECT format('CREATE ROLE %I LOGIN PASSWORD %L', '{{ $role }}', :'password')
                 WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '{{ $role }}') \gexec
+              COMMENT ON ROLE {{ $role }} IS 'neurwerk-addon:{{ .Release.Name }}';
               SELECT format('ALTER ROLE %I WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD %L', '{{ $role }}', :'password') \gexec
-              {{- end }}
               {{- range .Values.addon.databases }}
-              {{- if not $adopt }}
               SELECT 'CREATE DATABASE {{ .name }} OWNER {{ $role }}'
                 WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '{{ .name }}') \gexec
+              COMMENT ON DATABASE {{ .name }} IS 'neurwerk-addon:{{ $.Release.Name }}';
               REVOKE ALL ON DATABASE {{ .name }} FROM PUBLIC;
               GRANT CONNECT, TEMPORARY ON DATABASE {{ .name }} TO {{ $role }};
-              {{- end }}
               {{- if .vector }}
               \connect {{ .name }}
               CREATE EXTENSION IF NOT EXISTS vector;
@@ -176,14 +125,6 @@ spec:
                 psql --tuples-only --command="SELECT extname FROM pg_extension WHERE extname = 'vector'" | grep -qx '[[:space:]]*vector'
               {{- end }}
               {{- end }}
-              psql --set=ON_ERROR_STOP=1 <<'SQL'
-              BEGIN;
-              COMMENT ON ROLE {{ $role }} IS 'neurwerk-addon:{{ .Release.Name }}';
-              {{- range .Values.addon.databases }}
-              COMMENT ON DATABASE {{ .name }} IS 'neurwerk-addon:{{ $.Release.Name }}';
-              {{- end }}
-              COMMIT;
-              SQL
           env:
             - name: ADDON_PASSWORD
               valueFrom:
