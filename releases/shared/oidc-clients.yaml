@@ -4,5 +4,3 @@ authKeycloak:
   keycloakApiKeyBridgeClientId: keycloak-api-key-bridge
   librechatClientId: librechat
   studioClientId: studio
-  difyClientId: dify
-  difyAgentgatewayClientId: dify-agentgateway

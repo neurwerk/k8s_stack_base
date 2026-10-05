@@ -15,8 +15,6 @@ authKeycloak:
   keycloakApiKeyBridgeWebOrigin: "https://place.holder"
   studioRedirectUri: "https://place.holder/auth/callback"
   studioWebOrigin: "https://place.holder"
-  difyRedirectUri: "https://place.holder/console/api/oauth/authorize/keycloak"
-  difyWebOrigin: "https://place.holder"
 
 infraAgentgatewayWrapper:
   hostname: "place.holder"
@@ -30,9 +28,6 @@ monitorLangfuseWrapper:
   hostname: "place.holder"
 
 authKeycloakApiKeyBridge:
-  hostname: "place.holder"
-
-frontendDify:
   hostname: "place.holder"
 
 frontendStudio:

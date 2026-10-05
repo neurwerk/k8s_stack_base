@@ -25,7 +25,6 @@
           "additionalProperties": false,
           "properties": {
             "studio": {"$ref": "#/definitions/product"},
-            "dify": {"$ref": "#/definitions/product"},
             "librechat": {"$ref": "#/definitions/product"},
             "langfuse": {"$ref": "#/definitions/product"}
           }

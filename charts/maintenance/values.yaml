@@ -7,8 +7,6 @@ maintenance:
   products:
     studio:
       enabled: false
-    dify:
-      enabled: false
     librechat:
       enabled: false
     langfuse:
@@ -29,8 +27,6 @@ authKeycloak:
 frontendStudio:
   studio:
     hostname: ""
-frontendDify:
-  hostname: ""
 frontendLibrechat:
   hostname: ""
   adminPanel:

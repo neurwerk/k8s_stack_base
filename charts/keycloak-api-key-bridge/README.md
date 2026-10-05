@@ -17,12 +17,14 @@ and passes a JSON list of `{grant_file, verifier_file}` paths to the bridge.
 Base does not create managed grants or verifier Secrets. The add-on must arrange
 credential delivery and Flux ordering so every referenced resource exists before
 the bridge starts. Missing files prevent the Pod from mounting; invalid files
-make validation fail closed. An empty list needs no managed-key volumes.
+make validation fail closed. An empty list needs no managed-key volumes or
+registration environment setting and remains compatible with the pinned image.
 
 **Do not merge or adopt this chart yet.** The pinned `0.8.0` image does not
-understand `KEYCLOAK_API_KEY_BRIDGE_MANAGED_REGISTRATIONS`. Publish and verify a
-compatible image, coordinate removal of the old Base-owned verifier sync and
-add-on readiness, then update the image pin in a reviewed change before merge.
+understand `KEYCLOAK_API_KEY_BRIDGE_MANAGED_REGISTRATIONS`; nonempty lists fail
+chart rendering while that image is pinned. Publish and verify a compatible image,
+then update the image pin and gate in a reviewed change and implement add-on
+readiness and secret delivery before merge.
 
 Operations provisioning requires the `api_key_bridge` role and database and
 reads its own namespace-local `api-key-bridge-postgres-values` Secret. It

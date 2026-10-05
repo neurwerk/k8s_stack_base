@@ -5,6 +5,9 @@
 {{- fail "bridge is PostgreSQL-only; remove legacy postgres.enabled, persistence and config.database_url values" }}
 {{- end }}
 {{- $registrations := .Values.authKeycloakApiKeyBridge.managedRegistrations | default list }}
+{{- if $registrations }}
+{{- fail "managedRegistrations requires a published, verified bridge image supporting registration lists; pinned 0.8.0 cannot use managed keys" }}
+{{- end }}
 {{- $managedFiles := list }}
 {{- range $index, $registration := $registrations }}
 {{- range $field := list "grantConfigMap" "grantKey" "verifierSecret" "verifierKey" }}
@@ -119,8 +122,10 @@ spec:
               value: {{ .Values.authKeycloakApiKeyBridge.config.max_keys_per_user | quote }}
             - name: KEYCLOAK_API_KEY_BRIDGE_LOG_LEVEL
               value: {{ .Values.authKeycloakApiKeyBridge.config.log_level | quote }}
+            {{- if $registrations }}
             - name: KEYCLOAK_API_KEY_BRIDGE_MANAGED_REGISTRATIONS
               value: {{ $managedFiles | toJson | quote }}
+            {{- end }}
           ports:
             - name: http
               containerPort: {{ .Values.authKeycloakApiKeyBridge.ports.container.http }}

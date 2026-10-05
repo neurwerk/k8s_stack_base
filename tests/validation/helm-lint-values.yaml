@@ -31,9 +31,6 @@ authKeycloak:
   agentgatewayClientRoles:
     - llm:invoke
     - model:remote/example/model:invoke
-  difyAgentgatewayClientRoles:
-    - llm:invoke
-    - model:remote/example/model:invoke
   smtp:
     enabled: true
     host: smtp.example.test
@@ -56,13 +53,6 @@ certManager:
   aws:
     accessKeyId: lint
     secretAccessKey: lint
-frontendDify:
-  hostname: dify.lint.example
-  postgres:
-    user: dify
-    database: dify
-  config:
-    AUTO_SETUP_ADMIN_EMAIL: admin@lint.example
 frontendLibrechat:
   hostname: librechat.lint.example
   adminPanel:
@@ -164,7 +154,6 @@ postgresOperationsSecrets:
   adminPassword: lint-postgres-operations-admin
   agentgatewayPassword: lint-postgres-operations-agentgateway
   documentdbPassword: lint-postgres-operations-documentdb
-  difyPassword: lint-postgres-operations-dify
   langfusePassword: lint-postgres-operations-langfuse
   librechatRagPassword: lint-postgres-operations-rag
 infraRookCeph:

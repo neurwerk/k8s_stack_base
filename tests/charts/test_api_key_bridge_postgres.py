@@ -55,33 +55,20 @@ class BridgePostgresTests(unittest.TestCase):
                 self.assertNotEqual(result.returncode, 0)
                 self.assertIn("PostgreSQL-only", result.stderr)
 
-    def test_managed_registrations_mount_only_addon_owned_files(self):
-        import json
-
+    def test_managed_registrations_require_compatible_image(self):
         empty = render("keycloak-api-key-bridge")
         self.assertFalse(any(doc["kind"] == "ConfigMap" for doc in documents(empty)))
         empty_pod = resource(empty, "Deployment")["spec"]["template"]["spec"]
-        self.assertEqual(json.loads(next(e["value"] for e in empty_pod["containers"][0]["env"]
-                                         if e["name"] == "KEYCLOAK_API_KEY_BRIDGE_MANAGED_REGISTRATIONS")), [])
+        self.assertNotIn("KEYCLOAK_API_KEY_BRIDGE_MANAGED_REGISTRATIONS",
+                         [e["name"] for e in empty_pod["containers"][0]["env"]])
         self.assertFalse(any(v["name"].startswith("managed-") for v in empty_pod.get("volumes", [])))
 
-        entries = [{"grantConfigMap": "addon-grants", "grantKey": f"{i}.json",
-                    "verifierSecret": "addon-verifiers", "verifierKey": f"{i}.sha256"}
-                   for i in range(3)]
-        rendered = render("keycloak-api-key-bridge", {"authKeycloakApiKeyBridge": {"managedRegistrations": entries}})
-        pod = resource(rendered, "Deployment")["spec"]["template"]["spec"]
-        env = next(e["value"] for e in pod["containers"][0]["env"]
-                   if e["name"] == "KEYCLOAK_API_KEY_BRIDGE_MANAGED_REGISTRATIONS")
-        self.assertEqual(len(json.loads(env)), 3)
-        self.assertEqual(json.loads(env)[2], {
-            "grant_file": "/var/run/managed-api-key-grants/2.json",
-            "verifier_file": "/var/run/managed-api-key-verifiers/2.sha256",
-        })
-        volumes = {v["name"]: v["projected"]["sources"] for v in pod["volumes"]}
-        self.assertEqual([source["configMap"]["items"][0]["path"] for source in volumes["managed-grants"]],
-                         ["0.json", "1.json", "2.json"])
-        self.assertEqual([source["secret"]["name"] for source in volumes["managed-verifiers"]],
-                         ["addon-verifiers"] * 3)
+        blocked = render("keycloak-api-key-bridge", {"authKeycloakApiKeyBridge": {
+            "managedRegistrations": [{"grantConfigMap": "addon-grants", "grantKey": "key.json",
+                                      "verifierSecret": "addon-verifiers", "verifierKey": "key.sha256"}],
+        }}, check=False)
+        self.assertNotEqual(blocked.returncode, 0)
+        self.assertIn("pinned 0.8.0 cannot use managed keys", blocked.stderr)
 
     def test_provisioning_is_required_and_separate_from_statefulset_secret(self):
         enabled = render("postgres/operations",
