@@ -9,6 +9,9 @@ monitorFluentBit:
 fluent-bit:
   # Keep collector warnings and failures, including OpenSearch delivery errors.
   logLevel: warn
+  # Batch OpenSearch requests with up to five seconds of flush waiting.
+  # This also delays log-derived metrics and keeps more undelivered data in memory.
+  flush: 5
   # Use DaemonSet to run on every node
   kind: DaemonSet
 
