@@ -388,18 +388,20 @@ class CompatibilityTests(unittest.TestCase):
                     self.check(allow_alpha=True, classify_only=True)
 
     def test_multiple_addon_sources_require_ordered_names_exact_commits_and_separate_keys(self):
-        names = ["addon-alpha-source.yaml", "addon-beta-source.yaml"]
+        names = ["addon-dify-source.yaml", "addon-knowledge-center-source.yaml"]
         root = yaml.safe_load(self.files[HEAD][gate.CLUSTER_KUSTOMIZATION_PATH])
         root["resources"][2:2] = names
 
-        def addon(name, secret, commit=OLD):
+        def addon(
+            name, secret, commit=OLD, url="ssh://git@github.com/neurwerk/example-product.git"
+        ):
             return {
                 "apiVersion": "source.toolkit.fluxcd.io/v1",
                 "kind": "GitRepository",
                 "metadata": {"name": name, "namespace": "flux-system"},
                 "spec": {
                     "interval": "1m",
-                    "url": "ssh://git@github.com/neurwerk/example-product.git",
+                    "url": url,
                     "ref": {"commit": commit},
                     "secretRef": {"name": secret},
                 },
@@ -408,20 +410,41 @@ class CompatibilityTests(unittest.TestCase):
         self.files[HEAD][gate.CLUSTER_KUSTOMIZATION_PATH] = yaml.safe_dump(root)
         first = gate.CLUSTER_KUSTOMIZATION_PATH.parent / names[0]
         second = gate.CLUSTER_KUSTOMIZATION_PATH.parent / names[1]
-        self.files[HEAD][first] = yaml.safe_dump(addon("addon-alpha", "alpha-key"))
-        self.files[HEAD][second] = yaml.safe_dump(addon("addon-beta", "beta-key"))
+        self.files[HEAD][first] = yaml.safe_dump(addon("addon-dify", "dify-key"))
+        self.files[HEAD][second] = yaml.safe_dump(
+            addon("addon-knowledge-center", "knowledge-center-key")
+        )
         self.assertFalse(self.check(new=source(), classify_only=True).changed)
 
         for label, invalid in (
-            ("branch", addon("addon-beta", "beta-key", "main")),
-            ("shared key", addon("addon-beta", "alpha-key")),
-            ("platform key", addon("addon-beta", "k8s-stack-release-trust")),
-            ("duplicate identity", addon("addon-alpha", "beta-key")),
+            ("branch", addon("addon-knowledge-center", "knowledge-center-key", "main")),
+            ("shared key", addon("addon-knowledge-center", "dify-key")),
+            ("platform key", addon("addon-knowledge-center", "k8s-stack-release-trust")),
+            ("client key", addon("addon-knowledge-center", "flux-system")),
+            ("duplicate identity", addon("addon-dify", "knowledge-center-key")),
+            (
+                "public URL",
+                addon(
+                    "addon-knowledge-center",
+                    "knowledge-center-key",
+                    url="https://github.com/neurwerk/example-product.git",
+                ),
+            ),
+            (
+                "other owner",
+                addon(
+                    "addon-knowledge-center",
+                    "knowledge-center-key",
+                    url="ssh://git@github.com/elsewhere/example-product.git",
+                ),
+            ),
         ):
             self.files[HEAD][second] = yaml.safe_dump(invalid)
             with self.subTest(label=label), self.assertRaises(gate.CompatibilityError):
                 self.check(classify_only=True)
-        self.files[HEAD][second] = yaml.safe_dump(addon("addon-beta", "beta-key"))
+        self.files[HEAD][second] = yaml.safe_dump(
+            addon("addon-knowledge-center", "knowledge-center-key")
+        )
         for label, resources in (
             ("reordered", root["resources"][:2] + names[::-1] + root["resources"][4:]),
             ("duplicate", root["resources"][:2] + [names[0], names[0]] + root["resources"][4:]),
