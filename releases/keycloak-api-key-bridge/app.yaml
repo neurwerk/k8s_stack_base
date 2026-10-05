@@ -19,8 +19,6 @@ spec:
       namespace: infra-postgres-operations
     - name: keycloak-keycloak-api-key-bridge-oidc
       namespace: auth-keycloak
-    - name: keycloak-dify-agentgateway-oidc
-      namespace: auth-keycloak
     - name: traefik
       namespace: kube-system
     - name: cert-manager-issuers

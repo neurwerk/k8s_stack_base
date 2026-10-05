@@ -325,7 +325,7 @@ class AuthorizationCatalogTests(unittest.TestCase):
         self.assertNotEqual(failed.returncode, 0)
         self.assertIn("grants undeclared role", failed.stderr)
 
-    def test_dify_and_bridge_validate_against_effective_roles(self) -> None:
+    def test_dify_validates_against_effective_roles(self) -> None:
         permission = "model:remote/openrouter/acme/model:invoke"
         values = {
             "openrouterCatalog": catalog(),
@@ -346,15 +346,10 @@ class AuthorizationCatalogTests(unittest.TestCase):
             providers["openai_api_compatible"]["model"], "remote/openrouter/acme/model"
         )
         render("keycloak/oidc/dify-agentgateway", values)
-        bridge = render("keycloak-api-key-bridge", values)
-        self.assertIn(
-            permission,
-            json.loads(resource(bridge, "ConfigMap")["data"]["primary.json"])["permissions"],
-        )
 
         for selection in ({"excludedModels": ["acme/model"]}, {"enabled": False}):
             values["openrouterCatalog"] = {**catalog(), **selection}
-            for chart in ("keycloak/oidc/dify-agentgateway", "keycloak-api-key-bridge"):
+            for chart in ("keycloak/oidc/dify-agentgateway",):
                 with (
                     self.subTest(chart=chart, selection=selection),
                     self.assertRaisesRegex(

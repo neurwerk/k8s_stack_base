@@ -15,22 +15,17 @@
 authKeycloak:
   hostname: ""
   realm: ""
-  agentgatewayClientRoles: []
-  difyAgentgatewayClientId: dify-agentgateway
-  difyAgentgatewayClientRoles: []
-
-# Platform-owned OpenRouter entries derive the complete role set used for Dify
-# managed-key subset validation. Client roles remain explicit for other models.
-openrouterCatalog:
-  enabled: true
-  excludedModels: []
-  grantToAccessGroups: false
-  models: []
 
 # ── Chart own values ────────────────────────────────────────────────────────
 authKeycloakApiKeyBridge:
   bridgeImage: ghcr.io/neurwerk/k8s-stack-keycloak-api-key-bridge:0.8.0@sha256:02db93c4b824391de00929d33b2adc6b459b20d4cb4163ef8924ac112f288d5a
   hostname: ""
+
+  # Add-on-owned, namespace-local files; no managed keys are configured by Base.
+  # Each entry has grantConfigMap, grantKey, verifierSecret and verifierKey.
+  # The ConfigMap holds a non-secret v2 grant; the Secret holds its SHA-256 verifier.
+  # Requires a bridge image that supports MANAGED_REGISTRATIONS (not pinned yet).
+  managedRegistrations: []
 
   ports:
     container:
