@@ -20,7 +20,7 @@ digests; `release/manifest.yaml` records each archive's SHA-256 digest.
 | [`LICENSES/Groundhog-MIT.txt`](LICENSES/Groundhog-MIT.txt) | Exact [groundhog2k `postgres-1.6.3` license](https://github.com/groundhog2k/helm-charts/blob/postgres-1.6.3/LICENSE) |
 | [`LICENSES/Valkey-Helm-BSD-3-Clause.txt`](LICENSES/Valkey-Helm-BSD-3-Clause.txt) | Exact [Valkey Helm `valkey-0.9.4` license](https://github.com/valkey-io/valkey-helm/blob/valkey-0.9.4/LICENSE) |
 | [`LICENSES/OpenBao-MPL-2.0.txt`](LICENSES/OpenBao-MPL-2.0.txt) | Exact [OpenBao Helm `openbao-0.29.1` license](https://github.com/openbao/openbao-helm/blob/openbao-0.29.1/LICENSE) |
-| [`LICENSES/AgentGateway-ATTRIBUTION.txt`](LICENSES/AgentGateway-ATTRIBUTION.txt) | Copyright attribution from [AgentGateway `v1.5.0`](https://github.com/agentgateway/agentgateway/blob/v1.5.0/LICENSE) |
+| [`LICENSES/AgentGateway-ATTRIBUTION.txt`](LICENSES/AgentGateway-ATTRIBUTION.txt) | Copyright attribution from [AgentGateway `v1.6.0`](https://github.com/agentgateway/agentgateway/blob/v1.6.0/LICENSE) |
 | [`LICENSES/Grafana-Helm-Charts-ATTRIBUTION.txt`](LICENSES/Grafana-Helm-Charts-ATTRIBUTION.txt) | Copyright attribution from [Grafana Helm Charts `grafana-9.0.0`](https://github.com/grafana/helm-charts/blob/grafana-9.0.0/LICENSE) |
 | [`LICENSES/OpenSearch-Helm-Charts-NOTICE.txt`](LICENSES/OpenSearch-Helm-Charts-NOTICE.txt) | Exact OpenSearch Helm Charts NOTICE used by [`opensearch-3.8.0`](https://github.com/opensearch-project/helm-charts/blob/opensearch-3.8.0/NOTICE.txt) and [`opensearch-dashboards-3.8.0`](https://github.com/opensearch-project/helm-charts/blob/opensearch-dashboards-3.8.0/NOTICE.txt) |
 
@@ -28,7 +28,7 @@ digests; `release/manifest.yaml` records each archive's SHA-256 digest.
 
 | Vendored archive | Exact upstream source | Offline license and notice |
 | --- | --- | --- |
-| `charts/agentgateway/charts/agentgateway-1.5.0.tgz` | [agentgateway `v1.5.0`](https://github.com/agentgateway/agentgateway/tree/v1.5.0) | Apache-2.0; AgentGateway attribution |
+| `charts/agentgateway/charts/agentgateway-1.6.0.tgz` | [agentgateway `v1.6.0`](https://github.com/agentgateway/agentgateway/tree/v1.6.0) | Apache-2.0; AgentGateway attribution |
 | `charts/cert-manager/approver-policy/charts/cert-manager-approver-policy-v0.25.1.tgz` | [approver-policy `v0.25.1`](https://github.com/cert-manager/approver-policy/tree/v0.25.1) | Apache-2.0 |
 | `charts/cert-manager/controller/charts/cert-manager-v1.20.2.tgz` | [cert-manager `v1.20.2`](https://github.com/cert-manager/cert-manager/tree/v1.20.2) | Apache-2.0 |
 | `charts/external-secrets/charts/external-secrets-2.9.0.tgz` | [external-secrets chart `2.9.0` at source tag `v2.10.0`](https://github.com/external-secrets/external-secrets/tree/v2.10.0/deploy/charts/external-secrets) | Apache-2.0 |

@@ -137,7 +137,7 @@ spec:
     version: 72.4.0
     source: oci://ghcr.io/prometheus-community/charts/kube-prometheus-stack
   - name: agentgateway-crds
-    version: 1.5.0
+    version: 1.6.0
     source: oci://cr.agentgateway.dev/charts/agentgateway-crds
   - name: external-secrets-crds
     version: 2.9.0
@@ -162,17 +162,17 @@ spec:
     charts:
     - path: charts/agentgateway
       name: infra-agentgateway
-      version: 1.9.4
-      appVersion: 1.5.0
+      version: 1.9.5
+      appVersion: 1.6.0
       dependencyLock:
-        digest: sha256:e5b8cfb3b1e062b8e9268a42405a466d71d22bdb18ae83ff7496788af21abedd
+        digest: sha256:ef5fd87240e231990e45578f9deb65e6a6f947ba8a8b846cf13954882299cb3a
         dependencies:
         - name: agentgateway
           repository: oci://cr.agentgateway.dev/charts
-          version: 1.5.0
+          version: 1.6.0
         archives:
-        - path: charts/agentgateway/charts/agentgateway-1.5.0.tgz
-          sha256: a22cfb7dcc56da05d31b18c0a969e1b8eee35d19a4493d88b5d4720efcc85945
+        - path: charts/agentgateway/charts/agentgateway-1.6.0.tgz
+          sha256: 61b97c2a34d6e0f1e2024a58804001c159dbc40a0f72173e70e8df767088c007
     - path: charts/agentgateway-extproc
       name: agentgateway-extproc
       version: 1.4.8
@@ -682,7 +682,7 @@ spec:
       name: wireguard
       chart: ./charts/wireguard
     images:
-    - reference: cr.agentgateway.dev/controller:v1.5.0
+    - reference: cr.agentgateway.dev/controller:v1.6.0
       pinned: true
       eligibility: included
       origins:

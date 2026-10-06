@@ -36,7 +36,7 @@ spec:
     model: {{ $model | quote }}
   visibility: Public
   provider: Custom
-  baseURL: {{ printf "http://%s:%d" $backendHost $backendPort | quote }}
+  baseURL: {{ printf "http://%s:%d/v1" $backendHost $backendPort | quote }}
   custom:
     formats:
       - type: Embeddings
