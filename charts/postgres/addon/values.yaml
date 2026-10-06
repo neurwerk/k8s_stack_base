@@ -1,0 +1,16 @@
+# Each optional product installs its own HelmRelease in infra-postgres-operations.
+# The role and every database name must be unique across products and Base.
+addon:
+  role: ""
+  databases: [] # [{name: example, vector: false}]; at least one is required.
+  passwordSecret: "" # Namespace-local Secret with key "password"; never a Helm value.
+  postgresHost: postgres-operations.infra-postgres-operations.svc.cluster.local
+  postgresPort: 5432
+  image: ghcr.io/documentdb/documentdb/documentdb-local:pg18-0.116.0
+  resources:
+    requests:
+      cpu: 25m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
