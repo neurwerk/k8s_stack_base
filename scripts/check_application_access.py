@@ -18,13 +18,11 @@ BROWSER_DEPENDENCIES = {
     "librechat-admin": ("librechat", "keycloak"),
     "librechat-files": (),
     "studio": ("keycloak",),
-    "dify": (),
     "langfuse": (),
     "agentgateway": (),
 }
 OPTIONAL_BROWSER_DEPENDENCIES = {
     "librechat": {"files": "librechat-files"},
-    "dify": {"consoleSSO": "keycloak"},
 }
 LEVELS = ("internal", "public", "restricted")
 

@@ -21,8 +21,6 @@ Explicit adoption and runtime acceptance remain required.
 `maintenance.products.<product>.enabled` is an approval scope, not runtime
 activation. All three supported products default to `false`; enabled maintenance requires at least
 one selection. No arbitrary hostname list or additional product is accepted.
-The legacy `maintenance.products.dify` field is accepted but ignored while
-clients remove old values; it never creates a maintenance route.
 
 | Product | Canonical Hostname Values |
 | --- | --- |
