@@ -1,0 +1,5 @@
+apiVersion: v2
+name: keycloak-addon-access
+description: Reconciles one addon's owned Keycloak roles and access groups
+type: application
+version: 0.1.2
