@@ -14,7 +14,7 @@ class BridgePostgresTests(unittest.TestCase):
             "authKeycloakApiKeyBridge": {"bridgeImage": "ghcr.io/neurwerk/k8s-stack-keycloak-api-key-bridge:0.7.1@sha256:" + "7" * 64},
         }, check=False)
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("requires the verified PostgreSQL-compatible 0.8.0 image pin", result.stderr)
+        self.assertIn("requires the verified PostgreSQL-compatible 0.8.1 image pin", result.stderr)
 
         unpinned = render("keycloak-api-key-bridge", {
             "authKeycloakApiKeyBridge": {
@@ -22,7 +22,7 @@ class BridgePostgresTests(unittest.TestCase):
             },
         }, check=False)
         self.assertNotEqual(unpinned.returncode, 0)
-        self.assertIn("requires the verified PostgreSQL-compatible 0.8.0 image pin", unpinned.stderr)
+        self.assertIn("requires the verified PostgreSQL-compatible 0.8.1 image pin", unpinned.stderr)
 
     def test_default_excludes_sqlite_and_wires_secret_and_policy(self):
         new = render("keycloak-api-key-bridge",
@@ -39,7 +39,9 @@ class BridgePostgresTests(unittest.TestCase):
             {e["name"]: e for e in init["env"]},
             {e["name"]: e for e in pod["containers"][0]["env"] if e["name"].startswith("KEYCLOAK_API_KEY_BRIDGE_POSTGRES_")},
         )
-        self.assertNotIn("data", [volume["name"] for volume in pod["volumes"]])
+        self.assertNotIn("data", [volume["name"] for volume in pod.get("volumes", [])])
+        self.assertNotIn("KEYCLOAK_API_KEY_BRIDGE_MANAGED_REGISTRATIONS", [e["name"] for e in pod["containers"][0]["env"]])
+        self.assertFalse(any(doc["kind"] == "ConfigMap" and doc["metadata"]["name"].endswith("managed-key-grants") for doc in documents(new)))
         env = {item["name"]: item for item in pod["containers"][0]["env"]}
         self.assertNotIn("KEYCLOAK_API_KEY_BRIDGE_DATABASE_URL", env)
         self.assertEqual(env["KEYCLOAK_API_KEY_BRIDGE_POSTGRES_PASSWORD"]["valueFrom"]["secretKeyRef"],
@@ -63,7 +65,10 @@ class BridgePostgresTests(unittest.TestCase):
         self.assertIn("Existing API key bridge database lacks the provisioner marker", script)
         self.assertIn("CREATE DATABASE api_key_bridge OWNER api_key_bridge", script)
         self.assertIn("verify_isolation api_key_bridge", script)
+        self.assertNotIn("DIFY_PASSWORD", script)
+        self.assertNotIn("CREATE DATABASE dify ", script)
         env = job["spec"]["template"]["spec"]["containers"][0]["env"]
+        self.assertNotIn("DIFY_PASSWORD", [item["name"] for item in env])
         self.assertEqual(next(e for e in env if e["name"] == "API_KEY_BRIDGE_PASSWORD")["valueFrom"]["secretKeyRef"]["name"],
                          "api-key-bridge-postgres-values")
         ingress = resource(enabled, "NetworkPolicy", "postgres-operations-ingress")

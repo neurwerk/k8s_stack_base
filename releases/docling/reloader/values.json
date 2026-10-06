@@ -4,7 +4,6 @@
       "namespaces": [
         "auth-keycloak",
         "auth-keycloak-api-key-bridge",
-        "frontend-dify",
         "frontend-librechat",
         "frontend-studio",
         "infra-postgres-auth",
@@ -21,7 +20,6 @@
     "watchedNamespaces": [
       "auth-keycloak",
       "auth-keycloak-api-key-bridge",
-      "frontend-dify",
       "frontend-librechat",
       "frontend-studio",
       "infra-postgres-auth",

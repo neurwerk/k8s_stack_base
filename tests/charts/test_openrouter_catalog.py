@@ -325,7 +325,7 @@ class AuthorizationCatalogTests(unittest.TestCase):
         self.assertNotEqual(failed.returncode, 0)
         self.assertIn("grants undeclared role", failed.stderr)
 
-    def test_dify_and_bridge_validate_against_effective_roles(self) -> None:
+    def test_legacy_dify_chart_validates_against_effective_roles(self) -> None:
         permission = "model:remote/openrouter/acme/model:invoke"
         values = {
             "openrouterCatalog": catalog(),
@@ -347,14 +347,12 @@ class AuthorizationCatalogTests(unittest.TestCase):
         )
         render("keycloak/oidc/dify-agentgateway", values)
         bridge = render("keycloak-api-key-bridge", values)
-        self.assertIn(
-            permission,
-            json.loads(resource(bridge, "ConfigMap")["data"]["primary.json"])["permissions"],
-        )
+        self.assertNotIn("auth-keycloak-api-key-bridge-managed-key-grants", bridge.stdout)
+        self.assertNotIn("KEYCLOAK_API_KEY_BRIDGE_MANAGED_", bridge.stdout)
 
         for selection in ({"excludedModels": ["acme/model"]}, {"enabled": False}):
             values["openrouterCatalog"] = {**catalog(), **selection}
-            for chart in ("keycloak/oidc/dify-agentgateway", "keycloak-api-key-bridge"):
+            for chart in ("keycloak/oidc/dify-agentgateway",):
                 with (
                     self.subTest(chart=chart, selection=selection),
                     self.assertRaisesRegex(
@@ -496,7 +494,6 @@ class CatalogOwnershipTests(unittest.TestCase):
         for path, product in (
             ("agentgateway/app.yaml", "agentgateway"),
             ("keycloak/oidc-agentgateway.yaml", "keycloak"),
-            ("keycloak/oidc-dify-agentgateway.yaml", "keycloak"),
             ("keycloak/realm-roles.yaml", "keycloak"),
             ("keycloak-api-key-bridge/app.yaml", "keycloak-api-key-bridge"),
             ("librechat/core/shared.yaml", "librechat"),

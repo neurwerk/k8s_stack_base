@@ -13,7 +13,7 @@ VALUES = {
         "enabled": True,
         "image": IMAGE,
         "products": {
-            name: {"enabled": True} for name in ("studio", "dify", "librechat", "langfuse")
+            name: {"enabled": True} for name in ("studio", "librechat", "langfuse")
         },
     },
     "authKeycloak": {
@@ -22,7 +22,6 @@ VALUES = {
         "branding": {"logoConfigMapName": "company-branding", "logoFormat": "png"},
     },
     "frontendStudio": {"studio": {"hostname": "studio.platform.test"}},
-    "frontendDify": {"hostname": "dify.platform.test"},
     "frontendLibrechat": {
         "hostname": "chat.platform.test",
         "adminPanel": {"hostname": "chat-admin.platform.test"},
@@ -125,6 +124,13 @@ class MaintenanceTests(unittest.TestCase):
         data = contract(render(values))
         self.assertEqual(data["deployment"]["spec"]["template"]["spec"]["containers"][0]["resources"], values["maintenance"]["resources"])
 
+    def test_old_dify_selection_is_inert(self):
+        values = copy.deepcopy(VALUES)
+        values["maintenance"]["products"]["dify"] = {"enabled": True}
+        data = contract(render(values))
+        self.assertNotIn("dify", data["routes"])
+        self.assertEqual(set(data["routes"]), {"global", "studio", "librechat", "langfuse"})
+
     def test_reject_invalid_approval_inputs(self):
         cases = [
             ("maintenance.image", value) for value in ("", "registry.test/server:latest", "registry.test/server:1.2.3", "registry.test/server@sha256:" + "a" * 64)
@@ -137,14 +143,6 @@ class MaintenanceTests(unittest.TestCase):
                 "ghcr.io/neurwerk/k8s-stack-tooling:1.2.03",
                 "ghcr.io/neurwerk/k8s-stack-tooling:1.2.3-rc.1",
                 "ghcr.io/neurwerk/k8s-stack-tooling:1.2.3+build",
-            )
-        ] + [
-            ("frontendDify.hostname", value) for value in (
-                "", "*.platform.test", "dify.example.com", "placeholder.platform.test",
-                "https://dify.platform.test", "dify.platform.test/path", "studio.platform.test",
-                "identity.platform.test", "models.platform.test", "storage.platform.test",
-                "a" * 64 + ".platform.test", "dify.platform.test`)", "dify.place.holder",
-                "192.0.2.1", "dify.platform.123", "dify.platform.1test",
             )
         ] + [
             ("maintenance.products.keycloak", {"enabled": True}),

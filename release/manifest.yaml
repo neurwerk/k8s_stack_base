@@ -156,7 +156,7 @@ spec:
     charts:
     - path: charts/agentgateway
       name: infra-agentgateway
-      version: 1.9.3
+      version: 1.9.4
       appVersion: 1.5.0
       dependencyLock:
         digest: sha256:e5b8cfb3b1e062b8e9268a42405a466d71d22bdb18ae83ff7496788af21abedd
@@ -173,7 +173,7 @@ spec:
       appVersion: 0.15.0
     - path: charts/cert-manager/approval-policy
       name: infra-cert-manager-approval-policy
-      version: 1.2.3
+      version: 1.2.4
     - path: charts/cert-manager/approver-policy
       name: infra-cert-manager-approver-policy
       version: 1.0.0
@@ -314,8 +314,8 @@ spec:
       appVersion: 26.7.2
     - path: charts/keycloak-api-key-bridge
       name: auth-keycloak-api-key-bridge
-      version: 1.1.7
-      appVersion: 0.8.0
+      version: 1.1.8
+      appVersion: 0.8.1
     - path: charts/kube-prometheus-stack
       name: monitor-kube-prometheus-stack
       version: 1.1.0
@@ -348,7 +348,7 @@ spec:
       appVersion: 1.0.0
     - path: charts/librechat/app
       name: frontend-librechat
-      version: 1.2.2
+      version: 1.2.3
       appVersion: v0.8.8-rc4
     - path: charts/librechat/code-interpreter/api
       name: librechat-code-interpreter-api
@@ -400,7 +400,7 @@ spec:
       appVersion: 9.1.1
     - path: charts/maintenance
       name: maintenance
-      version: 0.1.4
+      version: 0.1.5
     - path: charts/openbao
       name: infra-openbao
       version: 1.0.0
@@ -454,11 +454,11 @@ spec:
       appVersion: '18.6'
     - path: charts/postgres/operations
       name: infra-postgres-operations
-      version: 1.2.10
+      version: 1.2.11
       appVersion: pg18-0.116.0
     - path: charts/reloader
       name: infra-reloader
-      version: 1.0.0
+      version: 1.0.1
       appVersion: 1.4.21
       dependencyLock:
         digest: sha256:8c52e34407bf2a9b16f138cc98a015ded77e35c1f64d6cca5b02064809dac593
@@ -593,14 +593,6 @@ spec:
       namespace: auth-keycloak
       name: keycloak-agentgateway-oidc
       chart: ./charts/keycloak/oidc/agentgateway
-    - path: releases/keycloak/oidc-dify-agentgateway.yaml
-      namespace: auth-keycloak
-      name: keycloak-dify-agentgateway-oidc
-      chart: ./charts/keycloak/oidc/dify-agentgateway
-    - path: releases/keycloak/oidc-dify.yaml
-      namespace: auth-keycloak
-      name: keycloak-dify-oidc
-      chart: ./charts/keycloak/oidc/dify
     - path: releases/keycloak/oidc-keycloak-api-key-bridge.yaml
       namespace: auth-keycloak
       name: keycloak-keycloak-api-key-bridge-oidc
@@ -912,7 +904,7 @@ spec:
       eligibility: included
       origins:
       - charts/agentgateway-extproc/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-keycloak-api-key-bridge:0.8.0@sha256:02db93c4b824391de00929d33b2adc6b459b20d4cb4163ef8924ac112f288d5a
+    - reference: ghcr.io/neurwerk/k8s-stack-keycloak-api-key-bridge:0.8.1@sha256:6ffd0e45adfefefca7761aa6568dd0215899cbaf0792d93f958fadc7efa674a9
       pinned: true
       eligibility: included
       origins:

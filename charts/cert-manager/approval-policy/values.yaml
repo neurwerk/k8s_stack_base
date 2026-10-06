@@ -15,8 +15,6 @@ infraRookCeph:
   objectStore:
     publicHostname: ""
 
-frontendDify:
-  hostname: ""
 
 frontendLibrechat:
   hostname: ""

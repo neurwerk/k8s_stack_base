@@ -9,12 +9,12 @@
   {{- fail "authKeycloak.branding.logoConfigMapName must be a DNS subdomain" -}}
 {{- end -}}
 {{- if not (has .Values.authKeycloak.branding.logoFormat (list "png" "svg")) -}}{{- fail "authKeycloak.branding.logoFormat must be png or svg" -}}{{- end -}}
-{{- $hosts := dict "studio" (list .Values.frontendStudio.studio.hostname) "dify" (list .Values.frontendDify.hostname) "librechat" (list .Values.frontendLibrechat.hostname .Values.frontendLibrechat.adminPanel.hostname) "langfuse" (list .Values.monitorLangfuseWrapper.hostname) -}}
+{{- $hosts := dict "studio" (list .Values.frontendStudio.studio.hostname) "librechat" (list .Values.frontendLibrechat.hostname .Values.frontendLibrechat.adminPanel.hostname) "langfuse" (list .Values.monitorLangfuseWrapper.hostname) -}}
 {{- $selected := dict -}}
 {{- $all := list -}}
 {{- $excluded := list (dig "hostname" "" .Values.authKeycloak) (dig "hostname" "" (.Values.infraAgentgatewayWrapper | default dict)) (dig "objectStore" "publicHostname" "" (.Values.infraRookCeph | default dict)) -}}
 {{- range $product, $settings := .Values.maintenance.products -}}
-  {{- if $settings.enabled -}}
+  {{- if and $settings.enabled (hasKey $hosts $product) -}}
     {{- $selection := index $hosts $product -}}
     {{- range $host := $selection -}}
       {{- if or (not (kindIs "string" $host)) (gt (len $host) 253) (not (regexMatch `^([a-z0-9]([-a-z0-9]*[a-z0-9])?\.)+[a-z]([-a-z0-9]*[a-z0-9])?$` $host)) (regexMatch `(^|\.)(example|invalid|localhost|placeholder)(\.|$)|CHANGEME|change-me|(^|\.)place\.holder$` $host) -}}
