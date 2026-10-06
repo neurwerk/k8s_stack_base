@@ -175,8 +175,8 @@ spec:
           sha256: a22cfb7dcc56da05d31b18c0a969e1b8eee35d19a4493d88b5d4720efcc85945
     - path: charts/agentgateway-extproc
       name: agentgateway-extproc
-      version: 1.4.7
-      appVersion: 0.14.1
+      version: 1.4.8
+      appVersion: 0.15.0
     - path: charts/cert-manager/approval-policy
       name: infra-cert-manager-approval-policy
       version: 1.2.4
@@ -407,12 +407,12 @@ spec:
           sha256: d932c62d60743f2837c7b9a4248ef7719c3049fe11b2dd8d44bc6ede43641a0e
     - path: charts/pii-engine
       name: pii-engine
-      version: 1.0.7
-      appVersion: 0.10.1
+      version: 1.0.8
+      appVersion: 0.11.0
     - path: charts/pii-engine-model-sync
       name: pii-engine-model-sync
-      version: 1.0.5
-      appVersion: 0.10.1
+      version: 1.0.6
+      appVersion: 0.11.0
     - path: charts/postgres/addon
       name: infra-postgres-addon
       version: 0.1.1
@@ -443,15 +443,15 @@ spec:
       appVersion: v1.20.3
     - path: charts/studio/api
       name: studio-api
-      version: 1.1.17
-      appVersion: 0.13.0
+      version: 1.1.18
+      appVersion: 0.14.0
     - path: charts/studio/shared
       name: studio-shared
       version: 1.0.0
     - path: charts/studio/web
       name: studio
-      version: 1.0.11
-      appVersion: 0.13.0
+      version: 1.0.12
+      appVersion: 0.14.0
     - path: charts/traefik
       name: traefik
       version: 1.0.3
@@ -790,7 +790,7 @@ spec:
       eligibility: included
       origins:
       - charts/wireguard/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.14.1@sha256:b40b5a0dcb0d11e91c3eec6712fbb55a70738a2e6239236e5d316288e778afe0
+    - reference: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.15.0@sha256:c8d7ca5b11961f24945e3a5f93f9d90e13424734ec134fd6efd8711a3bfd2d69
       pinned: true
       eligibility: included
       origins:
@@ -810,18 +810,18 @@ spec:
       eligibility: included
       origins:
       - charts/opensearch/dashboards/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-pii-engine:0.10.1-cpu@sha256:81c0379ba316b639593557335332393b0c08eab3023e9ccc0df68a51ee82cede
+    - reference: ghcr.io/neurwerk/k8s-stack-pii-engine:0.11.0-cpu@sha256:03909066a0aa3445e7ca673976c2c1dc4834f38d885bbb531bc6c992261f821c
       pinned: true
       eligibility: included
       origins:
       - charts/pii-engine-model-sync/values.yaml
       - charts/pii-engine/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-studio-api:0.13.0@sha256:46ef3671034802cd70c4d3cd523123059287b5f89d84ceb6b83d5b03fa4fa106
+    - reference: ghcr.io/neurwerk/k8s-stack-studio-api:0.14.0@sha256:bd676afacd7b33c1477609b52e8cc60789994216a804ce0ab666f00f56a00ec2
       pinned: true
       eligibility: included
       origins:
       - charts/studio/api/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-studio-web:0.13.0@sha256:d4e4521ef9eec94ed8d076c1c06aecdac1b0774927283c802269a05cd28094d0
+    - reference: ghcr.io/neurwerk/k8s-stack-studio-web:0.14.0@sha256:3d426460e6014c7ee1a8e24a3285b603aabf8f0584160f35ea8211d7cbbc4511
       pinned: true
       eligibility: included
       origins:
