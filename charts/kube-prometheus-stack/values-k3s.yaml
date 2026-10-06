@@ -1,0 +1,14 @@
+# Opt-in profile for K3s's shared control-plane metrics registry.
+# Select after values.yaml; see README.md for the Flux valuesFiles configuration.
+kube-prometheus-stack:
+  kubelet:
+    serviceMonitor:
+      metricRelabelings:
+        # Helm replaces this list; retain the upstream 72.4.0 storage-bucket filter.
+        - action: drop
+          sourceLabels: [__name__, le]
+          regex: '(csi_operations|storage_operation_duration)_seconds_bucket;(0.25|2.5|15|25|120|600)(\.0)?'
+        # Use the API-server scrape as the canonical control-plane metrics source.
+        - action: drop
+          sourceLabels: [__name__]
+          regex: '(apiserver|etcd|kine|scheduler)_.*'
