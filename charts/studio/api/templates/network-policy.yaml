@@ -93,6 +93,20 @@ spec:
           protocol: TCP
     {{- end }}
     {{- if .Values.frontendStudio.api.postgres.enabled }}
+    {{- if .Values.frontendStudio.api.contextforge.enabled }}
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: contextforge
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: contextforge
+              app.kubernetes.io/instance: contextforge
+              app.kubernetes.io/component: application
+      ports:
+        - port: 4444
+          protocol: TCP
+    {{- end }}
     - to:
         - namespaceSelector:
             matchLabels:

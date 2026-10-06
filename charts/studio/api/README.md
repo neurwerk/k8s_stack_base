@@ -1,7 +1,7 @@
 # Required notice preference contract
 
-This Base level pins Studio API/Web `0.12.0`, extProc `0.14.0`, and the
-PostgreSQL-only API-key bridge `0.8.0`. It requires both notice databases,
+This Base level pins Studio API/Web `0.15.1`, extProc `0.16.2`, and the
+PostgreSQL-only API-key bridge `0.8.2`. It requires both notice databases,
 Studio's private mTLS listener, extProc's preference lookup, and AgentGateway's
 trusted API-key credential context. Client values cannot disable these parts.
 Older signed Base tags remain the choice for clients that decline this upgrade.
@@ -66,3 +66,48 @@ Disabling it removes the Secret consumer and egress, and the API returns 404.
 Studio image `0.13.0` implements the personal LLM and MCP activity API. Reconcile
 the `0.2.24` credential catalog before enabling this value for a client.
 Operator access to Langfuse outside Studio is separate.
+
+## Optional ContextForge wiring
+
+`frontendStudio.api.contextforge.enabled` is false by default. Enable only after
+adopting the verified Studio API/Web `0.15.1` pins and a ready native ContextForge HTTPS
+endpoint. The chart mounts the namespace-local internal CA bundle, opens only
+API Pod egress to the ContextForge application on TCP 4444, and configures native
+service authentication as `trusted-proxy`. It never gives Studio the native
+JWT signing key or an administrator token.
+
+Prepare a fixed, active, non-admin service account owning the fixed team, with
+exactly `admin.user_management`, `teams.read` and `teams.manage_members` through a
+non-inheriting role. The operator provisions and verifies this native account
+separately. Set its email in the required non-secret private client value
+`frontendStudio.api.contextforge.serviceAccountEmail`; the API receives it as a
+plain environment value. It is an identity label, not a bearer credential or proof
+of permissions. Never fall back to the native bootstrap administrator email.
+Private HTTPS and the restricted native ingress protect this fixed header
+authority; verified caller email remains separate and unchanged.
+Set the fixed `teamId`, `globalRoleId`
+and `teamRoleId`; onboarding remains independently opt-in.
+`connectionsEnabled` defaults to false and additionally requires onboarding and
+the exact HTTPS `studioOrigin`. The callback URL is derived from that same origin
+plus `/oauth/callback`, not supplied as a second independently editable URL.
+
+The API receives `K8S_STUDIO_MCP_CATALOG` from `catalogConfigMapName` (default
+`mcp-catalog`), key `studio.json`, **in frontend-studio**. The client staging tool
+must generate/project this from the same approved canonical source as the
+AgentGateway catalog; the chart neither reads a different namespace nor accepts
+a second hand-written provider list. Wait for that ConfigMap and the internal CA
+before starting the API. Reloader watches the catalog and internal CA changes;
+service email changes update the Deployment through Helm reconciliation.
+Only the API container receives these settings, not the notice or management servers.
+
+The Web chart uses the same feature value to route exact `GET /oauth/callback`
+to Studio API on the existing HTTPS Gateway. `/auth/` remains on the Web service.
+No native ContextForge route or arbitrary management path is publicly exposed.
+Stored OAuth registrations must use `https://studio.example.com/oauth/callback`
+with the actual approved Studio origin. Compatible popup-only callback and
+connection support must be published before selecting this wiring; source flags
+do not establish runtime qualification.
+`0.15.1` includes the public callback's Keycloak middleware exemption; do not use
+`0.15.0` for personal connections. Native account provisioning, app registration,
+actual ciphertext, credential-safe logs and connection/restart checks remain
+operator-owned prerequisites, not results established by these image pins.

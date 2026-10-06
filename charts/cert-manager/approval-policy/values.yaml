@@ -29,3 +29,7 @@ monitorLangfuseWrapper:
   hostname: ""
 docling:
   enabled: false
+contextforge:
+  enabled: false
+  tls:
+    enabled: false

@@ -108,5 +108,6 @@
 {{- if not (kindIs "map" $ref) -}}{{- fail "MCP oauth requires client_secret_ref with name and key" -}}{{- end -}}
 {{- if or (ne (len $ref) 2) (empty $ref.name) (empty $ref.key) -}}{{- fail "MCP client_secret_ref requires only name and key" -}}{{- end -}}
 {{- if or (not (kindIs "string" $ref.name)) (not (kindIs "string" $ref.key)) (not (regexMatch `^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$` (toString $ref.name))) (not (regexMatch `^[-._a-zA-Z0-9]+$` (toString $ref.key))) -}}{{- fail "MCP client_secret_ref name and key must be valid Secret identifiers" -}}{{- end -}}
+{{- if or (ne $ref.name "contextforge-oauth-apps") (ne $ref.key .name) -}}{{- fail "MCP client_secret_ref must use contextforge-oauth-apps and the selected integration ID" -}}{{- end -}}
 {{- end -}}
 {{- end -}}

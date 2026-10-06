@@ -1,0 +1,26 @@
+{{- if and .Values.contextforge.enabled .Values.contextforge.tls.enabled }}
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: contextforge
+  labels:
+    app.kubernetes.io/name: contextforge
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: contextforge
+spec:
+  secretName: contextforge-tls
+  commonName: contextforge
+  dnsNames:
+    - contextforge
+    - contextforge.contextforge
+    - contextforge.contextforge.svc
+    - contextforge.contextforge.svc.cluster.local
+  duration: 2160h
+  renewBefore: 360h
+  privateKey: {algorithm: RSA, size: 2048, rotationPolicy: Always}
+  usages: [server auth]
+  issuerRef:
+    name: infra-cert-manager-internal-ca-issuer
+    kind: ClusterIssuer
+    group: cert-manager.io
+{{- end }}

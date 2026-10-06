@@ -1,4 +1,7 @@
 {{- if .Values.contextforge.enabled }}
+{{- if or (not (kindIs "bool" .Values.contextforge.tls.enabled)) (not (kindIs "bool" .Values.contextforge.trustedProxy.enabled)) }}
+{{- fail "ContextForge tls.enabled and trustedProxy.enabled must be booleans" }}
+{{- end }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -37,18 +40,34 @@ spec:
             - configMapRef: {name: {{ .Values.contextforge.existingConfigMap }}}
           env:
             {{- include "contextforge.credentials" . | nindent 12 }}
+            {{- if .Values.contextforge.trustedProxy.enabled }}
+            {{- include "contextforge.proxyEnvironment" . | nindent 12 }}
+            {{- end }}
+            {{- if .Values.contextforge.tls.enabled }}
+            - {name: SSL, value: "true"}
+            - {name: CERT_FILE, value: /var/run/contextforge/tls/tls.crt}
+            - {name: KEY_FILE, value: /var/run/contextforge/tls/tls.key}
+            {{- end }}
             - {name: SSL_CERT_FILE, value: /trust/ca.crt}
             - {name: GUNICORN_WORKERS, value: "1"}
             - {name: MCPGATEWAY_SKIP_MIGRATIONS, value: "true"}
           resources:
             {{- .Values.contextforge.resources | toYaml | nindent 12 }}
           startupProbe:
+            {{- if .Values.contextforge.tls.enabled }}
+            httpGet: {path: /ready, port: http, scheme: HTTPS}
+            {{- else }}
             httpGet: {path: /ready, port: http}
+            {{- end }}
             timeoutSeconds: 5
             periodSeconds: 5
             failureThreshold: 60
           readinessProbe:
+            {{- if .Values.contextforge.tls.enabled }}
+            httpGet: {path: /ready, port: http, scheme: HTTPS}
+            {{- else }}
             httpGet: {path: /ready, port: http}
+            {{- end }}
             timeoutSeconds: 5
             periodSeconds: 5
           # /health returns HTTP 200 even for an unhealthy dependency.
@@ -59,8 +78,17 @@ spec:
           volumeMounts:
             - {name: tmp, mountPath: /tmp}
             - {name: trust, mountPath: /trust, readOnly: true}
+            {{- if .Values.contextforge.tls.enabled }}
+            - {name: server-tls, mountPath: /var/run/contextforge/tls, readOnly: true}
+            {{- end }}
       volumes:
         {{- include "contextforge.trustVolumes" . | nindent 8 }}
         - name: tmp
           emptyDir: {sizeLimit: 256Mi}
+        {{- if .Values.contextforge.tls.enabled }}
+        - name: server-tls
+          secret:
+            secretName: {{ required "ContextForge tls.existingSecret is required" .Values.contextforge.tls.existingSecret }}
+            defaultMode: 0440
+        {{- end }}
 {{- end }}

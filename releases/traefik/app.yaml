@@ -22,3 +22,8 @@ spec:
         name: k8s-stack
         namespace: flux-system
       interval: 10m
+  valuesFrom:
+    - kind: ConfigMap
+      name: client-values
+      valuesKey: values.yaml
+      optional: true

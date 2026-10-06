@@ -1,6 +1,10 @@
 # IMAGE SOURCE: upstream
 # Traefik images are controlled by the vendor subchart; this wrapper has no owned image default.
 traefik:
+  # Disable before exposing OAuth callbacks: even 4xx access logs can include
+  # credential-bearing query strings. This affects all edge access logs.
+  accessLogs:
+    enabled: true
   ports:
     web:
       port: 8000

@@ -53,7 +53,7 @@ spec:
       general:
         level: WARN
       access:
-        enabled: true
+        enabled: {{ .Values.traefik.accessLogs.enabled }}
         filters:
           statuscodes: "400-599"
 

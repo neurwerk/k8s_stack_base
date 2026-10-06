@@ -92,6 +92,11 @@ internalRagEmbedding:
 # is an approved in-cluster workload or an approved static HTTP/SSE target; the
 # chart never renders a dynamic backend that could proxy arbitrary destinations.
 mcp:
+  # Non-routing upstream Pods retained when an MCP route moves to ContextForge.
+  # Entries use {name, port, path, workload}; names match selected native entries.
+  # The same list feeds ContextForge egress. Credentials remain in the existing
+  # infraAgentgatewayWrapperSecrets.mcp.<name> Secret, only mounted by that Pod.
+  upstreamWorkloads: []
   enabled: false
   # Declarative assertion only, not a runtime selector: accepts 2025-11-25 or
   # 2026-07-28 and is not passed to AgentGateway or extProc. Modern MCP requires

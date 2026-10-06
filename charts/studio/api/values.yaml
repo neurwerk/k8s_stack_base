@@ -13,7 +13,7 @@
 
 # --- Studio API configuration ---
 frontendStudio:
-  apiImage: "ghcr.io/neurwerk/k8s-stack-studio-api:0.14.0@sha256:bd676afacd7b33c1477609b52e8cc60789994216a804ce0ab666f00f56a00ec2"
+  apiImage: "ghcr.io/neurwerk/k8s-stack-studio-api:0.15.1@sha256:6f674780c178b7964bb16795d9142c716c721308de22c3caac18649356ba1307"
   api:
     replicas: 1
     # Python and Uvicorn application logs; warnings and errors remain visible.
@@ -62,6 +62,25 @@ frontendStudio:
       enabled: false
       url: "http://monitor-langfuse-web.monitor-langfuse.svc.cluster.local:3000"
       secretName: frontend-studio-llm-logs-secret
+
+    # Optional native MCP management, served only through the authenticated API.
+    # Project the canonical MCP catalog into this namespace; never copy provider
+    # definitions into Helm values or reference a ConfigMap in another namespace.
+    contextforge:
+      enabled: false
+      accountOnboardingEnabled: false
+      connectionsEnabled: false
+      studioOrigin: ""
+      catalogConfigMapName: mcp-catalog
+      catalogKey: studio.json
+      url: https://contextforge.contextforge.svc.cluster.local:4444
+      caConfigMapName: infra-openbao-ca-bundle
+      # Non-secret identity label for the approved fixed non-admin native account.
+      # The operator provisions and verifies that account separately.
+      serviceAccountEmail: ""
+      teamId: ""
+      globalRoleId: ""
+      teamRoleId: ""
 
     # Required notice preference database and namespace-local password Secret.
     postgres:

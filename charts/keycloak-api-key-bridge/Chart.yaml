@@ -12,5 +12,5 @@ description: |
   Internal REST API for API key management — CRUD operations plus a
   /validate endpoint called by AgentGateway extAuthz.
 type: application
-version: 1.1.8
-appVersion: "0.8.1"
+version: 1.1.9
+appVersion: "0.8.2"

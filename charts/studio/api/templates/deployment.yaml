@@ -4,6 +4,12 @@
 {{- if not (kindIs "bool" .Values.frontendStudio.api.llmLogs.enabled) }}
 {{- fail "Studio llmLogs.enabled must be a boolean" }}
 {{- end }}
+{{- if or (not (kindIs "bool" .Values.frontendStudio.api.contextforge.enabled)) (not (kindIs "bool" .Values.frontendStudio.api.contextforge.accountOnboardingEnabled)) (not (kindIs "bool" .Values.frontendStudio.api.contextforge.connectionsEnabled)) }}
+{{- fail "Studio contextforge enabled, accountOnboardingEnabled and connectionsEnabled must be booleans" }}
+{{- end }}
+{{- if and .Values.frontendStudio.api.contextforge.enabled (ne .Values.frontendStudio.api.contextforge.url "https://contextforge.contextforge.svc.cluster.local:4444") }}
+{{- fail "Studio ContextForge requires the private native HTTPS Service endpoint" }}
+{{- end }}
 # =============================================================================
 # frontend-studio API Deployment (authenticated API + management server)
 # =============================================================================
@@ -14,6 +20,9 @@ metadata:
   namespace: {{ .Release.Namespace }}
   annotations:
     secret.reloader.stakater.com/reload: "frontend-studio-openbao-secret,{{ .Values.frontendStudio.api.piiEngineClientSecretName }}{{ if .Values.frontendStudio.api.postgres.enabled }},{{ .Values.frontendStudio.api.postgres.secretName }}{{ end }}{{ if .Values.frontendStudio.api.noticePreferences.enabled }},{{ .Values.frontendStudio.api.noticePreferences.serverSecretName }}{{ end }}{{ if .Values.frontendStudio.api.llmLogs.enabled }},{{ .Values.frontendStudio.api.llmLogs.secretName }}{{ end }}"
+    {{- if .Values.frontendStudio.api.contextforge.enabled }}
+    configmap.reloader.stakater.com/reload: "{{ .Values.frontendStudio.api.contextforge.caConfigMapName }},{{ .Values.frontendStudio.api.contextforge.catalogConfigMapName }}"
+    {{- end }}
   labels:
     app.kubernetes.io/name: studio-api
     app.kubernetes.io/instance: {{ .Release.Name }}
@@ -110,6 +119,43 @@ spec:
               value: {{ .Values.frontendStudio.api.agentgatewayAdminUrl | quote }}
             - name: K8S_STUDIO_USAGE_TIMEZONE
               value: {{ .Values.frontendStudio.api.usageTimezone | quote }}
+            {{- if .Values.frontendStudio.api.contextforge.enabled }}
+            - name: K8S_STUDIO_MCP_CATALOG_ENABLED
+              value: "true"
+            - name: K8S_STUDIO_MCP_CATALOG
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ .Values.frontendStudio.api.contextforge.catalogConfigMapName }}
+                  key: {{ .Values.frontendStudio.api.contextforge.catalogKey }}
+            - name: K8S_STUDIO_CONTEXTFORGE_URL
+              value: {{ .Values.frontendStudio.api.contextforge.url | quote }}
+            - name: K8S_STUDIO_CONTEXTFORGE_CA_CERT
+              value: /var/run/contextforge/ca.crt
+            - name: K8S_STUDIO_CONTEXTFORGE_SERVICE_AUTH_MODE
+              value: trusted-proxy
+            - name: K8S_STUDIO_CONTEXTFORGE_SERVICE_ACCOUNT_EMAIL
+              value: {{ required "Studio contextforge.serviceAccountEmail requires the approved fixed non-admin native service identity" .Values.frontendStudio.api.contextforge.serviceAccountEmail | quote }}
+            - name: K8S_STUDIO_CONTEXTFORGE_ACCOUNT_ONBOARDING_ENABLED
+              value: {{ .Values.frontendStudio.api.contextforge.accountOnboardingEnabled | quote }}
+            - name: K8S_STUDIO_MCP_CONNECTIONS_ENABLED
+              value: {{ .Values.frontendStudio.api.contextforge.connectionsEnabled | quote }}
+            {{- if .Values.frontendStudio.api.contextforge.connectionsEnabled }}
+            {{- if not .Values.frontendStudio.api.contextforge.accountOnboardingEnabled }}{{ fail "Studio connectionsEnabled requires accountOnboardingEnabled" }}{{- end }}
+            {{- $origin := required "Studio ContextForge studioOrigin is required for connections" .Values.frontendStudio.api.contextforge.studioOrigin }}
+            {{- if not (regexMatch "^https://[a-zA-Z0-9.-]+(:[0-9]+)?$" $origin) }}{{ fail "Studio ContextForge studioOrigin must be an exact HTTPS origin" }}{{- end }}
+            {{- $origin = regexReplaceAll ":443$" (lower $origin) "" }}
+            - name: K8S_STUDIO_CONTEXTFORGE_OAUTH_STUDIO_ORIGIN
+              value: {{ $origin | quote }}
+            - name: K8S_STUDIO_CONTEXTFORGE_OAUTH_CALLBACK_URL
+              value: {{ printf "%s/oauth/callback" $origin | quote }}
+            {{- end }}
+            - name: K8S_STUDIO_CONTEXTFORGE_TEAM_ID
+              value: {{ required "Studio contextforge.teamId is required" .Values.frontendStudio.api.contextforge.teamId | quote }}
+            - name: K8S_STUDIO_CONTEXTFORGE_GLOBAL_ROLE_ID
+              value: {{ required "Studio contextforge.globalRoleId is required" .Values.frontendStudio.api.contextforge.globalRoleId | quote }}
+            - name: K8S_STUDIO_CONTEXTFORGE_TEAM_ROLE_ID
+              value: {{ required "Studio contextforge.teamRoleId is required" .Values.frontendStudio.api.contextforge.teamRoleId | quote }}
+            {{- end }}
             - name: K8S_STUDIO_LLM_LOGS_ENABLED
               value: {{ .Values.frontendStudio.api.llmLogs.enabled | quote }}
             {{- if .Values.frontendStudio.api.llmLogs.enabled }}
@@ -171,6 +217,11 @@ spec:
             - name: pii-engine-tls
               mountPath: /var/run/pii-engine/tls
               readOnly: true
+            {{- if .Values.frontendStudio.api.contextforge.enabled }}
+            - name: contextforge-ca
+              mountPath: /var/run/contextforge
+              readOnly: true
+            {{- end }}
           resources:
             {{- toYaml .Values.frontendStudio.api.resources | nindent 12 }}
         {{- if .Values.frontendStudio.api.noticePreferences.enabled }}
@@ -255,6 +306,12 @@ spec:
           resources:
             {{- toYaml .Values.frontendStudio.api.resources | nindent 12 }}
       volumes:
+        {{- if .Values.frontendStudio.api.contextforge.enabled }}
+        - name: contextforge-ca
+          configMap:
+            name: {{ .Values.frontendStudio.api.contextforge.caConfigMapName }}
+            items: [{key: ca.crt, path: ca.crt}]
+        {{- end }}
         # Internal CA trust bundle for OpenSearch TLS — synced by the
         # monitor-opensearch-ca-sync-job (optional so the pod can start
         # before the opensearch release has synced it).

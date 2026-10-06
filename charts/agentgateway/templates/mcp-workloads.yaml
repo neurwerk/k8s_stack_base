@@ -1,5 +1,8 @@
 {{- if .Values.mcp.enabled }}
-{{- range include "infra-agentgateway.effectiveMcpServers" . | fromYamlArray }}
+{{- $upstreams := include "infra-agentgateway.mcpUpstreamWorkloads" . | fromYamlArray }}
+{{- $upstreamIds := dict }}
+{{- range $upstreams }}{{- $_ := set $upstreamIds .name true }}{{- end }}
+{{- range concat (include "infra-agentgateway.effectiveMcpServers" . | fromYamlArray) $upstreams }}
 {{- if .workload }}
 {{- $serverName := .name }}
 {{- $deploymentName := include "infra-agentgateway.mcpResourceName" (dict "id" $serverName "component" "deploy") }}
@@ -92,8 +95,12 @@ spec:
       targetPort: http
       appProtocol: agentgateway.dev/mcp
 ---
+{{- if hasKey $upstreamIds $serverName }}
+# Workloads remain private; a migrated upstream accepts only native ContextForge.
+{{- else }}
 # Workload-backed MCP servers are reachable only through the AgentGateway data
 # plane. The ClusterIP Service is not a sufficient boundary on its own.
+{{- end }}
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -112,9 +119,20 @@ spec:
     - Ingress
   ingress:
     - from:
+        {{- if hasKey $upstreamIds $serverName }}
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: contextforge
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: contextforge
+              app.kubernetes.io/instance: contextforge
+              app.kubernetes.io/component: application
+        {{- else }}
         - podSelector:
             matchLabels:
               app.kubernetes.io/name: infra-agentgateway-gateway
+        {{- end }}
       ports:
         - port: {{ .port | default 8080 }}
           protocol: TCP
