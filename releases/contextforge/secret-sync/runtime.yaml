@@ -1,0 +1,70 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: contextforge-external-secrets
+  namespace: contextforge
+automountServiceAccountToken: false
+---
+apiVersion: external-secrets.io/v1
+kind: SecretStore
+metadata:
+  name: contextforge-openbao-secret-store
+  namespace: contextforge
+spec:
+  provider:
+    vault:
+      server: https://infra-openbao.infra-openbao.svc:8200
+      path: secret
+      version: v2
+      caProvider:
+        type: ConfigMap
+        name: infra-openbao-ca-bundle
+        key: ca.crt
+      auth:
+        kubernetes:
+          mountPath: kubernetes
+          role: contextforge
+          serviceAccountRef:
+            name: contextforge-external-secrets
+            audiences: [openbao]
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: contextforge-runtime
+  namespace: contextforge
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: contextforge-openbao-secret-store
+    kind: SecretStore
+  target:
+    name: contextforge-runtime
+    creationPolicy: Owner
+    deletionPolicy: Retain
+    template:
+      engineVersion: v2
+      type: Opaque
+      data:
+        DATABASE_URL: "postgresql+psycopg://contextforge:{{ .postgresqlPassword | urlquery }}@postgres-operations.infra-postgres-operations.svc.cluster.local:5432/contextforge"
+        JWT_SECRET_KEY: "{{ .jwtSecretKey }}"
+        AUTH_ENCRYPTION_SECRET: "{{ .authEncryptionSecret }}"
+        PLATFORM_ADMIN_EMAIL: "{{ .platformAdminEmail }}"
+        PLATFORM_ADMIN_PASSWORD: "{{ .platformAdminPassword }}"
+        DEFAULT_USER_PASSWORD: "{{ .defaultUserPassword }}"
+        VAULT_TOKEN: "{{ .vaultToken }}"
+  data:
+    - secretKey: postgresqlPassword
+      remoteRef: {key: contextforge/internal, property: postgresqlPassword}
+    - secretKey: jwtSecretKey
+      remoteRef: {key: contextforge/internal, property: jwtSecretKey}
+    - secretKey: authEncryptionSecret
+      remoteRef: {key: contextforge/internal, property: authEncryptionSecret}
+    - secretKey: platformAdminEmail
+      remoteRef: {key: contextforge/internal, property: platformAdminEmail}
+    - secretKey: platformAdminPassword
+      remoteRef: {key: contextforge/internal, property: platformAdminPassword}
+    - secretKey: defaultUserPassword
+      remoteRef: {key: contextforge/internal, property: defaultUserPassword}
+    - secretKey: vaultToken
+      remoteRef: {key: contextforge/internal, property: vaultToken}

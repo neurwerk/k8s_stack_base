@@ -23,6 +23,8 @@ spec:
       terminationGracePeriodSeconds: 60
       securityContext:
         {{- include "contextforge.podSecurity" . | nindent 8 }}
+      initContainers:
+        {{- include "contextforge.trustInit" . | nindent 8 }}
       containers:
         - name: contextforge
           image: {{ .Values.contextforge.image | quote }}
@@ -35,6 +37,7 @@ spec:
             - configMapRef: {name: {{ .Values.contextforge.existingConfigMap }}}
           env:
             {{- include "contextforge.credentials" . | nindent 12 }}
+            - {name: SSL_CERT_FILE, value: /trust/ca.crt}
             - {name: GUNICORN_WORKERS, value: "1"}
             - {name: MCPGATEWAY_SKIP_MIGRATIONS, value: "true"}
           resources:
@@ -55,7 +58,9 @@ spec:
             periodSeconds: 15
           volumeMounts:
             - {name: tmp, mountPath: /tmp}
+            - {name: trust, mountPath: /trust, readOnly: true}
       volumes:
+        {{- include "contextforge.trustVolumes" . | nindent 8 }}
         - name: tmp
           emptyDir: {sizeLimit: 256Mi}
 {{- end }}

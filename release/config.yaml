@@ -108,11 +108,19 @@ packages:
     chartPrefixes: []
   - path: releases/contextforge/configuration
     status: excluded
-    reason: Foundation only; OpenBao credential storage and secret delivery are not wired.
+    reason: Foundation only; catalog publication and runtime qualification are pending.
+    chartPrefixes: []
+  - path: releases/contextforge/secret-sync
+    status: excluded
+    reason: Source-only ContextForge catalog and token lifecycle; no published tooling prerequisite or client adoption.
+    chartPrefixes: []
+  - path: releases/contextforge/postgres
+    status: excluded
+    reason: Dedicated ContextForge database provisioning is unselected and not runtime-qualified.
     chartPrefixes: []
   - path: releases/contextforge/app
     status: excluded
-    reason: Foundation only; database provisioning and runtime qualification are incomplete.
+    reason: Disabled foundation; runtime qualification and separately approved adoption are pending.
     chartPrefixes:
     - charts/contextforge
   - path: releases/librechat/rag

@@ -97,7 +97,7 @@ spec:
               BEGIN
                 IF EXISTS (SELECT FROM addon_provisioning.releases WHERE release_name = '{{ .Release.Name }}' AND role_name != '{{ $role }}') OR
                    EXISTS (SELECT FROM addon_provisioning.releases WHERE role_name = '{{ $role }}' AND release_name != '{{ .Release.Name }}') OR
-                   EXISTS (SELECT FROM addon_provisioning.databases WHERE database_name = '{{ $role }}') OR
+                    EXISTS (SELECT FROM addon_provisioning.databases WHERE database_name = '{{ $role }}' AND release_name != '{{ .Release.Name }}') OR
                    EXISTS (SELECT FROM addon_provisioning.databases WHERE release_name = '{{ .Release.Name }}'
                      AND database_name NOT IN ({{ range $i, $db := .Values.addon.databases }}{{ if $i }}, {{ end }}'{{ $db.name }}'{{ end }})) THEN
                   RAISE EXCEPTION 'Addon ledger binding changed';

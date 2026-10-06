@@ -45,6 +45,15 @@ spec:
             matchLabels: {app.kubernetes.io/name: postgres-operations}
       ports:
         - {protocol: TCP, port: 9712}
+    - to:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: infra-openbao}
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: openbao
+              app.kubernetes.io/instance: infra-openbao
+      ports:
+        - {protocol: TCP, port: 8200}
     {{- range .Values.contextforge.providerEgress }}
     - to:
         - ipBlock: {cidr: {{ .cidr | quote }}}

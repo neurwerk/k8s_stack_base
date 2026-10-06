@@ -23,6 +23,20 @@ class AddonDatabaseTests(unittest.TestCase):
         self.assertIn("l.state = 'pending'", script)
         self.assertIn("r.rolname != 'example'", script)
 
+    def test_same_name_role_and_database_retry_keeps_other_release_collision_guard(self):
+        job = resource(render("postgres/addon", {
+            "addon": {
+                "role": "contextforge",
+                "passwordSecret": "contextforge-postgres-values",
+                "databases": [{"name": "contextforge", "vector": False}],
+            },
+        }, namespace="infra-postgres-operations"), "Job")
+        script = job["spec"]["template"]["spec"]["containers"][0]["args"][0]
+        self.assertIn(
+            "WHERE database_name = 'contextforge' AND release_name != 'catalog-test'", script
+        )
+        self.assertNotIn("WHERE database_name = 'contextforge') OR", script)
+
     def test_base_owned_names_and_invalid_adoption_fail_before_rendering(self):
         for name in ("postgres", "agentgateway", "studio", "not-valid", "A"):
             with self.subTest(name=name):
