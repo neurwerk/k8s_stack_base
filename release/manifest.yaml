@@ -247,35 +247,35 @@ spec:
       appVersion: '1.0'
     - path: charts/keycloak/addon-access
       name: keycloak-addon-access
-      version: 0.1.2
+      version: 0.1.3
     - path: charts/keycloak/oidc/agentgateway
       name: agentgateway
-      version: 1.1.6
+      version: 1.1.7
       appVersion: '1.0'
     - path: charts/keycloak/oidc/keycloak-api-key-bridge
       name: keycloak-api-key-bridge
-      version: 1.0.6
+      version: 1.0.7
       appVersion: '1.0'
     - path: charts/keycloak/oidc/librechat
       name: librechat
-      version: 1.0.6
+      version: 1.0.7
       appVersion: '1.0'
     - path: charts/keycloak/oidc/studio
       name: studio
-      version: 1.0.6
+      version: 1.0.7
       appVersion: '1.0'
     - path: charts/keycloak/realm-config/active-directory
       name: keycloak-active-directory
-      version: 1.1.6
+      version: 1.1.7
     - path: charts/keycloak/realm-config/initial-admin
       name: keycloak-oidc-configurations-initial-admin
-      version: 1.1.5
+      version: 1.1.6
     - path: charts/keycloak/realm-config/realm-roles
       name: keycloak-oidc-configurations-realm-roles
-      version: 2.3.2
+      version: 2.3.3
     - path: charts/keycloak/server
       name: keycloak
-      version: 1.1.7
+      version: 1.1.8
       appVersion: 26.7.2
     - path: charts/keycloak-api-key-bridge
       name: auth-keycloak-api-key-bridge
@@ -365,7 +365,7 @@ spec:
       appVersion: 9.1.1
     - path: charts/maintenance
       name: maintenance
-      version: 0.1.6
+      version: 0.1.7
     - path: charts/openbao
       name: infra-openbao
       version: 1.0.0
@@ -381,7 +381,7 @@ spec:
           sha256: 646d932f597632a7328bd300994e66c2cabaa1b6763372cbabb559cd84ff3f2f
     - path: charts/opensearch/app
       name: monitor-opensearch
-      version: 1.2.2
+      version: 1.2.3
       appVersion: 3.8.0
       dependencyLock:
         digest: sha256:9c8dd301b564083b467cb09c7cf52f57674aaf46b3ef479f62ebd61e49fc52f3
@@ -394,7 +394,7 @@ spec:
           sha256: cad6c77d04ec2389be6f61b5422ce61e7264eb7145e42b4c78dbc00e9d7dbe4d
     - path: charts/opensearch/dashboards
       name: monitor-opensearch-dashboards
-      version: 1.2.6
+      version: 1.2.7
       appVersion: 3.8.0
       dependencyLock:
         digest: sha256:c658a0cd2ccc77db042f6be25fbef4effe147bbbb40e86db6b2ce5b8579cceb4
@@ -826,7 +826,7 @@ spec:
       eligibility: included
       origins:
       - charts/studio/web/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-tooling:0.7.3@sha256:efa09b2f29d02fbd07fe12774fd7d3db6bf4e02ef403c7be2c18196fbc956d99
+    - reference: ghcr.io/neurwerk/k8s-stack-tooling:0.7.4@sha256:6f6a72a2b16f6bd93771c60190f5e0dba552790c283ea99ad4005cbf94e6894e
       pinned: true
       eligibility: included
       origins:
@@ -1023,7 +1023,7 @@ spec:
       lua: 5.4.9
   provenance:
     previousTag: v0.3.21
-    includedThrough: 5c8334fbc6a18f09903589d8e495f7e22b95f576
+    includedThrough: 8638d23152c86157fc46844caf873a5174a36a5e
     commits:
     - a7a8b7e999dc222d7fe5ceb635b36a2dd70523ea
     - c43475ce656bbd3fbd5b52946e7de9845ae6da7e
@@ -1065,4 +1065,6 @@ spec:
     - 7423e7be6d74a1eef3c58e1406538baade355288
     - 0648d8bc9264f0813c78d46717a8d2feb59c6673
     - 5c8334fbc6a18f09903589d8e495f7e22b95f576
-    compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.21...5c8334fbc6a18f09903589d8e495f7e22b95f576
+    - 189e2afb677200762774587555cb9f2eb182dfd8
+    - 8638d23152c86157fc46844caf873a5174a36a5e
+    compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.21...8638d23152c86157fc46844caf873a5174a36a5e
