@@ -107,6 +107,19 @@ spec:
       - name: openbao-stack-setup
         version: 0.2.13
         source: https://github.com/neurwerk/k8s_stack_tooling/commit/0c0d5b35fc9e68b70e0cb48f3741e1888f7a287b
+    - path: releases/namespaces/contextforge
+      status: excluded
+      reason: Foundation only; ContextForge installation and adoption are not verified.
+      chartPrefixes: []
+    - path: releases/contextforge/configuration
+      status: excluded
+      reason: Foundation only; OpenBao credential storage and secret delivery are not wired.
+      chartPrefixes: []
+    - path: releases/contextforge/app
+      status: excluded
+      reason: Foundation only; database provisioning and runtime qualification are incomplete.
+      chartPrefixes:
+      - charts/contextforge
     - path: releases/librechat/rag
       status: excluded
       reason: Deployment readiness and effective client rendering are not complete.
@@ -211,6 +224,10 @@ spec:
     - path: charts/cert-manager/issuers
       name: infra-cert-manager-issuers
       version: 1.0.0
+    - path: charts/contextforge
+      name: contextforge
+      version: 0.1.0
+      appVersion: 1.0.11
     - path: charts/docling
       name: docling
       version: 0.4.7
@@ -501,6 +518,10 @@ spec:
       namespace: infra-cert-manager
       name: cert-manager-issuers
       chart: ./charts/cert-manager/issuers
+    - path: releases/contextforge/app/contextforge.yaml
+      namespace: contextforge
+      name: contextforge
+      chart: ./charts/contextforge
     - path: releases/docling/app/app.yaml
       namespace: docling
       name: docling
@@ -785,6 +806,11 @@ spec:
       eligibility: included
       origins:
       - charts/external-secrets/values.yaml
+    - reference: ghcr.io/ibm/mcp-context-forge:v1.0.11@sha256:e9639c030162d6cb2f9f188600dd69af8091ec62a7ce307d4a74f4d4f86873df
+      pinned: true
+      eligibility: excluded
+      origins:
+      - charts/contextforge/values.yaml
     - reference: ghcr.io/linuxserver/wireguard:1.0.20260223-r0-ls122@sha256:dca67384e3e9a5bcc288461fa983e6fcb0e248e5a2d8e5b3e5d3f753bfac3e35
       pinned: true
       eligibility: included

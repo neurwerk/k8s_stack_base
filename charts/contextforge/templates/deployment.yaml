@@ -1,0 +1,61 @@
+{{- if .Values.contextforge.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}
+  labels:
+    {{- include "contextforge.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  strategy: {type: Recreate}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: contextforge
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: application
+  template:
+    metadata:
+      labels:
+        {{- include "contextforge.labels" . | nindent 8 }}
+        app.kubernetes.io/component: application
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 60
+      securityContext:
+        {{- include "contextforge.podSecurity" . | nindent 8 }}
+      containers:
+        - name: contextforge
+          image: {{ .Values.contextforge.image | quote }}
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            {{- include "contextforge.containerSecurity" . | nindent 12 }}
+          ports:
+            - {name: http, containerPort: 4444, protocol: TCP}
+          envFrom:
+            - configMapRef: {name: {{ .Values.contextforge.existingConfigMap }}}
+          env:
+            {{- include "contextforge.credentials" . | nindent 12 }}
+            - {name: GUNICORN_WORKERS, value: "1"}
+            - {name: MCPGATEWAY_SKIP_MIGRATIONS, value: "true"}
+          resources:
+            {{- .Values.contextforge.resources | toYaml | nindent 12 }}
+          startupProbe:
+            httpGet: {path: /ready, port: http}
+            timeoutSeconds: 5
+            periodSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            httpGet: {path: /ready, port: http}
+            timeoutSeconds: 5
+            periodSeconds: 5
+          # /health returns HTTP 200 even for an unhealthy dependency.
+          livenessProbe:
+            tcpSocket: {port: http}
+            timeoutSeconds: 3
+            periodSeconds: 15
+          volumeMounts:
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - name: tmp
+          emptyDir: {sizeLimit: 256Mi}
+{{- end }}

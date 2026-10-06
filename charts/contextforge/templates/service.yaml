@@ -1,0 +1,16 @@
+{{- if .Values.contextforge.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}
+  labels:
+    {{- include "contextforge.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - {name: http, port: 4444, targetPort: http, protocol: TCP}
+  selector:
+    app.kubernetes.io/name: contextforge
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: application
+{{- end }}

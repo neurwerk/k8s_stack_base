@@ -1,0 +1,6 @@
+apiVersion: v2
+name: contextforge
+description: Private ContextForge MCP integration management
+type: application
+version: 0.1.0
+appVersion: "1.0.11"
