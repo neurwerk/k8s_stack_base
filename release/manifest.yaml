@@ -1,11 +1,11 @@
 apiVersion: platform.neurwerk.com/v1alpha1
 kind: PlatformRelease
 metadata:
-  name: v0.3.21
+  name: v0.3.22
 spec:
-  version: 0.3.21
-  releaseDate: '2026-10-02'
-  summary: Studio personal LLM and MCP activity with platform fixes
+  version: 0.3.22
+  releaseDate: '2026-10-06'
+  summary: Platform fixes and independent add-on support
   trust:
     signerIdentity: platform-release
     algorithm: ssh-ed25519
@@ -1022,14 +1022,47 @@ spec:
       node: 24.20.0
       lua: 5.4.9
   provenance:
-    previousTag: v0.3.20
-    includedThrough: e72ebbbc61ffc48ada7578cecda463b83db60c18
+    previousTag: v0.3.21
+    includedThrough: 5c8334fbc6a18f09903589d8e495f7e22b95f576
     commits:
-    - 2cf4a9f4d60ad518e1b70118480ae0a762b024b1
-    - 0b40a4ce06f1d7a52b789088ce1b58ce71a23439
-    - 7b6dcefc7efa784f18f0e0383e8d600cda7e2a64
-    - f79a1fd3c25bdf1c4758a9e62fe89a763b172223
-    - 36acb313c8edf70c58685a7ee016e4fdece24403
-    - 4dc7f5def0e48d7526e13e1c8930d2541df5abd3
-    - e72ebbbc61ffc48ada7578cecda463b83db60c18
-    compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.20...e72ebbbc61ffc48ada7578cecda463b83db60c18
+    - a7a8b7e999dc222d7fe5ceb635b36a2dd70523ea
+    - c43475ce656bbd3fbd5b52946e7de9845ae6da7e
+    - 2a50686f3cd8f145ebcc6822ea4ab16029b36a04
+    - 50e327b29dd11d6b88306068d182d17025d5705a
+    - 8ea1146d148106303200015f7c49947b11aa2d90
+    - 6e85cdd5c2878966772058bb3bf306e2cb71eee6
+    - e241684650ad3126c88ffe61a72b5fc7dfb01f0e
+    - 90d17c9d087107b91be0dd5b9e39172c8468ef9b
+    - 753d2efe8c4c649870b9dc646932a589f0a6fc98
+    - a6fcd5fc786f057f215c9c38337b61058a065b18
+    - 53866201ebe8b9a818d154e9c9965591bae6501b
+    - 5e8ad0f20776b5159caf0aafca1122b6b8e7242b
+    - 3a667f16683115813d2db1f490fcad504bf5ba92
+    - 0f2745dbb5eeffc7de38abfdb84ff5ccfe1bb8cc
+    - 5d7ab072d3e17f9d67b4d91189ce791cc2b94bb9
+    - d741506164ecc394897aefe6e8d817ac8c813b9a
+    - 68576ea38d47afd2e1e28b76857dedf04a502881
+    - b7d7d9fd559773bfaff617f8bae88538d7e0d596
+    - 607777b01b09e81cef7b015ebdb499739831d52d
+    - 602d2c3c8ae6cc05ff3e671bc4cf6bddad291d95
+    - 64fc23a46b6013c3dd4647a43fd0ae50bca7a94a
+    - e2c9f05a77ac4775e084eedf901931f185362b78
+    - 57469a77ab1357f073710fd5afb84d371ff991c9
+    - 4d6b009f2f04d9bd1de65d7aae4b2053cd44aa46
+    - 295a5d2c7fffddc80155f1e4665b3f6591a1719c
+    - 44a298faa3ded5cf5b0c3728022db330dd5ed00c
+    - ef47ae1dfb4917eb9af289f4e75f24fb71337d72
+    - 246495e048d8aa203060b0c8de80fbeb8af3f85d
+    - f390ff91cffe958177e29c34adfad520381d41e3
+    - a821d3cde4bec03442bd2c0b5f1848c74532f746
+    - 6cd68a3e5d3a7afe4b8c209434e907ce816f3eca
+    - e88b6b1c26995c6d985118c3b3afa8fba4a13c14
+    - 3d8f8a6b477f6be0558ff52f3c92d30ca91655d2
+    - b72c14210c5cedfa4302b261ad2809b7a28f32c5
+    - 7b53e278cb1f28e0fe3ecab2f280f6235aff8560
+    - 250232184f8369a26357248cf8a8ede401d1de47
+    - 553be5b9335ef672c1d1665e4048eea32003ed4c
+    - 7423e7be6d74a1eef3c58e1406538baade355288
+    - 0648d8bc9264f0813c78d46717a8d2feb59c6673
+    - 5c8334fbc6a18f09903589d8e495f7e22b95f576
+    compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.21...5c8334fbc6a18f09903589d8e495f7e22b95f576

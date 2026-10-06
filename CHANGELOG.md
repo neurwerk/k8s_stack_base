@@ -9,6 +9,10 @@ upgrade path.
 
 ## [Unreleased]
 
+## [0.3.22] - 2026-10-06
+
+
+
 ## [0.3.21] - 2026-10-02
 
 - Adopt verified Studio 0.13.0 API and Web images with personal LLM and MCP activity, log and notice improvements. Personal activity remains off unless a client enables it.
