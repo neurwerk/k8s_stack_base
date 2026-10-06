@@ -115,8 +115,8 @@
 {{- end -}}
 
 {{- $mcpProtocolVersion := .Values.mcp.protocolVersion | default "" -}}
-{{- if ne $mcpProtocolVersion "2025-11-25" -}}
-{{-   fail "mcp.protocolVersion must be exactly 2025-11-25" -}}
+{{- if not (has $mcpProtocolVersion (list "2025-11-25" "2026-07-28")) -}}
+{{-   fail "mcp.protocolVersion must be 2025-11-25 or 2026-07-28" -}}
 {{- end -}}
 {{- $mcpServers := .Values.mcp.servers | default list -}}
 {{- if and .Values.mcp.enabled (gt (len $mcpServers) 0) (not $engine.enabled) -}}

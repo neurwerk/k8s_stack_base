@@ -9,6 +9,8 @@ upgrade path.
 
 ## [Unreleased]
 
+- Prepare the AgentGateway chart's MCP assertion for `2026-07-28` alongside `2025-11-25`, retaining the existing default. New protocol traffic still requires a separately published and adopted compatible extProc image; this chart change does not upgrade the processor.
+
 ## [0.3.22] - 2026-10-06
 
 - Remove legacy Dify charts, releases, and namespace from Base. Clients using Dify need a separately reviewed retirement or add-on handoff before adoption; the new add-on is not selected automatically.
