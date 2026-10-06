@@ -197,10 +197,10 @@ data:
         - {{ printf "%s:443" .Values.authKeycloak.hostname | quote }}
         {{- end }}
     mcpServers:
-      {{- range .Values.mcp.servers }}
-      {{ .name }}:
+      {{- range include "frontend-librechat-shared.mcpNames" . | fromYamlArray }}
+      {{ . }}:
         type: streamable-http
-        url: {{ printf "%s/mcp/%s" (trimSuffix "/v1" $.Values.frontendLibrechat.agentGateway.baseUrl) .name | quote }}
+        url: {{ printf "%s/mcp/%s" (trimSuffix "/v1" $.Values.frontendLibrechat.agentGateway.baseUrl) . | quote }}
         requiresOAuth: true
         headers:
           X-Session-ID: {{ printf "{{LIBRECHAT_BODY_CONVERSATIONID}}" | quote }}
@@ -209,7 +209,7 @@ data:
           client_secret: "${OPENID_CLIENT_SECRET}"
           authorization_url: {{ printf "https://%s/realms/%s/protocol/openid-connect/auth" $.Values.authKeycloak.hostname $.Values.authKeycloak.realm | quote }}
           token_url: {{ printf "https://%s/realms/%s/protocol/openid-connect/token" $.Values.authKeycloak.hostname $.Values.authKeycloak.realm | quote }}
-          redirect_uri: {{ printf "https://%s/api/mcp/%s/oauth/callback" $.Values.frontendLibrechat.hostname .name | quote }}
+          redirect_uri: {{ printf "https://%s/api/mcp/%s/oauth/callback" $.Values.frontendLibrechat.hostname . | quote }}
           scope: openid
       {{- end }}
     {{- end }}

@@ -1,6 +1,6 @@
 # API-key bridge PostgreSQL contract
 
-The chart runs only the verified `0.8.1` bridge image with an operations
+The chart runs only the verified `0.8.2` bridge image with an operations
 PostgreSQL database. It always runs the `keycloak-api-key-bridge-init-db` init
 container and reads the password from the namespace-local
 `auth-keycloak-api-key-bridge-postgres-secret` (`password` key). SQLite, its

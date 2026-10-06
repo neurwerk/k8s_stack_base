@@ -38,6 +38,9 @@ spec:
             - configMapRef: {name: {{ .Values.contextforge.existingConfigMap }}}
           env:
             {{- include "contextforge.credentials" . | nindent 12 }}
+            {{- if .Values.contextforge.trustedProxy.enabled }}
+            {{- include "contextforge.proxyEnvironment" . | nindent 12 }}
+            {{- end }}
             - {name: SSL_CERT_FILE, value: /trust/ca.crt}
             - {name: MCPGATEWAY_SKIP_MIGRATIONS, value: "false"}
           resources:

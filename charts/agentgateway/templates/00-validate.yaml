@@ -126,6 +126,8 @@
 {{- $nativeServerIds := dict -}}
 {{- $nativeGatewayIds := dict -}}
 {{- $legacyMcp := not (empty .Values.mcp.servers) -}}
+{{- $upstreamIds := dict -}}
+{{- range include "infra-agentgateway.mcpUpstreamWorkloads" . | fromYamlArray -}}{{- $_ := set $upstreamIds .name true -}}{{- end -}}
 {{- range $server := $mcpServers -}}
 {{-   $serverId := required "mcp server requires name" $server.name -}}
 {{-   if or (gt (len $serverId) 48) (not (regexMatch "^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$" $serverId)) -}}
@@ -157,7 +159,7 @@
 {{-         fail (printf "mcp server %q contextforge cannot set %s" $serverId $field) -}}
 {{-       end -}}
 {{-     end -}}
-{{-     if get ($.Values.infraAgentgatewayWrapperSecrets.mcp | default dict) $serverId -}}
+{{-     if and (get ($.Values.infraAgentgatewayWrapperSecrets.mcp | default dict) $serverId) (not (hasKey $upstreamIds $serverId)) -}}
 {{-       fail (printf "mcp server %q contextforge cannot receive gateway credential secrets; shared credentials stay in the upstream service" $serverId) -}}
 {{-     end -}}
 {{-     if or (not (kindIs "string" $native.serverId)) (not (regexMatch "^[0-9a-f]{32}$" (toString $native.serverId))) -}}
@@ -168,7 +170,7 @@
 {{-     end -}}
 {{-     $_ := set $nativeServerIds $native.serverId true -}}
 {{-     if and $legacyMcp (eq $native.authenticationModel "individual-authentication") -}}
-{{-       fail "legacy mcp.servers does not support individual-authentication; migrate explicitly to mcp.catalog for source declarations, which do not fix Base #424 or enable native routing" -}}
+{{-       fail "legacy mcp.servers does not support individual-authentication; migrate explicitly to mcp.catalog; this does not fix Base #424" -}}
 {{-     end -}}
 {{-     if and $native.gatewayId (or (not (kindIs "string" $native.gatewayId)) (not (regexMatch "^[0-9a-f]{32}$" (toString $native.gatewayId)))) -}}
 {{-       fail "ContextForge gatewayId must be an exact 32 lowercase hex native UUID" -}}
@@ -189,7 +191,4 @@
 {{-       fail (printf "mcp server %q %s must be a boolean" $serverId $field) -}}
 {{-     end -}}
 {{-   end -}}
-{{- end -}}
-{{- if include "infra-agentgateway.hasContextforgeRoutes" . -}}
-{{-   fail "ContextForge routing is source-only: current bridge/extProc image pins lack trusted account_email support; a future verified image-adoption PR must replace this guard before native routes can render" -}}
 {{- end -}}

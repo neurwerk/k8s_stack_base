@@ -9,6 +9,9 @@ rules:
     resources: [certificaterequestpolicies]
     verbs: [use]
     resourceNames:
+      {{- if and .Values.contextforge.enabled .Values.contextforge.tls.enabled }}
+      - cert-manager-internal-contextforge-server
+      {{- end }}
       {{- if .Values.docling.enabled }}
       - cert-manager-internal-docling-server
       {{- end }}

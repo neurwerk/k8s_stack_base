@@ -7,8 +7,8 @@
 {{- $webOrigins := compact (list .Values.authKeycloak.librechatWebOrigin .Values.authKeycloak.librechatAdminWebOrigin) }}
 {{- if .Values.mcp.enabled }}
   {{- $hostname := required "frontendLibrechat.hostname is required when MCP is enabled" .Values.frontendLibrechat.hostname }}
-  {{- range .Values.mcp.servers }}
-    {{- $name := required "every MCP server requires a name" .name }}
+  {{- range include "librechat-oidc.mcpNames" . | fromYamlArray }}
+    {{- $name := required "every MCP server requires a name" . }}
     {{- if or (gt (len $name) 48) (not (regexMatch "^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$" $name)) }}{{- fail (printf "MCP server name %q must be a 1-48 character lowercase ASCII DNS subdomain" $name) }}{{- end }}
     {{- $redirectUris = append $redirectUris (printf "https://%s/api/mcp/%s/oauth/callback" $hostname $name) }}
   {{- end }}

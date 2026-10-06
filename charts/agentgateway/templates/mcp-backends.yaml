@@ -37,6 +37,8 @@ spec:
           port: 4444
           path: {{ printf "/servers/%s/mcp" .contextforge.serverId | quote }}
           protocol: StreamableHTTP
+          policies:
+            {{- include "infra-agentgateway.contextforgeTLS" $ | nindent 12 }}
           {{- else }}
           {{- if .workload }}
           backendRef:

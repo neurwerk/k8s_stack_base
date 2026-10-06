@@ -7,6 +7,22 @@ contextforge:
   existingConfigMap: contextforge-runtime
   existingSecret: contextforge-runtime
 
+  # Native Gunicorn HTTPS on the existing private Service/Pod port 4444.
+  # Reconcile releases/contextforge/certificates and wait for Certificate Ready first.
+  tls:
+    enabled: false
+    existingSecret: contextforge-tls
+
+  # Explicit private-proxy activation; does not register accounts or integrations.
+  # The fixed service principal and user roles must be prepared and verified first.
+  trustedProxy:
+    enabled: false
+    defaultUserRole: ""
+    defaultTeamMemberRole: ""
+    # Exact public Studio origin, e.g. https://studio.example.com. Native default
+    # redirect_uri is this origin plus /oauth/callback, served by Studio API only.
+    studioOrigin: ""
+
   resources:
     requests: {cpu: 250m, memory: 512Mi}
     limits: {cpu: "1", memory: 1Gi}
@@ -19,3 +35,8 @@ contextforge:
   # Approved upstream IP ranges and destination Pod ports; no provider egress by default.
   # Example: [{cidr: 192.0.2.10/32, port: 443}]
   providerEgress: []
+
+# Same canonical, non-routing upstream workload definitions consumed by the
+# AgentGateway chart. Project the approved client values into this namespace.
+mcp:
+  upstreamWorkloads: []

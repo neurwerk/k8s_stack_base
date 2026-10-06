@@ -8,7 +8,11 @@ metadata:
 spec:
   type: ClusterIP
   ports:
+    {{- if .Values.contextforge.tls.enabled }}
+    - {name: https, port: 4444, targetPort: http, protocol: TCP}
+    {{- else }}
     - {name: http, port: 4444, targetPort: http, protocol: TCP}
+    {{- end }}
   selector:
     app.kubernetes.io/name: contextforge
     app.kubernetes.io/instance: {{ .Release.Name }}

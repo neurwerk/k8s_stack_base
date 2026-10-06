@@ -1,0 +1,31 @@
+{{- if and .Values.contextforge.enabled .Values.contextforge.tls.enabled }}
+apiVersion: policy.cert-manager.io/v1alpha1
+kind: CertificateRequestPolicy
+metadata:
+  name: cert-manager-internal-contextforge-server
+  labels:
+    {{- include "cert-manager-approval-policy.labels" . | nindent 4 }}
+spec:
+  allowed:
+    commonName: {value: contextforge, required: true}
+    dnsNames:
+      values:
+        - contextforge
+        - contextforge.contextforge
+        - contextforge.contextforge.svc
+        - contextforge.contextforge.svc.cluster.local
+      required: true
+    isCA: false
+    usages: [server auth]
+  constraints:
+    minDuration: 2160h
+    maxDuration: 2160h
+    privateKey: {algorithm: RSA, minSize: 2048, maxSize: 2048}
+  selector:
+    issuerRef:
+      group: cert-manager.io
+      kind: ClusterIssuer
+      name: infra-cert-manager-internal-ca-issuer
+    namespace:
+      matchNames: [contextforge]
+{{- end }}

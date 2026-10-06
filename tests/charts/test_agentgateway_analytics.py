@@ -166,7 +166,7 @@ class AgentGatewayAnalyticsTests(unittest.TestCase):
             self.assertNotIn("account_email", metadata)
             self.assertNotIn("contextforge", metadata)
 
-    def test_native_contextforge_activation_is_blocked_without_image_adoption(self):
+    def test_native_contextforge_activation_uses_private_tls_and_trusted_identity(self):
         for provider, model in (("context7", "no-authentication"), ("brave", "shared-authentication")):
             with self.subTest(provider=provider):
                 server = {"name": "example", "contextforge": {
@@ -179,10 +179,22 @@ class AgentGatewayAnalyticsTests(unittest.TestCase):
                 dormant = render("agentgateway", values)
                 self.assertNotIn("account_email:", dormant.stdout)
                 self.assertNotIn("/servers/", dormant.stdout)
-                values["mcp"].update(enabled=True, runtimeCompatible=True)
-                failed = render("agentgateway", values, check=False)
-                self.assertNotEqual(failed.returncode, 0)
-                self.assertIn("future verified image-adoption PR", failed.stderr)
+                values["mcp"]["enabled"] = True
+                active = render("agentgateway", values)
+                target = resource(active, "AgentgatewayBackend", "mcp-example-be")["spec"]["mcp"]["targets"][0]["static"]
+                self.assertEqual(target["host"], "contextforge.contextforge.svc.cluster.local")
+                self.assertEqual(target["port"], 4444)
+                self.assertEqual(target["path"], "/servers/0123456789abcdef0123456789abcdef/mcp")
+                self.assertEqual(target["policies"], {"tls": {
+                    "sni": "contextforge.contextforge.svc.cluster.local",
+                    "verifySubjectAltNames": ["contextforge.contextforge.svc.cluster.local"],
+                    "caCertificateRefs": [{"kind": "ConfigMap", "name": "infra-openbao-ca-bundle", "key": "ca.crt"}],
+                }})
+                metadata = resource(active, "AgentgatewayPolicy", "mcp-example-policy")["spec"]["traffic"]["extProc"]["metadataContext"]["neurwerk.destination_policy"]
+                self.assertEqual(metadata["contextforge"], "true")
+                self.assertIn("has(jwt.email) ? jwt.email : null", metadata["account_email"])
+                self.assertIn("extauthz.account_email", metadata["account_email"])
+                self.assertNotIn("request.headers", metadata["account_email"])
 
     def test_native_contextforge_mapping_rejects_tool_scope_and_credential_bypasses(self):
         native = {"serverId": "0123456789abcdef0123456789abcdef",

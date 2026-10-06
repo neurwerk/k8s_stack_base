@@ -25,6 +25,10 @@ spec:
       interval: 10m
   valuesFrom:
     - kind: ConfigMap
+      name: client-values
+      valuesKey: values.yaml
+      optional: true
+    - kind: ConfigMap
       name: contextforge-app-defaults
       valuesKey: values.yaml
     - kind: ConfigMap

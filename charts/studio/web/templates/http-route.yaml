@@ -23,6 +23,17 @@ spec:
   hostnames:
     - {{ $hostname }}
   rules:
+    {{- if .Values.frontendStudio.api.contextforge.enabled }}
+    # Only the popup callback reaches Studio API; no native management route.
+    - matches:
+        - method: GET
+          path:
+            type: Exact
+            value: /oauth/callback
+      backendRefs:
+        - name: frontend-studio-api-service
+          port: 80
+    {{- end }}
     # --- Rule 1: API endpoints (most specific) ---
     - matches:
         - path:

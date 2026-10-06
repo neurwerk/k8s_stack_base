@@ -112,17 +112,50 @@ packages:
     chartPrefixes: []
   - path: releases/contextforge/secret-sync
     status: excluded
-    reason: Source-only ContextForge catalog and token lifecycle; no published tooling prerequisite or client adoption.
+    reason: Optional ContextForge catalog and token lifecycle; operator preparation and client adoption are pending.
     chartPrefixes: []
+    prerequisites:
+    - name: openbao-stack-setup
+      version: 0.2.26
+      source: https://github.com/neurwerk/k8s_stack_tooling/commit/c19d902964b12af78eec916883a3b9d5f955700b
+  - path: releases/contextforge/secret-sync/database
+    status: excluded
+    reason: Optional encrypted database OAuth storage; actual ciphertext and credential-log qualification are pending.
+    chartPrefixes: []
+    prerequisites:
+    - name: openbao-stack-setup
+      version: 0.2.26
+      source: https://github.com/neurwerk/k8s_stack_tooling/commit/c19d902964b12af78eec916883a3b9d5f955700b
   - path: releases/contextforge/postgres
     status: excluded
     reason: Dedicated ContextForge database provisioning is unselected and not runtime-qualified.
     chartPrefixes: []
+  - path: releases/contextforge/oauth-apps
+    status: excluded
+    reason: Optional provider application credential delivery; approved app registration and operator preparation are pending.
+    chartPrefixes: []
+    prerequisites:
+    - name: openbao-stack-setup
+      version: 0.2.26
+      source: https://github.com/neurwerk/k8s_stack_tooling/commit/c19d902964b12af78eec916883a3b9d5f955700b
+  - path: releases/contextforge/certificates
+    status: excluded
+    reason: Optional native private TLS; issuance and runtime qualification are pending.
+    chartPrefixes:
+    - charts/contextforge/certificates
   - path: releases/contextforge/app
     status: excluded
     reason: Disabled foundation; runtime qualification and separately approved adoption are pending.
     chartPrefixes:
     - charts/contextforge
+    # Workstation CLI source adoption, not PyPI or container publication.
+    prerequisites:
+    - name: contextforge-setup
+      version: 0.1.1
+      source: https://github.com/neurwerk/k8s_stack_tooling/commit/c19d902964b12af78eec916883a3b9d5f955700b
+    - name: openbao-stack-setup
+      version: 0.2.26
+      source: https://github.com/neurwerk/k8s_stack_tooling/commit/c19d902964b12af78eec916883a3b9d5f955700b
   - path: releases/librechat/rag
     status: excluded
     reason: Deployment readiness and effective client rendering are not complete.

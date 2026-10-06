@@ -117,18 +117,52 @@ spec:
       chartPrefixes: []
     - path: releases/contextforge/secret-sync
       status: excluded
-      reason: Source-only ContextForge catalog and token lifecycle; no published tooling prerequisite
-        or client adoption.
+      reason: Optional ContextForge catalog and token lifecycle; operator preparation and client adoption
+        are pending.
       chartPrefixes: []
+      prerequisites:
+      - name: openbao-stack-setup
+        version: 0.2.26
+        source: https://github.com/neurwerk/k8s_stack_tooling/commit/c19d902964b12af78eec916883a3b9d5f955700b
+    - path: releases/contextforge/secret-sync/database
+      status: excluded
+      reason: Optional encrypted database OAuth storage; actual ciphertext and credential-log qualification
+        are pending.
+      chartPrefixes: []
+      prerequisites:
+      - name: openbao-stack-setup
+        version: 0.2.26
+        source: https://github.com/neurwerk/k8s_stack_tooling/commit/c19d902964b12af78eec916883a3b9d5f955700b
     - path: releases/contextforge/postgres
       status: excluded
       reason: Dedicated ContextForge database provisioning is unselected and not runtime-qualified.
       chartPrefixes: []
+    - path: releases/contextforge/oauth-apps
+      status: excluded
+      reason: Optional provider application credential delivery; approved app registration and operator
+        preparation are pending.
+      chartPrefixes: []
+      prerequisites:
+      - name: openbao-stack-setup
+        version: 0.2.26
+        source: https://github.com/neurwerk/k8s_stack_tooling/commit/c19d902964b12af78eec916883a3b9d5f955700b
+    - path: releases/contextforge/certificates
+      status: excluded
+      reason: Optional native private TLS; issuance and runtime qualification are pending.
+      chartPrefixes:
+      - charts/contextforge/certificates
     - path: releases/contextforge/app
       status: excluded
       reason: Disabled foundation; runtime qualification and separately approved adoption are pending.
       chartPrefixes:
       - charts/contextforge
+      prerequisites:
+      - name: contextforge-setup
+        version: 0.1.1
+        source: https://github.com/neurwerk/k8s_stack_tooling/commit/c19d902964b12af78eec916883a3b9d5f955700b
+      - name: openbao-stack-setup
+        version: 0.2.26
+        source: https://github.com/neurwerk/k8s_stack_tooling/commit/c19d902964b12af78eec916883a3b9d5f955700b
     - path: releases/librechat/rag
       status: excluded
       reason: Deployment readiness and effective client rendering are not complete.
@@ -184,7 +218,7 @@ spec:
     charts:
     - path: charts/agentgateway
       name: infra-agentgateway
-      version: 1.9.8
+      version: 1.9.9
       appVersion: 1.6.0
       dependencyLock:
         digest: sha256:ef5fd87240e231990e45578f9deb65e6a6f947ba8a8b846cf13954882299cb3a
@@ -197,11 +231,11 @@ spec:
           sha256: 61b97c2a34d6e0f1e2024a58804001c159dbc40a0f72173e70e8df767088c007
     - path: charts/agentgateway-extproc
       name: agentgateway-extproc
-      version: 1.4.10
-      appVersion: 0.16.1
+      version: 1.4.11
+      appVersion: 0.16.2
     - path: charts/cert-manager/approval-policy
       name: infra-cert-manager-approval-policy
-      version: 1.2.4
+      version: 1.2.5
     - path: charts/cert-manager/approver-policy
       name: infra-cert-manager-approver-policy
       version: 1.0.0
@@ -235,8 +269,11 @@ spec:
       version: 1.0.0
     - path: charts/contextforge
       name: contextforge
-      version: 0.1.1
+      version: 0.1.2
       appVersion: 1.0.11
+    - path: charts/contextforge/certificates
+      name: contextforge-certificates
+      version: 0.1.0
     - path: charts/docling
       name: docling
       version: 0.4.7
@@ -284,7 +321,7 @@ spec:
       appVersion: '1.0'
     - path: charts/keycloak/oidc/librechat
       name: librechat
-      version: 1.0.7
+      version: 1.0.8
       appVersion: '1.0'
     - path: charts/keycloak/oidc/studio
       name: studio
@@ -305,8 +342,8 @@ spec:
       appVersion: 26.7.2
     - path: charts/keycloak-api-key-bridge
       name: auth-keycloak-api-key-bridge
-      version: 1.1.8
-      appVersion: 0.8.1
+      version: 1.1.9
+      appVersion: 0.8.2
     - path: charts/kube-prometheus-stack
       name: monitor-kube-prometheus-stack
       version: 1.1.0
@@ -383,7 +420,7 @@ spec:
       appVersion: v0.9.0
     - path: charts/librechat/shared
       name: frontend-librechat-shared
-      version: 1.8.1
+      version: 1.8.2
       appVersion: v0.8.8-rc4
     - path: charts/librechat/valkey
       name: frontend-librechat-valkey
@@ -469,18 +506,18 @@ spec:
       appVersion: v1.20.3
     - path: charts/studio/api
       name: studio-api
-      version: 1.1.18
-      appVersion: 0.14.0
+      version: 1.1.19
+      appVersion: 0.15.1
     - path: charts/studio/shared
       name: studio-shared
       version: 1.0.0
     - path: charts/studio/web
       name: studio
-      version: 1.0.12
-      appVersion: 0.14.0
+      version: 1.0.13
+      appVersion: 0.15.1
     - path: charts/traefik
       name: traefik
-      version: 1.0.3
+      version: 1.0.4
     - path: charts/trust-manager
       name: infra-trust-manager
       version: 1.0.0
@@ -531,6 +568,10 @@ spec:
       namespace: contextforge
       name: contextforge
       chart: ./charts/contextforge
+    - path: releases/contextforge/certificates/certificates.yaml
+      namespace: contextforge
+      name: contextforge-certificates
+      chart: ./charts/contextforge/certificates
     - path: releases/contextforge/postgres/postgres.yaml
       namespace: infra-postgres-operations
       name: contextforge-postgres
@@ -829,12 +870,12 @@ spec:
       eligibility: included
       origins:
       - charts/wireguard/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.16.1@sha256:10ae82c99dbf0be29507aae8dffba7573786b9c634de7437b65fa51b9bde7149
+    - reference: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.16.2@sha256:cf389da7f167f8e28b059d498c2e0d7ea7758ff54781caa43f5cb738f1df859c
       pinned: true
       eligibility: included
       origins:
       - charts/agentgateway-extproc/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-keycloak-api-key-bridge:0.8.1@sha256:6ffd0e45adfefefca7761aa6568dd0215899cbaf0792d93f958fadc7efa674a9
+    - reference: ghcr.io/neurwerk/k8s-stack-keycloak-api-key-bridge:0.8.2@sha256:0a1c52f2eccadcfbd146997d3ed532d0329da752eeeed3f9cad07ef3525782a0
       pinned: true
       eligibility: included
       origins:
@@ -855,12 +896,12 @@ spec:
       origins:
       - charts/pii-engine-model-sync/values.yaml
       - charts/pii-engine/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-studio-api:0.14.0@sha256:bd676afacd7b33c1477609b52e8cc60789994216a804ce0ab666f00f56a00ec2
+    - reference: ghcr.io/neurwerk/k8s-stack-studio-api:0.15.1@sha256:6f674780c178b7964bb16795d9142c716c721308de22c3caac18649356ba1307
       pinned: true
       eligibility: included
       origins:
       - charts/studio/api/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-studio-web:0.14.0@sha256:3d426460e6014c7ee1a8e24a3285b603aabf8f0584160f35ea8211d7cbbc4511
+    - reference: ghcr.io/neurwerk/k8s-stack-studio-web:0.15.1@sha256:0a5cf1f208918ef858f1ea8ef0fdebac32285c7d5dd35c108e96d1e90dda5316
       pinned: true
       eligibility: included
       origins:

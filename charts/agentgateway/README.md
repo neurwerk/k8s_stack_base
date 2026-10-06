@@ -23,7 +23,7 @@ disabled or absent selections add no destination. Catalog defaults are PII on an
 content tracing off. Selection grants no access: declare the existing
 `mcp:<name>:invoke` role and deliberate group grants separately, plus `llm:invoke`.
 
-Example client declaration (native routing must remain disabled):
+Example client declaration (leave disabled until operator preparation):
 
 ```yaml
 mcp:
@@ -95,19 +95,20 @@ oauth:
   authorization_url: https://provider.example.com/authorize
   token_url: https://provider.example.com/token
   client_id: operator-registered-app
-  redirect_uri: https://mcp.example.com/oauth/callback
+  redirect_uri: https://studio.example.com/oauth/callback
   scopes: [read]
   pkce: true
-  client_secret_ref: {name: provider-oauth, key: clientSecret}
+  client_secret_ref: {name: contextforge-oauth-apps, key: github}
 ```
 
 This describes one operator-registered OAuth app and approved callback, not dynamic
 registration, PAT support or another implemented authentication mechanism. Never
 put a client secret in Git, native plaintext headers, chart values or logs.
-References remain references: this chart and the registration CLI do **not**
-resolve/transmit them. Individual entries validate offline, but Tooling rejects
-`--apply` before credentials/API access until a separately approved native OAuth
-credential-preparation implementation exists. Shared keys remain in upstream MCP
+The chart preserves references only. Individual preparation requires workstation
+`contextforge-setup` `0.1.1` and `openbao-stack-setup` `0.2.26` from reviewed Tooling
+commit `c19d902964b12af78eec916883a3b9d5f955700b`, approved app registration and
+operator-owned secret preparation. These are source prerequisites, not CLIs
+bundled in the unchanged root Tooling image. Shared keys remain in upstream MCP
 services (Brave native `auth_type=none`); personal credential writes for no/shared
 integrations stay disabled. Ordinary Studio users connect approved accounts only.
 
@@ -138,8 +139,8 @@ mcp:
 Provider is a generic identifier. The legacy `mcp.servers` shape still accepts
 only no/shared authentication and no native gateway mapping; use an explicit
 catalog migration for generic individual declarations and management metadata.
-A valid shape is not a qualified native connection; the activation guard below
-remains unconditional.
+A valid shape is not a qualified native connection; preparation and live checks
+below remain required.
 
 Native server IDs must be unique 32-character lowercase hex UUIDs. Source routes
 keep exact public `/mcp/<name>` paths, existing `llm:invoke` plus
@@ -150,19 +151,19 @@ No global `/mcp`, native administrator, login, OAuth or credential API is expose
 Catalog-only `contextforge.gatewayId` is management metadata only; routing still uses
 only `serverId`. No UUID is inferred or regenerated from the public permission ID.
 
-## Hard activation guard
+## Optional native activation
 
-Any native entry with `mcp.enabled: true` fails Helm rendering. The current bridge
-and extProc image pins **lack this identity feature**. No user compatibility flag
-can override the guard. A separate future image-adoption PR must verify published
-immutable artifacts containing bridge [#30](https://github.com/neurwerk/k8s_stack_keycloak_api_key_bridge/pull/30)
-(`5b3581e2eed0ccae85e601efefbc8a2b0b3203d4`) and extProc
-[#74](https://github.com/neurwerk/k8s_stack_agentgateway_extproc/pull/74)
-(`4bfb2d0a0231fc56ac8721b277f2016af1d015f3`), adopt the actual pins, and replace
-the unconditional guard with the reviewed compatible-runtime contract.
-This PR declares no unpublished version or digest.
+The coordinated source adopts the verified bridge `0.8.2` and extProc `0.16.2`
+immutable image pins, replacing the earlier rendering guard. Defaults remain
+disabled, ContextForge packages remain excluded, and no client is selected.
+Native targets use HTTPS with exact SNI/SAN
+`contextforge.contextforge.svc.cluster.local` and the same-namespace
+`infra-openbao-ca-bundle:ca.crt` ConfigMap. There is no insecure verification
+fallback. Prepare the certificate, CA delivery and native trusted-proxy profile
+before selecting these routes. Verified Studio `0.15.1` images and operator
+preparation are separate prerequisites for personal connections.
 
-The dormant producer reads nullable `account_email` only from the bridge's
+The producer reads nullable `account_email` only from the bridge's
 trusted `x-agentgateway-auth-context` response header, never `response.body` or
 caller headers. Validated JWT email is authoritative; missing JWT email cannot
 fall back to bridge identity. Trace attribution stays JWT `sub` or bridge
@@ -175,8 +176,9 @@ invalid email with HTTP 403 `contextforge_account_required`. Caller
 
 ## Separate native preparation and adoption
 
-This PR does not enable native proxy authentication or replace private REST
-administrator authentication. Before separately approved activation, prepare the
+The optional ContextForge trusted-proxy profile is explicitly selected; it does
+not change the foundation ConfigMap or grant ordinary administrator access.
+Before separately approved activation, prepare the
 protected gateway network, approved provider egress, native accounts/roles and
 one fixed non-personal team. Native settings must include:
 
@@ -199,6 +201,25 @@ global role and a team role containing exactly `tools.read`, `tools.execute`,
 `servers.read`, `servers.use`, `gateways.read`. Native `DEFAULT_USER_ROLE` and
 `DEFAULT_TEAM_MEMBER_ROLE` take prepared role **names**, not IDs. No ordinary
 browser/native credential management is granted.
+
+### Retaining shared-credential upstream workloads
+
+When moving a workload-backed route to the native catalog, move its existing
+`{name, port, path, workload}` definition to `mcp.upstreamWorkloads` instead of
+deleting it. This list creates no routes and must match selected native catalog
+entries and their exact `registration.upstream_url`. Deployment, Service and
+Secret names stay unchanged. Existing `infraAgentgatewayWrapperSecrets.mcp.<id>`
+keys are mounted only by the retained upstream Pod, never attached to the native
+backend. Ingress changes from AgentGateway to the exact ContextForge application
+Pod identity. Deliver the same list to ContextForge for its matching egress rules.
+
+LibreChat configuration and OIDC callback lists derive stable route IDs from
+that same catalog selection; they do not consume native credentials or grant
+roles. Explicit client-owned invocation roles and group grants remain required.
+OAuth app secrets use only `contextforge-oauth-apps:<integration-id>`, delivered
+by the optional `releases/contextforge/oauth-apps` package from the fixed approved
+OpenBao `contextforge/provider-apps` record. Its ESO read policy must not be added
+to the separate native Vault OAuth token.
 
 The original Tooling registration source [#114](https://github.com/neurwerk/k8s_stack_tooling/pull/114)
 (`025a2281fc6a4fb284f078dd010015d1ca5041b1`) uses

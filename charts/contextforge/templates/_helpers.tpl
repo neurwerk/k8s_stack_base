@@ -6,11 +6,41 @@ app.kubernetes.io/part-of: contextforge
 
 {{- define "contextforge.credentials" -}}
 {{- range list "DATABASE_URL" "JWT_SECRET_KEY" "AUTH_ENCRYPTION_SECRET" "PLATFORM_ADMIN_EMAIL" "PLATFORM_ADMIN_PASSWORD" "DEFAULT_USER_PASSWORD" "VAULT_TOKEN" }}
+{{- if or (ne . "VAULT_TOKEN") (not $.Values.contextforge.trustedProxy.enabled) }}
 - name: {{ . }}
   valueFrom:
     secretKeyRef:
       name: {{ $.Values.contextforge.existingSecret }}
       key: {{ . }}
+{{- end }}
+{{- end }}
+{{- end -}}
+
+{{- define "contextforge.proxyEnvironment" -}}
+{{- if .Values.contextforge.trustedProxy.enabled }}
+{{- if not .Values.contextforge.tls.enabled }}{{ fail "ContextForge trustedProxy requires native TLS" }}{{- end }}
+{{- $origin := required "ContextForge trustedProxy.studioOrigin is required" .Values.contextforge.trustedProxy.studioOrigin }}
+{{- if not (regexMatch "^https://[a-zA-Z0-9.-]+(:[0-9]+)?$" $origin) }}{{ fail "ContextForge studioOrigin must be an exact HTTPS origin without a path" }}{{- end }}
+{{- $origin = regexReplaceAll ":443$" (lower $origin) "" }}
+- {name: TRUST_PROXY_AUTH, value: "true"}
+- {name: TRUST_PROXY_AUTH_DANGEROUSLY, value: "true"}
+- {name: MCP_CLIENT_AUTH_ENABLED, value: "false"}
+- {name: PROXY_USER_HEADER, value: x-contextforge-account-email}
+- {name: AUTH_REQUIRED, value: "true"}
+- {name: MCP_REQUIRE_AUTH, value: "true"}
+- {name: REQUIRE_USER_IN_DB, value: "true"}
+- {name: MCPGATEWAY_DIRECT_PROXY_ENABLED, value: "false"}
+- {name: AUTO_CREATE_PERSONAL_TEAMS, value: "false"}
+- {name: MCPGATEWAY_UI_ENABLED, value: "false"}
+- {name: MCPGATEWAY_ADMIN_API_ENABLED, value: "true"}
+- {name: OAUTH_TOKEN_BACKEND, value: database}
+- {name: LOG_REQUESTS, value: "false"}
+- {name: DISABLE_ACCESS_LOG, value: "true"}
+- {name: LOG_LEVEL, value: CRITICAL}
+- {name: GUNICORN_CMD_ARGS, value: "--log-level critical"}
+- {name: DEFAULT_USER_ROLE, value: {{ required "ContextForge trustedProxy.defaultUserRole is required" .Values.contextforge.trustedProxy.defaultUserRole | quote }}}
+- {name: DEFAULT_TEAM_MEMBER_ROLE, value: {{ required "ContextForge trustedProxy.defaultTeamMemberRole is required" .Values.contextforge.trustedProxy.defaultTeamMemberRole | quote }}}
+- {name: APP_DOMAIN, value: {{ $origin | quote }}}
 {{- end }}
 {{- end -}}
 

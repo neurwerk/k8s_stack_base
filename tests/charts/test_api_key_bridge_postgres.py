@@ -15,7 +15,7 @@ class BridgePostgresTests(unittest.TestCase):
             "authKeycloakApiKeyBridge": {"bridgeImage": "ghcr.io/neurwerk/k8s-stack-keycloak-api-key-bridge:0.7.1@sha256:" + "7" * 64},
         }, check=False)
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("requires the verified PostgreSQL-compatible 0.8.1 image pin", result.stderr)
+        self.assertIn("requires the verified PostgreSQL-compatible 0.8.2 image pin", result.stderr)
 
         unpinned = render("keycloak-api-key-bridge", {
             "authKeycloakApiKeyBridge": {
@@ -23,7 +23,7 @@ class BridgePostgresTests(unittest.TestCase):
             },
         }, check=False)
         self.assertNotEqual(unpinned.returncode, 0)
-        self.assertIn("requires the verified PostgreSQL-compatible 0.8.1 image pin", unpinned.stderr)
+        self.assertIn("requires the verified PostgreSQL-compatible 0.8.2 image pin", unpinned.stderr)
 
     def test_default_excludes_sqlite_and_wires_secret_and_policy(self):
         new = render("keycloak-api-key-bridge",
