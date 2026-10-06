@@ -43,17 +43,16 @@ The addon HelmRelease needs namespace-local `auth-keycloak-secret` (the existing
 Base runtime Secret), realm and admin username values. When enabled, the chart
 requires the exact verified Tooling `0.7.3` tag and digest shown above; image
 overrides to older or unverified builds fail rendering.
-Base's realm-role Job must also run that image and publish an ownership scope
-covering its core `platform-admin` children. The current Base realm-role Job
-does not do this: selecting this chart now is **unsafe** because Base can remove
-the addon's grant on its next reconciliation. Coordinate the separate Base
-ownership change and migration of the previous single
-`addon-application-access-values` source before selecting an addon. The
-addon must own the HelmRelease, values, and reconciliation ordering; this chart
-creates no HelmRelease and changes no client source or selected platform tag.
+Base's realm-role Job now uses the same verified image and scopes its own
+`platform-admin` children. It rejects the old `addonApplicationAccess` values;
+the default Keycloak releases no longer read the shared
+`addon-application-access-values` ConfigMap. Remove those legacy inputs in a
+reviewed client cutover before selecting an addon. The addon must own the
+HelmRelease, values, and reconciliation ordering; this chart creates no
+HelmRelease and changes no client source or selected platform tag.
 
-The current Base Active Directory chart and release are unchanged. Addon group
-mappings require a separate reviewed allowlist and ordering handoff: Base realm
+Base Active Directory no longer reads the legacy shared add-on group values.
+Addon group mappings require a separate reviewed allowlist and ordering handoff: Base realm
 roles Ready -> selected addon access Ready -> Active Directory Ready. Do not
 configure addon mappings or assume an addon group exists until that handoff is
 implemented and selected. Removing an addon later also requires reviewing any
