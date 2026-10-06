@@ -37,6 +37,13 @@ class KeycloakStandardAccessTests(unittest.TestCase):
                 "langfuse-admin", "pii-admin", "studio-user", "librechat-admin",
             ],
         })
+        self.assertEqual(json.loads(env_value(rendered, "KC_REALM_ROLE_COMPOSITE_OWNERSHIP")), {
+            "librechat-admin": ["librechat-user"],
+            "platform-admin": [
+                "keycloak-admin", "api-key-admin", "opensearch-admin",
+                "langfuse-admin", "pii-admin", "studio-user", "librechat-admin",
+            ],
+        })
         self.assertEqual(env_value(rendered, "KC_PARENT_ROLE"), "keycloak-admin")
         self.assertEqual(env_value(rendered, "KC_CLIENT_ID"), "realm-management")
         self.assertEqual(
@@ -61,31 +68,21 @@ class KeycloakStandardAccessTests(unittest.TestCase):
                         role for role in defaults if role not in exclusions
                     ]},
                 )
+                self.assertEqual(
+                    env_value(rendered, "KC_REALM_ROLE_COMPOSITE_OWNERSHIP"),
+                    env_value(baseline, "KC_REALM_ROLE_COMPOSITE_OWNERSHIP"),
+                )
                 for name in ("KC_REALM_ROLES", "KC_ACCESS_GROUPS", "KC_PARENT_ROLE",
                              "KC_CLIENT_ID", "KC_CLIENT_ROLES"):
                     self.assertEqual(env_value(rendered, name), env_value(baseline, name))
 
-    def test_selected_application_access_is_bounded_and_keeps_base_grants(self) -> None:
-        addon = {
-            "realmRoles": ["catalog-user", "catalog-admin"],
-            "platformAdminRoles": ["catalog-admin"],
-            "realmRoleComposites": {"catalog-admin": ["catalog-user"]},
-            "accessGroups": {"/access/neurwerk-catalog-admins": {"realmRoles": ["catalog-admin"]}},
-        }
-        result = render(CHART, {"addonApplicationAccess": addon})
-        composites = json.loads(env_value(result, "KC_REALM_ROLE_COMPOSITES"))
-        self.assertEqual(composites["catalog-admin"], ["catalog-user"])
-        self.assertEqual(composites["platform-admin"][-1], "catalog-admin")
-        groups = json.loads(env_value(result, "KC_ACCESS_GROUPS"))
-        self.assertEqual(groups["/access/neurwerk-catalog-admins"], {
-            "realmRoles": ["catalog-admin"], "clientRoles": {"agentgateway": []},
-        })
-        for bad in (
-            {**addon, "accessGroups": {"/access/neurwerk-platform-admins": {"realmRoles": ["catalog-admin"]}}},
-            {**addon, "accessGroups": {"/access/neurwerk-catalog-admins": {"realmRoles": ["catalog-admin"], "clientRoles": {"agentgateway": ["llm:invoke"]}}}},
-            {**addon, "platformAdminRoles": ["llm:invoke"]},
-        ):
-            self.assertNotEqual(render(CHART, {"addonApplicationAccess": bad}, check=False).returncode, 0)
+    def test_legacy_single_slot_is_rejected_by_base_consumers(self) -> None:
+        for chart in (CHART, "keycloak/server", "keycloak/realm-config/active-directory"):
+            for legacy in ({}, {"realmRoles": ["catalog-admin"]}):
+                with self.subTest(chart=chart, legacy=legacy):
+                    result = render(chart, {"addonApplicationAccess": legacy}, check=False)
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertIn("addonApplicationAccess is no longer supported", result.stderr)
 
     def test_invalid_platform_admin_exclusions_fail_closed(self) -> None:
         for value, message in [
