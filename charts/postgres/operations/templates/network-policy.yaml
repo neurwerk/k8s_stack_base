@@ -106,6 +106,9 @@ spec:
         - podSelector:
             matchLabels:
               app.kubernetes.io/name: postgres-operations-provisioning
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: postgres-addon-provisioning
       ports:
         - port: {{ .Values.postgresOperations.containerPorts.postgresql }}
           protocol: TCP
@@ -166,4 +169,37 @@ spec:
         - port: {{ .Values.postgresOperations.containerPorts.postgresql }}
           protocol: TCP
         - port: {{ .Values.postgresOperations.containerPorts.documentdb }}
+          protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: postgres-addon-provisioning-egress
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "postgres-operations.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: postgres-addon-provisioning
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    - to:
+        - podSelector:
+            matchLabels:
+              {{- include "postgres-operations.selectorLabels" . | nindent 14 }}
+      ports:
+        - port: {{ .Values.postgresOperations.containerPorts.postgresql }}
           protocol: TCP

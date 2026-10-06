@@ -1,0 +1,239 @@
+{{- $role := .Values.addon.role -}}
+{{- $reserved := list "postgres" "template0" "template1" -}}
+{{- if not (has .Release.Namespace (list "infra-postgres-operations" "default")) -}}{{- fail "addon provisioning must run in infra-postgres-operations" -}}{{- end -}}
+{{- if or (not (regexMatch `^[a-z][a-z0-9_]{0,62}$` $role)) (hasPrefix "pg_" $role) -}}{{- fail "addon.role must be a non-system PostgreSQL identifier" -}}{{- end -}}
+{{- if has $role $reserved -}}{{- fail "addon.role is reserved" -}}{{- end -}}
+{{- if not (regexMatch `^[a-z][a-z0-9-]{0,52}$` .Release.Name) -}}{{- fail "release name must be a short DNS label" -}}{{- end -}}
+{{- if not (regexMatch `^[a-z][a-z0-9-]{0,251}$` .Values.addon.passwordSecret) -}}{{- fail "addon.passwordSecret is required" -}}{{- end -}}
+{{- if or (not (kindIs "slice" .Values.addon.databases)) (eq (len .Values.addon.databases) 0) -}}{{- fail "addon.databases must be a nonempty list" -}}{{- end -}}
+{{- $names := list -}}
+{{- range .Values.addon.databases -}}
+{{- if or (not (kindIs "map" .)) (not (hasKey . "name")) (not (kindIs "string" .name)) (not (regexMatch `^[a-z][a-z0-9_]{0,62}$` .name)) (hasPrefix "pg_" .name) -}}{{- fail "addon database name must be a non-system PostgreSQL identifier" -}}{{- end -}}
+{{- if or (has .name $reserved) (has .name $names) -}}{{- fail "addon database name is duplicate or reserved" -}}{{- end -}}
+{{- if or (not (hasKey . "vector")) (not (kindIs "bool" .vector)) (ne (len .) 2) -}}{{- fail "addon databases require only name and boolean vector" -}}{{- end -}}
+{{- $names = append $names .name -}}
+{{- end -}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}-provision
+  namespace: infra-postgres-operations
+  labels:
+    app.kubernetes.io/name: postgres-addon-provisioning
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: postgres
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  backoffLimit: 3
+  activeDeadlineSeconds: 300
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: postgres-addon-provisioning
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/part-of: postgres
+    spec:
+      automountServiceAccountToken: false
+      restartPolicy: Never
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: provision
+          image: {{ .Values.addon.image | quote }}
+          command: [/bin/sh, -ec]
+          args:
+            - |
+              deadline=$(($(date +%s) + 180))
+              until psql --tuples-only --command='SELECT 1' >/dev/null 2>&1; do
+                if [ "$(date +%s)" -ge "$deadline" ]; then
+                  echo 'PostgreSQL unavailable' >&2
+                  exit 1
+                fi
+                sleep 2
+              done
+              psql --set=ON_ERROR_STOP=1 <<'SQL'
+              \getenv password ADDON_PASSWORD
+              SET log_statement = 'none';
+              SET log_min_duration_statement = -1;
+              SET log_min_error_statement = 'panic';
+              -- Keep this session (and its advisory lock) through database creation.
+              SELECT pg_advisory_lock(hashtextextended('neurwerk-addon-provisioning', 0));
+              BEGIN;
+              CREATE SCHEMA IF NOT EXISTS addon_provisioning AUTHORIZATION documentdb;
+              DO $verify$
+              BEGIN
+                IF (SELECT nspowner FROM pg_namespace WHERE nspname = 'addon_provisioning') != 'documentdb'::regrole THEN
+                  RAISE EXCEPTION 'Addon ledger schema is not owned by the administrator';
+                END IF;
+              END $verify$;
+              REVOKE ALL ON SCHEMA addon_provisioning FROM PUBLIC;
+              CREATE TABLE IF NOT EXISTS addon_provisioning.releases (
+                release_name text PRIMARY KEY, role_name text NOT NULL UNIQUE
+              );
+              CREATE TABLE IF NOT EXISTS addon_provisioning.databases (
+                database_name text PRIMARY KEY,
+                release_name text NOT NULL REFERENCES addon_provisioning.releases(release_name),
+                state text NOT NULL CHECK (state IN ('pending', 'ready'))
+              );
+              -- Do not trust a similarly named schema/table created by another owner.
+              DO $verify$
+              BEGIN
+                IF EXISTS (SELECT FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+                     WHERE n.nspname = 'addon_provisioning' AND c.relname IN ('releases', 'databases')
+                     AND (c.relowner != 'documentdb'::regrole OR c.relkind != 'r')) THEN
+                  RAISE EXCEPTION 'Addon ledger is not owned by the administrator';
+                END IF;
+              END $verify$;
+              REVOKE ALL ON addon_provisioning.releases, addon_provisioning.databases FROM PUBLIC;
+              DO $verify$
+              BEGIN
+                IF EXISTS (SELECT FROM addon_provisioning.releases WHERE release_name = '{{ .Release.Name }}' AND role_name != '{{ $role }}') OR
+                   EXISTS (SELECT FROM addon_provisioning.releases WHERE role_name = '{{ $role }}' AND release_name != '{{ .Release.Name }}') OR
+                   EXISTS (SELECT FROM addon_provisioning.databases WHERE database_name = '{{ $role }}') OR
+                   EXISTS (SELECT FROM addon_provisioning.databases WHERE release_name = '{{ .Release.Name }}'
+                     AND database_name NOT IN ({{ range $i, $db := .Values.addon.databases }}{{ if $i }}, {{ end }}'{{ $db.name }}'{{ end }})) THEN
+                  RAISE EXCEPTION 'Addon ledger binding changed';
+                END IF;
+                {{- range .Values.addon.databases }}
+                IF EXISTS (SELECT FROM addon_provisioning.databases WHERE database_name = '{{ .name }}' AND release_name != '{{ $.Release.Name }}') THEN
+                  RAISE EXCEPTION 'Addon database bound to another release';
+                END IF;
+                IF EXISTS (SELECT FROM addon_provisioning.releases WHERE role_name = '{{ .name }}' AND release_name != '{{ $.Release.Name }}') THEN
+                  RAISE EXCEPTION 'Addon database collides with another role';
+                END IF;
+                IF EXISTS (SELECT FROM pg_database WHERE datname = '{{ .name }}') AND
+                   NOT EXISTS (SELECT FROM addon_provisioning.databases WHERE database_name = '{{ .name }}' AND release_name = '{{ $.Release.Name }}') THEN
+                  RAISE EXCEPTION 'Unrecorded addon database already exists';
+                END IF;
+                IF EXISTS (SELECT FROM addon_provisioning.databases WHERE database_name = '{{ .name }}' AND state = 'ready') AND
+                   NOT EXISTS (SELECT FROM pg_database WHERE datname = '{{ .name }}') THEN
+                  RAISE EXCEPTION 'Completed addon database is missing';
+                END IF;
+                {{- end }}
+                IF EXISTS (SELECT FROM pg_roles WHERE rolname = '{{ $role }}') AND
+                   NOT EXISTS (SELECT FROM addon_provisioning.releases WHERE release_name = '{{ .Release.Name }}' AND role_name = '{{ $role }}') THEN
+                  RAISE EXCEPTION 'Unrecorded addon role already exists';
+                END IF;
+                IF EXISTS (SELECT FROM addon_provisioning.releases WHERE release_name = '{{ .Release.Name }}') AND
+                   NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '{{ $role }}') THEN
+                  RAISE EXCEPTION 'Recorded addon role is missing';
+                END IF;
+                IF EXISTS (SELECT FROM pg_database WHERE datname = '{{ $role }}'
+                  AND datname NOT IN ({{ range $i, $db := .Values.addon.databases }}{{ if $i }}, {{ end }}'{{ $db.name }}'{{ end }})) THEN
+                  RAISE EXCEPTION 'Addon role collides with another database';
+                END IF;
+                IF EXISTS (SELECT FROM pg_roles WHERE rolname = '{{ $role }}' AND
+                  (rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls OR NOT rolcanlogin)) OR
+                  EXISTS (SELECT FROM pg_auth_members m JOIN pg_roles r ON r.oid IN (m.member, m.roleid)
+                    WHERE r.rolname = '{{ $role }}') OR
+                  EXISTS (SELECT FROM pg_roles r LEFT JOIN pg_shdescription s
+                    ON s.objoid = r.oid AND s.classoid = 'pg_authid'::regclass
+                   WHERE r.rolname = '{{ $role }}' AND s.description IS DISTINCT FROM 'neurwerk-addon:{{ .Release.Name }}') THEN
+                  RAISE EXCEPTION 'Addon role is not owned by this release or has elevated privileges';
+                END IF;
+                {{- range .Values.addon.databases }}
+                IF EXISTS (SELECT FROM pg_database d LEFT JOIN pg_shdescription s
+                  ON s.objoid = d.oid AND s.classoid = 'pg_database'::regclass
+                  JOIN pg_roles r ON r.oid = d.datdba WHERE d.datname = '{{ .name }}'
+                   AND (r.rolname != '{{ $role }}' OR
+                     (s.description IS DISTINCT FROM 'neurwerk-addon:{{ $.Release.Name }}' AND
+                       (s.description IS NOT NULL OR NOT EXISTS
+                         (SELECT FROM addon_provisioning.databases l WHERE l.database_name = d.datname
+                           AND l.release_name = '{{ $.Release.Name }}' AND l.state = 'pending'))))) THEN
+                  RAISE EXCEPTION 'Addon database is not owned by this release';
+                END IF;
+                {{- end }}
+              END $verify$;
+              SELECT format('CREATE ROLE %I LOGIN PASSWORD %L', '{{ $role }}', :'password')
+                WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '{{ $role }}') \gexec
+              COMMENT ON ROLE {{ $role }} IS 'neurwerk-addon:{{ .Release.Name }}';
+              INSERT INTO addon_provisioning.releases (release_name, role_name)
+                VALUES ('{{ .Release.Name }}', '{{ $role }}') ON CONFLICT (release_name) DO NOTHING;
+              {{- range .Values.addon.databases }}
+              INSERT INTO addon_provisioning.databases (database_name, release_name, state)
+                VALUES ('{{ .name }}', '{{ $.Release.Name }}', 'pending') ON CONFLICT (database_name) DO NOTHING;
+              {{- end }}
+              COMMIT;
+              SELECT format('ALTER ROLE %I WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD %L', '{{ $role }}', :'password') \gexec
+              {{- range .Values.addon.databases }}
+              SELECT 'CREATE DATABASE {{ .name }} OWNER {{ $role }}'
+                WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '{{ .name }}') \gexec
+              COMMENT ON DATABASE {{ .name }} IS 'neurwerk-addon:{{ $.Release.Name }}';
+              REVOKE ALL ON DATABASE {{ .name }} FROM PUBLIC;
+              GRANT CONNECT, TEMPORARY ON DATABASE {{ .name }} TO {{ $role }};
+              UPDATE addon_provisioning.databases SET state = 'ready'
+                WHERE database_name = '{{ .name }}' AND release_name = '{{ $.Release.Name }}';
+              {{- end }}
+              DO $verify$
+              BEGIN
+                IF EXISTS (SELECT FROM pg_database d WHERE d.datname NOT IN ('template0'{{ range .Values.addon.databases }}, '{{ .name }}'{{ end }})
+                  AND has_database_privilege('{{ $role }}', d.oid, 'CONNECT')) OR
+                  EXISTS (SELECT FROM pg_database d CROSS JOIN pg_roles r
+                    WHERE d.datname IN ({{ range $i, $db := .Values.addon.databases }}{{ if $i }}, {{ end }}'{{ $db.name }}'{{ end }})
+                    AND r.rolname != '{{ $role }}' AND NOT r.rolsuper
+                    AND (r.rolcanlogin OR r.rolname = 'documentdb_bg_worker_role')
+                    AND has_database_privilege(r.oid, d.oid, 'CONNECT')) THEN
+                  RAISE EXCEPTION 'Addon database isolation verification failed';
+                END IF;
+              END $verify$;
+              SELECT pg_advisory_unlock(hashtextextended('neurwerk-addon-provisioning', 0));
+              SQL
+              {{- range .Values.addon.databases }}
+              {{- if .vector }}
+              PGDATABASE={{ .name | quote }} psql --set=ON_ERROR_STOP=1 --command='CREATE EXTENSION IF NOT EXISTS vector' >/dev/null
+              {{- end }}
+              {{- end }}
+              {{- range .Values.addon.databases }}
+              PGPASSWORD="$ADDON_PASSWORD" PGUSER={{ $role | quote }} PGDATABASE={{ .name | quote }} \
+                psql --set=ON_ERROR_STOP=1 --command='BEGIN; CREATE TABLE public.__addon_verification (id integer); ROLLBACK;' >/dev/null
+              {{- if .vector }}
+              PGPASSWORD="$ADDON_PASSWORD" PGUSER={{ $role | quote }} PGDATABASE={{ .name | quote }} \
+                psql --tuples-only --command="SELECT extname FROM pg_extension WHERE extname = 'vector'" | grep -qx '[[:space:]]*vector'
+              {{- end }}
+              {{- end }}
+          env:
+            - name: ADDON_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.addon.passwordSecret }}
+                  key: password
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-operations-secret
+                  key: admin-password
+            - name: PGHOST
+              value: {{ .Values.addon.postgresHost | quote }}
+            - name: PGPORT
+              value: {{ .Values.addon.postgresPort | quote }}
+            - name: PGUSER
+              value: documentdb
+            - name: PGDATABASE
+              value: postgres
+            - name: PGSSLMODE
+              value: disable
+            - name: PGCONNECT_TIMEOUT
+              value: "5"
+            - name: HOME
+              value: /tmp
+          resources:
+            {{- toYaml .Values.addon.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+            readOnlyRootFilesystem: true
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
