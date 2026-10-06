@@ -5,8 +5,6 @@ resources:
   - active-directory.yaml
   - server.yaml
   - oidc-agentgateway.yaml
-  - oidc-dify-agentgateway.yaml
-  - oidc-dify.yaml
   - oidc-keycloak-api-key-bridge.yaml
   - oidc-librechat.yaml
   - oidc-studio.yaml

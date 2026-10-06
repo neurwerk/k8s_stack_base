@@ -385,7 +385,6 @@ spec:
   (dict "name" "cert-manager-public-agentgateway" "namespace" "infra-agentgateway" "hostname" .Values.infraAgentgatewayWrapper.hostname)
   (dict "name" "cert-manager-public-librechat" "namespace" "frontend-librechat" "hostname" .Values.frontendLibrechat.hostname)
   (dict "name" "cert-manager-public-librechat-admin" "namespace" "frontend-librechat" "hostname" .Values.frontendLibrechat.adminPanel.hostname)
-  (dict "name" "cert-manager-public-dify" "namespace" "frontend-dify" "hostname" .Values.frontendDify.hostname)
   (dict "name" "cert-manager-public-studio" "namespace" "frontend-studio" "hostname" .Values.frontendStudio.studio.hostname)
   (dict "name" "cert-manager-public-langfuse" "namespace" "monitor-langfuse" "hostname" .Values.monitorLangfuseWrapper.hostname)
   (dict "name" "cert-manager-public-rook-object-gateway" "namespace" "infra-rook-ceph" "hostname" .Values.infraRookCeph.objectStore.publicHostname)

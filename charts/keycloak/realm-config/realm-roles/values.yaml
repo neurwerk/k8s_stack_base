@@ -11,10 +11,10 @@ authKeycloak:
   # to the Admin REST API. Set by the chart; override per-client if needed.
   adminUser: admin
 
-  # The 13 standard groups are owned by files/standard-access.yaml, not client values.
+  # The standard groups are owned by files/standard-access.yaml, not client values.
   # Remove only these direct application grants from platform-admin (role names):
   # keycloak-admin, api-key-admin, opensearch-admin, langfuse-admin, pii-admin,
-  # studio-user, librechat-admin, dify-admin.
+  # studio-user and librechat-admin.
   # [] restores all defaults. Groups, memberships, and model/MCP grants are unchanged.
   platformAdminRoleExclusions: []
 

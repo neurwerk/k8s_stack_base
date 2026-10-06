@@ -67,7 +67,7 @@
     {{- $_ := set $seenGroups $groupName true -}}
   {{- end -}}
 
-  {{- $targets := list "api-key-admins" "dify-admins" "dify-users" "keycloak-admins" "langfuse-admins" "librechat-admins" "librechat-users" "opensearch-admins" "pii-admins" "platform-admins" "studio-users" "llm-all-users" "mcp-all-users" -}}
+  {{- $targets := list "api-key-admins" "keycloak-admins" "langfuse-admins" "librechat-admins" "librechat-users" "opensearch-admins" "pii-admins" "platform-admins" "studio-users" "llm-all-users" "mcp-all-users" -}}
   {{- $seenTargets := dict -}}
   {{- range $mapping := $ad.groupMappings -}}
     {{- if not (kindIs "map" $mapping) -}}

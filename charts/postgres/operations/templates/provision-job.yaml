@@ -68,7 +68,6 @@ spec:
               psql --set=ON_ERROR_STOP=1 <<'SQL'
               \getenv documentdb_password DOCUMENTDB_PASSWORD
               \getenv agentgateway_password AGENTGATEWAY_PASSWORD
-              \getenv dify_password DIFY_PASSWORD
               \getenv langfuse_password LANGFUSE_PASSWORD
               \getenv librechat_rag_password LIBRECHAT_RAG_PASSWORD
               SET log_statement = 'none';
@@ -196,9 +195,6 @@ spec:
                 'ALTER ROLE agentgateway WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD %L',
                 :'agentgateway_password'
               ) \gexec
-              SELECT format('CREATE ROLE dify LOGIN PASSWORD %L', :'dify_password')
-              WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'dify') \gexec
-              SELECT format('ALTER ROLE dify WITH LOGIN PASSWORD %L', :'dify_password') \gexec
               SELECT format('CREATE ROLE langfuse LOGIN PASSWORD %L', :'langfuse_password')
               WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'langfuse') \gexec
               SELECT format('ALTER ROLE langfuse WITH LOGIN PASSWORD %L', :'langfuse_password') \gexec
@@ -206,12 +202,6 @@ spec:
               WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'librechat_rag') \gexec
               SELECT format('ALTER ROLE librechat_rag WITH LOGIN PASSWORD %L', :'librechat_rag_password') \gexec
 
-              SELECT 'CREATE DATABASE dify OWNER dify'
-              WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'dify') \gexec
-              SELECT 'CREATE DATABASE dify_plugin OWNER dify'
-              WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'dify_plugin') \gexec
-              SELECT 'CREATE DATABASE dify_vector OWNER dify'
-              WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'dify_vector') \gexec
               SELECT 'CREATE DATABASE postgres_langfuse OWNER langfuse'
               WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'postgres_langfuse') \gexec
               SELECT 'CREATE DATABASE postgres_langfuse_v4 OWNER langfuse'
@@ -222,25 +212,19 @@ spec:
               WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'agentgateway') \gexec
 
               ALTER DATABASE agentgateway OWNER TO agentgateway;
-              ALTER DATABASE dify OWNER TO dify;
-              ALTER DATABASE dify_plugin OWNER TO dify;
-              ALTER DATABASE dify_vector OWNER TO dify;
               ALTER DATABASE postgres_langfuse OWNER TO langfuse;
               ALTER DATABASE postgres_langfuse_v4 OWNER TO langfuse;
               ALTER DATABASE librechat_rag OWNER TO librechat_rag;
               REVOKE CONNECT, TEMPORARY ON DATABASE postgres, template1 FROM PUBLIC;
               GRANT CONNECT ON DATABASE postgres TO documentdb, operations_admin;
               GRANT CONNECT ON DATABASE postgres TO documentdb_bg_worker_role;
-              REVOKE ALL ON DATABASE agentgateway, dify, dify_plugin, dify_vector, postgres_langfuse, librechat_rag FROM PUBLIC;
+              REVOKE ALL ON DATABASE agentgateway, postgres_langfuse, librechat_rag FROM PUBLIC;
               REVOKE ALL ON DATABASE postgres_langfuse_v4 FROM PUBLIC;
               GRANT CONNECT, TEMPORARY ON DATABASE agentgateway TO agentgateway;
-              GRANT CONNECT, TEMPORARY ON DATABASE dify, dify_plugin, dify_vector TO dify;
               GRANT CONNECT, TEMPORARY ON DATABASE postgres_langfuse TO langfuse;
               GRANT CONNECT, TEMPORARY ON DATABASE postgres_langfuse_v4 TO langfuse;
               GRANT CONNECT, TEMPORARY ON DATABASE librechat_rag TO librechat_rag;
 
-              \connect dify_vector
-              CREATE EXTENSION IF NOT EXISTS vector;
               \connect librechat_rag
               CREATE EXTENSION IF NOT EXISTS vector;
               \connect postgres
@@ -364,7 +348,6 @@ spec:
               }
               verify_studio_isolation librechat "$DOCUMENTDB_PASSWORD"
               verify_studio_isolation agentgateway "$AGENTGATEWAY_PASSWORD"
-              verify_studio_isolation dify "$DIFY_PASSWORD"
               verify_studio_isolation langfuse "$LANGFUSE_PASSWORD"
               verify_studio_isolation librechat_rag "$LIBRECHAT_RAG_PASSWORD"
               PGPASSWORD="$STUDIO_PASSWORD" PGUSER=studio PGDATABASE=studio \
@@ -373,15 +356,11 @@ spec:
 
               PGPASSWORD="$AGENTGATEWAY_PASSWORD" PGUSER=agentgateway PGDATABASE=agentgateway \
                 psql --tuples-only --command='SELECT current_user' | grep -qx '[[:space:]]*agentgateway'
-              PGPASSWORD="$DIFY_PASSWORD" PGUSER=dify PGDATABASE=dify \
-                psql --tuples-only --command='SELECT current_user' | grep -qx '[[:space:]]*dify'
               PGPASSWORD="$LANGFUSE_PASSWORD" PGUSER=langfuse PGDATABASE=postgres_langfuse \
                 psql --tuples-only --command='SELECT current_user' | grep -qx '[[:space:]]*langfuse'
               PGPASSWORD="$LANGFUSE_PASSWORD" PGUSER=langfuse PGDATABASE=postgres_langfuse_v4 \
                 psql --tuples-only --command='SELECT current_user' | grep -qx '[[:space:]]*langfuse'
               PGPASSWORD="$LIBRECHAT_RAG_PASSWORD" PGUSER=librechat_rag PGDATABASE=librechat_rag \
-                psql --tuples-only --command="SELECT extname FROM pg_extension WHERE extname = 'vector'" | grep -qx '[[:space:]]*vector'
-              PGPASSWORD="$DIFY_PASSWORD" PGUSER=dify PGDATABASE=dify_vector \
                 psql --tuples-only --command="SELECT extname FROM pg_extension WHERE extname = 'vector'" | grep -qx '[[:space:]]*vector'
               verify_isolation() {
                 user=$1
@@ -396,10 +375,8 @@ spec:
                 done
               }
               verify_isolation agentgateway "$AGENTGATEWAY_PASSWORD" dify dify_plugin dify_vector postgres_langfuse librechat_rag
-              verify_isolation dify "$DIFY_PASSWORD" agentgateway postgres_langfuse librechat_rag
               verify_isolation langfuse "$LANGFUSE_PASSWORD" agentgateway dify dify_plugin dify_vector librechat_rag
               verify_isolation agentgateway "$AGENTGATEWAY_PASSWORD" postgres_langfuse_v4
-              verify_isolation dify "$DIFY_PASSWORD" postgres_langfuse_v4
               verify_isolation librechat_rag "$LIBRECHAT_RAG_PASSWORD" postgres_langfuse_v4
               verify_isolation librechat_rag "$LIBRECHAT_RAG_PASSWORD" agentgateway dify dify_plugin dify_vector postgres_langfuse
               {{- if .Values.apiKeyBridge.enabled }}
@@ -409,7 +386,6 @@ spec:
               verify_isolation api_key_bridge "$API_KEY_BRIDGE_PASSWORD" postgres_langfuse_v4
               verify_isolation librechat "$DOCUMENTDB_PASSWORD" api_key_bridge
               verify_isolation agentgateway "$AGENTGATEWAY_PASSWORD" api_key_bridge
-              verify_isolation dify "$DIFY_PASSWORD" api_key_bridge
               verify_isolation langfuse "$LANGFUSE_PASSWORD" api_key_bridge
               verify_isolation librechat_rag "$LIBRECHAT_RAG_PASSWORD" api_key_bridge
               {{- if .Values.studio.enabled }}
@@ -426,7 +402,6 @@ spec:
                 psql --set=ON_ERROR_STOP=1 --command='BEGIN; CREATE TABLE public.__addon_provisioning_verification (id integer); ROLLBACK;' >/dev/null
               verify_isolation "$ADDON_DATABASE_NAME" "$ADDON_DATABASE_PASSWORD" postgres template1 agentgateway dify dify_plugin dify_vector postgres_langfuse postgres_langfuse_v4 librechat_rag studio api_key_bridge
               verify_isolation agentgateway "$AGENTGATEWAY_PASSWORD" "$ADDON_DATABASE_NAME"
-              verify_isolation dify "$DIFY_PASSWORD" "$ADDON_DATABASE_NAME"
               verify_isolation langfuse "$LANGFUSE_PASSWORD" "$ADDON_DATABASE_NAME"
               verify_isolation librechat_rag "$LIBRECHAT_RAG_PASSWORD" "$ADDON_DATABASE_NAME"
               verify_isolation librechat "$DOCUMENTDB_PASSWORD" "$ADDON_DATABASE_NAME"
@@ -509,11 +484,6 @@ spec:
               value: /etc/documentdb/ca.crt
             - name: HOME
               value: /tmp
-            - name: DIFY_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: postgres-operations-secret
-                  key: dify-password
             - name: LANGFUSE_PASSWORD
               valueFrom:
                 secretKeyRef:
