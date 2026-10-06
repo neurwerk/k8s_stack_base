@@ -11,7 +11,7 @@ authKeycloak:
   # to the Admin REST API. Set by the chart; override per-client if needed.
   adminUser: admin
 
-  # The 13 standard groups are owned by files/standard-access.yaml, not client values.
+  # The standard groups are owned by files/standard-access.yaml, not client values.
   # Remove only these direct application grants from platform-admin (role names):
   # keycloak-admin, api-key-admin, opensearch-admin, langfuse-admin, pii-admin,
   # studio-user and librechat-admin.
@@ -28,10 +28,6 @@ authKeycloak:
   # Both groups exist without grants; application admission implies no access.
   agentgatewayAccessGroups: {}
 
-# A selected product owns the optional namespace-local addon-application-access-values
-# ConfigMap. Base still performs the one authoritative composite reconciliation.
-addonApplicationAccess: {}
-
 openrouterCatalog:
   enabled: true
   excludedModels: []
@@ -40,4 +36,4 @@ openrouterCatalog:
   models: []
 
 k8sTools:
-  image: ghcr.io/neurwerk/k8s-stack-tooling:0.7.2@sha256:bfc4d5e1d3e7009c23be9759ee91ef91e5befc8b42af7f743d13449b2b4973b6
+  image: ghcr.io/neurwerk/k8s-stack-tooling:0.7.3@sha256:efa09b2f29d02fbd07fe12774fd7d3db6bf4e02ef403c7be2c18196fbc956d99
