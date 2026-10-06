@@ -18,7 +18,7 @@ monitorAgentgatewayExtproc:
     # Covers dependency failures and response failures after headers were sent.
     enabled: true
 
-  extprocImage: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.14.1@sha256:b40b5a0dcb0d11e91c3eec6712fbb55a70738a2e6239236e5d316288e778afe0
+  extprocImage: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.15.0@sha256:c8d7ca5b11961f24945e3a5f93f9d90e13424734ec134fd6efd8711a3bfd2d69
 
   # Docling requires exactly two fixed replicas (no HPA while enabled).
   replicas: 2
@@ -67,6 +67,24 @@ monitorAgentgatewayExtproc:
     # Explicit RFC1918 IPv4 destinations; DNS alone is not an egress allowlist.
     cidrs: []
     port: 443
+
+  # Reviewed non-content extensions; requires a segment-contract-capable image.
+  # Rules are validated by the shared inspection package at runtime startup.
+  compatibility:
+    controls: []
+
+  # Optional short-lived rejection diagnostics; requires a capture-capable image.
+  # No capture environment or writable volume is added while disabled.
+  rejectionCapture:
+    enabled: false
+    # Maximum bytes per capture and across captures in each pod (positive integers).
+    # The dedicated emptyDir allows maxTotalBytes plus 1 MiB filesystem overhead.
+    maxFileBytes: 6291456
+    maxTotalBytes: 31457280
+    # Maximum retained files and their lifetime in seconds (positive integers).
+    maxFiles: 20
+    retentionSeconds: 3600
+    # Runtime creates its private child at /var/run/extproc-diagnostics/captures.
 
   # Text-only limits. Docling derives 64 MiB requests and a 68222976-byte gRPC
   # envelope instead, even if an existing client still supplies these values.

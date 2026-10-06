@@ -1,3 +1,26 @@
+{{- $controls := .Values.monitorAgentgatewayExtproc.compatibility.controls -}}
+{{- if not (kindIs "slice" $controls) -}}
+  {{- fail "monitorAgentgatewayExtproc.compatibility.controls must be a list" -}}
+{{- end -}}
+{{- if gt (len $controls) 128 -}}
+  {{- fail "monitorAgentgatewayExtproc.compatibility.controls permits at most 128 rules" -}}
+{{- end -}}
+{{- $capture := .Values.monitorAgentgatewayExtproc.rejectionCapture -}}
+{{- if not (kindIs "bool" $capture.enabled) -}}
+  {{- fail "monitorAgentgatewayExtproc.rejectionCapture.enabled must be boolean" -}}
+{{- end -}}
+{{- if $capture.enabled -}}
+{{- $bounds := dict "maxFileBytes" (list 1024 68157440) "maxTotalBytes" (list 1024 268435456) "maxFiles" (list 1 100) "retentionSeconds" (list 60 86400) -}}
+{{- range $name, $range := $bounds -}}
+  {{- $value := index $capture $name -}}
+  {{- if or (not (regexMatch `^[1-9][0-9]*$` (toJson $value))) (lt (float64 $value) (float64 (first $range))) (gt (float64 $value) (float64 (last $range))) -}}
+    {{- fail (printf "monitorAgentgatewayExtproc.rejectionCapture.%s must be an integer from %v to %v" $name (first $range) (last $range)) -}}
+  {{- end -}}
+{{- end -}}
+{{- if lt (float64 $capture.maxTotalBytes) (float64 $capture.maxFileBytes) -}}
+  {{- fail "monitorAgentgatewayExtproc.rejectionCapture.maxTotalBytes must cover maxFileBytes" -}}
+{{- end -}}
+{{- end -}}
 {{- $docling := .Values.docling -}}
 {{- if not (kindIs "bool" $docling.enabled) -}}
   {{- fail "docling.enabled must be boolean" -}}

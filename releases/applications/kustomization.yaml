@@ -3,7 +3,6 @@ kind: Kustomization
 resources:
   - ../agentgateway
   - ../agentgateway-extproc
-  - ../dify
   - ../keycloak
   - ../keycloak-api-key-bridge
   - ../langfuse

@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: frontend-librechat-valkey-health
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "frontend-librechat.labels" . | nindent 4 }}
+data:
+  valkey-health.cjs: |
+{{ .Files.Get "files/valkey-health.cjs" | indent 4 }}
