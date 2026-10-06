@@ -14,7 +14,7 @@ Example non-secret values for the existing Forgejo identities:
 authKeycloak:
   realm: example
 k8sTools:
-  image: ghcr.io/neurwerk/k8s-stack-tooling:0.7.3@sha256:efa09b2f29d02fbd07fe12774fd7d3db6bf4e02ef403c7be2c18196fbc956d99
+  image: ghcr.io/neurwerk/k8s-stack-tooling:0.7.4@sha256:6f6a72a2b16f6bd93771c60190f5e0dba552790c283ea99ad4005cbf94e6894e
 addonAccess:
   enabled: true
   name: forgejo
@@ -41,7 +41,7 @@ No AgentGateway client roles or model/MCP grants are provided by this chart.
 
 The addon HelmRelease needs namespace-local `auth-keycloak-secret` (the existing
 Base runtime Secret), realm and admin username values. When enabled, the chart
-requires the exact verified Tooling `0.7.3` tag and digest shown above; image
+requires the exact verified Tooling `0.7.4` tag and digest shown above; image
 overrides to older or unverified builds fail rendering.
 Base's realm-role Job now uses the same verified image and scopes its own
 `platform-admin` children. It rejects the old `addonApplicationAccess` values;
