@@ -9,6 +9,15 @@ upgrade path.
 
 ## [Unreleased]
 
+## [0.3.22] - 2026-10-06
+
+- Remove legacy Dify charts, releases, and namespace from Base. Clients using Dify need a separately reviewed retirement or add-on handoff before adoption; the new add-on is not selected automatically.
+- Move Active Directory federation to an optional Keycloak stage. Existing installations need a planned single-owner handoff before changing the platform source.
+- Add unselected shared PostgreSQL and Keycloak interfaces for independent add-ons, without enabling an add-on by default.
+- Improve LibreChat recovery after Valkey restarts, K3s metrics, logging, and shared-service stability.
+- Add private inspection controls and update pinned inspection images.
+- Pin verified Tooling 0.7.4 across its Base chart consumers.
+
 ## [0.3.21] - 2026-10-02
 
 - Adopt verified Studio 0.13.0 API and Web images with personal LLM and MCP activity, log and notice improvements. Personal activity remains off unless a client enables it.
