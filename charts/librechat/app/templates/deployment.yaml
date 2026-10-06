@@ -26,6 +26,8 @@ spec:
     metadata:
       labels:
         {{- include "frontend-librechat.labels" . | nindent 8 }}
+      annotations:
+        checksum/valkey-health: {{ .Files.Get "files/valkey-health.cjs" | sha256sum }}
     spec:
       serviceAccountName: {{ include "frontend-librechat.serviceAccountName" . }}
       automountServiceAccountToken: false
@@ -331,6 +333,10 @@ spec:
               mountPath: /app/librechat.yaml
               subPath: librechat.yaml
               readOnly: true
+            - name: valkey-health
+              mountPath: /app/valkey-health.cjs
+              subPath: valkey-health.cjs
+              readOnly: true
             - name: home
               mountPath: /home/node
             - name: images
@@ -344,23 +350,23 @@ spec:
             - name: uploads
               mountPath: /app/uploads
           startupProbe:
-            httpGet:
-              path: /api/admin/oauth/openid/check
-              port: http
+            exec:
+              command: [node, /app/valkey-health.cjs, startup]
             periodSeconds: 5
             failureThreshold: 60
+            timeoutSeconds: 4
           readinessProbe:
-            httpGet:
-              path: /readyz
-              port: http
+            exec:
+              command: [node, /app/valkey-health.cjs, readiness]
             periodSeconds: 5
             failureThreshold: 3
+            timeoutSeconds: 4
           livenessProbe:
-            httpGet:
-              path: /livez
-              port: http
+            exec:
+              command: [node, /app/valkey-health.cjs, liveness]
             periodSeconds: 10
             failureThreshold: 6
+            timeoutSeconds: 4
           resources:
             {{- toYaml .Values.frontendLibrechat.app.resources | nindent 12 }}
       volumes:
@@ -373,6 +379,9 @@ spec:
         - name: config
           configMap:
             name: frontend-librechat-config-map
+        - name: valkey-health
+          configMap:
+            name: frontend-librechat-valkey-health
         - name: home
           emptyDir: {}
         - name: images
