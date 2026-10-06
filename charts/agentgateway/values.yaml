@@ -93,9 +93,10 @@ internalRagEmbedding:
 # chart never renders a dynamic backend that could proxy arbitrary destinations.
 mcp:
   enabled: false
-  # Declarative contract assertion only: the chart rejects every other value but
-  # does not pass this field into AgentGateway or extProc configuration. The pinned
-  # AgentGateway parser accepts multiple versions; strict extProc enforces this one.
+  # Declarative assertion only, not a runtime selector: accepts 2025-11-25 or
+  # 2026-07-28 and is not passed to AgentGateway or extProc. Modern MCP requires
+  # separate adoption of a published, verified dual-version extProc image.
+  # Existing pins may still enforce only 2025-11-25; a values change cannot upgrade them.
   protocolVersion: "2025-11-25"
   # Static MCP targets must match one of these exact hostnames. Client values
   # may opt in to a listed target but cannot turn AgentGateway into an arbitrary
