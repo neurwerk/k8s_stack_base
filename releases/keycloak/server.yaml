@@ -62,7 +62,3 @@ spec:
     - kind: ConfigMap
       name: keycloak-product-values
       valuesKey: values.yaml
-    - kind: ConfigMap
-      name: addon-application-access-values
-      valuesKey: values.yaml
-      optional: true

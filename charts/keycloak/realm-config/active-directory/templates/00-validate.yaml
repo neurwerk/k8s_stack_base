@@ -1,3 +1,4 @@
+{{- if hasKey .Values "addonApplicationAccess" }}{{- fail "addonApplicationAccess is no longer supported; use a separate addon-access release" }}{{- end -}}
 {{- $ad := .Values.authKeycloak.activeDirectory -}}
 {{- if not (kindIs "bool" $ad.enabled) -}}
   {{- fail "authKeycloak.activeDirectory.enabled must be a boolean" -}}
@@ -67,13 +68,6 @@
   {{- end -}}
 
   {{- $targets := list "api-key-admins" "keycloak-admins" "langfuse-admins" "librechat-admins" "librechat-users" "opensearch-admins" "pii-admins" "platform-admins" "studio-users" "llm-all-users" "mcp-all-users" -}}
-  {{- $addonAccess := .Values.addonApplicationAccess | default dict -}}
-  {{- range $name, $_ := $addonAccess.accessGroups | default dict -}}
-    {{- if not (regexMatch `^/access/neurwerk-[a-z0-9-]+$` $name) -}}
-      {{- fail "addonApplicationAccess contains an invalid access group" -}}
-    {{- end -}}
-    {{- $targets = append $targets (trimPrefix "/access/neurwerk-" $name) -}}
-  {{- end -}}
   {{- $seenTargets := dict -}}
   {{- range $mapping := $ad.groupMappings -}}
     {{- if not (kindIs "map" $mapping) -}}
