@@ -43,7 +43,6 @@ class Passwords:
     admin: str
     agentgateway: str
     documentdb: str
-    dify: str
     langfuse: str
     librechat_rag: str
 
@@ -115,7 +114,7 @@ def generate_passwords() -> Passwords:
         return f"Aa1!{secrets.token_urlsafe(24)}"
 
     return Passwords(
-        password(), password(), password(), password(), password(), password()
+        password(), password(), password(), password(), password()
     )
 
 
@@ -133,7 +132,6 @@ def values_json(config: Config, passwords: Passwords) -> str:
                 "adminPassword": passwords.admin,
                 "agentgatewayPassword": passwords.agentgateway,
                 "documentdbPassword": passwords.documentdb,
-                "difyPassword": passwords.dify,
                 "langfusePassword": passwords.langfuse,
                 "librechatRagPassword": passwords.librechat_rag,
             },

@@ -3,7 +3,6 @@ kind: Kustomization
 resources:
   - auth-keycloak.yaml
   - auth-keycloak-api-key-bridge.yaml
-  - frontend-dify.yaml
   - frontend-librechat.yaml
   - librechat-code-interpreter.yaml
   - frontend-studio.yaml

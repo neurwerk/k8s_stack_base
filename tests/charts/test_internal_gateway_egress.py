@@ -9,18 +9,6 @@ class InternalGatewayEgressTests(unittest.TestCase):
     def test_routing_modes_keep_dns_private_dependencies_and_public_https(self):
         for chart, policy_name, dependencies in (
             (
-                "dify/api",
-                "frontend-dify-api-egress",
-                (
-                    ("postgres-operations", "infra-postgres-operations", 9712),
-                    ("redis", None, 6379),
-                    ("plugin-daemon", None, 5002),
-                    ("agent-backend", None, 5050),
-                    ("sandbox", None, 8194),
-                    ("infra-agentgateway-gateway", "infra-agentgateway", 80),
-                ),
-            ),
-            (
                 "librechat/app",
                 "frontend-librechat-network-policy",
                 (
@@ -138,7 +126,7 @@ class InternalGatewayEgressTests(unittest.TestCase):
                         )
 
     def test_unknown_routing_mode_fails(self):
-        for chart in ("dify/api", "librechat/app"):
+        for chart in ("librechat/app",):
             with (
                 self.subTest(chart=chart),
                 self.assertRaisesRegex(

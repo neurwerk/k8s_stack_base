@@ -21,6 +21,3 @@ endpoints:
   librechat-admin:
     level: restricted
     devices: [device-a]
-  dify:
-    features:
-      consoleSSO: false

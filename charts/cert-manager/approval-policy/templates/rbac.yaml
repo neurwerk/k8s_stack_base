@@ -33,8 +33,6 @@ rules:
       - cert-manager-public-librechat-production
       - cert-manager-public-librechat-admin-staging
       - cert-manager-public-librechat-admin-production
-      - cert-manager-public-dify-staging
-      - cert-manager-public-dify-production
       - cert-manager-public-studio-staging
       - cert-manager-public-studio-production
       - cert-manager-public-langfuse-staging
