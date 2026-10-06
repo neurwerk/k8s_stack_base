@@ -1,0 +1,46 @@
+{{- $catalog := .Values.mcp.catalog | default dict -}}
+{{- if or (not (empty $catalog.presets)) (not (empty $catalog.custom)) -}}
+{{- $servers := include "infra-agentgateway.effectiveMcpServers" . | fromYamlArray -}}
+{{- $studio := list -}}
+{{- $registrations := list -}}
+{{- range $server := $servers -}}
+{{- if $server.contextforge -}}
+{{- $native := $server.contextforge -}}
+{{- $connection := dict "id" $server.name "name" $server.displayName "authentication_model" $native.authenticationModel "gateway_id" ($native.gatewayId | default "") "server_id" $native.serverId -}}
+{{- if $server.registration.oauth -}}
+{{- $authorization := urlParse $server.registration.oauth.authorization_url -}}
+{{- $hostParts := splitList ":" (lower $authorization.host) -}}
+{{- $host := first $hostParts -}}
+{{- if or (ne $authorization.scheme "https") (empty $host) -}}{{- fail "MCP OAuth authorization origin must use an approved HTTPS host" -}}{{- end -}}
+{{- if eq (len $hostParts) 2 -}}
+{{- $port := atoi (last $hostParts) -}}
+{{- if or (lt $port 1) (gt $port 65535) -}}{{- fail "MCP OAuth authorization origin has an invalid port" -}}{{- end -}}
+{{- if ne $port 443 -}}{{- $host = printf "%s:%d" $host $port -}}{{- end -}}
+{{- end -}}
+{{- $_ := set $connection "oauth_authorization_origin" (urlJoin (dict "scheme" "https" "host" $host)) -}}
+{{- end -}}
+{{- $studio = append $studio $connection -}}
+{{- $registration := deepCopy $server.registration -}}
+{{- if not (hasKey $registration "visibility") -}}{{- $_ := set $registration "visibility" "public" -}}{{- end -}}
+{{- $_ := set $registration "id" $server.name -}}
+{{- $_ := set $registration "provider" $native.provider -}}
+{{- $_ := set $registration "authentication_model" $native.authenticationModel -}}
+{{- $_ := set $registration "server_id" $native.serverId -}}
+{{- $_ := set $registration "gateway_id" ($native.gatewayId | default nil) -}}
+{{- $_ := set $registration "permission" (printf "mcp:%s:invoke" $server.name) -}}
+{{- $_ := set $registration "public_route" (printf "/mcp/%s" $server.name) -}}
+{{- $_ := set $registration "content_trace" $server.contentTracingEnabled -}}
+{{- $registrations = append $registrations $registration -}}
+{{- end -}}
+{{- end }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: infra-agentgateway-mcp-catalog
+  namespace: infra-agentgateway
+data:
+  # Backend-only operator artifacts. Rendering does not reconcile or enable MCP.
+  catalog.json: {{ $servers | toJson | quote }}
+  studio.json: {{ $studio | toJson | quote }}
+  registrations.json: {{ $registrations | toJson | quote }}
+{{- end }}

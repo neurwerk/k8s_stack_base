@@ -101,7 +101,7 @@ spec:
     {{-   if not $contentTracingEnabled }}{{- $modelContentDisabled = append $modelContentDisabled $model.name }}{{- end }}
     {{- end }}
     {{- $mcpContentDisabled := list }}
-    {{- range $server := .Values.mcp.servers | default list }}
+    {{- range $server := include "infra-agentgateway.effectiveMcpServers" . | fromYamlArray }}
     {{-   $contentTracingEnabled := true }}
     {{-   if hasKey $server "contentTracingEnabled" }}{{- $contentTracingEnabled = $server.contentTracingEnabled }}{{- end }}
     {{-   if not $contentTracingEnabled }}{{- $mcpContentDisabled = append $mcpContentDisabled $server.name }}{{- end }}

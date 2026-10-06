@@ -114,13 +114,19 @@ mcp:
   # Omitted/false keeps HTTP. TLS is not supported on workload entries; no
   # verification bypass or custom CA option is exposed. Set port explicitly.
   # Dormant native destination source: an entry may use contextforge instead of
-  # host/workload, with serverId (32 lowercase hex), provider (context7/brave),
-  # and authenticationModel (no-authentication/shared-authentication respectively).
-  # No native gateway ID or credentials belong here. Individual auth is blocked.
+  # host/workload, with serverId (32 lowercase hex), generic provider identifier,
+  # and authenticationModel (no/shared/individual-authentication). These are source
+  # declarations, not proof of a working provider connection. No credentials here.
   # Rendering any native destination with mcp.enabled:true is BLOCKED until a
   # future PR adopts verified bridge/extProc images supporting account_email.
   # There is no values flag that can bypass this source-only activation guard.
   servers: []
+  # Alternative to legacy servers, never merged with it. All selections require
+  # explicit enabled:true; new shipped presets never enable network access.
+  # Catalog defaults: PII on, content tracing off. See README for native metadata.
+  catalog:
+    presets: {}
+    custom: []
 
 # Canonical client-wide values, shared with Docling and extProc. Do not set a
 # different flag or time budget in product values. Higher budgets may reach 3660s.
