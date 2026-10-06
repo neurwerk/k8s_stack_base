@@ -18,6 +18,12 @@ packages:
   - releases/infrastructure
   - releases/applications
   optional:
+  - path: releases/keycloak/active-directory
+    status: included
+    reason: Optional Active Directory federation; existing installations require a reviewed single-owner
+      handoff from the applications stage before selection.
+    chartPrefixes:
+    - charts/keycloak/realm-config/active-directory
   - path: releases/docling/image-inspection-secret-sync
     status: included
     reason: Optional private image-reader credential delivery; provision the runtime and API key before
