@@ -1,5 +1,5 @@
 {{- if .Values.mcp.enabled }}
-{{- range .Values.mcp.servers | default list }}
+{{- range include "infra-agentgateway.effectiveMcpServers" . | fromYamlArray }}
 {{- $serverName := .name }}
 {{- $routeName := include "infra-agentgateway.mcpResourceName" (dict "id" $serverName "component" "route") }}
 {{- $backendName := include "infra-agentgateway.mcpResourceName" (dict "id" $serverName "component" "be") }}

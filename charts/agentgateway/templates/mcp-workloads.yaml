@@ -1,5 +1,5 @@
 {{- if .Values.mcp.enabled }}
-{{- range .Values.mcp.servers | default list }}
+{{- range include "infra-agentgateway.effectiveMcpServers" . | fromYamlArray }}
 {{- if .workload }}
 {{- $serverName := .name }}
 {{- $deploymentName := include "infra-agentgateway.mcpResourceName" (dict "id" $serverName "component" "deploy") }}

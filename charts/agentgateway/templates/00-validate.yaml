@@ -118,12 +118,14 @@
 {{- if not (has $mcpProtocolVersion (list "2025-11-25" "2026-07-28")) -}}
 {{-   fail "mcp.protocolVersion must be 2025-11-25 or 2026-07-28" -}}
 {{- end -}}
-{{- $mcpServers := .Values.mcp.servers | default list -}}
+{{- $mcpServers := include "infra-agentgateway.effectiveMcpServers" . | fromYamlArray -}}
 {{- if and .Values.mcp.enabled (gt (len $mcpServers) 0) (not $engine.enabled) -}}
 {{-   fail "guardrails.llmPolicyEngine.enabled must be true when MCP destinations are configured" -}}
 {{- end -}}
 {{- $mcpIds := dict -}}
 {{- $nativeServerIds := dict -}}
+{{- $nativeGatewayIds := dict -}}
+{{- $legacyMcp := not (empty .Values.mcp.servers) -}}
 {{- range $server := $mcpServers -}}
 {{-   $serverId := required "mcp server requires name" $server.name -}}
 {{-   if or (gt (len $serverId) 48) (not (regexMatch "^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$" $serverId)) -}}
@@ -146,7 +148,7 @@
 {{-       fail (printf "mcp server %q contextforge must be a map" $serverId) -}}
 {{-     end -}}
 {{-     range $field, $_ := $native -}}
-{{-       if not (has $field (list "serverId" "provider" "authenticationModel")) -}}
+{{-       if or (not (has $field (list "serverId" "provider" "authenticationModel" "gatewayId"))) (and $legacyMcp (eq $field "gatewayId")) -}}
 {{-         fail (printf "mcp server %q contextforge field %q is unsupported; gateway IDs and credentials are catalog-management only" $serverId $field) -}}
 {{-       end -}}
 {{-     end -}}
@@ -156,7 +158,7 @@
 {{-       end -}}
 {{-     end -}}
 {{-     if get ($.Values.infraAgentgatewayWrapperSecrets.mcp | default dict) $serverId -}}
-{{-       fail (printf "mcp server %q contextforge cannot receive gateway credential secrets; Brave credentials stay in its upstream service" $serverId) -}}
+{{-       fail (printf "mcp server %q contextforge cannot receive gateway credential secrets; shared credentials stay in the upstream service" $serverId) -}}
 {{-     end -}}
 {{-     if or (not (kindIs "string" $native.serverId)) (not (regexMatch "^[0-9a-f]{32}$" (toString $native.serverId))) -}}
 {{-       fail (printf "mcp server %q contextforge.serverId must be exactly 32 lowercase hex characters" $serverId) -}}
@@ -165,11 +167,21 @@
 {{-       fail "ContextForge native server IDs must be unique across platform MCP destinations" -}}
 {{-     end -}}
 {{-     $_ := set $nativeServerIds $native.serverId true -}}
-{{-     if eq $native.authenticationModel "individual-authentication" -}}
-{{-       fail "ContextForge individual-authentication is blocked by Base #424" -}}
+{{-     if and $legacyMcp (eq $native.authenticationModel "individual-authentication") -}}
+{{-       fail "legacy mcp.servers does not support individual-authentication; migrate explicitly to mcp.catalog for source declarations, which do not fix Base #424 or enable native routing" -}}
 {{-     end -}}
-{{-     if not (or (and (eq $native.provider "context7") (eq $native.authenticationModel "no-authentication")) (and (eq $native.provider "brave") (eq $native.authenticationModel "shared-authentication"))) -}}
-{{-       fail "ContextForge supports only no-authentication Context7 and shared-authentication Brave" -}}
+{{-     if and $native.gatewayId (or (not (kindIs "string" $native.gatewayId)) (not (regexMatch "^[0-9a-f]{32}$" (toString $native.gatewayId)))) -}}
+{{-       fail "ContextForge gatewayId must be an exact 32 lowercase hex native UUID" -}}
+{{-     end -}}
+{{-     if $native.gatewayId -}}
+{{-       if hasKey $nativeGatewayIds $native.gatewayId -}}{{- fail "ContextForge native gateway IDs must be unique across catalog entries" -}}{{- end -}}
+{{-       $_ := set $nativeGatewayIds $native.gatewayId true -}}
+{{-     end -}}
+{{-     if or (not (kindIs "string" $native.provider)) (not (regexMatch "^[a-z0-9][a-z0-9-]{0,47}$" (toString $native.provider))) -}}
+{{-       fail "ContextForge provider must be a generic lowercase identifier" -}}
+{{-     end -}}
+{{-     if not (has $native.authenticationModel (list "no-authentication" "shared-authentication" "individual-authentication")) -}}
+{{-       fail "ContextForge authenticationModel must be no-authentication, shared-authentication or individual-authentication" -}}
 {{-     end -}}
 {{-   end -}}
 {{-   range $field := list "piiEnabled" "contentTracingEnabled" -}}

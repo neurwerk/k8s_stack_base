@@ -1,6 +1,6 @@
 {{- if .Values.mcp.enabled }}
 {{- if not .Values.externalGateway.enabled }}{{- fail "mcp.enabled requires externalGateway.enabled so external MCP clients have a public HTTPS route" }}{{- end }}
-{{- range .Values.mcp.servers | default list }}
+{{- range include "infra-agentgateway.effectiveMcpServers" . | fromYamlArray }}
 {{- $serverName := .name }}
 {{- $backendName := include "infra-agentgateway.mcpResourceName" (dict "id" $serverName "component" "be") }}
 {{- $serviceName := include "infra-agentgateway.mcpResourceName" (dict "id" $serverName "component" "svc") }}

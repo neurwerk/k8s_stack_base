@@ -1,8 +1,123 @@
-# Dormant ContextForge MCP destinations
+# MCP presets and client extensions (source only)
 
 This is **disabled source preparation**, not a complete deployed path. Existing
 MCP destinations and their metadata remain unchanged. ContextForge packages stay
 excluded from release eligibility, absent from default stages and unselected.
+
+## One opt-in catalog
+
+Base ships `catalog/presets.yaml` inside this chart: Context7/no-authentication,
+Brave/shared-authentication and GitHub/individual-authentication. These are inert
+native registration presets, not automatic connections or grants. They contain no
+customer endpoint, native UUID, credential or enabled default. Clients own the
+selection, endpoint approval, overrides, custom definitions, secret references,
+native mappings, privacy settings and explicit permissions in private values.
+Ordinary provider additions use configuration, not provider-specific Base code.
+A Base release is needed for a new shared capability or shipped standard preset,
+not an ordinary client MCP definition using the existing capabilities.
+
+Use **either** legacy `mcp.servers` **or** `mcp.catalog`, never both. There is no
+silent migration. Legacy defaults/output remain unchanged (including historical
+content tracing on). Every catalog entry needs explicit boolean `enabled`;
+disabled or absent selections add no destination. Catalog defaults are PII on and
+content tracing off. Selection grants no access: declare the existing
+`mcp:<name>:invoke` role and deliberate group grants separately, plus `llm:invoke`.
+
+Example client declaration (native routing must remain disabled):
+
+```yaml
+mcp:
+  enabled: false
+  catalog:
+    presets:
+      context7:
+        enabled: true
+        contextforge:
+          serverId: "0123456789abcdef0123456789abcdef"
+          gatewayId: null # Resolve once through the approved operator ceremony.
+        registration:
+          upstream_url: https://mcp.example.com/mcp
+          transport: STREAMABLEHTTP
+          approved_tools: [resolve-library-id, query-docs]
+          pii_policy: platform-default
+      brave: {enabled: false}
+      github: {enabled: false}
+    custom:
+      - name: custom-docs
+        displayName: Approved documentation
+        enabled: true
+        contextforge:
+          provider: custom-docs
+          authenticationModel: no-authentication
+          serverId: "1123456789abcdef0123456789abcdef"
+          gatewayId: null
+        registration:
+          upstream_url: https://docs-mcp.example.com/mcp
+          transport: STREAMABLEHTTP
+          approved_tools: [lookup]
+          pii_policy: platform-default
+```
+
+Presets permit display name, privacy, native IDs and registration overrides, but
+not a provider/authentication-model change; use a custom entry for that. Custom
+entries use the same server shape, including approved static hosts or workloads.
+The same exact host allowlist and Secret-backed upstream auth apply to static
+custom entries. Native entries require the non-secret registration metadata shown
+above; it does not grant upstream network access. Operators must approve native
+SSRF allowlists, network egress and trust separately. No caller can supply a URL,
+register a destination, discover new tools or manage registration credentials.
+
+One helper normalizes selected presets and custom entries for routes, backends,
+secrets, workloads, PII and tracing. The opt-in backend-only ConfigMap
+`infra-agentgateway-mcp-catalog` exports `catalog.json` (that same list),
+`registrations.json` (Tooling projection) and `studio.json` (Studio projection).
+For OAuth entries, `studio.json` derives `oauth_authorization_origin` from the
+validated authorization URL: HTTPS host, optional non-default port, no path.
+Copy/extract these artifacts locally after Helm rendering; do not keep parallel
+handwritten server lists. Tooling's `--catalog <registrations.json>` accepts the
+projection with a separate config containing only `origin`, `team_id`,
+`owner_email`. Persist resolved `gatewayId` in the client catalog and re-render;
+unresolved mappings are not ready for Studio. Neither chart rendering nor these
+artifacts apply registrations, wire Studio, enable Connect or select a client.
+
+Native registration `visibility` accepts `public` (new catalog default) or `team`.
+PUBLIC is deliberately accepted **behind private ingress**, within one fixed
+operator-owned team; it is not anonymous platform access or native team isolation.
+Keep exact approved virtual-server tool membership; never route global `/mcp`.
+
+### Individual-authentication declarations, not activation
+
+Any provider can declare `individual-authentication`; there are no provider-name
+branches. Optional `registration.oauth` source metadata uses exactly:
+
+```yaml
+oauth:
+  authorization_url: https://provider.example.com/authorize
+  token_url: https://provider.example.com/token
+  client_id: operator-registered-app
+  redirect_uri: https://mcp.example.com/oauth/callback
+  scopes: [read]
+  pkce: true
+  client_secret_ref: {name: provider-oauth, key: clientSecret}
+```
+
+This describes one operator-registered OAuth app and approved callback, not dynamic
+registration, PAT support or another implemented authentication mechanism. Never
+put a client secret in Git, native plaintext headers, chart values or logs.
+References remain references: this chart and the registration CLI do **not**
+resolve/transmit them. Individual entries validate offline, but Tooling rejects
+`--apply` before credentials/API access until a separately approved native OAuth
+credential-preparation implementation exists. Shared keys remain in upstream MCP
+services (Brave native `auth_type=none`); personal credential writes for no/shared
+integrations stay disabled. Ordinary Studio users connect approved accounts only.
+
+The user accepts native DB per-email personal token storage as a temporary path
+with native gateway team context ignored. This does not fix OAuthTokenVault #424;
+the foundation's default `OAUTH_TOKEN_BACKEND=vault` is **unchanged**. A separately
+approved private DB-backend configuration and persistent `AUTH_ENCRYPTION_SECRET`
+still need actual ciphertext/restart qualification. Native PUBLIC registration
+visibility is not strict team isolation. The known callback-transfer/browser-binding
+risk remains accepted; no upstream callback fix is imposed by this catalog task.
 
 A dormant declaration uses the stable platform permission ID as `name`, not a
 native gateway ID. Keep `mcp.enabled: false` when declaring this source shape:
@@ -20,11 +135,11 @@ mcp:
         authenticationModel: no-authentication
 ```
 
-The other supported pair is `provider: brave` with
-`authenticationModel: shared-authentication`. Brave's key stays in its upstream
-service; the native registration has auth type `none`. No individual model is
-accepted while [#424](https://github.com/neurwerk/k8s_stack_base/issues/424) blocks
-OAuth token-team lookup. Do not expose shared or personal credential writes.
+Provider is a generic identifier. The legacy `mcp.servers` shape still accepts
+only no/shared authentication and no native gateway mapping; use an explicit
+catalog migration for generic individual declarations and management metadata.
+A valid shape is not a qualified native connection; the activation guard below
+remains unconditional.
 
 Native server IDs must be unique 32-character lowercase hex UUIDs. Source routes
 keep exact public `/mcp/<name>` paths, existing `llm:invoke` plus
@@ -32,7 +147,8 @@ keep exact public `/mcp/<name>` paths, existing `llm:invoke` plus
 MCP is `Stateless` at the fixed private
 `contextforge.contextforge.svc.cluster.local:4444/servers/<serverId>/mcp` path.
 No global `/mcp`, native administrator, login, OAuth or credential API is exposed.
-`gateway_id` belongs only in operator/Studio catalog management, not routing.
+Catalog-only `contextforge.gatewayId` is management metadata only; routing still uses
+only `serverId`. No UUID is inferred or regenerated from the public permission ID.
 
 ## Hard activation guard
 
@@ -84,13 +200,15 @@ global role and a team role containing exactly `tools.read`, `tools.execute`,
 `DEFAULT_TEAM_MEMBER_ROLE` take prepared role **names**, not IDs. No ordinary
 browser/native credential management is granted.
 
-Tooling registration source [#114](https://github.com/neurwerk/k8s_stack_tooling/pull/114)
+The original Tooling registration source [#114](https://github.com/neurwerk/k8s_stack_tooling/pull/114)
 (`025a2281fc6a4fb284f078dd010015d1ca5041b1`) uses
 `reconcile-registrations` with `origin`, `team_id`, `owner_email` and
 `registrations[{id,provider,authentication_model,upstream_url,transport,gateway_id,server_id,approved_tools,permission,public_route,pii_policy,content_trace}]`.
 Gateway IDs start nullable and resolve through aliases `neurwerk-contextforge-<id>`;
 keep the approved native server/tool membership and stable route mapping aligned.
-Tool publication and private operator reconciliation remain separate. Studio's
+The accompanying generic Tooling source extends that schema without changing its
+legacy default team visibility, and accepts the generated catalog as described
+above. Tool publication and private operator reconciliation remain separate. Studio's
 backend-only catalog mapping, catalog/onboarding flags and Connect controls remain
 unchanged and disabled; no Studio deployment change or new released CLI
 prerequisite is claimed.

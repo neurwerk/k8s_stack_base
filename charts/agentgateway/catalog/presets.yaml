@@ -1,0 +1,19 @@
+# Source declarations only: selection, native IDs, endpoints and secrets are client-owned.
+context7:
+  name: context7
+  displayName: Context7
+  contextforge:
+    provider: context7
+    authenticationModel: no-authentication
+brave:
+  name: brave
+  displayName: Brave Search
+  contextforge:
+    provider: brave
+    authenticationModel: shared-authentication
+github:
+  name: github
+  displayName: GitHub
+  contextforge:
+    provider: github
+    authenticationModel: individual-authentication

@@ -70,7 +70,7 @@
 {{/* Only selected native destinations opt into the new trusted identity contract. */}}
 {{- define "infra-agentgateway.hasContextforgeRoutes" -}}
 {{- if .Values.mcp.enabled -}}
-{{- range .Values.mcp.servers | default list -}}
+{{- range include "infra-agentgateway.effectiveMcpServers" . | fromYamlArray -}}
 {{- if hasKey . "contextforge" -}}true{{- end -}}
 {{- end -}}
 {{- end -}}
