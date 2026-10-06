@@ -69,6 +69,12 @@ spec:
           contract_version: "1"
           destination_kind: '"mcp"'
           principal_id: 'has(jwt.sub) ? jwt.sub : extauthz.principal_id'
+          {{- if .contextforge }}
+          # All MCP methods use this context, not just tools/call. A JWT without
+          # email cannot fall back to another identity; extProc denies null/invalid.
+          account_email: 'has(jwt.sub) ? (has(jwt.email) ? jwt.email : null) : (has(extauthz.account_email) ? extauthz.account_email : null)'
+          contextforge: 'true'
+          {{- end }}
           destination_id: {{ printf "%q" .name | quote }}
           pii_enabled: {{ $piiEnabled | toString | quote }}
       processingOptions:

@@ -9,6 +9,8 @@ upgrade path.
 
 ## [Unreleased]
 
+- Prepare disabled ContextForge native MCP destination and trusted account email source; rendering is blocked until verified compatible bridge/extProc images are adopted, with existing routes and image pins unchanged.
+
 ## [0.3.23] - 2026-10-06
 
 - Prepare the AgentGateway chart's MCP assertion for `2026-07-28` alongside `2025-11-25`, retaining the existing default. New protocol traffic still requires a separately published and adopted compatible extProc image; this chart change does not upgrade the processor.

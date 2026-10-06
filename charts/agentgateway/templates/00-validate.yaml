@@ -123,6 +123,7 @@
 {{-   fail "guardrails.llmPolicyEngine.enabled must be true when MCP destinations are configured" -}}
 {{- end -}}
 {{- $mcpIds := dict -}}
+{{- $nativeServerIds := dict -}}
 {{- range $server := $mcpServers -}}
 {{-   $serverId := required "mcp server requires name" $server.name -}}
 {{-   if or (gt (len $serverId) 48) (not (regexMatch "^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$" $serverId)) -}}
@@ -139,9 +140,44 @@
 {{-     fail (printf "mcp server name %q is duplicated" $serverId) -}}
 {{-   end -}}
 {{-   $_ := set $mcpIds $serverId true -}}
+{{-   if hasKey $server "contextforge" -}}
+{{-     $native := $server.contextforge -}}
+{{-     if not (kindIs "map" $native) -}}
+{{-       fail (printf "mcp server %q contextforge must be a map" $serverId) -}}
+{{-     end -}}
+{{-     range $field, $_ := $native -}}
+{{-       if not (has $field (list "serverId" "provider" "authenticationModel")) -}}
+{{-         fail (printf "mcp server %q contextforge field %q is unsupported; gateway IDs and credentials are catalog-management only" $serverId $field) -}}
+{{-       end -}}
+{{-     end -}}
+{{-     range $field := list "host" "workload" "path" "port" "protocol" "tls" "upstreamAuth" -}}
+{{-       if hasKey $server $field -}}
+{{-         fail (printf "mcp server %q contextforge cannot set %s" $serverId $field) -}}
+{{-       end -}}
+{{-     end -}}
+{{-     if get ($.Values.infraAgentgatewayWrapperSecrets.mcp | default dict) $serverId -}}
+{{-       fail (printf "mcp server %q contextforge cannot receive gateway credential secrets; Brave credentials stay in its upstream service" $serverId) -}}
+{{-     end -}}
+{{-     if or (not (kindIs "string" $native.serverId)) (not (regexMatch "^[0-9a-f]{32}$" (toString $native.serverId))) -}}
+{{-       fail (printf "mcp server %q contextforge.serverId must be exactly 32 lowercase hex characters" $serverId) -}}
+{{-     end -}}
+{{-     if hasKey $nativeServerIds $native.serverId -}}
+{{-       fail "ContextForge native server IDs must be unique across platform MCP destinations" -}}
+{{-     end -}}
+{{-     $_ := set $nativeServerIds $native.serverId true -}}
+{{-     if eq $native.authenticationModel "individual-authentication" -}}
+{{-       fail "ContextForge individual-authentication is blocked by Base #424" -}}
+{{-     end -}}
+{{-     if not (or (and (eq $native.provider "context7") (eq $native.authenticationModel "no-authentication")) (and (eq $native.provider "brave") (eq $native.authenticationModel "shared-authentication"))) -}}
+{{-       fail "ContextForge supports only no-authentication Context7 and shared-authentication Brave" -}}
+{{-     end -}}
+{{-   end -}}
 {{-   range $field := list "piiEnabled" "contentTracingEnabled" -}}
 {{-     if and (hasKey $server $field) (not (kindIs "bool" (get $server $field))) -}}
 {{-       fail (printf "mcp server %q %s must be a boolean" $serverId $field) -}}
 {{-     end -}}
 {{-   end -}}
+{{- end -}}
+{{- if include "infra-agentgateway.hasContextforgeRoutes" . -}}
+{{-   fail "ContextForge routing is source-only: current bridge/extProc image pins lack trusted account_email support; a future verified image-adoption PR must replace this guard before native routes can render" -}}
 {{- end -}}
