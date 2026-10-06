@@ -1,5 +1,11 @@
 # Synthetic, non-secret values used by the chart validation targets.
 # HelmRelease ConfigMaps and Secrets provide these values in deployments.
+addon:
+  role: example
+  passwordSecret: example-postgres-values
+  databases:
+    - name: example_data
+      vector: false
 docling:
   enabled: true
   apiKeySecretRef: {name: docling-api, key: api-key}
