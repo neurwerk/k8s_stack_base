@@ -273,7 +273,11 @@ def parse_product_addon_source(content: str, *, origin: str) -> tuple[str, str]:
             or document["apiVersion"] != "source.toolkit.fluxcd.io/v1"
             or document["kind"] != "GitRepository"
             or not isinstance(metadata, dict)
-            or set(metadata) != {"name", "namespace"}
+            or set(metadata) not in ({"name", "namespace"}, {"name", "namespace", "annotations"})
+            or (
+                "annotations" in metadata
+                and metadata["annotations"] != {CHANNEL_ANNOTATION: "alpha"}
+            )
             or metadata["namespace"] != "flux-system"
             or not isinstance(name, str)
             or not DNS_LABEL.fullmatch(name)
