@@ -1,17 +1,17 @@
 # Standalone Streaming Regression
 
-Opt-in, standard-library `unittest` for the official AgentGateway **1.5.0 Linux
+Opt-in, standard-library `unittest` for the official AgentGateway **1.6.0 Linux
 amd64** executable and Python 3.12+. Supply an absolute `AGENTGATEWAY_BIN` path
 outside the checkout; its parent directory must already exist. Download from the
-[official release](https://github.com/agentgateway/agentgateway/releases/tag/v1.5.0):
+[official release](https://github.com/agentgateway/agentgateway/releases/tag/v1.6.0):
 
 ```bash
 export AGENTGATEWAY_BIN=/absolute/path/to/agentgateway-linux-amd64
 curl --fail --location --proto '=https' --tlsv1.2 \
-  https://github.com/agentgateway/agentgateway/releases/download/v1.5.0/agentgateway-linux-amd64 \
+  https://github.com/agentgateway/agentgateway/releases/download/v1.6.0/agentgateway-linux-amd64 \
   --output "$AGENTGATEWAY_BIN"
 printf '%s  %s\n' \
-  daca5cda76e8c5ab0c1a75912fecf2d6365095403f810db72029c49d14a37e7b \
+  496ed27e6a96b55a9ad7cabe5c2be7172511f44a3cb113e533d22bf93a7f079d \
   "$AGENTGATEWAY_BIN" | sha256sum --check - && chmod 0755 "$AGENTGATEWAY_BIN"
 mise exec -- make streaming-acceptance
 ```
@@ -49,7 +49,7 @@ Neither side's transport receives a gateway-issued MCP session ID. The original
 four body/header and auth/skip cases remain unchanged in scope.
 
 **Fixture limit:** there is no extProc in this standalone test, real or mocked.
-It deliberately demonstrates that native 1.5.0 stateless initialization also
+It deliberately demonstrates that native 1.6.0 stateless initialization also
 accepts a caller-supplied `Mcp-Session-Id`; native stateless mode alone is not
 header rejection. The platform requires extProc to reject every incoming MCP
 session header with HTTP 404 and a fixed safe error. That processor implementation
@@ -60,7 +60,7 @@ Model conversation/session IDs are outside this MCP transport change.
 Passing this fixture does not establish image compatibility or deployment readiness.
 
 All requests and fixture servers use loopback, management listeners are disabled,
-and subprocesses/servers are disposable with bounded waits. AgentGateway 1.5.0
+and subprocesses/servers are disposable with bounded waits. AgentGateway 1.6.0
 itself binds its random data port to a wildcard address; the test authorization
 restricts sources to `127.0.0.1`. Run on a trusted workstation. No cluster, external
 requests, real credentials, or persistent data are used. This is not PII,

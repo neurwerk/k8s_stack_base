@@ -23,7 +23,7 @@
 {{- $llamacpp := .Values.infraAgentgatewayWrapper.llamacpp }}
 {{- if and $llamacpp.enabled (not $llamacpp.host) }}{{- fail "infraAgentgatewayWrapper.llamacpp.host is required when llamacpp is enabled" }}{{- end }}
 {{- $local := $engine.localTarget }}
-{{- $localBaseURL := printf "http://%s:%d" $llamacpp.host (int $llamacpp.port) }}
+{{- $localBaseURL := printf "http://%s:%d/v1" $llamacpp.host (int $llamacpp.port) }}
 {{- $defaultWhen := `request.headers["x-remote-allowed"] == "true"` }}
 {{- $needsLocalFallback := false }}
 {{- $modelsByName := dict }}

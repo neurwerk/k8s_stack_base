@@ -2,6 +2,27 @@
 
 See [website](https://base.neurwerk.com/) for more information.
 
+## AgentGateway 1.6 upgrade
+
+Before adopting a Base revision with AgentGateway 1.6.0, install the matching
+`agentgateway-crds` chart **1.6.0** from
+`oci://cr.agentgateway.dev/charts/agentgateway-crds`. Follow the selected
+revision's `release/manifest.yaml`; older signed releases retain their own
+prerequisite versions. Coordinate this step before alpha `main` reconciliation
+or stable adoption so the new controller never starts with the old CRDs.
+
+Provider `baseURL` values must include the complete API prefix, such as `/v1`
+or OpenRouter's `/api/v1`. The chart supplies `/v1` for local models, PII fallback
+targets, and the optional embedding listener; clients must correct any pathless
+direct-provider URLs. Keep custom providers' advertised formats aligned with
+their actual API support.
+
+Retain client pricing catalogs as overlays on the new built-in catalog, the
+auth-response header workaround, and stateless MCP session protection. Verify
+streaming, local fallback routing, authentication, MCP, and usage accounting
+after the authorized rollout. This upgrade adds no rate-limit or idle-timeout
+policy. Existing late-stream-error and concurrency-limit issues remain open.
+
 ## Optional Active Directory stage
 
 `releases/applications` does not include the Active Directory HelmRelease.
