@@ -113,6 +113,13 @@ mcp:
   # trust roots and the exact host for SNI and certificate SAN verification.
   # Omitted/false keeps HTTP. TLS is not supported on workload entries; no
   # verification bypass or custom CA option is exposed. Set port explicitly.
+  # Dormant native destination source: an entry may use contextforge instead of
+  # host/workload, with serverId (32 lowercase hex), provider (context7/brave),
+  # and authenticationModel (no-authentication/shared-authentication respectively).
+  # No native gateway ID or credentials belong here. Individual auth is blocked.
+  # Rendering any native destination with mcp.enabled:true is BLOCKED until a
+  # future PR adopts verified bridge/extProc images supporting account_email.
+  # There is no values flag that can bypass this source-only activation guard.
   servers: []
 
 # Canonical client-wide values, shared with Docling and extProc. Do not set a

@@ -9,7 +9,7 @@
 {{- $permission := printf "mcp:%s:invoke" .name }}
 {{- if not (has $permission ($.Values.authKeycloak.agentgatewayClientRoles | default list)) }}{{- fail (printf "mcp server %q requires %q in authKeycloak.agentgatewayClientRoles" .name $permission) }}{{- end }}
 {{- if and .workload .host }}{{- fail (printf "mcp server %q cannot set both workload and host" .name) }}{{- end }}
-{{- if and (not .workload) (not .host) }}{{- fail (printf "mcp server %q requires workload or host" .name) }}{{- end }}
+{{- if and (not .workload) (not .host) (not .contextforge) }}{{- fail (printf "mcp server %q requires workload, host or contextforge" .name) }}{{- end }}
 {{- if and .workload .upstreamAuth }}{{- fail (printf "mcp server %q workload cannot set upstreamAuth" .name) }}{{- end }}
 {{- if and (hasKey . "tls") (not (kindIs "bool" .tls)) }}{{- fail (printf "mcp server %q tls must be a boolean" .name) }}{{- end }}
 {{- if and .workload .tls }}{{- fail (printf "mcp server %q tls requires a static host, not workload" .name) }}{{- end }}
@@ -32,6 +32,12 @@ spec:
     targets:
       - name: {{ .name | quote }}
         static:
+          {{- if .contextforge }}
+          host: "contextforge.contextforge.svc.cluster.local"
+          port: 4444
+          path: {{ printf "/servers/%s/mcp" .contextforge.serverId | quote }}
+          protocol: StreamableHTTP
+          {{- else }}
           {{- if .workload }}
           backendRef:
             name: {{ $serviceName }}
@@ -59,6 +65,7 @@ spec:
                     name: {{ $secretName }}
                     key: {{ .upstreamAuth.key | default "apiKey" | quote }}
             {{- end }}
+          {{- end }}
           {{- end }}
 {{- end }}
 {{- end }}

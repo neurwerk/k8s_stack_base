@@ -162,6 +162,50 @@ class AgentGatewayAnalyticsTests(unittest.TestCase):
                 self.assertIn(field, text)
             self.assertIn(f"pii_enabled: '{str(pii).lower()}'", text)
             self.assertNotIn("mcp-session-id", text.lower())
+            metadata = policy["spec"]["traffic"]["extProc"]["metadataContext"]["neurwerk.destination_policy"]
+            self.assertNotIn("account_email", metadata)
+            self.assertNotIn("contextforge", metadata)
+
+    def test_native_contextforge_activation_is_blocked_without_image_adoption(self):
+        for provider, model in (("context7", "no-authentication"), ("brave", "shared-authentication")):
+            with self.subTest(provider=provider):
+                server = {"name": "example", "contextforge": {
+                    "serverId": "0123456789abcdef0123456789abcdef",
+                    "provider": provider, "authenticationModel": model,
+                }}
+                values = {"mcp": {"enabled": False, "servers": [server]}, "authKeycloak": {
+                    "agentgatewayClientRoles": ["llm:invoke", "model:remote/example/model:invoke", "mcp:example:invoke"],
+                }}
+                dormant = render("agentgateway", values)
+                self.assertNotIn("account_email:", dormant.stdout)
+                self.assertNotIn("/servers/", dormant.stdout)
+                values["mcp"].update(enabled=True, runtimeCompatible=True)
+                failed = render("agentgateway", values, check=False)
+                self.assertNotEqual(failed.returncode, 0)
+                self.assertIn("future verified image-adoption PR", failed.stderr)
+
+    def test_native_contextforge_mapping_rejects_tool_scope_and_credential_bypasses(self):
+        native = {"serverId": "0123456789abcdef0123456789abcdef",
+                  "provider": "context7", "authenticationModel": "no-authentication"}
+        cases = [
+            ([{"name": "one", "contextforge": {**native, "serverId": value}}], "32 lowercase hex")
+            for value in ("../mcp", "0123456789ABCDEF0123456789ABCDEF", "short")
+        ]
+        cases += [
+            ([{"name": name, "contextforge": native} for name in ("one", "two")], "must be unique"),
+            ([{"name": "one", "contextforge": {**native, "authenticationModel": "individual-authentication"}}], "Base #424"),
+            ([{"name": "one", "contextforge": {**native, "gatewayId": "catalog-only"}}], "catalog-management only"),
+        ]
+        cases += [
+            ([{"name": "one", "contextforge": native, field: value}], f"cannot set {field}")
+            for field, value in (("path", "/mcp"), ("host", "other.example.test"),
+                                 ("upstreamAuth", {"header": "Authorization"}))
+        ]
+        for servers, message in cases:
+            with self.subTest(servers=servers):
+                failed = render("agentgateway", {"mcp": {"enabled": False, "servers": servers}}, check=False)
+                self.assertNotEqual(failed.returncode, 0)
+                self.assertIn(message, failed.stderr)
 
     def test_logging_does_not_depend_on_guardrails_or_tracing(self):
         result = render(

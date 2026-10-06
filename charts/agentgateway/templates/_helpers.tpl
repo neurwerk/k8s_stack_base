@@ -67,3 +67,11 @@
 {{- end -}}
 {{- $roles | uniq | toYaml -}}
 {{- end -}}
+{{/* Only selected native destinations opt into the new trusted identity contract. */}}
+{{- define "infra-agentgateway.hasContextforgeRoutes" -}}
+{{- if .Values.mcp.enabled -}}
+{{- range .Values.mcp.servers | default list -}}
+{{- if hasKey . "contextforge" -}}true{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
