@@ -9,8 +9,11 @@ upgrade path.
 
 ## [Unreleased]
 
+## [0.3.23] - 2026-10-06
+
 - Prepare the AgentGateway chart's MCP assertion for `2026-07-28` alongside `2025-11-25`, retaining the existing default. New protocol traffic still requires a separately published and adopted compatible extProc image; this chart change does not upgrade the processor.
 - Adopt extProc `0.16.0` for scoped MCP `2026-07-28` support alongside `2025-11-25`, retaining stateless operation, argument inspection and request-local reversal. Multi-round-trip calls, subscriptions and tasks remain unsupported; mirrored argument headers are rejected when PII is enabled.
+- Update extProc to `0.16.1` so chat tool-call continuations preserve common provider reasoning metadata.
 
 ## [0.3.22] - 2026-10-06
 
