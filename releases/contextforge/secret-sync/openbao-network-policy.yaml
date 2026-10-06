@@ -1,0 +1,22 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: contextforge-runtime
+  namespace: infra-openbao
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: openbao
+      app.kubernetes.io/instance: infra-openbao
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: contextforge}
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: contextforge
+              app.kubernetes.io/instance: contextforge
+              app.kubernetes.io/component: application
+      ports:
+        - {protocol: TCP, port: 8200}

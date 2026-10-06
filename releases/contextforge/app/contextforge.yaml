@@ -13,7 +13,7 @@ spec:
   upgrade:
     strategy: {name: RetryOnFailure, retryInterval: 1m}
   dependsOn:
-    - name: postgres-operations
+    - name: contextforge-postgres
       namespace: infra-postgres-operations
   chart:
     spec:
