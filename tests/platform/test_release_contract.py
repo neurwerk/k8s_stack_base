@@ -25,6 +25,29 @@ SPEC.loader.exec_module(platform_release)
 
 
 class ReleaseContractTest(unittest.TestCase):
+    def test_active_directory_only_renders_in_optional_stage(self) -> None:
+        def releases(stage: str) -> list[dict]:
+            result = subprocess.run(
+                ["kustomize", "build", "--load-restrictor", "LoadRestrictionsNone", str(ROOT / stage)],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            return [doc for doc in yaml.safe_load_all(result.stdout) if doc]
+
+        def ad_releases(stage: str) -> list[dict]:
+            return [
+                doc for doc in releases(stage)
+                if doc.get("kind") == "HelmRelease"
+                and doc.get("metadata", {}).get("name") == "keycloak-active-directory"
+            ]
+
+        self.assertEqual(ad_releases("releases/applications"), [])
+        optional = ad_releases("releases/keycloak/active-directory")
+        self.assertEqual(len(optional), 1)
+        self.assertEqual(optional[0]["metadata"]["namespace"], "auth-keycloak")
+        self.assertEqual(optional[0]["spec"]["releaseName"], "auth-keycloak-active-directory")
+
     def test_refresh_after_merged_preparation_keeps_exact_predecessor(self) -> None:
         for included, current, latest, valid in (
             ("0.3.6", "0.3.7", "v0.3.6", True),
