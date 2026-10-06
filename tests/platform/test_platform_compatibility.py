@@ -442,12 +442,44 @@ class CompatibilityTests(unittest.TestCase):
         self.files[HEAD][first] = yaml.safe_dump(addon("addon-alpha", "alpha-key"))
         self.files[HEAD][second] = yaml.safe_dump(addon("addon-beta", "beta-key"))
         self.assertFalse(self.check(new=source(), classify_only=True).changed)
+        annotated = addon("addon-beta", "beta-key")
+        annotated["metadata"]["annotations"] = {gate.CHANNEL_ANNOTATION: "alpha"}
+        self.files[HEAD][second] = yaml.safe_dump(annotated)
+        self.assertFalse(self.check(new=source(), classify_only=True).changed)
 
         for label, invalid in (
             ("branch", addon("addon-beta", "beta-key", "main")),
             ("shared key", addon("addon-beta", "alpha-key")),
             ("platform key", addon("addon-beta", "k8s-stack-release-trust")),
             ("duplicate identity", addon("addon-alpha", "beta-key")),
+            (
+                "extra metadata",
+                {**annotated, "metadata": {**annotated["metadata"], "labels": {"example": "value"}}},
+            ),
+            (
+                "extra annotation",
+                {
+                    **annotated,
+                    "metadata": {
+                        **annotated["metadata"],
+                        "annotations": {
+                            gate.CHANNEL_ANNOTATION: "alpha",
+                            "example.com/override": "yes",
+                        },
+                    },
+                },
+            ),
+            (
+                "wrong channel",
+                {
+                    **annotated,
+                    "metadata": {
+                        **annotated["metadata"],
+                        "annotations": {gate.CHANNEL_ANNOTATION: "stable"},
+                    },
+                },
+            ),
+            ("source ignore", {**annotated, "spec": {**annotated["spec"], "ignore": "*"}}),
         ):
             self.files[HEAD][second] = yaml.safe_dump(invalid)
             with self.subTest(label=label), self.assertRaises(gate.CompatibilityError):
