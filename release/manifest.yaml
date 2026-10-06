@@ -348,7 +348,7 @@ spec:
       appVersion: 1.0.0
     - path: charts/librechat/app
       name: frontend-librechat
-      version: 1.2.2
+      version: 1.2.3
       appVersion: v0.8.8-rc4
     - path: charts/librechat/code-interpreter/api
       name: librechat-code-interpreter-api
@@ -448,13 +448,16 @@ spec:
       name: pii-engine-model-sync
       version: 1.0.6
       appVersion: 0.11.0
+    - path: charts/postgres/addon
+      name: infra-postgres-addon
+      version: 0.1.1
     - path: charts/postgres/auth
       name: infra-postgres-auth
       version: 1.0.0
       appVersion: '18.6'
     - path: charts/postgres/operations
       name: infra-postgres-operations
-      version: 1.2.10
+      version: 1.2.11
       appVersion: pg18-0.116.0
     - path: charts/reloader
       name: infra-reloader
@@ -884,6 +887,7 @@ spec:
       pinned: true
       eligibility: included
       origins:
+      - charts/postgres/addon/values.yaml
       - charts/postgres/operations/values.yaml
     - reference: ghcr.io/external-secrets/external-secrets:v2.9.0
       pinned: true
