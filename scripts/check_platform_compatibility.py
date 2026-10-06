@@ -43,6 +43,9 @@ CLUSTER_RESOURCES = [
     "flux-system",
 ]
 ADDON_SOURCE_RESOURCE = "addon-source.yaml"
+PRODUCT_ADDON_SOURCE = re.compile(r"^addon-[a-z][a-z0-9-]*-source\.yaml$")
+ADDON_GIT_URL = re.compile(r"^ssh://git@github\.com/neurwerk/[a-zA-Z0-9_-]+\.git$")
+DNS_LABEL = re.compile(r"^[a-z][a-z0-9-]{0,62}$")
 FLUX_RESOURCES = ["gotk-components.yaml", "gotk-sync.yaml"]
 FLUX_LOG_LEVEL_LINE = re.compile(r"(?m)^([ \t]*- --log-level=)(?:debug|info|error)([ \t]*)$")
 FLUX_SOURCE_SCRATCH_VOLUME = re.compile(
@@ -219,28 +222,80 @@ def parse_platform_source(
 
 def parse_kustomization(
     content: str, *, origin: str, resources: list[str], allow_addon_source: bool = False
-) -> None:
+) -> list[str]:
     try:
         document = yaml.safe_load(content)
     except (ValueError, RecursionError, yaml.YAMLError) as error:
         raise CompatibilityError(f"cannot parse {origin}; details withheld") from error
-    allowed = [resources]
+    if not isinstance(document, dict) or set(document) != {"apiVersion", "kind", "resources"}:
+        raise CompatibilityError(f"{origin} must remain transform-free with the canonical resources")
+    entries = document["resources"]
+    if not isinstance(entries, list) or not all(isinstance(entry, str) for entry in entries):
+        raise CompatibilityError(f"{origin} must remain transform-free with the canonical resources")
+    addons: list[str] = []
+    expected = resources.copy()
     if allow_addon_source:
-        with_addon = resources.copy()
-        with_addon.insert(with_addon.index("platform-source.yaml") + 1, ADDON_SOURCE_RESOURCE)
-        allowed.append(with_addon)
-    if not isinstance(document, dict) or not any(
-        document
-        == {
-            "apiVersion": "kustomize.config.k8s.io/v1beta1",
-            "kind": "Kustomization",
-            "resources": allowed_resources,
-        }
-        for allowed_resources in allowed
-    ):
+        start = expected.index("platform-source.yaml") + 1
+        if ADDON_SOURCE_RESOURCE in entries:
+            expected.insert(start, ADDON_SOURCE_RESOURCE)
+            start += 1
+        addons = entries[start : start + len(entries) - len(expected)]
+        if (
+            not all(PRODUCT_ADDON_SOURCE.fullmatch(entry) for entry in addons)
+            or addons != sorted(set(addons))
+            or (ADDON_SOURCE_RESOURCE in entries and addons)
+        ):
+            raise CompatibilityError(
+                f"{origin} must remain transform-free with the canonical resources"
+            )
+        expected[start:start] = addons
+    if document != {
+        "apiVersion": "kustomize.config.k8s.io/v1beta1",
+        "kind": "Kustomization",
+        "resources": expected,
+    }:
         raise CompatibilityError(
             f"{origin} must remain transform-free with the canonical resources"
         )
+    return addons
+
+
+def parse_product_addon_source(content: str, *, origin: str) -> tuple[str, str]:
+    """New product sources must be immutable and use separate SSH credentials."""
+    try:
+        document = yaml.safe_load(content)
+        metadata, spec = document["metadata"], document["spec"]
+        secret = spec["secretRef"]["name"]
+        name = metadata["name"]
+        if (
+            not isinstance(document, dict)
+            or set(document) != {"apiVersion", "kind", "metadata", "spec"}
+            or document["apiVersion"] != "source.toolkit.fluxcd.io/v1"
+            or document["kind"] != "GitRepository"
+            or not isinstance(metadata, dict)
+            or set(metadata) != {"name", "namespace"}
+            or metadata["namespace"] != "flux-system"
+            or not isinstance(name, str)
+            or not DNS_LABEL.fullmatch(name)
+            or not isinstance(spec, dict)
+            or set(spec) != {"interval", "url", "ref", "secretRef"}
+            or not isinstance(spec["interval"], str)
+            or not isinstance(spec["url"], str)
+            or not ADDON_GIT_URL.fullmatch(spec["url"])
+            or not isinstance(spec["ref"], dict)
+            or set(spec["ref"]) != {"commit"}
+            or not isinstance(spec["ref"]["commit"], str)
+            or not COMMIT_SHA_PATTERN.fullmatch(spec["ref"]["commit"])
+            or not isinstance(spec["secretRef"], dict)
+            or set(spec["secretRef"]) != {"name"}
+            or not isinstance(secret, str)
+            or not DNS_LABEL.fullmatch(secret)
+            or secret in {"flux-system", "k8s-stack-release-trust", "k8s-stack-alpha-trust"}
+        ):
+            raise CompatibilityError(f"{origin} must use an exact commit and separate credentials")
+    except (TypeError, KeyError, ValueError, RecursionError, yaml.YAMLError) as error:
+        raise CompatibilityError(f"cannot parse {origin}; details withheld") from error
+    return name, secret
 
 
 def parse_flux_sync(content: str, *, origin: str) -> list[dict[str, Any]]:
@@ -287,16 +342,29 @@ def read_control_plane_contract(
     revision: str,
     revision_reader: Callable[[Path, str, Path], str],
 ) -> tuple[list[dict[str, Any]], str]:
+    addons: list[str] = []
     for path, resources in (
         (CLUSTER_KUSTOMIZATION_PATH, CLUSTER_RESOURCES),
         (FLUX_KUSTOMIZATION_PATH, FLUX_RESOURCES),
     ):
-        parse_kustomization(
+        selected = parse_kustomization(
             revision_reader(root, revision, path),
             origin="composition Kustomization",
             resources=resources,
             allow_addon_source=path == CLUSTER_KUSTOMIZATION_PATH,
         )
+        addons.extend(selected)
+    seen_names = {"flux-system", "k8s-stack"}
+    seen_secrets = {"flux-system", "k8s-stack-release-trust", "k8s-stack-alpha-trust"}
+    for filename in addons:
+        name, secret = parse_product_addon_source(
+            revision_reader(root, revision, CLUSTER_KUSTOMIZATION_PATH.parent / filename),
+            origin="product add-on source",
+        )
+        if name in seen_names or secret in seen_secrets:
+            raise CompatibilityError("product add-on sources must have unique identities and credentials")
+        seen_names.add(name)
+        seen_secrets.add(secret)
     sync = parse_flux_sync(
         revision_reader(root, revision, FLUX_SYNC_PATH), origin="Flux bootstrap sync"
     )

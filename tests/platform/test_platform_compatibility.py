@@ -418,6 +418,51 @@ class CompatibilityTests(unittest.TestCase):
                 with self.assertRaisesRegex(gate.CompatibilityError, "transform-free"):
                     self.check(allow_alpha=True, classify_only=True)
 
+    def test_multiple_addon_sources_require_ordered_names_exact_commits_and_separate_keys(self):
+        names = ["addon-alpha-source.yaml", "addon-beta-source.yaml"]
+        root = yaml.safe_load(self.files[HEAD][gate.CLUSTER_KUSTOMIZATION_PATH])
+        root["resources"][2:2] = names
+
+        def addon(name, secret, commit=OLD):
+            return {
+                "apiVersion": "source.toolkit.fluxcd.io/v1",
+                "kind": "GitRepository",
+                "metadata": {"name": name, "namespace": "flux-system"},
+                "spec": {
+                    "interval": "1m",
+                    "url": "ssh://git@github.com/neurwerk/example-product.git",
+                    "ref": {"commit": commit},
+                    "secretRef": {"name": secret},
+                },
+            }
+
+        self.files[HEAD][gate.CLUSTER_KUSTOMIZATION_PATH] = yaml.safe_dump(root)
+        first = gate.CLUSTER_KUSTOMIZATION_PATH.parent / names[0]
+        second = gate.CLUSTER_KUSTOMIZATION_PATH.parent / names[1]
+        self.files[HEAD][first] = yaml.safe_dump(addon("addon-alpha", "alpha-key"))
+        self.files[HEAD][second] = yaml.safe_dump(addon("addon-beta", "beta-key"))
+        self.assertFalse(self.check(new=source(), classify_only=True).changed)
+
+        for label, invalid in (
+            ("branch", addon("addon-beta", "beta-key", "main")),
+            ("shared key", addon("addon-beta", "alpha-key")),
+            ("platform key", addon("addon-beta", "k8s-stack-release-trust")),
+            ("duplicate identity", addon("addon-alpha", "beta-key")),
+        ):
+            self.files[HEAD][second] = yaml.safe_dump(invalid)
+            with self.subTest(label=label), self.assertRaises(gate.CompatibilityError):
+                self.check(classify_only=True)
+        self.files[HEAD][second] = yaml.safe_dump(addon("addon-beta", "beta-key"))
+        for label, resources in (
+            ("reordered", root["resources"][:2] + names[::-1] + root["resources"][4:]),
+            ("duplicate", root["resources"][:2] + [names[0], names[0]] + root["resources"][4:]),
+            ("mixed legacy", root["resources"][:2] + [gate.ADDON_SOURCE_RESOURCE] + root["resources"][2:]),
+        ):
+            root["resources"] = resources
+            self.files[HEAD][gate.CLUSTER_KUSTOMIZATION_PATH] = yaml.safe_dump(root)
+            with self.subTest(label=label), self.assertRaises(gate.CompatibilityError):
+                self.check(classify_only=True)
+
     def test_source_scratch_profile_and_log_levels_are_client_only(self):
         original = yaml.safe_dump_all(flux_components())
         documents = flux_components()
