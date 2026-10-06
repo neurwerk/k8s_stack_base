@@ -841,8 +841,6 @@ spec:
       origins:
       - charts/keycloak/addon-access/values.yaml
       - charts/keycloak/oidc/agentgateway/values.yaml
-      - charts/keycloak/oidc/dify-agentgateway/values.yaml
-      - charts/keycloak/oidc/dify/values.yaml
       - charts/keycloak/oidc/keycloak-api-key-bridge/values.yaml
       - charts/keycloak/oidc/librechat/values.yaml
       - charts/keycloak/oidc/studio/values.yaml
