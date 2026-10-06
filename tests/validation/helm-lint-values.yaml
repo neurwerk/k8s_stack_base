@@ -1,5 +1,7 @@
 # Synthetic, non-secret values used by the chart validation targets.
 # HelmRelease ConfigMaps and Secrets provide these values in deployments.
+contextforge:
+  enabled: true
 addon:
   role: example
   passwordSecret: example-postgres-values

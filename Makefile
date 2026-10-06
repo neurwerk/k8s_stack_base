@@ -119,7 +119,7 @@ rendered-check: deps-verify
 kustomize-validate: deps-verify ## Build and validate root Kustomizations
 	@printf "$(CYAN)Building and validating root Kustomizations...$(RESET)\n"
 	@if [ -z "$(KUSTOMIZE)" ]; then printf "$(RED)kustomize is required$(RESET)\n"; exit 1; fi
-	@for dir in releases/namespaces releases/infrastructure releases/applications releases/keycloak/active-directory; do \
+	@for dir in releases/namespaces releases/infrastructure releases/applications releases/keycloak/active-directory releases/namespaces/contextforge releases/contextforge/configuration releases/contextforge/app; do \
 		$(KUSTOMIZE) build --load-restrictor LoadRestrictionsNone "$(CURDIR)/$$dir" | $(KUBECONFORM) -strict -summary -ignore-missing-schemas; \
 	done
 

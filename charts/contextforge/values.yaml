@@ -1,0 +1,21 @@
+contextforge:
+  # Client selection is separate from the presence of this chart.
+  enabled: false
+  image: ghcr.io/ibm/mcp-context-forge:v1.0.11@sha256:e9639c030162d6cb2f9f188600dd69af8091ec62a7ce307d4a74f4d4f86873df
+
+  # Configuration and External Secrets delivery must finish before installation.
+  existingConfigMap: contextforge-runtime
+  existingSecret: contextforge-runtime
+
+  resources:
+    requests: {cpu: 250m, memory: 512Mi}
+    limits: {cpu: "1", memory: 1Gi}
+  migration:
+    activeDeadlineSeconds: 300
+    resources:
+      requests: {cpu: 100m, memory: 256Mi}
+      limits: {cpu: "1", memory: 512Mi}
+
+  # Approved upstream IP ranges and destination Pod ports; no provider egress by default.
+  # Example: [{cidr: 192.0.2.10/32, port: 443}]
+  providerEgress: []

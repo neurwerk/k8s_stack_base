@@ -1,0 +1,54 @@
+{{- if .Values.contextforge.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Release.Name }}
+  labels:
+    {{- include "contextforge.labels" . | nindent 4 }}
+  annotations:
+    # The migration hook needs this policy before ordinary chart resources exist.
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-weight: "-10"
+    # Keep the policy for the application and for failed migration inspection.
+    helm.sh/hook-delete-policy: before-hook-creation
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: contextforge
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: infra-agentgateway}
+          podSelector:
+            matchLabels: {app.kubernetes.io/name: infra-agentgateway-gateway}
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: frontend-studio}
+          podSelector:
+            matchLabels: {app.kubernetes.io/name: studio-api}
+      ports:
+        - {protocol: TCP, port: 4444}
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: kube-system}
+          podSelector:
+            matchLabels: {k8s-app: kube-dns}
+      ports:
+        - {protocol: UDP, port: 53}
+        - {protocol: TCP, port: 53}
+    - to:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: infra-postgres-operations}
+          podSelector:
+            matchLabels: {app.kubernetes.io/name: postgres-operations}
+      ports:
+        - {protocol: TCP, port: 9712}
+    {{- range .Values.contextforge.providerEgress }}
+    - to:
+        - ipBlock: {cidr: {{ .cidr | quote }}}
+      ports:
+        - {protocol: TCP, port: {{ .port }}}
+    {{- end }}
+{{- end }}

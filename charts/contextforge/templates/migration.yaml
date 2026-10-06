@@ -1,0 +1,47 @@
+{{- if .Values.contextforge.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}-migration
+  labels:
+    {{- include "contextforge.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  activeDeadlineSeconds: {{ .Values.contextforge.migration.activeDeadlineSeconds }}
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        {{- include "contextforge.labels" . | nindent 8 }}
+        app.kubernetes.io/component: migration
+    spec:
+      automountServiceAccountToken: false
+      restartPolicy: Never
+      securityContext:
+        {{- include "contextforge.podSecurity" . | nindent 8 }}
+      containers:
+        - name: migrate
+          image: {{ .Values.contextforge.image | quote }}
+          imagePullPolicy: IfNotPresent
+          command: [/bin/bash, -ec]
+          args:
+            - >-
+              python3 -m mcpgateway.bootstrap_db &&
+              python3 -m mcpgateway.utils.check_schema_at_head
+          securityContext:
+            {{- include "contextforge.containerSecurity" . | nindent 12 }}
+          envFrom:
+            - configMapRef: {name: {{ .Values.contextforge.existingConfigMap }}}
+          env:
+            {{- include "contextforge.credentials" . | nindent 12 }}
+            - {name: MCPGATEWAY_SKIP_MIGRATIONS, value: "false"}
+          resources:
+            {{- .Values.contextforge.migration.resources | toYaml | nindent 12 }}
+          volumeMounts:
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - name: tmp
+          emptyDir: {sizeLimit: 256Mi}
+{{- end }}
