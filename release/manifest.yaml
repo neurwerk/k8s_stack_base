@@ -175,8 +175,8 @@ spec:
           sha256: 61b97c2a34d6e0f1e2024a58804001c159dbc40a0f72173e70e8df767088c007
     - path: charts/agentgateway-extproc
       name: agentgateway-extproc
-      version: 1.4.9
-      appVersion: 0.16.0
+      version: 1.4.10
+      appVersion: 0.16.1
     - path: charts/cert-manager/approval-policy
       name: infra-cert-manager-approval-policy
       version: 1.2.4
@@ -790,7 +790,7 @@ spec:
       eligibility: included
       origins:
       - charts/wireguard/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.16.0@sha256:6f6b8c4c86b3789f75fe0d6ae34d25c2245d5d48929cbff15172199a88a9ce43
+    - reference: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.16.1@sha256:10ae82c99dbf0be29507aae8dffba7573786b9c634de7437b65fa51b9bde7149
       pinned: true
       eligibility: included
       origins:
