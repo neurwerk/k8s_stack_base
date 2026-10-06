@@ -31,9 +31,10 @@ The AD chart has only post-install/post-upgrade Jobs, not an uninstall hook:
 removing this release does not instruct Keycloak to delete its provider, roles,
 or groups. Its ExternalSecret is release-owned and may be removed during the
 gap, so confirm credential delivery on reinstall. This is a planned outage,
-not authorization to delete Keycloak data. Do not merge or publish this source
-move for an alpha consumer until its maintenance handoff is approved; a client
-following `main` could otherwise prune AD automatically.
+not authorization to delete Keycloak data. For alpha deployments, coordinate
+maintenance before this source change reconciles: a client following `main`
+could otherwise prune AD automatically. Signed release publication and stable
+client adoption need separate approval.
 
 ## System requirements
 
