@@ -152,7 +152,7 @@ class ApplicationAccessTest(unittest.TestCase):
 
     def test_optional_workflows_missing_and_inaccessible_dependencies(self) -> None:
         for name, feature, target in (
-            ("librechat", "files", "librechat-files"), ("dify", "consoleSSO", "keycloak")
+            ("librechat", "files", "librechat-files"),
         ):
             for enabled in (False, True):
                 with self.subTest(name=name, enabled=enabled):
@@ -193,7 +193,7 @@ class ApplicationAccessTest(unittest.TestCase):
         ]
         for devices in (None, "device-a", [True], [1], [{}], [""], [" "], [" device-a"], ["device-a"] * 2):
             cases.append((("endpoints", "studio"), {"level": "restricted", "devices": devices}))
-        for name, feature in (("librechat", "files"), ("dify", "consoleSSO")):
+        for name, feature in (("librechat", "files"),):
             for features in (None, {}, [], {feature: "false"}, {feature: 0}, {feature: None},
                              {feature: False, "unknown": True}):
                 cases.append((("endpoints", name), {"features": features}))

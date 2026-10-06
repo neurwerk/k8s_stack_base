@@ -156,7 +156,7 @@ spec:
     charts:
     - path: charts/agentgateway
       name: infra-agentgateway
-      version: 1.9.3
+      version: 1.9.4
       appVersion: 1.5.0
       dependencyLock:
         digest: sha256:e5b8cfb3b1e062b8e9268a42405a466d71d22bdb18ae83ff7496788af21abedd
@@ -173,7 +173,7 @@ spec:
       appVersion: 0.15.0
     - path: charts/cert-manager/approval-policy
       name: infra-cert-manager-approval-policy
-      version: 1.2.3
+      version: 1.2.4
     - path: charts/cert-manager/approver-policy
       name: infra-cert-manager-approver-policy
       version: 1.0.0
@@ -205,42 +205,6 @@ spec:
     - path: charts/cert-manager/issuers
       name: infra-cert-manager-issuers
       version: 1.0.0
-    - path: charts/dify/agent
-      name: frontend-dify-agent
-      version: 1.0.0
-      appVersion: 1.17.1
-    - path: charts/dify/api
-      name: frontend-dify-api
-      version: 1.0.5
-      appVersion: 1.17.1
-    - path: charts/dify/beat
-      name: frontend-dify-beat
-      version: 1.0.3
-      appVersion: 1.17.1
-    - path: charts/dify/plugin-daemon
-      name: frontend-dify-plugin-daemon
-      version: 1.0.1
-      appVersion: 0.6.10
-    - path: charts/dify/redis
-      name: frontend-dify-redis
-      version: 1.0.0
-      appVersion: '7'
-    - path: charts/dify/sandbox
-      name: frontend-dify-sandbox
-      version: 1.0.0
-      appVersion: 0.2.15
-    - path: charts/dify/shared
-      name: frontend-dify-shared
-      version: 1.0.1
-      appVersion: 1.0.0
-    - path: charts/dify/web
-      name: frontend-dify-web-gui
-      version: 1.0.1
-      appVersion: 1.17.1
-    - path: charts/dify/worker
-      name: frontend-dify-worker
-      version: 1.0.2
-      appVersion: 1.17.1
     - path: charts/docling
       name: docling
       version: 0.4.7
@@ -282,14 +246,6 @@ spec:
       name: agentgateway
       version: 1.1.5
       appVersion: '1.0'
-    - path: charts/keycloak/oidc/dify
-      name: dify
-      version: 1.0.5
-      appVersion: '1.0'
-    - path: charts/keycloak/oidc/dify-agentgateway
-      name: dify-agentgateway
-      version: 1.1.5
-      appVersion: '1.0'
     - path: charts/keycloak/oidc/keycloak-api-key-bridge
       name: keycloak-api-key-bridge
       version: 1.0.5
@@ -304,21 +260,21 @@ spec:
       appVersion: '1.0'
     - path: charts/keycloak/realm-config/active-directory
       name: keycloak-active-directory
-      version: 1.1.4
+      version: 1.1.5
     - path: charts/keycloak/realm-config/initial-admin
       name: keycloak-oidc-configurations-initial-admin
       version: 1.1.4
     - path: charts/keycloak/realm-config/realm-roles
       name: keycloak-oidc-configurations-realm-roles
-      version: 2.3.0
+      version: 2.3.1
     - path: charts/keycloak/server
       name: keycloak
-      version: 1.1.5
+      version: 1.1.6
       appVersion: 26.7.2
     - path: charts/keycloak-api-key-bridge
       name: auth-keycloak-api-key-bridge
-      version: 1.1.7
-      appVersion: 0.8.0
+      version: 1.1.8
+      appVersion: 0.8.1
     - path: charts/kube-prometheus-stack
       name: monitor-kube-prometheus-stack
       version: 1.1.0
@@ -403,7 +359,7 @@ spec:
       appVersion: 9.1.1
     - path: charts/maintenance
       name: maintenance
-      version: 0.1.4
+      version: 0.1.5
     - path: charts/openbao
       name: infra-openbao
       version: 1.0.0
@@ -464,7 +420,7 @@ spec:
       appVersion: pg18-0.116.0
     - path: charts/reloader
       name: infra-reloader
-      version: 1.0.0
+      version: 1.0.1
       appVersion: 1.4.21
       dependencyLock:
         digest: sha256:8c52e34407bf2a9b16f138cc98a015ded77e35c1f64d6cca5b02064809dac593
@@ -539,42 +495,6 @@ spec:
       namespace: infra-cert-manager
       name: cert-manager-issuers
       chart: ./charts/cert-manager/issuers
-    - path: releases/dify/agent.yaml
-      namespace: frontend-dify
-      name: frontend-dify-agent
-      chart: ./charts/dify/agent
-    - path: releases/dify/api.yaml
-      namespace: frontend-dify
-      name: frontend-dify-api
-      chart: ./charts/dify/api
-    - path: releases/dify/beat.yaml
-      namespace: frontend-dify
-      name: frontend-dify-beat
-      chart: ./charts/dify/beat
-    - path: releases/dify/plugin-daemon.yaml
-      namespace: frontend-dify
-      name: frontend-dify-plugin-daemon
-      chart: ./charts/dify/plugin-daemon
-    - path: releases/dify/redis.yaml
-      namespace: frontend-dify
-      name: frontend-dify-redis
-      chart: ./charts/dify/redis
-    - path: releases/dify/sandbox.yaml
-      namespace: frontend-dify
-      name: frontend-dify-sandbox
-      chart: ./charts/dify/sandbox
-    - path: releases/dify/shared.yaml
-      namespace: frontend-dify
-      name: frontend-dify-shared
-      chart: ./charts/dify/shared
-    - path: releases/dify/web.yaml
-      namespace: frontend-dify
-      name: frontend-dify-web-gui
-      chart: ./charts/dify/web
-    - path: releases/dify/worker.yaml
-      namespace: frontend-dify
-      name: frontend-dify-worker
-      chart: ./charts/dify/worker
     - path: releases/docling/app/app.yaml
       namespace: docling
       name: docling
@@ -599,14 +519,6 @@ spec:
       namespace: auth-keycloak
       name: keycloak-agentgateway-oidc
       chart: ./charts/keycloak/oidc/agentgateway
-    - path: releases/keycloak/oidc-dify-agentgateway.yaml
-      namespace: auth-keycloak
-      name: keycloak-dify-agentgateway-oidc
-      chart: ./charts/keycloak/oidc/dify-agentgateway
-    - path: releases/keycloak/oidc-dify.yaml
-      namespace: auth-keycloak
-      name: keycloak-dify-oidc
-      chart: ./charts/keycloak/oidc/dify
     - path: releases/keycloak/oidc-keycloak-api-key-bridge.yaml
       namespace: auth-keycloak
       name: keycloak-keycloak-api-key-bridge-oidc
@@ -799,26 +711,6 @@ spec:
       eligibility: included
       origins:
       - charts/langfuse/values.yaml
-    - reference: docker.io/langgenius/dify-agent-backend:1.17.1@sha256:a30c039bbead65d7fd8baf8c53fc867373f515c5721e46070ce03ed04c5f1e32
-      pinned: true
-      eligibility: included
-      origins:
-      - charts/dify/agent/values.yaml
-    - reference: docker.io/langgenius/dify-agent-local-sandbox:1.17.1@sha256:f4d404c9dcdf80bd72f65e84c3f2bbd1f3404fd4b363db837176da8aaf771b1d
-      pinned: true
-      eligibility: included
-      origins:
-      - charts/dify/agent/values.yaml
-    - reference: docker.io/langgenius/dify-plugin-daemon:0.6.10-local@sha256:34412a22d1e1d1a6c73727fef88cffbcdd9be7a21bf9ad3076b4bf5c1b88fd9b
-      pinned: true
-      eligibility: included
-      origins:
-      - charts/dify/plugin-daemon/values.yaml
-    - reference: docker.io/langgenius/dify-sandbox:0.2.15
-      pinned: true
-      eligibility: included
-      origins:
-      - charts/dify/sandbox/values.yaml
     - reference: docker.io/library/busybox:1.36.1
       pinned: true
       eligibility: included
@@ -844,21 +736,11 @@ spec:
       eligibility: included
       origins:
       - charts/postgres/auth/values.yaml
-    - reference: docker.io/redis:7-alpine
-      pinned: true
-      eligibility: included
-      origins:
-      - charts/dify/redis/values.yaml
     - reference: docker.io/rook/ceph:v1.20.3
       pinned: true
       eligibility: included
       origins:
       - charts/rook-ceph/values.yaml
-    - reference: docker.io/ubuntu/squid:6.6-24.04_beta@sha256:6a097f68bae708cedbabd6188d68c7e2e7a38cedd05a176e1cc0ba29e3bbe029
-      pinned: true
-      eligibility: included
-      origins:
-      - charts/dify/agent/values.yaml
     - reference: docker.io/valkey/valkey:8.0
       pinned: true
       eligibility: included
@@ -902,24 +784,12 @@ spec:
       eligibility: included
       origins:
       - charts/wireguard/values.yaml
-    - reference: ghcr.io/neurwerk/addon-dify-ce-builder-api:1.17.1-kc-v1@sha256:c5b486052d0da75aa140310511655c8a6f9f910f5179a55bcfdb3b1b88c70202
-      pinned: true
-      eligibility: included
-      origins:
-      - charts/dify/api/values.yaml
-      - charts/dify/beat/values.yaml
-      - charts/dify/worker/values.yaml
-    - reference: ghcr.io/neurwerk/addon-dify-ce-builder-web:1.17.1-kc-v1@sha256:2de3b4ad387a8a77205b83f004a72f8d5ddc4e85ac40f1bdfe06747b24a47b8e
-      pinned: true
-      eligibility: included
-      origins:
-      - charts/dify/web/values.yaml
     - reference: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.15.0@sha256:c8d7ca5b11961f24945e3a5f93f9d90e13424734ec134fd6efd8711a3bfd2d69
       pinned: true
       eligibility: included
       origins:
       - charts/agentgateway-extproc/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-keycloak-api-key-bridge:0.8.0@sha256:02db93c4b824391de00929d33b2adc6b459b20d4cb4163ef8924ac112f288d5a
+    - reference: ghcr.io/neurwerk/k8s-stack-keycloak-api-key-bridge:0.8.1@sha256:6ffd0e45adfefefca7761aa6568dd0215899cbaf0792d93f958fadc7efa674a9
       pinned: true
       eligibility: included
       origins:
@@ -955,8 +825,6 @@ spec:
       eligibility: included
       origins:
       - charts/keycloak/oidc/agentgateway/values.yaml
-      - charts/keycloak/oidc/dify-agentgateway/values.yaml
-      - charts/keycloak/oidc/dify/values.yaml
       - charts/keycloak/oidc/keycloak-api-key-bridge/values.yaml
       - charts/keycloak/oidc/librechat/values.yaml
       - charts/keycloak/oidc/studio/values.yaml
@@ -973,8 +841,6 @@ spec:
       origins:
       - charts/keycloak/addon-access/values.yaml
       - charts/keycloak/oidc/agentgateway/values.yaml
-      - charts/keycloak/oidc/dify-agentgateway/values.yaml
-      - charts/keycloak/oidc/dify/values.yaml
       - charts/keycloak/oidc/keycloak-api-key-bridge/values.yaml
       - charts/keycloak/oidc/librechat/values.yaml
       - charts/keycloak/oidc/studio/values.yaml

@@ -9,7 +9,7 @@
   {{- fail "authKeycloak.branding.logoConfigMapName must be a DNS subdomain" -}}
 {{- end -}}
 {{- if not (has .Values.authKeycloak.branding.logoFormat (list "png" "svg")) -}}{{- fail "authKeycloak.branding.logoFormat must be png or svg" -}}{{- end -}}
-{{- $hosts := dict "studio" (list .Values.frontendStudio.studio.hostname) "dify" (list .Values.frontendDify.hostname) "librechat" (list .Values.frontendLibrechat.hostname .Values.frontendLibrechat.adminPanel.hostname) "langfuse" (list .Values.monitorLangfuseWrapper.hostname) -}}
+{{- $hosts := dict "studio" (list .Values.frontendStudio.studio.hostname) "librechat" (list .Values.frontendLibrechat.hostname .Values.frontendLibrechat.adminPanel.hostname) "langfuse" (list .Values.monitorLangfuseWrapper.hostname) -}}
 {{- $selected := dict -}}
 {{- $all := list -}}
 {{- $excluded := list (dig "hostname" "" .Values.authKeycloak) (dig "hostname" "" (.Values.infraAgentgatewayWrapper | default dict)) (dig "objectStore" "publicHostname" "" (.Values.infraRookCeph | default dict)) -}}

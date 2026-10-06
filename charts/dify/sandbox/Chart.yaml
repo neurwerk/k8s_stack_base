@@ -1,6 +1,0 @@
-apiVersion: v2
-name: frontend-dify-sandbox
-description: Dify Sandbox — secure code execution environment
-type: application
-version: 1.0.0
-appVersion: "0.2.15"

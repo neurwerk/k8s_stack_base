@@ -19,7 +19,7 @@ class KeycloakStandardAccessTests(unittest.TestCase):
         groups = json.loads(env_value(rendered, "KC_ACCESS_GROUPS"))
         role_names = (
             "keycloak-admin,api-key-admin,opensearch-admin,langfuse-admin,pii-admin,"
-            "platform-admin,studio-user,librechat-user,librechat-admin,dify-user,dify-admin"
+            "platform-admin,studio-user,librechat-user,librechat-admin"
         )
         expected = {
             f"/access/neurwerk-{role}s": {"realmRoles": [role]}
@@ -32,10 +32,9 @@ class KeycloakStandardAccessTests(unittest.TestCase):
         self.assertEqual(env_value(rendered, "KC_REALM_ROLES"), role_names)
         self.assertEqual(json.loads(env_value(rendered, "KC_REALM_ROLE_COMPOSITES")), {
             "librechat-admin": ["librechat-user"],
-            "dify-admin": ["dify-user"],
             "platform-admin": [
                 "keycloak-admin", "api-key-admin", "opensearch-admin",
-                "langfuse-admin", "pii-admin", "studio-user", "librechat-admin", "dify-admin",
+                "langfuse-admin", "pii-admin", "studio-user", "librechat-admin",
             ],
         })
         self.assertEqual(env_value(rendered, "KC_PARENT_ROLE"), "keycloak-admin")
@@ -53,7 +52,7 @@ class KeycloakStandardAccessTests(unittest.TestCase):
         baseline = render(CHART)
         composites = json.loads(env_value(baseline, "KC_REALM_ROLE_COMPOSITES"))
         defaults = composites["platform-admin"]
-        for exclusions in (["dify-admin", "studio-user", "librechat-admin"], defaults, []):
+        for exclusions in (["studio-user", "librechat-admin"], defaults, []):
             with self.subTest(exclusions=exclusions):
                 rendered = render(CHART, {"authKeycloak": {"platformAdminRoleExclusions": exclusions}})
                 self.assertEqual(
@@ -91,15 +90,15 @@ class KeycloakStandardAccessTests(unittest.TestCase):
     def test_invalid_platform_admin_exclusions_fail_closed(self) -> None:
         for value, message in [
             *[(value, "must be a list") for value in (
-                "", "dify-admin", {}, {"dify-admin": True}, False, True, 1, None,
+                "", "librechat-admin", {}, {"librechat-admin": True}, False, True, 1, None,
             )],
             *[(value, "entries must be strings") for value in (
                 [None], [False], [1], [{}], [[]],
             )],
-            (["dify-admin", "dify-admin"], "duplicate role"),
+            (["librechat-admin", "librechat-admin"], "duplicate role"),
             *[([role], "unknown direct application grant") for role in (
-                "", "unknown-admin", "platform-admin", "dify-user",
-                "librechat-user", "/access/neurwerk-platform-admins", "neurwerk-dify-admins",
+                "", "unknown-admin", "platform-admin", "dify-admin", "dify-user",
+                "librechat-user", "/access/neurwerk-platform-admins",
                 "llm:invoke", "model:example:invoke", "mcp:example:invoke",
             )],
         ]:
@@ -119,7 +118,7 @@ class KeycloakStandardAccessTests(unittest.TestCase):
         values = {
             "openrouterCatalog": selected,
             "authKeycloak": {
-                "platformAdminRoleExclusions": ["dify-admin"],
+                "platformAdminRoleExclusions": ["librechat-admin"],
                 "agentgatewayClientRoles": ["llm:invoke", mcp],
                 "agentgatewayAccessGroups": {
                     LLM: ["llm:invoke", model, model],
@@ -134,7 +133,7 @@ class KeycloakStandardAccessTests(unittest.TestCase):
         self.assertEqual(groups.pop(MCP), {
             "realmRoles": [], "clientRoles": {"agentgateway": ["llm:invoke", mcp]},
         })
-        self.assertEqual(len(groups), 11)
+        self.assertEqual(len(groups), 9)
         self.assertTrue(all(
             group["clientRoles"] == {"agentgateway": []} for group in groups.values()
         ))

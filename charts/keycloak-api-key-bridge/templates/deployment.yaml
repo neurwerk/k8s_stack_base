@@ -1,8 +1,16 @@
-{{- if ne .Values.authKeycloakApiKeyBridge.bridgeImage "ghcr.io/neurwerk/k8s-stack-keycloak-api-key-bridge:0.8.0@sha256:02db93c4b824391de00929d33b2adc6b459b20d4cb4163ef8924ac112f288d5a" }}
-{{- fail "bridge requires the verified PostgreSQL-compatible 0.8.0 image pin" }}
+{{- if ne .Values.authKeycloakApiKeyBridge.bridgeImage "ghcr.io/neurwerk/k8s-stack-keycloak-api-key-bridge:0.8.1@sha256:6ffd0e45adfefefca7761aa6568dd0215899cbaf0792d93f958fadc7efa674a9" }}
+{{- fail "bridge requires the verified PostgreSQL-compatible 0.8.1 image pin" }}
 {{- end }}
 {{- if or (hasKey .Values.authKeycloakApiKeyBridge.postgres "enabled") (hasKey .Values.authKeycloakApiKeyBridge "persistence") (hasKey .Values.authKeycloakApiKeyBridge.config "database_url") }}
 {{- fail "bridge is PostgreSQL-only; remove legacy postgres.enabled, persistence and config.database_url values" }}
+{{- end }}
+{{- $registrations := .Values.authKeycloakApiKeyBridge.managedRegistrations | default list }}
+{{- $managedFiles := list }}
+{{- range $index, $registration := $registrations }}
+{{- range $field := list "grantConfigMap" "grantKey" "verifierSecret" "verifierKey" }}
+{{- if not (get $registration $field) }}{{- fail (printf "managedRegistrations[%d].%s is required" $index $field) }}{{- end }}
+{{- end }}
+{{- $managedFiles = append $managedFiles (dict "grant_file" (printf "/var/run/managed-api-key-grants/%d.json" $index) "verifier_file" (printf "/var/run/managed-api-key-verifiers/%d.sha256" $index)) }}
 {{- end }}
 # =============================================================================
 # keycloak-api-key-bridge Deployment
@@ -111,14 +119,10 @@ spec:
               value: {{ .Values.authKeycloakApiKeyBridge.config.max_keys_per_user | quote }}
             - name: KEYCLOAK_API_KEY_BRIDGE_LOG_LEVEL
               value: {{ .Values.authKeycloakApiKeyBridge.config.log_level | quote }}
-            - name: KEYCLOAK_API_KEY_BRIDGE_MANAGED_PRIMARY_GRANT_FILE
-              value: /var/run/managed-api-key-grants/primary.json
-            - name: KEYCLOAK_API_KEY_BRIDGE_MANAGED_PRIMARY_VERIFIER_FILE
-              value: /var/run/managed-api-key-verifiers/primary.sha256
-            - name: KEYCLOAK_API_KEY_BRIDGE_MANAGED_SECONDARY_GRANT_FILE
-              value: /var/run/managed-api-key-grants/secondary.json
-            - name: KEYCLOAK_API_KEY_BRIDGE_MANAGED_SECONDARY_VERIFIER_FILE
-              value: /var/run/managed-api-key-verifiers/secondary.sha256
+            {{- if $registrations }}
+            - name: KEYCLOAK_API_KEY_BRIDGE_MANAGED_REGISTRATIONS
+              value: {{ $managedFiles | toJson | quote }}
+            {{- end }}
           ports:
             - name: http
               containerPort: {{ .Values.authKeycloakApiKeyBridge.ports.container.http }}
@@ -134,6 +138,7 @@ spec:
             periodSeconds: 10
             timeoutSeconds: 2
             failureThreshold: 1
+          {{- if $registrations }}
           volumeMounts:
             - name: managed-grants
               mountPath: /var/run/managed-api-key-grants
@@ -141,22 +146,29 @@ spec:
             - name: managed-verifiers
               mountPath: /var/run/managed-api-key-verifiers
               readOnly: true
+          {{- end }}
           resources:
             {{- toYaml .Values.authKeycloakApiKeyBridge.resources | nindent 12 }}
+      {{- if $registrations }}
       volumes:
         - name: managed-grants
-          configMap:
-            name: auth-keycloak-api-key-bridge-managed-key-grants
-            items:
-              - key: primary.json
-                path: primary.json
-              - key: secondary.json
-                path: secondary.json
+          projected:
+            sources:
+              {{- range $index, $registration := $registrations }}
+              - configMap:
+                  name: {{ $registration.grantConfigMap | quote }}
+                  items:
+                    - key: {{ $registration.grantKey | quote }}
+                      path: {{ printf "%d.json" $index | quote }}
+              {{- end }}
         - name: managed-verifiers
-          secret:
-            secretName: auth-keycloak-api-key-bridge-openbao-secret
-            items:
-              - key: difyAgentgatewayPrimaryVerifierSha256
-                path: primary.sha256
-              - key: difyAgentgatewaySecondaryVerifierSha256
-                path: secondary.sha256
+          projected:
+            sources:
+              {{- range $index, $registration := $registrations }}
+              - secret:
+                  name: {{ $registration.verifierSecret | quote }}
+                  items:
+                    - key: {{ $registration.verifierKey | quote }}
+                      path: {{ printf "%d.sha256" $index | quote }}
+              {{- end }}
+      {{- end }}
