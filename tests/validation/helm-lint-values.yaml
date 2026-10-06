@@ -6,6 +6,18 @@ addon:
   databases:
     - name: example_data
       vector: false
+addonAccess:
+  enabled: true
+  name: example
+  realmRoles: [example-user, example-admin]
+  realmRoleComposites:
+    example-admin: [example-user]
+  accessGroups:
+    /access/neurwerk-example-users: {realmRoles: [example-user]}
+  platformAdminRole: example-admin
+k8sTools:
+  # Synthetic render of the new chart only; do not update existing consumers.
+  image: ghcr.io/neurwerk/k8s-stack-tooling:0.7.3@sha256:efa09b2f29d02fbd07fe12774fd7d3db6bf4e02ef403c7be2c18196fbc956d99
 docling:
   enabled: true
   apiKeySecretRef: {name: docling-api, key: api-key}
