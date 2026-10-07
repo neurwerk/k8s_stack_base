@@ -119,6 +119,12 @@
 {{-   fail "mcp.protocolVersion must be 2025-11-25 or 2026-07-28" -}}
 {{- end -}}
 {{- $mcpServers := include "infra-agentgateway.effectiveMcpServers" . | fromYamlArray -}}
+{{- if not (kindIs "slice" .Values.mcp.contextforgeRoutesEnabled) -}}{{ fail "mcp.contextforgeRoutesEnabled must be a list" }}{{- end -}}
+{{- $selectedNative := list -}}
+{{- range $mcpServers -}}{{- if .contextforge -}}{{- $selectedNative = append $selectedNative .name -}}{{- end -}}{{- end -}}
+{{- range .Values.mcp.contextforgeRoutesEnabled -}}
+{{- if not (has . $selectedNative) -}}{{ fail "Enabled native routes must reference selected native catalog entries" }}{{- end -}}
+{{- end -}}
 {{- if and .Values.mcp.enabled (gt (len $mcpServers) 0) (not $engine.enabled) -}}
 {{-   fail "guardrails.llmPolicyEngine.enabled must be true when MCP destinations are configured" -}}
 {{- end -}}

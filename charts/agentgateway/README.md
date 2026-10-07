@@ -73,11 +73,12 @@ secrets, workloads, PII and tracing. The opt-in backend-only ConfigMap
 `registrations.json` (native setup projection) and `studio.json` (Studio projection).
 For OAuth entries, `studio.json` derives `oauth_authorization_origin` from the
 validated authorization URL: HTTPS host, optional non-default port, no path.
-Do not keep parallel handwritten server lists. Native registration automation is
-not implemented: a separately reviewed setup Job must consume the generated
-catalog and establish its resolved native mappings before activation. Unresolved
-`gatewayId` mappings are not ready for Studio. Neither chart rendering nor these
-artifacts apply registrations, wire Studio, enable Connect or select a client.
+Do not keep parallel handwritten server lists. The optional ContextForge chart's
+setup Job consumes this generated catalog, verifies its `catalogHash`, and writes
+resolved IDs plus `studio.json` to `frontend-studio/contextforge-setup`. Enable each
+native route by adding its integration ID to `mcp.contextforgeRoutesEnabled` only
+after setup succeeds. The empty default list permits registration without exposing
+native routes. Legacy destinations remain independently routable.
 
 Native registration `visibility` accepts `public` (new catalog default) or `team`.
 PUBLIC is deliberately accepted **behind private ingress**, within one fixed
@@ -106,8 +107,8 @@ put a client secret in Git, native plaintext headers, chart values or logs.
 The chart preserves references only. Secret preparation requires workstation
 `openbao-stack-setup` `0.2.26` from reviewed Tooling
 commit `c19d902964b12af78eec916883a3b9d5f955700b`, approved app registration and
-operator-owned secret preparation. Native app registration must wait for the
-planned setup Job. This is a source prerequisite, not a CLI bundled in the
+operator-owned secret preparation. Native app registration uses the optional
+ContextForge setup Job. This is a source prerequisite, not a CLI bundled in the
 unchanged root Tooling image. Shared keys remain in upstream MCP
 services (Brave native `auth_type=none`); personal credential writes for no/shared
 integrations stay disabled. Ordinary Studio users connect approved accounts only.
@@ -222,10 +223,9 @@ OpenBao `contextforge/provider-apps` record. Its ESO read policy must not be add
 to the separate native Vault OAuth token.
 
 The catalog remains the sole definition of approved upstreams and native
-server/tool membership. Native setup automation must establish consistent gateway
-and server mappings without granting platform access. No setup Job is supplied
-yet; removing the workstation registration path does not enable native routes,
-onboarding or Connect. Studio's backend-only mapping and flags are unchanged.
+server/tool membership. The optional ContextForge setup Job establishes consistent
+gateway and server mappings without granting platform access. Studio onboarding,
+personal connections and native route activation remain explicit client choices.
 
 ## Source qualification only
 

@@ -39,6 +39,7 @@ metadata:
   name: infra-agentgateway-mcp-catalog
   namespace: infra-agentgateway
 data:
+  catalogHash: {{ .Values.mcp.catalog | toJson | sha256sum | quote }}
   # Backend-only operator artifacts. Rendering does not reconcile or enable MCP.
   catalog.json: {{ $servers | toJson | quote }}
   studio.json: {{ $studio | toJson | quote }}

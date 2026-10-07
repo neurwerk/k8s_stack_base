@@ -1,5 +1,6 @@
 {{- if .Values.mcp.enabled }}
 {{- range include "infra-agentgateway.effectiveMcpServers" . | fromYamlArray }}
+{{- if or (not .contextforge) (has .name $.Values.mcp.contextforgeRoutesEnabled) }}
 {{- $serverName := .name }}
 {{- $routeName := include "infra-agentgateway.mcpResourceName" (dict "id" $serverName "component" "route") }}
 {{- $backendName := include "infra-agentgateway.mcpResourceName" (dict "id" $serverName "component" "be") }}
@@ -81,5 +82,6 @@ spec:
         requestBodyMode: Buffered
         responseBodyMode: FullDuplexStreamed
         allowModeOverride: true
+{{- end }}
 {{- end }}
 {{- end }}

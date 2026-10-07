@@ -71,7 +71,7 @@
 {{- define "infra-agentgateway.hasContextforgeRoutes" -}}
 {{- if .Values.mcp.enabled -}}
 {{- range include "infra-agentgateway.effectiveMcpServers" . | fromYamlArray -}}
-{{- if hasKey . "contextforge" -}}true{{- end -}}
+{{- if and (hasKey . "contextforge") (has .name $.Values.mcp.contextforgeRoutesEnabled) -}}true{{- end -}}
 {{- end -}}
 {{- end -}}
 {{- end -}}

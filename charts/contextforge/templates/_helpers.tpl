@@ -40,6 +40,10 @@ app.kubernetes.io/part-of: contextforge
 - {name: GUNICORN_CMD_ARGS, value: "--log-level critical"}
 - {name: DEFAULT_USER_ROLE, value: {{ required "ContextForge trustedProxy.defaultUserRole is required" .Values.contextforge.trustedProxy.defaultUserRole | quote }}}
 - {name: DEFAULT_TEAM_MEMBER_ROLE, value: {{ required "ContextForge trustedProxy.defaultTeamMemberRole is required" .Values.contextforge.trustedProxy.defaultTeamMemberRole | quote }}}
+{{- if .Values.contextforge.setup.enabled }}
+- {name: DEFAULT_TEAM_OWNER_ROLE, value: {{ .Values.contextforge.setup.ownerRoleName | quote }}}
+{{- end }}
+- {name: SSRF_ALLOWED_NETWORKS, value: {{ .Values.contextforge.ssrfAllowedNetworks | toJson | quote }}}
 - {name: APP_DOMAIN, value: {{ $origin | quote }}}
 {{- end }}
 {{- end -}}

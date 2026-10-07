@@ -149,12 +149,23 @@ spec:
             - name: K8S_STUDIO_CONTEXTFORGE_OAUTH_CALLBACK_URL
               value: {{ printf "%s/oauth/callback" $origin | quote }}
             {{- end }}
+            {{- if .Values.frontendStudio.api.contextforge.setupConfigMapName }}
+            {{- if ne .Values.frontendStudio.api.contextforge.setupConfigMapName .Values.frontendStudio.api.contextforge.catalogConfigMapName }}{{ fail "Studio setup IDs and catalog must use the same generated ConfigMap" }}{{- end }}
+            {{- range $env, $key := dict "K8S_STUDIO_CONTEXTFORGE_TEAM_ID" "team_id" "K8S_STUDIO_CONTEXTFORGE_GLOBAL_ROLE_ID" "global_role_id" "K8S_STUDIO_CONTEXTFORGE_TEAM_ROLE_ID" "team_role_id" }}
+            - name: {{ $env }}
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ $.Values.frontendStudio.api.contextforge.setupConfigMapName }}
+                  key: {{ $key }}
+            {{- end }}
+            {{- else }}
             - name: K8S_STUDIO_CONTEXTFORGE_TEAM_ID
               value: {{ required "Studio contextforge.teamId is required" .Values.frontendStudio.api.contextforge.teamId | quote }}
             - name: K8S_STUDIO_CONTEXTFORGE_GLOBAL_ROLE_ID
               value: {{ required "Studio contextforge.globalRoleId is required" .Values.frontendStudio.api.contextforge.globalRoleId | quote }}
             - name: K8S_STUDIO_CONTEXTFORGE_TEAM_ROLE_ID
               value: {{ required "Studio contextforge.teamRoleId is required" .Values.frontendStudio.api.contextforge.teamRoleId | quote }}
+            {{- end }}
             {{- end }}
             - name: K8S_STUDIO_LLM_LOGS_ENABLED
               value: {{ .Values.frontendStudio.api.llmLogs.enabled | quote }}
