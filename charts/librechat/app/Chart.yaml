@@ -2,8 +2,8 @@ apiVersion: v2
 name: frontend-librechat
 description: First-party LibreChat UI and API workload
 type: application
-version: 1.2.3
-appVersion: "v0.8.8-rc4"
+version: 1.2.4
+appVersion: "v0.8.8"
 annotations:
-  source.commit: 361553f3322d7b9bb547d0a9c2c5aaefc2934901
-  source.repository: https://github.com/danny-avila/LibreChat
+  source.commit: e8f3be08623663d4ad7f7241e693c94469b63bb0
+  source.repository: https://github.com/LibreChat-AI/LibreChat

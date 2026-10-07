@@ -9,6 +9,7 @@ upgrade path.
 
 ## [Unreleased]
 
+- Upgrade LibreChat to the digest-pinned upstream `v0.8.8` image and add opt-in cost estimates using the client's AgentGateway pricing catalog and model context windows.
 - Prepare disabled ContextForge native MCP destination and trusted account email source; rendering is blocked until verified compatible bridge/extProc images are adopted, with existing routes and image pins unchanged.
 
 ## [0.3.23] - 2026-10-06

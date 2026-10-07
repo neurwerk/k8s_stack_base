@@ -42,6 +42,10 @@ spec:
       name: client-openrouter-catalog-values
       valuesKey: values.yaml
       optional: true
+    - kind: ConfigMap
+      name: librechat-model-cost-catalog
+      valuesKey: catalog.json
+      optional: true
     - kind: Secret
       name: frontend-librechat-runtime-secret
       valuesKey: values.yaml
