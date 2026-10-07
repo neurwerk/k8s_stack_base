@@ -3,6 +3,21 @@
 monitorPiiEngine:
   image: ghcr.io/neurwerk/k8s-stack-pii-engine:0.11.0-cpu@sha256:03909066a0aa3445e7ca673976c2c1dc4834f38d885bbb531bc6c992261f821c
   device: cpu
+  # Local retains the existing baseline / verified transformer selection.
+  analyzerBackend: local # local | remote-gliner | remote-kserve
+  remote:
+    callTimeout: 10
+    maxCalls: 2048
+    maxResponseBytes: 2097152
+    maxConcurrentCalls: 1
+    # RemoteModel fields use the Engine's snake_case schema. Each model may also
+    # supply apiKeySecretRef: {name: ..., key: ...}; never put key values here.
+    models: []
+    # Exact private destination host CIDRs (/32 or /128) and TCP ports.
+    egress: [] # [{cidr: "192.0.2.10/32", port: 8009}]
+    # KServe only: existing PVC holding checksum-pinned tokenizer-only folders.
+    # Mounted read-only at /remote-tokenizers; model weights are not needed.
+    tokenizerClaimName: ""
   accelerator:
     enabled: false
     resourceName: nvidia.com/gpu
