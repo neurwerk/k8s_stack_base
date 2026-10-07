@@ -1,6 +1,26 @@
 {{- $device := .Values.monitorPiiEngine.device -}}
 {{- $accelerator := .Values.monitorPiiEngine.accelerator -}}
 {{- $image := .Values.monitorPiiEngine.image -}}
+{{- $backend := .Values.monitorPiiEngine.analyzerBackend -}}
+{{- $remote := .Values.monitorPiiEngine.remote -}}
+{{- if not (has $backend (list "local" "remote-gliner" "remote-kserve")) }}
+{{- fail "monitorPiiEngine.analyzerBackend must be local, remote-gliner or remote-kserve" }}
+{{- end }}
+{{- if ne $backend "local" }}
+{{- $version := regexFind "[0-9]+\\.[0-9]+\\.[0-9]+" $image }}
+{{- if or (empty $version) (not (semverCompare ">=0.12.0" (default "0.0.0" $version))) }}
+{{- fail "remote NER requires a published compatible PII Engine image >= 0.12.0" }}
+{{- end }}
+{{- if or (empty $remote.models) (empty $remote.egress) }}
+{{- fail "remote NER requires models and narrowly scoped destination egress" }}
+{{- end }}
+{{- if and (eq $backend "remote-kserve") (empty $remote.tokenizerClaimName) }}
+{{- fail "remote KServe requires an existing checksum-pinned tokenizer PVC" }}
+{{- end }}
+{{- if or (ne $device "cpu") $accelerator.enabled }}
+{{- fail "remote NER uses the CPU Engine image without a local GPU allocation" }}
+{{- end }}
+{{- end }}
 {{- $logLevel := .Values.monitorPiiEngine.logging.level -}}
 {{- $maxStudioEvaluationResponseBytes := .Values.monitorPiiEngine.capacity.maxStudioEvaluationResponseBytes -}}
 {{- if not (or (eq $device "cpu") (hasPrefix "cuda" $device)) }}
@@ -90,12 +110,27 @@ spec:
               value: {{ $logLevel | quote }}
             - name: PII_ENGINE_DEVICE
               value: {{ $device | quote }}
+            - name: PII_ENGINE_ANALYZER_BACKEND
+              value: {{ $backend | quote }}
+            {{- if ne $backend "local" }}
+            - name: PII_ENGINE_REMOTE_CONFIG
+              value: /etc/pii-engine/remote.json
+            - name: PII_ENGINE_REMOTE_CALL_TIMEOUT
+              value: {{ $remote.callTimeout | quote }}
+            - name: PII_ENGINE_REMOTE_MAX_CALLS
+              value: {{ $remote.maxCalls | quote }}
+            - name: PII_ENGINE_REMOTE_MAX_RESPONSE_BYTES
+              value: {{ $remote.maxResponseBytes | quote }}
+            - name: PII_ENGINE_REMOTE_MAX_CONCURRENT_CALLS
+              value: {{ $remote.maxConcurrentCalls | quote }}
+            {{- end }}
             - name: HF_HUB_OFFLINE
               value: "1"
             - name: TRANSFORMERS_OFFLINE
               value: "1"
             - name: TOKENIZERS_PARALLELISM
               value: "false"
+            {{- if eq $backend "local" }}
             - name: PII_ENGINE_MODEL_CACHE_PATH
               value: /cache
             - name: PII_ENGINE_MODEL_BUNDLE_REFERENCE
@@ -104,6 +139,7 @@ spec:
               value: {{ required "monitorPiiEngine.modelBundle.version is required" .Values.monitorPiiEngine.modelBundle.version | quote }}
             - name: PII_ENGINE_MODEL_MANIFEST_SHA256
               value: {{ required "monitorPiiEngine.modelBundle.manifestSha256 is required" .Values.monitorPiiEngine.modelBundle.manifestSha256 | quote }}
+            {{- end }}
             - name: PII_ENGINE_MAX_REQUEST_BYTES
               value: {{ .Values.monitorPiiEngine.capacity.maxRequestBytes | quote }}
             - name: PII_ENGINE_MAX_ADAPTER_RESPONSE_BYTES
@@ -154,9 +190,25 @@ spec:
             - name: PII_ENGINE_POLICY_CONFIG
               value: /etc/pii-engine/policy.yaml
           volumeMounts:
+            {{- if eq $backend "local" }}
             - name: model-cache
               mountPath: /cache
               readOnly: true
+            {{- end }}
+            {{- if eq $backend "remote-kserve" }}
+            - name: remote-tokenizers
+              mountPath: /remote-tokenizers
+              readOnly: true
+            {{- end }}
+            {{- if ne $backend "local" }}
+            {{- range $remote.models }}
+            {{- if .apiKeySecretRef }}
+            - name: remote-key-{{ .name }}
+              mountPath: /var/run/pii-engine/remote/{{ .name }}
+              readOnly: true
+            {{- end }}
+            {{- end }}
+            {{- end }}
             - name: tls
               mountPath: /var/run/pii-engine/tls
               readOnly: true
@@ -193,9 +245,29 @@ spec:
               {{ $accelerator.resourceName | quote }}: {{ $accelerator.count }}
               {{- end }}
       volumes:
+        {{- if eq $backend "local" }}
         - name: model-cache
           persistentVolumeClaim:
             claimName: monitor-pii-engine-model-cache-pvc
+        {{- end }}
+        {{- if eq $backend "remote-kserve" }}
+        - name: remote-tokenizers
+          persistentVolumeClaim:
+            claimName: {{ $remote.tokenizerClaimName | quote }}
+        {{- end }}
+        {{- if ne $backend "local" }}
+        {{- range $remote.models }}
+        {{- if .apiKeySecretRef }}
+        - name: remote-key-{{ .name }}
+          secret:
+            secretName: {{ required "remote API key Secret name is required" .apiKeySecretRef.name | quote }}
+            defaultMode: 0440
+            items:
+              - key: {{ required "remote API key Secret key is required" .apiKeySecretRef.key | quote }}
+                path: api-key
+        {{- end }}
+        {{- end }}
+        {{- end }}
         - name: tls
           secret:
             secretName: {{ .Values.monitorPiiEngine.tls.serverSecretName }}
