@@ -1,8 +1,8 @@
-# Neurwerk Base - Chart
+# neurwerk.base - Chart
 
-base is the main Helm chart and the foundation of the Neurwerk stack. See the [Neurwerk Base website](https://base.neurwerk.com/) for more information.
+The Base chart is the main Helm chart and the foundation of neurwerk.base. See the [neurwerk.base website](https://base.neurwerk.com/) for more information.
 
-| Repository | Description|
+| Repository | Description |
 | --- | --- |
 | [Base chart](https://github.com/neurwerk/k8s_stack_base) | Shared platform charts and release packages that form the foundation of the stack (**this repo**). |
 | [Studio](https://github.com/neurwerk/k8s_stack_studio) | Web dashboard and API for operating AI platform services. |
@@ -14,25 +14,23 @@ base is the main Helm chart and the foundation of the Neurwerk stack. See the [N
 |  |  |
 | [Example client chart](https://github.com/neurwerk/k8s_stack_client_example_com) | Reference client configuration and Flux deployment setup to adapt for a new client. |
 |  |  |
-| [Dify Add-on](https://github.com/neurwerk/k8s_stack_addon_dify) | Optional, Dify package with API and web customizations, including single-workspace enforcement. |
-
+| [Dify Add-on](https://github.com/neurwerk/k8s_stack_addon_dify) | Optional Dify package with API and web customizations, including single-workspace enforcement. |
 
 ## System requirements
 
-The following resources are required to run the stack:
+The following resources are required to run neurwerk.base:
 
 | Resource | Requirement |
-|----------|-------------|
-| CPU      | 16 vCPUs    |
-| Memory   | 64 GB RAM   |
-| Storage  | 1 TB (SSD recommended)       |
+| --- | --- |
+| CPU | 16 vCPUs |
+| Memory | 64 GB RAM |
+| Storage | 1 TB (SSD recommended) |
 
 A CUDA-compatible GPU with at least **16 GB of VRAM** is recommended for the optional text-to-speech (TTS), speech-to-text (STT), optical character recognition (OCR), and named entity recognition for personally identifiable information (PII NER) features.
 
 ## Contributing and support
 
 - **Contributions:** Read [CONTRIBUTING.md](.github/CONTRIBUTING.md) before proposing a change.
-- **Questions and support:** Use [GitHub Discussions](https://github.com/neurwerk/k8s_stack_base/discussions).
 - **Bug reports and feature requests:** Use [GitHub Issues](https://github.com/neurwerk/k8s_stack_base/issues) for reproducible bugs and clearly scoped feature requests.
 
 ## Security

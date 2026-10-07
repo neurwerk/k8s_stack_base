@@ -150,7 +150,7 @@ Deploy the compatible extProc `0.11.3` runtime before selecting
 `imageForwarding: if-policy-allows` under attachment policy v3. Then migrate the
 intended client model entries from the existing strict mode. The new mode requires
 enabled extraction, text PII and face protection; explicit client settings retain
-their meaning. See [policy-aware image forwarding](README.md#policy-aware-image-forwarding).
+their meaning. See [policy-aware image forwarding](https://github.com/neurwerk/k8s_stack_base/blob/ba7aab63b6029496f9b5983401f7a825e3924b55/README.md#policy-aware-image-forwarding).
 
 ## [0.3.12] - 2026-09-21
 
