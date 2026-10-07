@@ -40,6 +40,8 @@ spec:
           envFrom:
             - configMapRef: {name: {{ .Values.contextforge.existingConfigMap }}}
           env:
+            # Explicit env overrides legacy ConfigMaps on existing installations.
+            - {name: OAUTH_TOKEN_BACKEND, value: database}
             {{- include "contextforge.credentials" . | nindent 12 }}
             {{- if .Values.contextforge.trustedProxy.enabled }}
             {{- include "contextforge.proxyEnvironment" . | nindent 12 }}

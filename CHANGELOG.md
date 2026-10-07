@@ -10,7 +10,10 @@ upgrade path.
 ## [Unreleased]
 
 - Upgrade LibreChat to the digest-pinned upstream `v0.8.8` image and add opt-in cost estimates using the client's AgentGateway pricing catalog and model context windows.
-- Prepare disabled ContextForge native MCP destination and trusted account email source; rendering is blocked until verified compatible bridge/extProc images are adopted, with existing routes and image pins unchanged.
+- Install ContextForge by default with private TLS and encrypted database-backed OAuth storage; Vault OAuth support awaits upstream changes. Context7, Brave and GitHub presets remain disabled until explicitly selected.
+- Require `openbao-stack-setup` `0.2.26` and ready ContextForge runtime/database Secrets before adoption; existing standalone ContextForge stages need a single-owner handoff to the default Base stages without deleting the database or encryption keys.
+- Adopt Studio `0.16.1`, extProc `0.16.2` and API-key bridge `0.8.2` for native MCP identity, personal connections, approved-tool catalog and connection checks.
+- Adopt PII Engine `0.12.0-cpu` with opt-in remote GLiNER and KServe NER; local analysis remains the default. Remote inference requires approved endpoints, narrow network access and model configuration; KServe also requires pinned tokenizer assets.
 
 ## [0.3.23] - 2026-10-06
 

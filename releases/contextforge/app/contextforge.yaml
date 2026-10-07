@@ -13,6 +13,8 @@ spec:
   upgrade:
     strategy: {name: RetryOnFailure, retryInterval: 1m}
   dependsOn:
+    - name: contextforge-certificates
+      namespace: contextforge
     - name: contextforge-postgres
       namespace: infra-postgres-operations
     - name: agentgateway
@@ -36,3 +38,4 @@ spec:
     - kind: ConfigMap
       name: contextforge-product-values
       valuesKey: values.yaml
+      optional: true

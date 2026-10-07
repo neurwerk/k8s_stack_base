@@ -1,6 +1,6 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-# Select this INSTEAD of secret-sync for the temporary database OAuth backend.
+# Default credential package for database OAuth; never compose with secret-sync.
 # It retains the existing Secret/SecretStore owners without fetching a Vault token.
 resources:
   - ../runtime.yaml

@@ -20,6 +20,7 @@ spec:
     - releases/namespaces
     - releases/keycloak-api-key-bridge/secret-sync
     - releases/studio/secret-sync
+    - releases/contextforge/secret-sync/database
     - releases/infrastructure
     - releases/applications
     optional:
@@ -107,56 +108,20 @@ spec:
       - name: openbao-stack-setup
         version: 0.2.13
         source: https://github.com/neurwerk/k8s_stack_tooling/commit/0c0d5b35fc9e68b70e0cb48f3741e1888f7a287b
-    - path: releases/namespaces/contextforge
-      status: excluded
-      reason: Foundation only; ContextForge installation and adoption are not verified.
-      chartPrefixes: []
-    - path: releases/contextforge/configuration
-      status: excluded
-      reason: Foundation only; catalog publication and runtime qualification are pending.
-      chartPrefixes: []
     - path: releases/contextforge/secret-sync
       status: excluded
-      reason: Optional ContextForge catalog and token lifecycle; operator preparation and client adoption
-        are pending.
+      reason: Vault OAuth backend awaits upstream support; use the default database credential package
+        instead.
       chartPrefixes: []
       prerequisites:
       - name: openbao-stack-setup
         version: 0.2.26
         source: https://github.com/neurwerk/k8s_stack_tooling/commit/c19d902964b12af78eec916883a3b9d5f955700b
-    - path: releases/contextforge/secret-sync/database
-      status: excluded
-      reason: Optional encrypted database OAuth storage; actual ciphertext and credential-log qualification
-        are pending.
-      chartPrefixes: []
-      prerequisites:
-      - name: openbao-stack-setup
-        version: 0.2.26
-        source: https://github.com/neurwerk/k8s_stack_tooling/commit/c19d902964b12af78eec916883a3b9d5f955700b
-    - path: releases/contextforge/postgres
-      status: excluded
-      reason: Dedicated ContextForge database provisioning is unselected and not runtime-qualified.
-      chartPrefixes: []
     - path: releases/contextforge/oauth-apps
-      status: excluded
-      reason: Optional provider application credential delivery; approved app registration and operator
-        preparation are pending.
+      status: included
+      reason: Provider application credential delivery is selected only with approved registrations; all
+        MCP presets are disabled by default.
       chartPrefixes: []
-      prerequisites:
-      - name: openbao-stack-setup
-        version: 0.2.26
-        source: https://github.com/neurwerk/k8s_stack_tooling/commit/c19d902964b12af78eec916883a3b9d5f955700b
-    - path: releases/contextforge/certificates
-      status: excluded
-      reason: Optional native private TLS; issuance and runtime qualification are pending.
-      chartPrefixes:
-      - charts/contextforge/certificates
-    - path: releases/contextforge/app
-      status: excluded
-      reason: Disabled foundation; native setup Job, runtime qualification and separately approved adoption
-        are pending.
-      chartPrefixes:
-      - charts/contextforge
       prerequisites:
       - name: openbao-stack-setup
         version: 0.2.26
@@ -179,8 +144,8 @@ spec:
     version: 0.0.5
     source: oci://ghcr.io/clickhouse/clickhouse-operator-helm
   - name: openbao-stack-setup
-    version: 0.2.24
-    source: https://github.com/neurwerk/k8s_stack_tooling/commit/6029d6f961f99c89874cba8718d669a4b33abc3a
+    version: 0.2.26
+    source: https://github.com/neurwerk/k8s_stack_tooling/commit/c19d902964b12af78eec916883a3b9d5f955700b
   - name: gateway-api-experimental
     version: 1.6.0
     source: https://github.com/kubernetes-sigs/gateway-api/releases/tag/v1.6.0
@@ -233,7 +198,7 @@ spec:
       appVersion: 0.16.2
     - path: charts/cert-manager/approval-policy
       name: infra-cert-manager-approval-policy
-      version: 1.2.5
+      version: 1.2.6
     - path: charts/cert-manager/approver-policy
       name: infra-cert-manager-approver-policy
       version: 1.0.0
@@ -267,11 +232,11 @@ spec:
       version: 1.0.0
     - path: charts/contextforge
       name: contextforge
-      version: 0.2.3
+      version: 0.2.4
       appVersion: 1.0.11
     - path: charts/contextforge/certificates
       name: contextforge-certificates
-      version: 0.1.0
+      version: 0.1.1
     - path: charts/docling
       name: docling
       version: 0.4.7
@@ -855,7 +820,7 @@ spec:
       - charts/external-secrets/values.yaml
     - reference: ghcr.io/ibm/mcp-context-forge:a10c655b9fc04d42d2029a565a25bad059409c77@sha256:d8da586d93d934ebe9d0a7d04234403a9a3eff1760c98bbb0e8d0b31931a6244
       pinned: true
-      eligibility: excluded
+      eligibility: included
       origins:
       - charts/contextforge/values.yaml
     - reference: ghcr.io/librechat-ai/librechat:v0.8.8@sha256:5b706bcee1ca154a1e2987303aaeca0eb27f97919cccee4bb604226c2f8abf61

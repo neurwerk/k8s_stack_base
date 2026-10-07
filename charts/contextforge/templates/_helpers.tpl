@@ -5,14 +5,12 @@ app.kubernetes.io/part-of: contextforge
 {{- end -}}
 
 {{- define "contextforge.credentials" -}}
-{{- range list "DATABASE_URL" "JWT_SECRET_KEY" "AUTH_ENCRYPTION_SECRET" "PLATFORM_ADMIN_EMAIL" "PLATFORM_ADMIN_PASSWORD" "DEFAULT_USER_PASSWORD" "VAULT_TOKEN" }}
-{{- if or (ne . "VAULT_TOKEN") (not $.Values.contextforge.trustedProxy.enabled) }}
+{{- range list "DATABASE_URL" "JWT_SECRET_KEY" "AUTH_ENCRYPTION_SECRET" "PLATFORM_ADMIN_EMAIL" "PLATFORM_ADMIN_PASSWORD" "DEFAULT_USER_PASSWORD" }}
 - name: {{ . }}
   valueFrom:
     secretKeyRef:
       name: {{ $.Values.contextforge.existingSecret }}
       key: {{ . }}
-{{- end }}
 {{- end }}
 {{- end -}}
 
@@ -40,7 +38,6 @@ app.kubernetes.io/part-of: contextforge
 - {name: AUTO_CREATE_PERSONAL_TEAMS, value: "false"}
 - {name: MCPGATEWAY_UI_ENABLED, value: "false"}
 - {name: MCPGATEWAY_ADMIN_API_ENABLED, value: "true"}
-- {name: OAUTH_TOKEN_BACKEND, value: database}
 - {name: LOG_REQUESTS, value: "false"}
 - {name: DISABLE_ACCESS_LOG, value: "true"}
 - {name: LOG_LEVEL, value: CRITICAL}

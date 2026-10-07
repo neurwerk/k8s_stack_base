@@ -35,3 +35,4 @@ spec:
     - kind: ConfigMap
       name: contextforge-product-values
       valuesKey: values.yaml
+      optional: true

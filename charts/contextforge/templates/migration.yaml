@@ -37,6 +37,7 @@ spec:
           envFrom:
             - configMapRef: {name: {{ .Values.contextforge.existingConfigMap }}}
           env:
+            - {name: OAUTH_TOKEN_BACKEND, value: database}
             {{- include "contextforge.credentials" . | nindent 12 }}
             {{- if .Values.contextforge.trustedProxy.enabled }}
             {{- include "contextforge.proxyEnvironment" . | nindent 12 }}

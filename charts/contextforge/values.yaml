@@ -1,6 +1,6 @@
 contextforge:
-  # Client selection is separate from the presence of this chart.
-  enabled: false
+  # Base installs the service by default; MCP providers remain unselected.
+  enabled: true
   # Official development snapshot with upstream #6773; its package version remains 1.0.11.
   image: ghcr.io/ibm/mcp-context-forge:a10c655b9fc04d42d2029a565a25bad059409c77@sha256:d8da586d93d934ebe9d0a7d04234403a9a3eff1760c98bbb0e8d0b31931a6244
 
@@ -11,7 +11,7 @@ contextforge:
   # Native Gunicorn HTTPS on the existing private Service/Pod port 4444.
   # Reconcile releases/contextforge/certificates and wait for Certificate Ready first.
   tls:
-    enabled: false
+    enabled: true
     existingSecret: contextforge-tls
 
   # Explicit private-proxy activation; does not register accounts or integrations.
