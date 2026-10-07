@@ -13,7 +13,7 @@
 
 # --- Studio API configuration ---
 frontendStudio:
-  apiImage: "ghcr.io/neurwerk/k8s-stack-studio-api:0.15.1@sha256:6f674780c178b7964bb16795d9142c716c721308de22c3caac18649356ba1307"
+  apiImage: "ghcr.io/neurwerk/k8s-stack-studio-api:0.15.2@sha256:c71f6f60e3bb2ba9b0de1629546e7608b86ffc8fc5d166ece91fad5effbc6ee2"
   api:
     replicas: 1
     # Python and Uvicorn application logs; warnings and errors remain visible.
