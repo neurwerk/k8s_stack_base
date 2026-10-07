@@ -70,14 +70,13 @@ register a destination, discover new tools or manage registration credentials.
 One helper normalizes selected presets and custom entries for routes, backends,
 secrets, workloads, PII and tracing. The opt-in backend-only ConfigMap
 `infra-agentgateway-mcp-catalog` exports `catalog.json` (that same list),
-`registrations.json` (Tooling projection) and `studio.json` (Studio projection).
+`registrations.json` (native setup projection) and `studio.json` (Studio projection).
 For OAuth entries, `studio.json` derives `oauth_authorization_origin` from the
 validated authorization URL: HTTPS host, optional non-default port, no path.
-Copy/extract these artifacts locally after Helm rendering; do not keep parallel
-handwritten server lists. Tooling's `--catalog <registrations.json>` accepts the
-projection with a separate config containing only `origin`, `team_id`,
-`owner_email`. Persist resolved `gatewayId` in the client catalog and re-render;
-unresolved mappings are not ready for Studio. Neither chart rendering nor these
+Do not keep parallel handwritten server lists. Native registration automation is
+not implemented: a separately reviewed setup Job must consume the generated
+catalog and establish its resolved native mappings before activation. Unresolved
+`gatewayId` mappings are not ready for Studio. Neither chart rendering nor these
 artifacts apply registrations, wire Studio, enable Connect or select a client.
 
 Native registration `visibility` accepts `public` (new catalog default) or `team`.
@@ -104,11 +103,12 @@ oauth:
 This describes one operator-registered OAuth app and approved callback, not dynamic
 registration, PAT support or another implemented authentication mechanism. Never
 put a client secret in Git, native plaintext headers, chart values or logs.
-The chart preserves references only. Individual preparation requires workstation
-`contextforge-setup` `0.1.1` and `openbao-stack-setup` `0.2.26` from reviewed Tooling
+The chart preserves references only. Secret preparation requires workstation
+`openbao-stack-setup` `0.2.26` from reviewed Tooling
 commit `c19d902964b12af78eec916883a3b9d5f955700b`, approved app registration and
-operator-owned secret preparation. These are source prerequisites, not CLIs
-bundled in the unchanged root Tooling image. Shared keys remain in upstream MCP
+operator-owned secret preparation. Native app registration must wait for the
+planned setup Job. This is a source prerequisite, not a CLI bundled in the
+unchanged root Tooling image. Shared keys remain in upstream MCP
 services (Brave native `auth_type=none`); personal credential writes for no/shared
 integrations stay disabled. Ordinary Studio users connect approved accounts only.
 
@@ -221,18 +221,11 @@ by the optional `releases/contextforge/oauth-apps` package from the fixed approv
 OpenBao `contextforge/provider-apps` record. Its ESO read policy must not be added
 to the separate native Vault OAuth token.
 
-The original Tooling registration source [#114](https://github.com/neurwerk/k8s_stack_tooling/pull/114)
-(`025a2281fc6a4fb284f078dd010015d1ca5041b1`) uses
-`reconcile-registrations` with `origin`, `team_id`, `owner_email` and
-`registrations[{id,provider,authentication_model,upstream_url,transport,gateway_id,server_id,approved_tools,permission,public_route,pii_policy,content_trace}]`.
-Gateway IDs start nullable and resolve through aliases `neurwerk-contextforge-<id>`;
-keep the approved native server/tool membership and stable route mapping aligned.
-The accompanying generic Tooling source extends that schema without changing its
-legacy default team visibility, and accepts the generated catalog as described
-above. Tool publication and private operator reconciliation remain separate. Studio's
-backend-only catalog mapping, catalog/onboarding flags and Connect controls remain
-unchanged and disabled; no Studio deployment change or new released CLI
-prerequisite is claimed.
+The catalog remains the sole definition of approved upstreams and native
+server/tool membership. Native setup automation must establish consistent gateway
+and server mappings without granting platform access. No setup Job is supplied
+yet; removing the workstation registration path does not enable native routes,
+onboarding or Connect. Studio's backend-only mapping and flags are unchanged.
 
 ## Source qualification only
 
