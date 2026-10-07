@@ -1,6 +1,6 @@
 # Required notice preference contract
 
-This Base level pins Studio API/Web `0.15.1`, extProc `0.16.2`, and the
+This Base level pins Studio API/Web `0.15.2`, extProc `0.16.2`, and the
 PostgreSQL-only API-key bridge `0.8.2`. It requires both notice databases,
 Studio's private mTLS listener, extProc's preference lookup, and AgentGateway's
 trusted API-key credential context. Client values cannot disable these parts.
