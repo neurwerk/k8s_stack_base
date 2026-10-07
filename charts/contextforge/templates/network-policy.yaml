@@ -71,15 +71,4 @@ spec:
       ports:
         - {protocol: TCP, port: {{ .port }}}
     {{- end }}
-    {{- range .Values.mcp.upstreamWorkloads }}
-    - to:
-        - namespaceSelector:
-            matchLabels: {kubernetes.io/metadata.name: infra-agentgateway}
-          podSelector:
-            matchLabels:
-              app.kubernetes.io/name: {{ printf "mcp-%s" (required "mcp upstreamWorkloads.name is required" .name) | quote }}
-              app.kubernetes.io/instance: infra-agentgateway
-      ports:
-        - {protocol: TCP, port: {{ .port | default 8080 }}}
-    {{- end }}
 {{- end }}

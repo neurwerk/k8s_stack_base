@@ -24,6 +24,7 @@
 {{- end -}}
 {{- end -}}
 {{- $entry := mergeOverwrite (deepCopy (get $presets $id)) (deepCopy $selection) -}}
+{{- $_ := unset $entry "upstreamWorkload" -}}
 {{- if or (ne $entry.contextforge.provider (get $presets $id).contextforge.provider) (ne $entry.contextforge.authenticationModel (get $presets $id).contextforge.authenticationModel) -}}
 {{- fail "preset provider/authentication model cannot change; use a custom definition" -}}
 {{- end -}}

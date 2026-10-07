@@ -34,7 +34,7 @@ class API:
         if response.status_code in allow:
             return None
         require(200 <= response.status_code < 300,
-                f"API {method} failed with status {response.status_code}; response hidden")
+                f"API {method} /{path.split('/')[1]} failed with status {response.status_code}; response hidden")
         return response.json() if response.content else None
 
 

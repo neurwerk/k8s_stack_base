@@ -1,19 +1,61 @@
-# Source declarations only: selection, native IDs, endpoints and secrets are client-owned.
+# Optional defaults; clients select presets and supply their own credentials.
 context7:
   name: context7
   displayName: Context7
   contextforge:
     provider: context7
     authenticationModel: no-authentication
+    serverId: b12fe61e3b9948b39330e1cc79469738
+  registration:
+    upstream_url: https://mcp.context7.com/mcp
+    transport: STREAMABLEHTTP
+    approved_tools: [resolve-library-id, query-docs]
+    pii_policy: platform-default
 brave:
   name: brave
   displayName: Brave Search
   contextforge:
     provider: brave
     authenticationModel: shared-authentication
+    serverId: ef1661c8e65b44dfa4b94cf7f159d590
+  registration:
+    upstream_url: http://mcp-brave-svc.infra-agentgateway.svc.cluster.local:8080/mcp
+    transport: STREAMABLEHTTP
+    approved_tools: [brave_web_search, brave_local_search]
+    pii_policy: platform-default
+  upstreamWorkload:
+    name: brave
+    port: 8080
+    path: /mcp
+    workload:
+      image: brave/brave-search-mcp-server:v2.1.0
+      env:
+        BRAVE_MCP_TRANSPORT: http
+        BRAVE_MCP_HOST: 0.0.0.0
+        BRAVE_MCP_STATELESS: "true"
+        BRAVE_MCP_ENABLED_TOOLS: "brave_web_search brave_local_search"
+      secretEnv:
+        - {name: BRAVE_API_KEY, key: apiKey}
+      resources:
+        requests: {cpu: 100m, memory: 128Mi}
+        limits: {cpu: 500m, memory: 512Mi}
 github:
   name: github
   displayName: GitHub
   contextforge:
     provider: github
     authenticationModel: individual-authentication
+    serverId: 5bedee43ead24a338b9df82f01e088dc
+  registration:
+    upstream_url: https://api.githubcopilot.com/mcp/
+    transport: STREAMABLEHTTP
+    approved_tools: [get_me, search_repositories, get_file_contents]
+    pii_policy: platform-default
+    oauth:
+      authorization_url: https://github.com/login/oauth/authorize
+      token_url: https://github.com/login/oauth/access_token
+      client_id: ""
+      redirect_uri: ""
+      scopes: []
+      pkce: true
+      client_secret_ref: {name: contextforge-oauth-apps, key: github}

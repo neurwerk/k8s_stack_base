@@ -1,6 +1,15 @@
 {{- define "infra-agentgateway.mcpUpstreamWorkloads" -}}
 {{- $upstreams := .Values.mcp.upstreamWorkloads | default list -}}
 {{- if not (kindIs "slice" $upstreams) -}}{{ fail "mcp.upstreamWorkloads must be a list" }}{{- end -}}
+{{- $overrides := dict -}}
+{{- range $upstreams -}}{{- $_ := set $overrides .name true -}}{{- end -}}
+{{- $presets := .Files.Get "catalog/presets.yaml" | fromYaml -}}
+{{- range $id, $selection := .Values.mcp.catalog.presets | default dict -}}
+{{- $preset := get $presets $id | default dict -}}
+{{- if and $selection.enabled $preset.upstreamWorkload (not (hasKey $overrides $id)) -}}
+{{- $upstreams = append $upstreams (deepCopy $preset.upstreamWorkload) -}}
+{{- end -}}
+{{- end -}}
 {{- if gt (len $upstreams) 200 -}}{{ fail "mcp.upstreamWorkloads supports at most 200 entries" }}{{- end -}}
 {{- $native := dict -}}
 {{- range include "infra-agentgateway.effectiveMcpServers" . | fromYamlArray -}}
