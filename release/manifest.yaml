@@ -1,11 +1,11 @@
 apiVersion: platform.neurwerk.com/v1alpha1
 kind: PlatformRelease
 metadata:
-  name: v0.3.23
+  name: v0.3.24
 spec:
-  version: 0.3.23
-  releaseDate: '2026-10-06'
-  summary: Preserve chat reasoning metadata across tool calls
+  version: 0.3.24
+  releaseDate: '2026-10-07'
+  summary: Default ContextForge and remote NER support
   trust:
     signerIdentity: platform-release
     algorithm: ssh-ed25519
@@ -1065,11 +1065,27 @@ spec:
       node: 24.20.0
       lua: 5.4.9
   provenance:
-    previousTag: v0.3.22
-    includedThrough: 259b8fbdd7a8f023a1e16f9050b2ee67c206a479
+    previousTag: v0.3.23
+    includedThrough: b3ba6b93f841511955a7ef35e9bfa219528d2121
     commits:
-    - 4a3ee1ebb5b5bc6b237540f4abbd08024fdc5609
-    - 197e973d983e64a48ad6f83fe691bb2d30a9e3d9
-    - 352a34182279b3332b28439df768aaf91b3f8a45
-    - 259b8fbdd7a8f023a1e16f9050b2ee67c206a479
-    compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.22...259b8fbdd7a8f023a1e16f9050b2ee67c206a479
+    - c25ab307ec980b3242f4e5483526cb7b3056c20e
+    - 9a554c1cbd88c7f48640d3e42b5b5cfc38d23d68
+    - c63e33a6e9a7f33d186d77d4e425e889690672b5
+    - a4581081a106277e9b6e9af79930d1ac06656060
+    - 43b83c1118f38d3c895b9dd73215e3f70f743f4d
+    - 2419977b0e74afde68722e71f37f3234bd55f32c
+    - 039b81c2f56f2abe0401ece3f81332bde72dc423
+    - 87c0e4d5923b12d16dcd98b58a5e39b74b5d6e2c
+    - af0b0150c89e1ec53df8aded52b36229ebac4806
+    - 76d2a08c4e43371c810d9ce5d1c4e453eed257c9
+    - ed731b0903de431e3bbbd3e9732b59f88cd487a3
+    - 69164505fb61f4cdc2cc6be7c43677e10ff666b7
+    - 70a849c3e57e6022fe889551cec5f3faa7615e15
+    - 76dba4c56005237d4e0c0548c8a23919fe5d246b
+    - 2080d00512bdc534e946e45d15c0205206178725
+    - d54a8700987c88ee5d7734c9e94f7c52a3723258
+    - b1a450b0e8f7b05951dfdd49043ff6fcba1f6f88
+    - 248fafcd2f5c0bc1b19ee82d0d43887fbf23af4e
+    - 514251266b71bbe15980e194f0f091a4d7d7c776
+    - b3ba6b93f841511955a7ef35e9bfa219528d2121
+    compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.23...b3ba6b93f841511955a7ef35e9bfa219528d2121
