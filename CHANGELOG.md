@@ -9,6 +9,8 @@ upgrade path.
 
 ## [Unreleased]
 
+## [0.3.24] - 2026-10-07
+
 - Upgrade LibreChat to the digest-pinned upstream `v0.8.8` image and add opt-in cost estimates using the client's AgentGateway pricing catalog and model context windows.
 - Install ContextForge by default with private TLS and encrypted database-backed OAuth storage; Vault OAuth support awaits upstream changes. Context7, Brave and GitHub presets remain disabled until explicitly selected.
 - Require `openbao-stack-setup` `0.2.26` and ready ContextForge runtime/database Secrets before adoption; existing standalone ContextForge stages need a single-owner handoff to the default Base stages without deleting the database or encryption keys.
