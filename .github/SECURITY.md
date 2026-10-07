@@ -29,7 +29,6 @@ platform defaults, and their validation. Reports about an upstream application
 or vendored chart are welcome when the platform configuration exposes or
 amplifies the issue; maintainers may coordinate with the relevant upstream.
 
-Questions, deployment support, and non-sensitive bug reports belong in
-[GitHub Discussions](https://github.com/neurwerk/k8s_stack_base/discussions) or
+Reproducible bugs and clearly scoped feature requests belong in
 [GitHub Issues](https://github.com/neurwerk/k8s_stack_base/issues), not private
 vulnerability reports.

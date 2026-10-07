@@ -19,10 +19,7 @@ filling sections with boilerplate. Maintainers can ask for details during triage
 Remove secrets and private data from issue content and attachments.
 
 Do not report security vulnerabilities in a public issue. Follow the
-[security policy](SECURITY.md) and use private vulnerability reporting.
-
-Use [GitHub Discussions](https://github.com/neurwerk/k8s_stack_base/discussions)
-for questions, support, and general conversation.
+[security policy](../SECURITY.md) and use private vulnerability reporting.
 
 Maintainers assign issue types (`Bug`, `Feature`, or `Task`), priority, and other
 classification during triage as needed.
