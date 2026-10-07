@@ -1,7 +1,8 @@
 contextforge:
   # Client selection is separate from the presence of this chart.
   enabled: false
-  image: ghcr.io/ibm/mcp-context-forge:v1.0.11@sha256:e9639c030162d6cb2f9f188600dd69af8091ec62a7ce307d4a74f4d4f86873df
+  # Official development snapshot with upstream #6773; its package version remains 1.0.11.
+  image: ghcr.io/ibm/mcp-context-forge:a10c655b9fc04d42d2029a565a25bad059409c77@sha256:d8da586d93d934ebe9d0a7d04234403a9a3eff1760c98bbb0e8d0b31931a6244
 
   # Configuration and External Secrets delivery must finish before installation.
   existingConfigMap: contextforge-runtime

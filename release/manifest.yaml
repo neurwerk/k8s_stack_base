@@ -267,7 +267,7 @@ spec:
       version: 1.0.0
     - path: charts/contextforge
       name: contextforge
-      version: 0.2.1
+      version: 0.2.2
       appVersion: 1.0.11
     - path: charts/contextforge/certificates
       name: contextforge-certificates
@@ -853,7 +853,7 @@ spec:
       eligibility: included
       origins:
       - charts/external-secrets/values.yaml
-    - reference: ghcr.io/ibm/mcp-context-forge:v1.0.11@sha256:e9639c030162d6cb2f9f188600dd69af8091ec62a7ce307d4a74f4d4f86873df
+    - reference: ghcr.io/ibm/mcp-context-forge:a10c655b9fc04d42d2029a565a25bad059409c77@sha256:d8da586d93d934ebe9d0a7d04234403a9a3eff1760c98bbb0e8d0b31931a6244
       pinned: true
       eligibility: excluded
       origins:
