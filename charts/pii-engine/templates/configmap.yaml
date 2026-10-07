@@ -8,3 +8,15 @@ metadata:
 data:
   policy.yaml: |-
     {{- toYaml .Values.monitorPiiEngine.policy | nindent 4 }}
+  {{- if ne .Values.monitorPiiEngine.analyzerBackend "local" }}
+  remote.json: |-
+    {{- $models := list }}
+    {{- range .Values.monitorPiiEngine.remote.models }}
+    {{- $model := omit . "apiKeySecretRef" }}
+    {{- if .apiKeySecretRef }}
+    {{- $_ := set $model "api_key_file" (printf "/var/run/pii-engine/remote/%s/api-key" .name) }}
+    {{- end }}
+    {{- $models = append $models $model }}
+    {{- end }}
+    {{- dict "models" $models | toJson | nindent 4 }}
+  {{- end }}
