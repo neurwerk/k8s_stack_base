@@ -180,6 +180,10 @@ class AgentGatewayAnalyticsTests(unittest.TestCase):
                 self.assertNotIn("account_email:", dormant.stdout)
                 self.assertNotIn("/servers/", dormant.stdout)
                 values["mcp"]["enabled"] = True
+                prepared = render("agentgateway", values)
+                self.assertNotIn("/servers/", prepared.stdout)
+                self.assertNotIn("account_email:", prepared.stdout)
+                values["mcp"]["contextforgeRoutesEnabled"] = ["example"]
                 active = render("agentgateway", values)
                 target = resource(active, "AgentgatewayBackend", "mcp-example-be")["spec"]["mcp"]["targets"][0]["static"]
                 self.assertEqual(target["host"], "contextforge.contextforge.svc.cluster.local")

@@ -68,11 +68,49 @@ Root Tooling image `0.7.4` is unchanged and does not contain this workstation CL
 The operator uses the frozen project or approved pinned-Git installation on the
 trusted workstation; these manifests perform no OpenBao preparation themselves.
 
-Native team/role/account setup and MCP server registration are not automated by
-this chart. Keep native MCP activation disabled until the planned setup Job and
-its readiness gates are implemented and qualified. Chart catalog declarations
-remain the source of approved server definitions; they do not create native
-database records by themselves.
+### Optional native setup
+
+Set `contextforge.setup.enabled: true` with trusted proxy/TLS, the fixed
+`serviceAccountEmail`, custom `trustedProxy.defaultUserRole` and
+`trustedProxy.defaultTeamMemberRole` names, and exact Kubernetes API egress
+destinations. The existing migration runs first; a post-install/post-upgrade Job
+uses the same pinned image and waits behind application readiness. The application
+HelmRelease also waits for AgentGateway, which generates the canonical catalog.
+Do not make the ContextForge stage depend on the whole applications stage: Studio
+may be waiting for setup output.
+
+The Job reads only `infra-agentgateway/infra-agentgateway-mcp-catalog`, verifies
+its hash against the chart values, and calls private native APIs as the verified
+bootstrap administrator. PostgreSQL is read in read-only transactions to detect
+dormant team/role records and service-account grants omitted by native APIs. It
+creates missing owned roles, one private non-personal team, a non-admin Studio
+service identity and approved gateway/server registrations. Existing conflicting,
+inactive or revoked records are never repaired or reactivated automatically.
+An interrupted service-account creation remains inactive and requires deliberate
+operator repair; unrelated accounts and platform permissions are never changed.
+
+The global user role has no permissions; the team invocation role has exactly
+`tools.read`, `tools.execute`, `servers.read`, `servers.use`, `gateways.read`.
+The service identity owns the fixed team and its owner role has only
+`admin.user_management`, `teams.read`, `teams.manage_members`. Its random password
+is discarded. Registration authority stays with the separate administrator.
+
+Only after complete verification does the Job update the fixed non-secret
+`frontend-studio/contextforge-setup` ConfigMap with `studio.json`, resolved team and
+role IDs, and registration mappings. Its Kubernetes role can read the one source
+ConfigMap and read/update the one pre-created output ConfigMap; it cannot read
+Secrets through the API. Studio uses `setupConfigMapName: contextforge-setup` and
+the same `catalogConfigMapName` to consume this output automatically. Native
+routes require their IDs in `mcp.contextforgeRoutesEnabled` after setup succeeds.
+
+Shared credentials remain in retained upstream Pods. OAuth app credentials mount
+the optional `contextforge-oauth-apps` Secret; the Job never prints them or response
+bodies. Individual registrations initially have no published tools. After operator
+consent and ciphertext/log qualification, explicitly list the integration in
+`setup.publishOAuthTools` for fresh discovery and exact approved-tool publication,
+then clear that list. This does not grant any platform permission. Changes to
+already published tool membership require deliberate operator repair, not silent
+replacement. The completed Job is retained until the next Helm run for inspection.
 
 The chart requires `contextforge-runtime` ConfigMap and Secret by default.
 The Secret must contain these upstream environment keys:

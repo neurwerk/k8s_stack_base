@@ -78,23 +78,25 @@ JWT signing key or an administrator token.
 
 Prepare a fixed, active, non-admin service account owning the fixed team, with
 exactly `admin.user_management`, `teams.read` and `teams.manage_members` through a
-non-inheriting role. The operator provisions and verifies this native account
-separately. Set its email in the required non-secret private client value
+non-inheriting role. The optional ContextForge chart setup Job provisions and
+verifies this native account. Set its email in the required non-secret private client value
 `frontendStudio.api.contextforge.serviceAccountEmail`; the API receives it as a
 plain environment value. It is an identity label, not a bearer credential or proof
 of permissions. Never fall back to the native bootstrap administrator email.
 Private HTTPS and the restricted native ingress protect this fixed header
 authority; verified caller email remains separate and unchanged.
-Set the fixed `teamId`, `globalRoleId`
-and `teamRoleId`; onboarding remains independently opt-in.
+Set `setupConfigMapName: contextforge-setup` and the same `catalogConfigMapName`
+to read the Job's verified team/role IDs and catalog automatically. Without this
+handoff, explicitly set `teamId`, `globalRoleId` and `teamRoleId`.
+Onboarding remains independently opt-in.
 `connectionsEnabled` defaults to false and additionally requires onboarding and
 the exact HTTPS `studioOrigin`. The callback URL is derived from that same origin
 plus `/oauth/callback`, not supplied as a second independently editable URL.
 
 The API receives `K8S_STUDIO_MCP_CATALOG` from `catalogConfigMapName` (default
-`mcp-catalog`), key `studio.json`, **in frontend-studio**. The client staging tool
-must generate/project this from the same approved canonical source as the
-AgentGateway catalog; the chart neither reads a different namespace nor accepts
+`mcp-catalog`), key `studio.json`, **in frontend-studio**. The ContextForge setup Job
+projects this from the same approved canonical source as the AgentGateway
+catalog; the chart neither reads a different namespace nor accepts
 a second hand-written provider list. Wait for that ConfigMap and the internal CA
 before starting the API. Reloader watches the catalog and internal CA changes;
 service email changes update the Deployment through Helm reconciliation.

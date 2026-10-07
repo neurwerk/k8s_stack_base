@@ -98,6 +98,9 @@ mcp:
   # infraAgentgatewayWrapperSecrets.mcp.<name> Secret, only mounted by that Pod.
   upstreamWorkloads: []
   enabled: false
+  # Activate each native route only after ContextForge setup has succeeded.
+  # Selection still generates registration metadata and retained workloads.
+  contextforgeRoutesEnabled: []
   # Declarative assertion only, not a runtime selector: accepts 2025-11-25 or
   # 2026-07-28 and is not passed to AgentGateway or extProc. Modern MCP requires
   # separate adoption of a published, verified dual-version extProc image.
@@ -118,13 +121,12 @@ mcp:
   # trust roots and the exact host for SNI and certificate SAN verification.
   # Omitted/false keeps HTTP. TLS is not supported on workload entries; no
   # verification bypass or custom CA option is exposed. Set port explicitly.
-  # Dormant native destination source: an entry may use contextforge instead of
+  # A native destination may use contextforge instead of
   # host/workload, with serverId (32 lowercase hex), generic provider identifier,
   # and authenticationModel (no/shared/individual-authentication). These are source
   # declarations, not proof of a working provider connection. No credentials here.
-  # Rendering any native destination with mcp.enabled:true is BLOCKED until a
-  # future PR adopts verified bridge/extProc images supporting account_email.
-  # There is no values flag that can bypass this source-only activation guard.
+  # Native routing additionally requires the integration ID in
+  # contextforgeRoutesEnabled after successful setup and runtime qualification.
   servers: []
   # Alternative to legacy servers, never merged with it. All selections require
   # explicit enabled:true; new shipped presets never enable network access.

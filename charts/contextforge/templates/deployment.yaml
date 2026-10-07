@@ -1,4 +1,5 @@
 {{- if .Values.contextforge.enabled }}
+{{- if not (kindIs "bool" .Values.contextforge.setup.enabled) }}{{ fail "ContextForge setup.enabled must be a boolean" }}{{- end }}
 {{- if or (not (kindIs "bool" .Values.contextforge.tls.enabled)) (not (kindIs "bool" .Values.contextforge.trustedProxy.enabled)) }}
 {{- fail "ContextForge tls.enabled and trustedProxy.enabled must be booleans" }}
 {{- end }}
