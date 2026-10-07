@@ -120,6 +120,8 @@ spec:
             - name: K8S_STUDIO_USAGE_TIMEZONE
               value: {{ .Values.frontendStudio.api.usageTimezone | quote }}
             {{- if .Values.frontendStudio.api.contextforge.enabled }}
+            - name: K8S_STUDIO_MCP_GATEWAY_URL
+              value: {{ printf "http://infra-agentgateway-gateway.infra-agentgateway.svc.cluster.local:%v" .Values.frontendStudio.api.mcpGatewayPort | quote }}
             - name: K8S_STUDIO_MCP_CATALOG_ENABLED
               value: "true"
             - name: K8S_STUDIO_MCP_CATALOG

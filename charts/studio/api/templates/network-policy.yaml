@@ -68,6 +68,10 @@ spec:
       ports:
         - port: 15000
           protocol: TCP
+        {{- if .Values.frontendStudio.api.contextforge.enabled }}
+        - port: {{ .Values.frontendStudio.api.mcpGatewayPort }}
+          protocol: TCP
+        {{- end }}
     - to:
         - namespaceSelector:
             matchLabels:

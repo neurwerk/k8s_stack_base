@@ -31,6 +31,13 @@ spec:
           podSelector:
             matchLabels:
               app.kubernetes.io/name: frontend-librechat
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: frontend-studio
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: studio-api
+              app.kubernetes.io/instance: frontend-studio-api
       ports:
         - port: {{ .Values.infraAgentgatewayWrapper.ports.service.http }}
           protocol: TCP

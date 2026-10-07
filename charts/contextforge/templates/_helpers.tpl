@@ -31,6 +31,11 @@ app.kubernetes.io/part-of: contextforge
 - {name: REQUIRE_USER_IN_DB, value: "true"}
 # Private header-authenticated APIs; browser requests terminate at Studio/Gateway.
 - {name: CSRF_ENABLED, value: "false"}
+{{- range $tier, $key := dict "CRITICAL" "criticalRpm" "HIGH" "highRpm" "MEDIUM" "mediumRpm" "LOW" "lowRpm" }}
+{{- $rpm := get $.Values.contextforge.trustedProxy.rateLimits $key }}
+{{- if or (lt (int $rpm) 1) (gt (int $rpm) 10000) }}{{ fail "ContextForge private rate limits must be between 1 and 10000 RPM" }}{{- end }}
+- {name: {{ printf "RATE_LIMIT_%s_RPM" $tier }}, value: {{ $rpm | quote }}}
+{{- end }}
 - {name: MCPGATEWAY_DIRECT_PROXY_ENABLED, value: "false"}
 - {name: AUTO_CREATE_PERSONAL_TEAMS, value: "false"}
 - {name: MCPGATEWAY_UI_ENABLED, value: "false"}
