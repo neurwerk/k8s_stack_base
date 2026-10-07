@@ -59,14 +59,20 @@ later by the application chart: its external configuration, Secret and CA must
 already exist. No client graph is supplied or changed here. The client supplies the
 namespace-local `contextforge-product-values` ConfigMap with `values.yaml`.
 
-Optional application metadata requires workstation `contextforge-setup` `0.1.1`
-and `openbao-stack-setup` `0.2.26`, both from reviewed Tooling commit
+Optional application metadata requires workstation `openbao-stack-setup` `0.2.26`
+from reviewed Tooling commit
 [`c19d902964b12af78eec916883a3b9d5f955700b`](https://github.com/neurwerk/k8s_stack_tooling/commit/c19d902964b12af78eec916883a3b9d5f955700b).
 The optional secret-sync packages require that same OpenBao CLI source. This is
 immutable source adoption, not a claim of published PyPI wheels or bundled CLIs.
-Root Tooling image `0.7.4` is unchanged and contains neither workstation CLI.
+Root Tooling image `0.7.4` is unchanged and does not contain this workstation CLI.
 The operator uses the frozen project or approved pinned-Git installation on the
 trusted workstation; these manifests perform no OpenBao preparation themselves.
+
+Native team/role/account setup and MCP server registration are not automated by
+this chart. Keep native MCP activation disabled until the planned setup Job and
+its readiness gates are implemented and qualified. Chart catalog declarations
+remain the source of approved server definitions; they do not create native
+database records by themselves.
 
 The chart requires `contextforge-runtime` ConfigMap and Secret by default.
 The Secret must contain these upstream environment keys:

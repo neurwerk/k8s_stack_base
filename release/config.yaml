@@ -145,14 +145,11 @@ packages:
     - charts/contextforge/certificates
   - path: releases/contextforge/app
     status: excluded
-    reason: Disabled foundation; runtime qualification and separately approved adoption are pending.
+    reason: Disabled foundation; native setup Job, runtime qualification and separately approved adoption are pending.
     chartPrefixes:
     - charts/contextforge
     # Workstation CLI source adoption, not PyPI or container publication.
     prerequisites:
-    - name: contextforge-setup
-      version: 0.1.1
-      source: https://github.com/neurwerk/k8s_stack_tooling/commit/c19d902964b12af78eec916883a3b9d5f955700b
     - name: openbao-stack-setup
       version: 0.2.26
       source: https://github.com/neurwerk/k8s_stack_tooling/commit/c19d902964b12af78eec916883a3b9d5f955700b
