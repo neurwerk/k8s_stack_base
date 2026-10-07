@@ -1,4 +1,4 @@
 contextforge:
-  enabled: false
+  enabled: true
   tls:
-    enabled: false
+    enabled: true
