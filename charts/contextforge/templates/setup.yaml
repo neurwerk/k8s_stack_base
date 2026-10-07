@@ -1,0 +1,148 @@
+{{- if and .Values.contextforge.enabled .Values.contextforge.setup.enabled }}
+{{- $setup := .Values.contextforge.setup }}
+{{- $proxy := .Values.contextforge.trustedProxy }}
+{{- if not $proxy.enabled }}{{ fail "ContextForge setup requires trustedProxy.enabled and private TLS" }}{{- end }}
+{{- if not (regexMatch "^[a-z][a-z0-9-]{0,47}$" $setup.teamName) }}{{ fail "ContextForge setup teamName must be a lowercase name/slug" }}{{- end }}
+{{- if empty $setup.kubernetesApiEgress }}{{ fail "ContextForge setup requires exact kubernetesApiEgress destinations" }}{{- end }}
+{{- $service := required "ContextForge setup requires serviceAccountEmail" $setup.serviceAccountEmail }}
+{{- $global := required "ContextForge setup requires trustedProxy.defaultUserRole" $proxy.defaultUserRole }}
+{{- $member := required "ContextForge setup requires trustedProxy.defaultTeamMemberRole" $proxy.defaultTeamMemberRole }}
+{{- $owner := required "ContextForge setup requires ownerRoleName" $setup.ownerRoleName }}
+{{- if ne (len (uniq (list $global $member $owner))) 3 }}{{ fail "ContextForge setup role names must be distinct" }}{{- end }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: contextforge-setup
+  namespace: frontend-studio
+  labels:
+    {{- include "contextforge.labels" . | nindent 4 }}
+# The Job owns data; Helm owns only this fixed output object's identity.
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-setup-code
+  labels:
+    {{- include "contextforge.labels" . | nindent 4 }}
+data:
+  config.json: {{ dict "origin" (printf "https://%s.%s.svc.cluster.local:4444" .Release.Name .Release.Namespace) "teamName" $setup.teamName "serviceAccountEmail" $service "globalRoleName" $global "teamRoleName" $member "ownerRoleName" $owner "publishOAuthTools" $setup.publishOAuthTools "catalogHash" (.Values.mcp.catalog | toJson | sha256sum) | toJson | quote }}
+  {{- (.Files.Glob "files/*.py").AsConfig | nindent 2 }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .Release.Name }}-setup
+  labels:
+    {{- include "contextforge.labels" . | nindent 4 }}
+automountServiceAccountToken: false
+{{- range $namespace, $access := dict "infra-agentgateway" (dict "name" "infra-agentgateway-mcp-catalog" "verbs" (list "get")) "frontend-studio" (dict "name" "contextforge-setup" "verbs" (list "get" "update")) }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: contextforge-setup
+  namespace: {{ $namespace }}
+rules:
+  - apiGroups: [""]
+    resources: [configmaps]
+    resourceNames: [{{ $access.name }}]
+    verbs: {{ $access.verbs | toJson }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: contextforge-setup
+  namespace: {{ $namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: contextforge-setup
+subjects:
+  - kind: ServiceAccount
+    name: {{ $.Release.Name }}-setup
+    namespace: {{ $.Release.Namespace }}
+{{- end }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Release.Name }}-setup
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: contextforge
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: setup
+  policyTypes: [Ingress, Egress]
+  ingress: []
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: contextforge
+              app.kubernetes.io/instance: {{ .Release.Name }}
+              app.kubernetes.io/component: application
+      ports: [{protocol: TCP, port: 4444}]
+    {{- range $setup.kubernetesApiEgress }}
+    - to:
+        - ipBlock: {cidr: {{ .cidr | quote }}}
+      ports: [{protocol: TCP, port: {{ .port }}}]
+    {{- end }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}-setup
+  labels:
+    {{- include "contextforge.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-delete-policy: before-hook-creation
+spec:
+  activeDeadlineSeconds: {{ $setup.activeDeadlineSeconds }}
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        {{- include "contextforge.labels" . | nindent 8 }}
+        app.kubernetes.io/component: setup
+    spec:
+      restartPolicy: Never
+      serviceAccountName: {{ .Release.Name }}-setup
+      automountServiceAccountToken: true
+      securityContext:
+        {{- include "contextforge.podSecurity" . | nindent 8 }}
+      initContainers:
+        {{- include "contextforge.trustInit" . | nindent 8 }}
+      containers:
+        - name: setup
+          image: {{ .Values.contextforge.image | quote }}
+          imagePullPolicy: IfNotPresent
+          command: [python3, -B, /setup/setup.py]
+          securityContext:
+            {{- include "contextforge.containerSecurity" . | nindent 12 }}
+          env:
+            {{- range list "DATABASE_URL" "PLATFORM_ADMIN_EMAIL" }}
+            - name: {{ . }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $.Values.contextforge.existingSecret }}
+                  key: {{ . }}
+            {{- end }}
+          resources:
+            requests: {cpu: 100m, memory: 128Mi}
+            limits: {cpu: "1", memory: 512Mi}
+          volumeMounts:
+            - {name: setup, mountPath: /setup, readOnly: true}
+            - {name: trust, mountPath: /trust, readOnly: true}
+            - {name: oauth-apps, mountPath: /oauth-apps, readOnly: true}
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        {{- include "contextforge.trustVolumes" . | nindent 8 }}
+        - name: setup
+          configMap: {name: {{ .Release.Name }}-setup-code}
+        - name: oauth-apps
+          secret: {secretName: contextforge-oauth-apps, optional: true, defaultMode: 0440}
+        - name: tmp
+          emptyDir: {sizeLimit: 32Mi}
+{{- end }}

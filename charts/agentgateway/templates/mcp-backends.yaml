@@ -1,6 +1,7 @@
 {{- if .Values.mcp.enabled }}
 {{- if not .Values.externalGateway.enabled }}{{- fail "mcp.enabled requires externalGateway.enabled so external MCP clients have a public HTTPS route" }}{{- end }}
 {{- range include "infra-agentgateway.effectiveMcpServers" . | fromYamlArray }}
+{{- if or (not .contextforge) (has .name $.Values.mcp.contextforgeRoutesEnabled) }}
 {{- $serverName := .name }}
 {{- $backendName := include "infra-agentgateway.mcpResourceName" (dict "id" $serverName "component" "be") }}
 {{- $serviceName := include "infra-agentgateway.mcpResourceName" (dict "id" $serverName "component" "svc") }}
@@ -69,5 +70,6 @@ spec:
             {{- end }}
           {{- end }}
           {{- end }}
+{{- end }}
 {{- end }}
 {{- end }}

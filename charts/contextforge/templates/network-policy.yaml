@@ -19,6 +19,13 @@ spec:
   policyTypes: [Ingress, Egress]
   ingress:
     - from:
+        {{- if .Values.contextforge.setup.enabled }}
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: contextforge
+              app.kubernetes.io/instance: {{ .Release.Name }}
+              app.kubernetes.io/component: setup
+        {{- end }}
         - namespaceSelector:
             matchLabels: {kubernetes.io/metadata.name: infra-agentgateway}
           podSelector:
@@ -56,7 +63,11 @@ spec:
         - {protocol: TCP, port: 8200}
     {{- range .Values.contextforge.providerEgress }}
     - to:
-        - ipBlock: {cidr: {{ .cidr | quote }}}
+        - ipBlock:
+            cidr: {{ .cidr | quote }}
+            {{- with .except }}
+            except: {{ . | toJson }}
+            {{- end }}
       ports:
         - {protocol: TCP, port: {{ .port }}}
     {{- end }}

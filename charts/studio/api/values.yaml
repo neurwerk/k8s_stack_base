@@ -73,6 +73,9 @@ frontendStudio:
       studioOrigin: ""
       catalogConfigMapName: mcp-catalog
       catalogKey: studio.json
+      # Optional verified ID handoff from the ContextForge setup Job.
+      # When set, catalogConfigMapName must name this same generated ConfigMap.
+      setupConfigMapName: ""
       url: https://contextforge.contextforge.svc.cluster.local:4444
       caConfigMapName: infra-openbao-ca-bundle
       # Non-secret identity label for the approved fixed non-admin native account.

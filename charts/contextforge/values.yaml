@@ -14,7 +14,7 @@ contextforge:
     existingSecret: contextforge-tls
 
   # Explicit private-proxy activation; does not register accounts or integrations.
-  # The fixed service principal and user roles must be prepared and verified first.
+  # The fixed service principal and roles must be verified before enabling callers.
   trustedProxy:
     enabled: false
     defaultUserRole: ""
@@ -22,6 +22,22 @@ contextforge:
     # Exact public Studio origin, e.g. https://studio.example.com. Native default
     # redirect_uri is this origin plus /oauth/callback, served by Studio API only.
     studioOrigin: ""
+
+  # Runs after migration and application readiness; definitions come from the
+  # AgentGateway-generated catalog, never another hand-maintained server list.
+  setup:
+    enabled: false
+    teamName: neurwerk-mcp
+    serviceAccountEmail: ""
+    ownerRoleName: neurwerk-mcp-provisioner
+    activeDeadlineSeconds: 600
+    # Explicit one-time discovery/publication after operator OAuth consent.
+    publishOAuthTools: []
+    # Both API Service and post-DNAT server destinations, supplied by the client.
+    kubernetesApiEgress: []
+
+  # Allow only the client's private Service ranges needed by retained upstreams.
+  ssrfAllowedNetworks: []
 
   resources:
     requests: {cpu: 250m, memory: 512Mi}
@@ -40,3 +56,6 @@ contextforge:
 # AgentGateway chart. Project the approved client values into this namespace.
 mcp:
   upstreamWorkloads: []
+  catalog:
+    presets: {}
+    custom: []
