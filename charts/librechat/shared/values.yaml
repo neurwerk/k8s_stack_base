@@ -1,5 +1,11 @@
 # Non-secret LibreChat product configuration.
 frontendLibrechat:
+  costs:
+    # Approximate USD display using the client AgentGateway catalog's base rates.
+    # Does not import gateway totals, pricing tiers, reroutes, or provider invoices.
+    enabled: false
+    # Required positive context window for each effective public model name when enabled.
+    contextWindows: {}
   # Opt-in provider delivery only; does not activate model attachment modes.
   documentAttachments:
     enabled: false
@@ -141,6 +147,11 @@ openrouterCatalog:
   excludedModels: []
   grantToAccessGroups: false
   models: []
+
+# Native AgentGateway catalog shape, imported from the optional namespace-local
+# librechat-model-cost-catalog ConfigMap (catalog.json); reuse the canonical file.
+# Only input/output/cache base rates for effective models are sent to LibreChat.
+providers: {}
 
 guardrails:
   llmPolicyEngine:

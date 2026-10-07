@@ -346,6 +346,58 @@ class AuthorizationCatalogTests(unittest.TestCase):
 
 
 class LibreChatCatalogTests(unittest.TestCase):
+    def test_costs_follow_effective_models_and_require_complete_prices(self) -> None:
+        name = "remote/openrouter/acme/model"
+        selected = catalog()
+        rates = {"input": "2", "output": "6", "cacheRead": "0.2", "cacheWrite": "2.5"}
+        costs = {"enabled": True, "contextWindows": {name: 128000, "local/llama": 8192}}
+        direct = [{"name": "local/llama", "local": True, "model": "llama"}]
+        values = {
+            "frontendLibrechat": {"costs": costs},
+            "openrouterCatalog": selected,
+            "guardrails": {"llmPolicyEngine": {"models": direct}},
+            "providers": {
+                "openrouter": {"models": {"acme/model": {"rates": rates}}},
+                "custom": {"models": {"llama": {"rates": {"input": "0", "output": "0"}}}},
+            },
+        }
+
+        def config() -> dict:
+            result = render("librechat/shared", values)
+            return yaml.safe_load(resource(result, "ConfigMap", "frontend-librechat-config-map")["data"]["librechat.yaml"])
+
+        enabled = config()
+        self.assertTrue(enabled["interface"]["contextCost"])
+        endpoint = enabled["endpoints"]["custom"][0]
+        self.assertEqual(endpoint["tokenConfig"], {
+            name: {"prompt": 2, "completion": 6, "cacheRead": 0.2, "cacheWrite": 2.5, "context": 128000},
+            "local/llama": {"prompt": 0, "completion": 0, "context": 8192},
+        })
+        for field, invalid in (("input", None), ("output", "-1"), ("cacheRead", "unknown")):
+            original = rates.pop(field)
+            if invalid is not None:
+                rates[field] = invalid
+            failed = render("librechat/shared", values, check=False)
+            self.assertNotEqual(failed.returncode, 0)
+            self.assertIn("nonnegative", failed.stderr)
+            rates[field] = original
+        costs["contextWindows"][name] = 0
+        self.assertIn("positive integer", render("librechat/shared", values, check=False).stderr)
+        costs["contextWindows"][name] = 128000
+
+        # A same-name client replacement must be priced by its actual backend.
+        direct.append({"name": name, "provider": "Custom", "model": "llama"})
+        self.assertEqual(config()["endpoints"]["custom"][0]["tokenConfig"][name]["prompt"], 0)
+        direct.pop()
+        selected["excludedModels"] = ["acme/model"]
+        self.assertNotIn(name, config()["endpoints"]["custom"][0]["tokenConfig"])
+
+        costs["enabled"] = False
+        values["providers"] = {}
+        disabled = config()
+        self.assertNotIn("contextCost", disabled["interface"])
+        self.assertNotIn("tokenConfig", disabled["endpoints"]["custom"][0])
+
     def test_model_specs_are_grouped_without_raw_fetched_rows(self) -> None:
         inherited = catalog()
         values = {
