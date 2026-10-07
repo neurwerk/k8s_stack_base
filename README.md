@@ -1,7 +1,7 @@
 # Neurwerk Base
 
 base is the main Helm chart and the foundation of the Neurwerk stack. See the [Neurwerk Base website](https://base.neurwerk.com/) for more information.
- 
+
 | Repository | Description|
 | --- | --- |
 | [Base chart](https://github.com/neurwerk/k8s_stack_base) | Shared platform charts and release packages that form the foundation of the stack (this repo). |
@@ -16,7 +16,7 @@ base is the main Helm chart and the foundation of the Neurwerk stack. See the [N
 |  |  |
 | [Dify Add-on](https://github.com/neurwerk/k8s_stack_addon_dify) | Optional, Dify package with API and web customizations, including single-workspace enforcement. |
 
- 
+
 ## System requirements
 
 The following resources are required to run the stack:
