@@ -1,62 +1,22 @@
-# Neurwerk Kubernetes Platform
+# Neurwerk Base
 
-See [website](https://base.neurwerk.com/) for more information.
+base is the main Helm chart and the foundation of the Neurwerk stack. See the [Neurwerk Base website](https://base.neurwerk.com/) for more information.
+ 
+| Repository | Description|
+| --- | --- |
+| [Base chart](https://github.com/neurwerk/k8s_stack_base) | Shared platform charts and release packages that form the foundation of the stack (this repo). |
+| [Studio](https://github.com/neurwerk/k8s_stack_studio) | Web dashboard and API for operating AI platform services. |
+| [Tooling](https://github.com/neurwerk/k8s_stack_tooling) | One container image plus separate CLI tools for setup and operations. |
+| [PII Engine](https://github.com/neurwerk/k8s_stack_pii_engine) | Service that uses Presidio to evaluate PII and apply safety policies. |
+| [AgentGateway External Processor](https://github.com/neurwerk/k8s_stack_agentgateway_extproc) | Adapter that processes gateway requests and responses with the PII Engine. |
+| [Keycloak API Key Bridge](https://github.com/neurwerk/k8s_stack_keycloak_api_key_bridge) | Separate service that issues and validates API keys using Keycloak permissions. |
+| [Keycloak Theme](https://github.com/neurwerk/k8s_stack_keycloak_theme) | Customized Keycloak login pages and emails. |
+|  |  |
+| [Example client chart](https://github.com/neurwerk/k8s_stack_client_example_com) | Reference client configuration and Flux deployment setup to adapt for a new client. |
+|  |  |
+| [Dify Add-on](https://github.com/neurwerk/k8s_stack_addon_dify) | Optional, Dify package with API and web customizations, including single-workspace enforcement. |
 
-## AgentGateway 1.6 upgrade
-
-Before adopting a Base revision with AgentGateway 1.6.0, install the matching
-`agentgateway-crds` chart **1.6.0** from
-`oci://cr.agentgateway.dev/charts/agentgateway-crds`. Follow the selected
-revision's `release/manifest.yaml`; older signed releases retain their own
-prerequisite versions. Coordinate this step before alpha `main` reconciliation
-or stable adoption so the new controller never starts with the old CRDs.
-
-Provider `baseURL` values must include the complete API prefix, such as `/v1`
-or OpenRouter's `/api/v1`. The chart supplies `/v1` for local models, PII fallback
-targets, and the optional embedding listener; clients must correct any pathless
-direct-provider URLs. Keep custom providers' advertised formats aligned with
-their actual API support.
-
-Retain client pricing catalogs as overlays on the new built-in catalog, the
-auth-response header workaround, and stateless MCP session protection. Verify
-streaming, local fallback routing, authentication, MCP, and usage accounting
-after the authorized rollout. This upgrade adds no rate-limit or idle-timeout
-policy. Existing late-stream-error and concurrency-limit issues remain open.
-
-## Optional Active Directory stage
-
-`releases/applications` does not include the Active Directory HelmRelease.
-Select `releases/keycloak/active-directory` only when federation is needed,
-after Keycloak realm roles and any selected add-on access stages are Ready.
-Use a client-owned Flux Kustomization with a single inventory owner and an
-explicit HelmRelease health check. For existing installations, plan the
-handoff in maintenance mode **before** changing the platform source:
-
-1. Inspect the actual HelmRelease, chart, Flux inventories, and external
-   Keycloak provider, groups, roles, and approved directory mappings; ensure
-   the local break-glass login and current backups are available.
-2. Remove the old applications-stage AD health check and do not enable the new
-   stage yet. Reconcile this client graph change and confirm applications is
-   Ready without that check.
-3. Move to a reviewed platform source that omits AD from applications; wait
-   until the old Flux inventory drops the HelmRelease and its uninstall has
-   completed. Verify external Keycloak state and credential delivery before
-   proceeding. Do not run two AD reconcilers or owners at once.
-4. Select the optional AD stage in the client graph with `dependsOn` covering
-   applications (including realm roles) and all selected add-on access stages;
-   include a health check for `HelmRelease/auth-keycloak/keycloak-active-directory`.
-   Verify the HelmRelease, provider, approved group mappings, and application
-   access before leaving maintenance mode.
-
-The AD chart has only post-install/post-upgrade Jobs, not an uninstall hook:
-removing this release does not instruct Keycloak to delete its provider, roles,
-or groups. Its ExternalSecret is release-owned and may be removed during the
-gap, so confirm credential delivery on reinstall. This is a planned outage,
-not authorization to delete Keycloak data. For alpha deployments, coordinate
-maintenance before this source change reconciles: a client following `main`
-could otherwise prune AD automatically. Signed release publication and stable
-client adoption need separate approval.
-
+ 
 ## System requirements
 
 The following resources are required to run the stack:
@@ -65,7 +25,7 @@ The following resources are required to run the stack:
 |----------|-------------|
 | CPU      | 16 vCPUs    |
 | Memory   | 64 GB RAM   |
-| Storage  | 1 TB        |
+| Storage  | 1 TB (SSD recommended)       |
 
 A CUDA-compatible GPU with at least **16 GB of VRAM** is recommended for the optional text-to-speech (TTS), speech-to-text (STT), optical character recognition (OCR), and named entity recognition for personally identifiable information (PII NER) features.
 
