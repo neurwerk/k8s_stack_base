@@ -36,6 +36,7 @@ app.kubernetes.io/component: shared
 {{- $specs := list -}}
 {{- $names := list -}}
 {{- $effectiveNames := dict -}}
+{{- $pricingModels := dict -}}
 {{- $defaultModel := .Values.frontendLibrechat.agentGateway.defaultModel | default "" -}}
 {{- if .Values.openrouterCatalog.enabled -}}
 {{- range $entry := .Values.openrouterCatalog.models | default list -}}
@@ -45,6 +46,7 @@ app.kubernetes.io/component: shared
 {{- $specs = append $specs $spec -}}
 {{- $names = append $names $entry.name -}}
 {{- $_ := set $effectiveNames $entry.name true -}}
+{{- $_ := set $pricingModels $entry.name (dict "provider" "openrouter" "model" $entry.upstreamModel) -}}
 {{- end -}}
 {{- end -}}
 {{- end -}}
@@ -56,8 +58,11 @@ app.kubernetes.io/component: shared
 {{- $specs = append $specs $spec -}}
 {{- $names = append $names $model.name -}}
 {{- $_ := set $effectiveNames $model.name true -}}
+{{- $provider := $model.provider | default "Custom" | lower -}}
+{{- if $model.local }}{{- $provider = "custom" }}{{- end -}}
+{{- $_ := set $pricingModels $model.name (dict "provider" $provider "model" ($model.model | default "")) -}}
 {{- end -}}
 {{- if gt (len $specs) 256 }}{{- fail "effective LibreChat model catalog supports at most 256 destinations" }}{{- end -}}
 {{- if and $defaultModel (not (hasKey $effectiveNames $defaultModel)) }}{{- fail (printf "frontendLibrechat.agentGateway.defaultModel %q is not in the effective model catalog" $defaultModel) }}{{- end -}}
-{{- dict "names" $names "specs" $specs | toYaml -}}
+{{- dict "names" $names "specs" $specs "pricingModels" $pricingModels | toYaml -}}
 {{- end -}}

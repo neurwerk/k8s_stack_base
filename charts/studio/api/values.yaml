@@ -13,7 +13,7 @@
 
 # --- Studio API configuration ---
 frontendStudio:
-  apiImage: "ghcr.io/neurwerk/k8s-stack-studio-api:0.15.1@sha256:6f674780c178b7964bb16795d9142c716c721308de22c3caac18649356ba1307"
+  apiImage: "ghcr.io/neurwerk/k8s-stack-studio-api:0.16.1@sha256:d602d67d24befb91a6da256f7a3ae0502f7f9bc2e071a779cb9c6e3176740ee5"
   api:
     replicas: 1
     # Python and Uvicorn application logs; warnings and errors remain visible.
@@ -54,6 +54,8 @@ frontendStudio:
 
     # --- AgentGateway request-log usage analytics ---
     agentgatewayAdminUrl: "http://infra-agentgateway-gateway.infra-agentgateway.svc.cluster.local:15000"
+    # Authenticated data plane for per-user MCP discovery/checks, never the admin listener.
+    mcpGatewayPort: 80
     usageTimezone: "UTC"
 
     # Explicit opt-in for the self-only LLM activity viewer. Both credentials

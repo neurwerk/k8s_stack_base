@@ -19,7 +19,7 @@
 {{- if not (hasKey $presets $id) -}}{{- fail (printf "unknown MCP preset %q; use mcp.catalog.custom for client definitions" $id) -}}{{- end -}}
 {{- if not (kindIs "map" $selection) -}}{{- fail "MCP preset selection must be a map" -}}{{- end -}}
 {{- range $field, $_ := $selection -}}
-{{- if not (has $field (list "enabled" "displayName" "piiEnabled" "contentTracingEnabled" "contextforge" "registration")) -}}
+{{- if not (has $field (list "enabled" "displayName" "piiEnabled" "contentTracingEnabled" "contextforge" "registration" "checks")) -}}
 {{- fail (printf "MCP preset selection field %q is unsupported" $field) -}}
 {{- end -}}
 {{- end -}}
@@ -38,7 +38,7 @@
 {{- fail "MCP catalog entries require explicit boolean enabled" -}}
 {{- end -}}
 {{- range $field, $_ := $entry -}}
-{{- if not (has $field (list "enabled" "name" "displayName" "piiEnabled" "contentTracingEnabled" "contextforge" "registration" "host" "workload" "path" "port" "protocol" "tls" "upstreamAuth")) -}}
+{{- if not (has $field (list "enabled" "name" "displayName" "piiEnabled" "contentTracingEnabled" "contextforge" "registration" "checks" "host" "workload" "path" "port" "protocol" "tls" "upstreamAuth")) -}}
 {{- fail (printf "MCP catalog field %q is unsupported; credentials must use Secret references" $field) -}}
 {{- end -}}
 {{- end -}}
@@ -61,12 +61,35 @@
 {{- if $server.contextforge -}}
 {{- if not (kindIs "map" $server.registration) -}}{{- fail "native MCP catalog entries require non-secret registration metadata" -}}{{- end -}}
 {{- $_ := include "infra-agentgateway.validateMcpRegistration" $server -}}
+{{- $_ := include "infra-agentgateway.validateMcpChecks" $server -}}
 {{- else if hasKey $server "registration" -}}{{- fail "registration metadata requires contextforge" -}}{{- end -}}
 {{- $effective = append $effective $server -}}
 {{- end -}}
 {{- end -}}
 {{- if gt (len $effective) 200 -}}{{- fail "MCP catalog supports at most 200 selected entries" -}}{{- end -}}
 {{- concat $legacy $effective | toYaml -}}
+{{- end -}}
+
+{{/* Checks are explicit operator approval of read-only calls with non-secret arguments. */}}
+{{- define "infra-agentgateway.validateMcpChecks" -}}
+{{- $checks := .checks | default list -}}
+{{- if or (not (kindIs "slice" $checks)) (gt (len $checks) 10) -}}{{- fail "MCP checks must be a list of at most 10 approved read-only calls" -}}{{- end -}}
+{{- $approved := .registration.approved_tools -}}
+{{- range $check := $checks -}}
+{{- if not (kindIs "map" $check) -}}{{- fail "MCP check must be a map" -}}{{- end -}}
+{{- range $field, $_ := $check -}}
+{{- if not (has $field (list "name" "tool" "arguments" "display")) -}}{{- fail "MCP checks accept only name, tool, arguments and optional display" -}}{{- end -}}
+{{- end -}}
+{{- if or (not (kindIs "string" $check.name)) (empty $check.name) (gt (len $check.name) 100) -}}{{- fail "MCP check name must contain 1-100 characters" -}}{{- end -}}
+{{- if not (has $check.tool $approved) -}}{{- fail "MCP check tool must be in registration.approved_tools" -}}{{- end -}}
+{{- if or (not (kindIs "map" $check.arguments)) (gt (len (toJson $check.arguments)) 8192) -}}{{- fail "MCP check arguments must be a non-secret JSON object of at most 8192 bytes" -}}{{- end -}}
+{{- if $check.display -}}
+{{- if not (kindIs "map" $check.display) -}}{{- fail "MCP check display must contain label and field" -}}{{- end -}}
+{{- if or (ne (len $check.display) 2) (not (kindIs "string" $check.display.label)) (empty $check.display.label) (gt (len $check.display.label) 100) (not (kindIs "string" $check.display.field)) (gt (len $check.display.field) 200) (not (regexMatch `^[a-zA-Z0-9_-]+(\.[a-zA-Z0-9_-]+)*$` $check.display.field)) -}}
+{{- fail "MCP check display requires a label and dot-separated JSON field" -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
 {{- end -}}
 
 {{- define "infra-agentgateway.validateMcpRegistration" -}}

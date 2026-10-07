@@ -3,6 +3,7 @@
 {{- fail "canonicalEndpointRouting.mode must be internal-traefik or public-dns" -}}
 {{- end -}}
 {{- $modelCatalog := include "frontend-librechat-shared.modelCatalog" . | fromYaml -}}
+{{- $costTokenConfig := include "librechat.costTokenConfig" (dict "root" . "catalog" $modelCatalog) | fromYaml -}}
 {{- $speech := include "librechat.speechEndpoints" . | fromYaml -}}
 {{- $memory := .Values.frontendLibrechat.memory -}}
 {{- if not (kindIs "bool" $memory.enabled) }}{{ fail "frontendLibrechat.memory.enabled must be boolean" }}{{ end -}}
@@ -131,6 +132,10 @@ data:
       document: s3
     {{- end }}
     interface:
+      {{- if .Values.frontendLibrechat.costs.enabled }}
+      contextUsage: true
+      contextCost: true
+      {{- end }}
       # The app permission hook owns AGENTS and MARKETPLACE per role. Global
       # interface.agents/marketplace overrides would overwrite both roles.
       presets: false
@@ -169,6 +174,10 @@ data:
         - name: AgentGateway
           apiKey: unused
           baseURL: {{ .Values.frontendLibrechat.agentGateway.baseUrl | quote }}
+          {{- if .Values.frontendLibrechat.costs.enabled }}
+          tokenConfig:
+            {{- $costTokenConfig | toYaml | nindent 12 }}
+          {{- end }}
           models:
             # Keep request validation aligned with the grouped model specs.
             default: {{ $modelCatalog.names | toJson }}
