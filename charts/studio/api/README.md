@@ -69,47 +69,6 @@ Operator access to Langfuse outside Studio is separate.
 
 ## Optional ContextForge wiring
 
-`frontendStudio.api.contextforge.enabled` is false by default. Enable only after
-adopting the verified Studio API/Web `0.15.1` pins and a ready native ContextForge HTTPS
-endpoint. The chart mounts the namespace-local internal CA bundle, opens only
-API Pod egress to the ContextForge application on TCP 4444, and configures native
-service authentication as `trusted-proxy`. It never gives Studio the native
-JWT signing key or an administrator token.
-
-Prepare a fixed, active, non-admin service account owning the fixed team, with
-exactly `admin.user_management`, `teams.read` and `teams.manage_members` through a
-non-inheriting role. The optional ContextForge chart setup Job provisions and
-verifies this native account. Set its email in the required non-secret private client value
-`frontendStudio.api.contextforge.serviceAccountEmail`; the API receives it as a
-plain environment value. It is an identity label, not a bearer credential or proof
-of permissions. Never fall back to the native bootstrap administrator email.
-Private HTTPS and the restricted native ingress protect this fixed header
-authority; verified caller email remains separate and unchanged.
-Set `setupConfigMapName: contextforge-setup` and the same `catalogConfigMapName`
-to read the Job's verified team/role IDs and catalog automatically. Without this
-handoff, explicitly set `teamId`, `globalRoleId` and `teamRoleId`.
-Onboarding remains independently opt-in.
-`connectionsEnabled` defaults to false and additionally requires onboarding and
-the exact HTTPS `studioOrigin`. The callback URL is derived from that same origin
-plus `/oauth/callback`, not supplied as a second independently editable URL.
-
-The API receives `K8S_STUDIO_MCP_CATALOG` from `catalogConfigMapName` (default
-`mcp-catalog`), key `studio.json`, **in frontend-studio**. The ContextForge setup Job
-projects this from the same approved canonical source as the AgentGateway
-catalog; the chart neither reads a different namespace nor accepts
-a second hand-written provider list. Wait for that ConfigMap and the internal CA
-before starting the API. Reloader watches the catalog and internal CA changes;
-service email changes update the Deployment through Helm reconciliation.
-Only the API container receives these settings, not the notice or management servers.
-
-The Web chart uses the same feature value to route exact `GET /oauth/callback`
-to Studio API on the existing HTTPS Gateway. `/auth/` remains on the Web service.
-No native ContextForge route or arbitrary management path is publicly exposed.
-Stored OAuth registrations must use `https://studio.example.com/oauth/callback`
-with the actual approved Studio origin. Compatible popup-only callback and
-connection support must be published before selecting this wiring; source flags
-do not establish runtime qualification.
-`0.15.1` includes the public callback's Keycloak middleware exemption; do not use
-`0.15.0` for personal connections. Native account provisioning, app registration,
-actual ciphertext, credential-safe logs and connection/restart checks remain
-operator-owned prerequisites, not results established by these image pins.
+Enable `frontendStudio.api.contextforge` with the dedicated service account and
+`setupConfigMapName`/`catalogConfigMapName` both set to `contextforge-setup`.
+Personal connections use the Studio origin plus `/oauth/callback`.

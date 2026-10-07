@@ -216,7 +216,7 @@ spec:
     charts:
     - path: charts/agentgateway
       name: infra-agentgateway
-      version: 1.10.0
+      version: 1.11.0
       appVersion: 1.6.0
       dependencyLock:
         digest: sha256:ef5fd87240e231990e45578f9deb65e6a6f947ba8a8b846cf13954882299cb3a
@@ -267,7 +267,7 @@ spec:
       version: 1.0.0
     - path: charts/contextforge
       name: contextforge
-      version: 0.2.0
+      version: 0.2.1
       appVersion: 1.0.11
     - path: charts/contextforge/certificates
       name: contextforge-certificates
@@ -504,7 +504,7 @@ spec:
       appVersion: v1.20.3
     - path: charts/studio/api
       name: studio-api
-      version: 1.2.0
+      version: 1.2.1
       appVersion: 0.15.1
     - path: charts/studio/shared
       name: studio-shared

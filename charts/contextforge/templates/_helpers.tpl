@@ -29,6 +29,8 @@ app.kubernetes.io/part-of: contextforge
 - {name: AUTH_REQUIRED, value: "true"}
 - {name: MCP_REQUIRE_AUTH, value: "true"}
 - {name: REQUIRE_USER_IN_DB, value: "true"}
+# Private header-authenticated APIs; browser requests terminate at Studio/Gateway.
+- {name: CSRF_ENABLED, value: "false"}
 - {name: MCPGATEWAY_DIRECT_PROXY_ENABLED, value: "false"}
 - {name: AUTO_CREATE_PERSONAL_TEAMS, value: "false"}
 - {name: MCPGATEWAY_UI_ENABLED, value: "false"}

@@ -96,7 +96,7 @@ mcp:
   # Entries use {name, port, path, workload}; names match selected native entries.
   # The same list feeds ContextForge egress. Credentials remain in the existing
   # infraAgentgatewayWrapperSecrets.mcp.<name> Secret, only mounted by that Pod.
-  upstreamWorkloads: []
+  upstreamWorkloads: [] # Optional overrides; selected presets supply their own workloads.
   enabled: false
   # Activate each native route only after ContextForge setup has succeeded.
   # Selection still generates registration metadata and retained workloads.
@@ -130,7 +130,7 @@ mcp:
   servers: []
   # Alternative to legacy servers, never merged with it. All selections require
   # explicit enabled:true; new shipped presets never enable network access.
-  # Catalog defaults: PII on, content tracing off. See README for native metadata.
+  # Catalog defaults: PII on, content tracing off. Definitions: catalog/presets.yaml.
   catalog:
     presets: {}
     custom: []
