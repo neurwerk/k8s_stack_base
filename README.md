@@ -1,10 +1,10 @@
-# Neurwerk Base
+# Neurwerk Base - Chart
 
 base is the main Helm chart and the foundation of the Neurwerk stack. See the [Neurwerk Base website](https://base.neurwerk.com/) for more information.
 
 | Repository | Description|
 | --- | --- |
-| [Base chart](https://github.com/neurwerk/k8s_stack_base) | Shared platform charts and release packages that form the foundation of the stack (this repo). |
+| [Base chart](https://github.com/neurwerk/k8s_stack_base) | Shared platform charts and release packages that form the foundation of the stack (**this repo**). |
 | [Studio](https://github.com/neurwerk/k8s_stack_studio) | Web dashboard and API for operating AI platform services. |
 | [Tooling](https://github.com/neurwerk/k8s_stack_tooling) | One container image plus separate CLI tools for setup and operations. |
 | [PII Engine](https://github.com/neurwerk/k8s_stack_pii_engine) | Service that uses Presidio to evaluate PII and apply safety policies. |
