@@ -184,6 +184,12 @@ def main():
     for entry in studio:
         require(entry["server_id"] == by_id[entry["id"]]["server_id"], "Server projection conflict")
         entry["gateway_id"] = by_id[entry["id"]]["gateway_id"]
+        tools = api.request("GET", f"/servers/{entry['server_id']}/tools?include_inactive=false")
+        # Native names come from the verified server; AgentGateway uses prefixMode: Always.
+        entry["tool_names"] = {tool["originalName"]: entry["id"] + "_" + tool["name"] for tool in tools}
+        require(len(entry["tool_names"]) == len(tools)
+                and set(entry["tool_names"]) <= set(entry.get("approved_tools", [])),
+                "Studio tool projection conflicts with approved tools")
     # Do not publish results for a catalog changed while this Job was running.
     require(kube.request("GET", source_path)["data"] == source["data"], "Catalog changed; retry setup")
     output["data"] = ids | {"studio.json": json.dumps(studio), "mappings.json": json.dumps(mappings),

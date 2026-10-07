@@ -63,6 +63,6 @@ spec:
             - name: KC_CLIENT_ACCESS_TYPE
               value: "public"
             - name: KC_CLIENT_AUDIENCES
-              value: '["realm-management", "keycloak-api-key-bridge"]'
+              value: '["realm-management", "keycloak-api-key-bridge", "agentgateway"]'
             - name: KC_LOG_PREFIX
               value: "keycloak-studio-oidc"

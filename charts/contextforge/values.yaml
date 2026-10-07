@@ -23,6 +23,13 @@ contextforge:
     # Exact public Studio origin, e.g. https://studio.example.com. Native default
     # redirect_uri is this origin plus /oauth/callback, served by Studio API only.
     studioOrigin: ""
+    # Native limits aggregate all Studio users behind one Pod IP; retain limiting
+    # with a budget for batched catalog reads and the account/role checks per action.
+    rateLimits:
+      criticalRpm: 120
+      highRpm: 600
+      mediumRpm: 1200
+      lowRpm: 1200
 
   # Runs after migration and application readiness; definitions come from the
   # AgentGateway-generated catalog, never another hand-maintained server list.

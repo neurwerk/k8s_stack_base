@@ -2,6 +2,10 @@
 context7:
   name: context7
   displayName: Context7
+  checks:
+    - name: Check connection
+      tool: resolve-library-id
+      arguments: {libraryName: Python, query: "Find the Python documentation"}
   contextforge:
     provider: context7
     authenticationModel: no-authentication
@@ -14,6 +18,10 @@ context7:
 brave:
   name: brave
   displayName: Brave Search
+  checks:
+    - name: Check connection
+      tool: brave_web_search
+      arguments: {query: "Model Context Protocol", count: 1}
   contextforge:
     provider: brave
     authenticationModel: shared-authentication
@@ -42,6 +50,11 @@ brave:
 github:
   name: github
   displayName: GitHub
+  checks:
+    - name: Check connection
+      tool: get_me
+      arguments: {}
+      display: {label: Connected account, field: login}
   contextforge:
     provider: github
     authenticationModel: individual-authentication

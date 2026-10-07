@@ -7,6 +7,8 @@
 {{- if $server.contextforge -}}
 {{- $native := $server.contextforge -}}
 {{- $connection := dict "id" $server.name "name" $server.displayName "authentication_model" $native.authenticationModel "gateway_id" ($native.gatewayId | default "") "server_id" $native.serverId -}}
+{{- $_ := set $connection "approved_tools" $server.registration.approved_tools -}}
+{{- $_ := set $connection "checks" ($server.checks | default list) -}}
 {{- if $server.registration.oauth -}}
 {{- $authorization := urlParse $server.registration.oauth.authorization_url -}}
 {{- $hostParts := splitList ":" (lower $authorization.host) -}}
