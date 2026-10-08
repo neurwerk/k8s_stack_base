@@ -321,6 +321,7 @@ def main():
                    "checked_at": verification_started_at, "integrations": statuses}
     output["data"] = ids | {"studio.json": json.dumps(studio), "mappings.json": json.dumps(mappings),
                             "ready": "true", "catalogResourceVersion": source["metadata"]["resourceVersion"],
+                            "catalog_hash": config["catalogHash"],
                             "publication.json": json.dumps(publication)}
     kube.request("PUT", target, output)
     published = sum(item["state"] == "published" for item in statuses)

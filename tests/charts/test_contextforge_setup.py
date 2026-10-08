@@ -41,20 +41,28 @@ def projection(spec):
 
 
 class SetupPublicationTests(unittest.TestCase):
-    def run_main(self, specs, entries, reconcile_one, api, previous=None):
+    def run_main(self, specs, entries, reconcile_one, api, previous=None, source_changed=False):
         """Exercise the publication pipeline without transport or credential access."""
         config = {"origin": "https://native.example.com", "nativeBudgetSeconds": 120,
-                  "catalogHash": "approved-hash", "operatorDiscovery": {"enabled": False}}
+                  "catalogHash": "a" * 64, "operatorDiscovery": {"enabled": False}}
         source = {"metadata": {"resourceVersion": "current-source"}, "data": {
             "catalogHash": config["catalogHash"], "registrations.json": json.dumps(specs),
             "studio.json": json.dumps(entries)}}
         output = {"metadata": {"labels": {"app.kubernetes.io/part-of": "contextforge"}},
                   "data": copy.deepcopy(previous or {})}
         kube = Mock()
+        source_reads = 0
         def request(method, path, body=None):
+            nonlocal source_reads
             if method == "PUT":
                 return body
-            return copy.deepcopy(source if path.endswith("infra-agentgateway-mcp-catalog") else output)
+            if path.endswith("infra-agentgateway-mcp-catalog"):
+                source_reads += 1
+                result = copy.deepcopy(source)
+                if source_changed and source_reads > 1:
+                    result["data"]["catalogHash"] = "d" * 64
+                return result
+            return copy.deepcopy(output)
         kube.request.side_effect = request
         ids = {"team_id": "team", "global_role_id": "global", "team_role_id": "invoke"}
         started = datetime(2026, 10, 8, 12, 0, tzinfo=timezone.utc)
@@ -106,14 +114,16 @@ class SetupPublicationTests(unittest.TestCase):
         self.assertEqual([entry["id"] for entry in catalog], ["first"])
         self.assertEqual(catalog[0]["tool_names"], {"read": "first_read"})
         publication = json.loads(data["publication.json"])
+        self.assertEqual(data["catalog_hash"], "a" * 64)
+        self.assertEqual(data["catalog_hash"], publication["catalog_hash"])
         self.assertEqual(publication["checked_at"], "2026-10-08T12:00:00+00:00")
         self.assertEqual([entry["state"] for entry in publication["integrations"]], ["published", "error"])
 
     def test_legacy_last_oauth_failure_never_overwrites_or_restarts_previous_consumer(self):
         spec = definition()
         old_entry = projection(spec) | {"tool_names": {}}
-        previous = {"studio.json": json.dumps([old_entry]), "mappings.json": "[]",
-                    "publication.json": json.dumps({"catalog_hash": "old-hash", "checked_at": "old-time"})}
+        previous = {"studio.json": json.dumps([old_entry]), "mappings.json": "[]", "catalog_hash": "c" * 64,
+                    "publication.json": json.dumps({"catalog_hash": "c" * 64, "checked_at": "old-time"})}
         def fail(*args):
             raise registrations.SetupError("Native verification unavailable")
         kube, output, error = self.run_main([spec], [projection(spec)], fail, Mock(), previous)
@@ -126,6 +136,21 @@ class SetupPublicationTests(unittest.TestCase):
         setup.legacy_publication_guard({"operatorDiscovery": {"enabled": True}}, [spec], [], previous)
         with self.assertRaises(registrations.SetupError):
             setup.legacy_publication_guard({"operatorDiscovery": {"enabled": False}}, [], [], previous)
+
+    def test_changed_source_does_not_publish_new_hash_or_relabel_previous_snapshot(self):
+        spec = definition()
+        previous = {"studio.json": json.dumps([projection(spec) | {"tool_names": {}}]),
+                    "mappings.json": "[]", "catalog_hash": "c" * 64}
+        def verified(*args):
+            return {"id": spec["id"], "gateway_id": "a" * 32, "server_id": spec["server_id"],
+                    "state": "pending-discovery", "error_code": None,
+                    "approved_config_hash": registrations.config_hash(spec)}
+        kube, output, error = self.run_main([spec], [projection(spec)], verified, Mock(), previous,
+                                            source_changed=True)
+        self.assertIsInstance(error, registrations.SetupError)
+        self.assertIn("Catalog changed", str(error))
+        self.assertFalse(any(call.args[0] == "PUT" for call in kube.request.call_args_list))
+        self.assertEqual(output["data"], previous)
 
     def test_verified_pending_registration_keeps_real_connect_ids_without_extra_native_call(self):
         spec = definition()

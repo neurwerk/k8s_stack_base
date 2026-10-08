@@ -85,6 +85,14 @@ for pending providers. Existing `team_id`, `global_role_id`, `team_role_id`,
 published, not that all providers are ready. Mapping records also carry a
 non-secret approved-definition hash for safe last-good retention.
 
+Separate `catalog_hash` contains the authoritative approved chart catalog hash
+from setup configuration, verified against the source catalog before publication.
+It is written in the same ConfigMap snapshot as `studio.json` and
+`publication.json`. Studio must require a well-formed exact match between this
+sibling key and `publication.json.catalog_hash`, not merely valid hash syntax.
+Retained entries must match current approved definitions; the legacy no-write
+path leaves the entire old snapshot, including its old hash, untouched.
+
 Verified enabled operator setup adds `operator_email`, `operator_subject` and
 `operator_role_id`. A previously published role ID is retained as revocation
 history even when the email/subject binding is withheld; that ID alone never
