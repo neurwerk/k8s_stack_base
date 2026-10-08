@@ -5,10 +5,7 @@
 {{- if ne (kindOf $ner) "invalid" -}}
 {{- $version := regexFind "[0-9]+\\.[0-9]+\\.[0-9]+" $values.image -}}
 {{- if or (empty $version) (not (semverCompare ">=0.13.0" (default "0.0.0" $version))) -}}
-{{- fail "canonical NER requires a compatible PII Engine image >= 0.13.0; the default published pin is not yet compatible" -}}
-{{- end -}}
-{{- if or (ne $values.device "cpu") $values.accelerator.enabled -}}
-{{- fail "canonical NER requires the CPU Engine without a local GPU allocation" -}}
+{{- fail "canonical NER requires a compatible PII Engine image >= 0.13.0" -}}
 {{- end -}}
 {{- if or (ne $values.analyzerBackend "local") (not (empty $values.remote.models)) -}}
 {{- fail "canonical NER conflicts with legacy analyzerBackend or remote.models selectors" -}}

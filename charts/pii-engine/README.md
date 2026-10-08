@@ -5,11 +5,13 @@ entity actions and anonymization stay in the Engine. `monitorPiiEngine.ner: null
 (the default, also equivalent to omitting it) retains legacy automatic offline
 baseline / verified transformer-bundle selection.
 
-Explicit `ner` requires a compatible Engine **>=0.13.0**. This is a planned
-compatibility minimum, not proof of publication. The chart still pins the verified
-**0.12.0 CPU image**; leave `ner: null` until a published, verified compatible image
-is adopted separately. The examples below describe that future configuration and
-deliberately do not supply a pretend image digest.
+The Engine uses one CPU-based image for both local and remote NER. Generic
+`nodeSelector`, `tolerations` and CPU/memory resources are configurable. Remote
+GLiNER/KServe services own their inference hardware and may use GPUs behind their
+endpoints; the Engine Pod runs on CPU.
+
+Explicit `ner` requires a compatible Engine **>=0.13.0**. The chart pins the
+published, verified **0.13.0** image. The examples below inherit that image pin.
 
 ## Local NER
 
@@ -130,9 +132,9 @@ The ConfigMap contains `ner.yaml`; `PII_ENGINE_NER_CONFIG` points to it.
 Chart-only `egress`, `tokenizerClaimName` and `apiKeySecretRef` are removed from
 that file. Secret keys are mounted read-only at
 `/var/run/pii-engine/remote/<model-id>/api-key` and passed as `apiKeyFile`, never
-as Secret values. All explicit modes use the CPU image without accelerator
-allocation and omit transformer-cache mounts. Existing model-sync jobs and cache
-resources remain intact for legacy workloads or a later switch back.
+as Secret values. All explicit modes run on CPU and omit transformer-cache
+mounts. Existing model-sync jobs and cache resources remain intact for legacy
+workloads or a later switch back.
 
 ## Migration and inherited defaults
 

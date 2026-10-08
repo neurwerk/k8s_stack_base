@@ -23,7 +23,7 @@ def ner_values(mode="local"):
                 "apiKeySecretRef": {"name": "ner-credential", "key": "bearer"},
             }}, egress=[{"cidr": "192.0.2.10/32", "port": 443}])
     return {"monitorPiiEngine": {
-        "image": "ghcr.io/neurwerk/k8s-stack-pii-engine:0.13.0-cpu", "ner": ner,
+        "image": "ghcr.io/neurwerk/k8s-stack-pii-engine:0.13.0", "ner": ner,
     }}
 
 
@@ -36,9 +36,8 @@ class PiiNerLayersTests(unittest.TestCase):
                 pod = resource(rendered, "Deployment")["spec"]["template"]["spec"]
                 env = {item["name"]: item.get("value") for item in pod["containers"][0]["env"]}
                 self.assertEqual(env["PII_ENGINE_NER_CONFIG"], "/etc/pii-engine/ner.yaml")
-                self.assertEqual(env["PII_ENGINE_DEVICE"], "cpu")
-                forbidden = ("PII_ENGINE_ANALYZER_BACKEND", "PII_ENGINE_REMOTE_",
-                             "PII_ENGINE_MODEL_")
+                forbidden = ("PII_ENGINE_DEVICE", "PII_ENGINE_ANALYZER_BACKEND",
+                             "PII_ENGINE_REMOTE_", "PII_ENGINE_MODEL_")
                 self.assertFalse(any(name.startswith(forbidden) for name in env))
                 self.assertNotIn("model-cache", {item["name"] for item in pod["volumes"]})
                 if mode != "remote":
@@ -138,14 +137,13 @@ class PiiNerLayersTests(unittest.TestCase):
         self.assertEqual(mount["mountPath"], "/remote-tokenizers")
         self.assertTrue(mount["readOnly"])
 
-    def test_canonical_requires_future_compatible_image_and_rejects_legacy_conflicts(self):
+    def test_canonical_requires_compatible_image_and_rejects_legacy_conflicts(self):
         values = ner_values("disabled")
-        del values["monitorPiiEngine"]["image"]
+        values["monitorPiiEngine"]["image"] = "ghcr.io/neurwerk/k8s-stack-pii-engine:0.12.0-cpu"
         with self.assertRaisesRegex(AssertionError, "0.13.0"):
             render("pii-engine", values)
         conflicts = [{"analyzerBackend": "remote-gliner"}, {"remote": {"models": [{"name": "old"}]}},
-                     {"policy": {"pii": {"ner": {"strategy": "per-language"}}}},
-                     {"device": "cuda", "accelerator": {"enabled": True}}]
+                     {"policy": {"pii": {"ner": {"strategy": "per-language"}}}}]
         for conflict in conflicts:
             values = ner_values("disabled")
             values["monitorPiiEngine"].update(conflict)

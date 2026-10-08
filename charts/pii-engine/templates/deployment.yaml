@@ -1,5 +1,3 @@
-{{- $device := .Values.monitorPiiEngine.device -}}
-{{- $accelerator := .Values.monitorPiiEngine.accelerator -}}
 {{- $image := .Values.monitorPiiEngine.image -}}
 {{- $backend := .Values.monitorPiiEngine.analyzerBackend -}}
 {{- $remote := .Values.monitorPiiEngine.remote -}}
@@ -28,30 +26,9 @@
 {{- if and (eq $backend "remote-kserve") (empty $remote.tokenizerClaimName) }}
 {{- fail "remote KServe requires an existing checksum-pinned tokenizer PVC" }}
 {{- end }}
-{{- if or (ne $device "cpu") $accelerator.enabled }}
-{{- fail "remote NER uses the CPU Engine image without a local GPU allocation" }}
-{{- end }}
 {{- end }}
 {{- $logLevel := .Values.monitorPiiEngine.logging.level -}}
 {{- $maxStudioEvaluationResponseBytes := .Values.monitorPiiEngine.capacity.maxStudioEvaluationResponseBytes -}}
-{{- if not (or (eq $device "cpu") (hasPrefix "cuda" $device)) }}
-{{- fail "monitorPiiEngine.device must be cpu or cuda[:index]" }}
-{{- end }}
-{{- if and (hasPrefix "cuda" $device) (not $accelerator.enabled) }}
-{{- fail "monitorPiiEngine.accelerator.enabled must be true for a CUDA device" }}
-{{- end }}
-{{- if and $accelerator.enabled (not (hasPrefix "cuda" $device)) }}
-{{- fail "monitorPiiEngine.device must select CUDA when the accelerator is enabled" }}
-{{- end }}
-{{- if and (eq $device "cpu") (not (contains "-cpu" $image)) }}
-{{- fail "monitorPiiEngine.image must use the CPU variant for device cpu" }}
-{{- end }}
-{{- if and (hasPrefix "cuda" $device) (not (contains "-cu124" $image)) }}
-{{- fail "monitorPiiEngine.image must use the cu124 variant for a CUDA device" }}
-{{- end }}
-{{- if and $accelerator.enabled (or (empty $accelerator.resourceName) (lt (int $accelerator.count) 1)) }}
-{{- fail "monitorPiiEngine.accelerator requires a resource name and positive count" }}
-{{- end }}
 {{- if not (has $logLevel (list "DEBUG" "INFO" "WARNING" "ERROR")) }}
 {{- fail "monitorPiiEngine.logging.level must be DEBUG, INFO, WARNING, or ERROR" }}
 {{- end }}
@@ -119,8 +96,6 @@ spec:
               value: {{ .Values.monitorPiiEngine.policyVersion | quote }}
             - name: PII_ENGINE_LOG_LEVEL
               value: {{ $logLevel | quote }}
-            - name: PII_ENGINE_DEVICE
-              value: {{ $device | quote }}
             {{- if $canonical }}
             - name: PII_ENGINE_NER_CONFIG
               value: /etc/pii-engine/ner.yaml
@@ -255,9 +230,6 @@ spec:
               {{- toYaml .Values.monitorPiiEngine.resources.requests | nindent 14 }}
             limits:
               {{- toYaml .Values.monitorPiiEngine.resources.limits | nindent 14 }}
-              {{- if $accelerator.enabled }}
-              {{ $accelerator.resourceName | quote }}: {{ $accelerator.count }}
-              {{- end }}
       volumes:
         {{- if and (not $canonical) (eq $backend "local") }}
         - name: model-cache
