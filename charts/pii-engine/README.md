@@ -93,6 +93,13 @@ profile's checksum-pinned tokenizer-only files. Helm mounts the PVC read-only at
 `/remote-tokenizers`; remote weights are never mounted. Mixed remote profiles
 are allowed, but local and remote profiles cannot share a mode.
 
+Model IDs and profile IDs do not determine adapter type or mounts. The Engine
+owns profile kind and mode validation, including added profiles with arbitrary
+IDs. Helm mounts tokenizer resources whenever a model declares `tokenizerPath`,
+requiring `modelName` and an existing `tokenizerClaimName` regardless of its
+profile ID. A tokenizer claim without any model using it is rejected. Adding an
+Engine profile does not require Helm wiring changes.
+
 ## Limits and trust
 
 Active modes require 1–3 models. IDs match `^[a-z][a-z0-9-]{0,63}$`; supported

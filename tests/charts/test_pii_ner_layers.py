@@ -101,6 +101,43 @@ class PiiNerLayersTests(unittest.TestCase):
         self.assertNotIn("tokenizerClaimName", config)
         self.assertEqual(config["models"]["multilingual"]["revision"], "operator-verified-revision")
 
+    def test_added_profiles_use_explicit_resources_not_profile_name_prefixes(self):
+        values = ner_values("local")
+        values["monitorPiiEngine"]["ner"]["models"]["english"]["profile"] = "example-local-v1"
+        rendered = render("pii-engine", values)
+        pod = resource(rendered, "Deployment")["spec"]["template"]["spec"]
+        self.assertFalse(any(item["name"] == "remote-tokenizers" for item in pod["volumes"]))
+
+        values = ner_values("remote")
+        ner = values["monitorPiiEngine"]["ner"]
+        ner["tokenizerClaimName"] = "ner-tokenizers"
+        with self.assertRaisesRegex(AssertionError, "tokenizerClaimName requires a model"):
+            render("pii-engine", values)
+        model = ner["models"]["multilingual"]
+        model.update(profile="example-multilingual-v1", modelName="ner-multilingual",
+                     endpoint="https://ner.example.com/v1/models/ner-multilingual:predict",
+                     tokenizerPath="/remote-tokenizers/multilingual")
+        del ner["tokenizerClaimName"]
+        with self.assertRaisesRegex(AssertionError, "tokenizer PVC"):
+            render("pii-engine", values)
+        ner["tokenizerClaimName"] = "ner-tokenizers"
+        del model["modelName"]
+        with self.assertRaisesRegex(AssertionError, "modelName"):
+            render("pii-engine", values)
+        model["modelName"] = "ner-multilingual"
+        model["tokenizerPath"] = "/remote-tokenizers/../outside"
+        with self.assertRaisesRegex(AssertionError, "must stay under"):
+            render("pii-engine", values)
+        model["tokenizerPath"] = "/remote-tokenizers/multilingual"
+        rendered = render("pii-engine", values)
+        pod = resource(rendered, "Deployment")["spec"]["template"]["spec"]
+        volume = next(item for item in pod["volumes"] if item["name"] == "remote-tokenizers")
+        self.assertEqual(volume["persistentVolumeClaim"]["claimName"], "ner-tokenizers")
+        mount = next(item for item in pod["containers"][0]["volumeMounts"]
+                     if item["name"] == "remote-tokenizers")
+        self.assertEqual(mount["mountPath"], "/remote-tokenizers")
+        self.assertTrue(mount["readOnly"])
+
     def test_canonical_requires_future_compatible_image_and_rejects_legacy_conflicts(self):
         values = ner_values("disabled")
         del values["monitorPiiEngine"]["image"]

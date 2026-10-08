@@ -33,25 +33,25 @@
 {{- range $id, $model := $models -}}
 {{- if not (has $id (values $languages)) -}}{{- fail "NER models must all be referenced by languageModels" -}}{{- end -}}
 {{- if eq $ner.mode "local" -}}
-{{- if not (hasPrefix "spacy-" $model.profile) -}}{{- fail "local NER requires a local spaCy profile" -}}{{- end -}}
 {{- range $field := list "endpoint" "modelName" "inferenceThreshold" "allowPrivateHttp" "tokenizerPath" "apiKeySecretRef" -}}
 {{- if hasKey $model $field -}}{{- fail "local NER cannot configure remote model fields" -}}{{- end -}}
 {{- end -}}
 {{- else -}}
-{{- if hasPrefix "spacy-" $model.profile -}}{{- fail "remote NER cannot select local spaCy profiles" -}}{{- end -}}
+{{- if has $model.profile (list "spacy-en-sm-v1" "spacy-de-sm-v1" "spacy-nl-sm-v1") -}}{{- fail "remote NER cannot select local spaCy profiles" -}}{{- end -}}
 {{- if empty $model.endpoint -}}{{- fail "remote NER requires an endpoint for every model" -}}{{- end -}}
 {{- if and (hasPrefix "http://" $model.endpoint) (not $model.allowPrivateHttp) -}}
 {{- fail "remote NER HTTP requires explicit allowPrivateHttp approval" -}}
 {{- end -}}
-{{- if hasPrefix "gliner-" $model.profile -}}
+{{- if eq $model.profile "gliner-multilingual-pii-v1" -}}
 {{- if not (hasKey $model "inferenceThreshold") -}}{{- fail "GLiNER requires inferenceThreshold" -}}{{- end -}}
 {{- end -}}
-{{- if hasPrefix "kserve-" $model.profile -}}
+{{/* Explicit tokenizer resources determine wiring even for Engine-added profiles. */}}
+{{- if or (not (empty $model.tokenizerPath)) (has $model.profile (list "kserve-en-openpii-v1" "kserve-de-superclinical-v1")) -}}
 {{- if or (empty $model.modelName) (empty $model.tokenizerPath) (empty $ner.tokenizerClaimName) -}}
-{{- fail "KServe requires modelName, tokenizerPath and an existing tokenizer PVC (tokenizerClaimName)" -}}
+{{- fail "NER tokenizer resources require modelName, tokenizerPath and an existing tokenizer PVC (tokenizerClaimName)" -}}
 {{- end -}}
 {{- if or (contains "/../" $model.tokenizerPath) (hasSuffix "/.." $model.tokenizerPath) -}}
-{{- fail "KServe tokenizerPath must stay under /remote-tokenizers" -}}
+{{- fail "NER tokenizerPath must stay under /remote-tokenizers" -}}
 {{- end -}}
 {{- end -}}
 {{- end -}}
@@ -59,6 +59,9 @@
 {{- end -}}
 {{- if eq $ner.mode "remote" -}}
 {{- if empty $ner.egress -}}{{- fail "remote NER requires narrowly scoped destination egress" -}}{{- end -}}
+{{- if and (not (empty $ner.tokenizerClaimName)) (empty (include "monitor-pii-engine.nerNeedsTokenizers" .)) -}}
+{{- fail "NER tokenizerClaimName requires a model with tokenizerPath" -}}
+{{- end -}}
 {{- range $ner.egress -}}
 {{- if hasSuffix "/128" .cidr -}}
 {{- $address := trimSuffix "/128" .cidr -}}
@@ -83,8 +86,8 @@
 {{- end -}}
 {{- end -}}
 
-{{- define "monitor-pii-engine.nerHasKserve" -}}
+{{- define "monitor-pii-engine.nerNeedsTokenizers" -}}
 {{- range (default dict .Values.monitorPiiEngine.ner).models -}}
-{{- if hasPrefix "kserve-" .profile -}}true{{- end -}}
+{{- if not (empty .tokenizerPath) -}}true{{- end -}}
 {{- end -}}
 {{- end -}}

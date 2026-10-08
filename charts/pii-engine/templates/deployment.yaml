@@ -5,7 +5,7 @@
 {{- $remote := .Values.monitorPiiEngine.remote -}}
 {{- $canonical := ne (kindOf .Values.monitorPiiEngine.ner) "invalid" -}}
 {{- $ner := default dict .Values.monitorPiiEngine.ner -}}
-{{- $hasKserve := or (and (not $canonical) (eq $backend "remote-kserve")) (and $canonical (not (empty (include "monitor-pii-engine.nerHasKserve" .)))) -}}
+{{- $needsTokenizers := or (and (not $canonical) (eq $backend "remote-kserve")) (and $canonical (not (empty (include "monitor-pii-engine.nerNeedsTokenizers" .)))) -}}
 {{- $keyModels := list -}}
 {{- if $canonical -}}
 {{- range $id, $model := $ner.models -}}
@@ -211,7 +211,7 @@ spec:
               mountPath: /cache
               readOnly: true
             {{- end }}
-            {{- if $hasKserve }}
+            {{- if $needsTokenizers }}
             - name: remote-tokenizers
               mountPath: /remote-tokenizers
               readOnly: true
@@ -264,7 +264,7 @@ spec:
           persistentVolumeClaim:
             claimName: monitor-pii-engine-model-cache-pvc
         {{- end }}
-        {{- if $hasKserve }}
+        {{- if $needsTokenizers }}
         - name: remote-tokenizers
           persistentVolumeClaim:
             claimName: {{ ternary (default "" $ner.tokenizerClaimName) $remote.tokenizerClaimName $canonical | quote }}
