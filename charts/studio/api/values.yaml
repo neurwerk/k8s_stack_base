@@ -72,6 +72,9 @@ frontendStudio:
       enabled: false
       accountOnboardingEnabled: false
       connectionsEnabled: false
+      # Any verified mcp-admin uses their own connection; no named operator binding.
+      adminDiscovery:
+        enabled: false
       # Requires separately published/adopted Studio support and verified setup IDs.
       operatorDiscovery:
         enabled: false

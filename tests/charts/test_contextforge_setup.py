@@ -243,6 +243,20 @@ class SetupPublicationTests(unittest.TestCase):
 
 
 class OperatorGrantTests(unittest.TestCase):
+    def test_admin_discovery_creates_only_scoped_role_without_a_named_account(self):
+        api, db = Mock(), Mock()
+        config = {"operatorDiscovery": {"enabled": False}, "adminDiscovery": {"enabled": True}}
+        with patch.object(setup, "role", return_value="discovery") as role:
+            result = setup.admin_discovery_role(api, db, config, "admin@example.com", {})
+            self.assertEqual(result, {"admin_discovery_role_id": "discovery", "admin_discovery_ready": "true"})
+            self.assertEqual(role.call_args.args[2:5], ("contextforge-tool-discovery", "team", ["gateways.update"]))
+            self.assertEqual(role.call_args.args[-1], setup.MARKER + "/admin-discovery")
+        api.request.assert_not_called()
+        db.rows.assert_not_called()
+        with self.assertRaises(registrations.SetupError):
+            setup.admin_discovery_role(api, db, config, "admin@example.com", {"operator_role_id": "legacy"})
+        self.assertEqual(setup.admin_discovery_role(api, db, {}, "admin@example.com", {}), {})
+
     def test_first_grant_is_only_named_team_discovery_and_is_confirmed(self):
         api, db = Mock(), Mock()
         config = {"serviceAccountEmail": "studio@example.com", "operatorDiscovery": {
@@ -290,6 +304,25 @@ class OperatorGrantTests(unittest.TestCase):
 
 
 class RerunTests(unittest.TestCase):
+    def test_role_based_discovery_requires_no_binding_and_rejects_mixed_modes(self):
+        native = {"contextforge": {"trustedProxy": {"enabled": True, "studioOrigin": "https://studio.example.com",
+                    "defaultUserRole": "reader", "defaultTeamMemberRole": "member"},
+                    "setup": {"enabled": True, "serviceAccountEmail": "studio@example.com",
+                              "adminDiscovery": {"enabled": True},
+                              "kubernetesApiEgress": [{"cidr": "192.0.2.1/32", "port": 443}]}}}
+        studio = {"frontendStudio": {"api": {"contextforge": {
+            "enabled": True, "accountOnboardingEnabled": True, "connectionsEnabled": True,
+            "studioOrigin": "https://studio.example.com", "serviceAccountEmail": "studio@example.com",
+            "catalogConfigMapName": "contextforge-setup", "setupConfigMapName": "contextforge-setup",
+            "adminDiscovery": {"enabled": True}}}}}
+        for chart, values, config in (("contextforge", native, native["contextforge"]["setup"]),
+                                      ("studio/api", studio, studio["frontendStudio"]["api"]["contextforge"])):
+            render(chart, values)
+            config["operatorDiscovery"] = {"enabled": True}
+            output = render(chart, values, check=False)
+            self.assertNotEqual(output.returncode, 0)
+            self.assertIn("not both", output.stderr)
+
     def test_operator_admission_rejects_missing_named_subject_in_both_charts(self):
         operator = {"enabled": True, "operatorEmail": "operator@example.com", "operatorSubject": ""}
         studio_values = {"frontendStudio": {"api": {"contextforge": {

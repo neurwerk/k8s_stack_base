@@ -3,7 +3,47 @@
 The optional chart runs private ContextForge and a setup Job that registers the selected MCP catalog and supplies Studio's configuration.
 Keep credentials in OpenBao; stop the application before database migrations and preserve the database with its encryption keys.
 
-## Named operator discovery (source preparation)
+## Role-based administrator discovery (source preparation)
+
+The preferred opt-in flow uses `mcp-admin`, not a specially named login. Enable
+`contextforge.setup.adminDiscovery.enabled` and
+`frontendStudio.api.contextforge.adminDiscovery.enabled` only after separately
+publishing and adopting the compatible Studio implementation (Studio #84).
+Both default to false; the currently pinned Studio `0.16.3` cannot use this mode.
+
+Setup creates/verifies the non-inheriting `contextforge-tool-discovery` native
+team role with exactly `gateways.update`, without granting it to a person or
+service. It publishes `admin_discovery_role_id` and `admin_discovery_ready=true`
+only after verification. On failure or disable, the ID is retained as history,
+but the ready key is withheld and cannot authorize discovery.
+
+An `mcp-admin` connects personally and explicitly clicks **Discover tools**.
+Studio verifies its own admission role, the administrator role, verified email,
+and the integration invocation grants before checking the existing native user.
+The existing provisioning service leases the discovery role to that caller for
+120 seconds, then the private refresh API uses that caller's own saved provider
+connection. Native role scope, grantor and expiry are verified. No separate login,
+token copying, shared provider connection or automatic fallback user is introduced.
+Ordinary account/status/tool checks do not renew this grant. Keycloak is the
+authority for explicit lease renewals; disabled native accounts and revoked
+ordinary membership/invocation grants remain blocked. Native management remains
+private, because upstream `gateways.update` also admits gateway edits.
+
+Successful discovery still requires the independently rerun setup Job below to
+verify and publish the approved catalog, then explicit client route activation.
+Keep the published catalog when a discovery connection disconnects; another
+authorized administrator can later refresh using their own connection. Native
+refresh can change shared records before publication; this is not atomic rollback.
+
+The legacy `operatorDiscovery` mode is mutually exclusive. If it was ever enabled,
+explicitly retire its permanent discovery assignment and role through native APIs,
+then remove only its obsolete `operator_*` projection keys before enabling this
+mode. Setup refuses migration while `operator_role_id` remains; it never silently
+deletes old grants or recreates a revoked role. Existing personal connections and
+provider registrations are preserved. Installations where it stayed disabled
+need no identity migration.
+
+## Legacy named operator discovery
 
 The feature defaults off. Do not enable it until compatible Studio support is
 published and separately adopted; this chart change does not change image pins,
