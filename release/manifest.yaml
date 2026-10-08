@@ -433,7 +433,7 @@ spec:
           sha256: d932c62d60743f2837c7b9a4248ef7719c3049fe11b2dd8d44bc6ede43641a0e
     - path: charts/pii-engine
       name: pii-engine
-      version: 1.0.10
+      version: 1.1.0
       appVersion: 0.12.0
     - path: charts/pii-engine-model-sync
       name: pii-engine-model-sync

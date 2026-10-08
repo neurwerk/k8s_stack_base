@@ -1,3 +1,9 @@
+{{- include "monitor-pii-engine.validateNer" . -}}
+{{- $canonical := ne (kindOf .Values.monitorPiiEngine.ner) "invalid" -}}
+{{- $policy := deepCopy .Values.monitorPiiEngine.policy -}}
+{{- if $canonical -}}
+{{- $_ := unset $policy.pii "ner" -}}
+{{- end -}}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -7,8 +13,25 @@ metadata:
     {{- include "monitor-pii-engine.labels" . | nindent 4 }}
 data:
   policy.yaml: |-
-    {{- toYaml .Values.monitorPiiEngine.policy | nindent 4 }}
-  {{- if ne .Values.monitorPiiEngine.analyzerBackend "local" }}
+    {{- toYaml $policy | nindent 4 }}
+  {{- if $canonical }}
+  ner.yaml: |-
+    {{- $ner := omit .Values.monitorPiiEngine.ner "egress" "tokenizerClaimName" }}
+    {{- $models := dict }}
+    {{- range $id, $value := $ner.models }}
+    {{- $model := omit $value "apiKeySecretRef" }}
+    {{- if $value.apiKeySecretRef }}
+    {{- $_ := set $model "apiKeyFile" (printf "/var/run/pii-engine/remote/%s/api-key" $id) }}
+    {{- end }}
+    {{- $_ := set $models $id $model }}
+    {{- end }}
+    {{- $_ := set $ner "models" $models }}
+    {{- if eq $ner.mode "remote" }}
+    {{- $capacity := mergeOverwrite (dict "callTimeout" 10 "maxCalls" 2048 "maxResponseBytes" 2097152 "maxConcurrentCalls" 1) (default dict $ner.capacity) }}
+    {{- $_ := set $ner "capacity" $capacity }}
+    {{- end }}
+    {{- toYaml $ner | nindent 4 }}
+  {{- else if ne .Values.monitorPiiEngine.analyzerBackend "local" }}
   remote.json: |-
     {{- $models := list }}
     {{- range .Values.monitorPiiEngine.remote.models }}

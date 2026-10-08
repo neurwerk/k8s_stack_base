@@ -5,6 +5,10 @@ monitorPiiEngine:
   device: cpu
   # Local retains the existing baseline / verified transformer selection.
   analyzerBackend: local # local | remote-gliner | remote-kserve
+  # null preserves legacy automatic baseline / transformer bundle selection.
+  # Explicit disabled/local/remote requires a compatible Engine >=0.13.0.
+  # See README.md; credentials are Secret references, never values.
+  ner: null
   remote:
     callTimeout: 10
     maxCalls: 2048

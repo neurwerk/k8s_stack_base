@@ -1,3 +1,10 @@
+{{- $canonical := ne (kindOf .Values.monitorPiiEngine.ner) "invalid" -}}
+{{- $egress := list -}}
+{{- if $canonical -}}
+{{- $egress = default list .Values.monitorPiiEngine.ner.egress -}}
+{{- else if ne .Values.monitorPiiEngine.analyzerBackend "local" -}}
+{{- $egress = .Values.monitorPiiEngine.remote.egress -}}
+{{- end -}}
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -54,8 +61,7 @@ spec:
       ports:
         - port: 6379
           protocol: TCP
-    {{- if ne .Values.monitorPiiEngine.analyzerBackend "local" }}
-    {{- range .Values.monitorPiiEngine.remote.egress }}
+    {{- range $egress }}
     {{- if or (empty .cidr) (not (regexMatch "/(32|128)$" .cidr)) (lt (int .port) 1) (gt (int .port) 65535) }}
     {{- fail "remote NER egress requires a scoped host CIDR (/32 or /128) and a valid TCP port" }}
     {{- end }}
@@ -65,5 +71,4 @@ spec:
       ports:
         - port: {{ .port }}
           protocol: TCP
-    {{- end }}
     {{- end }}
