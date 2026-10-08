@@ -3,10 +3,21 @@
 {{- $image := .Values.monitorPiiEngine.image -}}
 {{- $backend := .Values.monitorPiiEngine.analyzerBackend -}}
 {{- $remote := .Values.monitorPiiEngine.remote -}}
+{{- $canonical := ne (kindOf .Values.monitorPiiEngine.ner) "invalid" -}}
+{{- $ner := default dict .Values.monitorPiiEngine.ner -}}
+{{- $needsTokenizers := or (and (not $canonical) (eq $backend "remote-kserve")) (and $canonical (not (empty (include "monitor-pii-engine.nerNeedsTokenizers" .)))) -}}
+{{- $keyModels := list -}}
+{{- if $canonical -}}
+{{- range $id, $model := $ner.models -}}
+{{- $keyModels = append $keyModels (merge (dict "name" $id) $model) -}}
+{{- end -}}
+{{- else if ne $backend "local" -}}
+{{- $keyModels = $remote.models -}}
+{{- end -}}
 {{- if not (has $backend (list "local" "remote-gliner" "remote-kserve")) }}
 {{- fail "monitorPiiEngine.analyzerBackend must be local, remote-gliner or remote-kserve" }}
 {{- end }}
-{{- if ne $backend "local" }}
+{{- if and (not $canonical) (ne $backend "local") }}
 {{- $version := regexFind "[0-9]+\\.[0-9]+\\.[0-9]+" $image }}
 {{- if or (empty $version) (not (semverCompare ">=0.12.0" (default "0.0.0" $version))) }}
 {{- fail "remote NER requires a published compatible PII Engine image >= 0.12.0" }}
@@ -110,6 +121,10 @@ spec:
               value: {{ $logLevel | quote }}
             - name: PII_ENGINE_DEVICE
               value: {{ $device | quote }}
+            {{- if $canonical }}
+            - name: PII_ENGINE_NER_CONFIG
+              value: /etc/pii-engine/ner.yaml
+            {{- else }}
             - name: PII_ENGINE_ANALYZER_BACKEND
               value: {{ $backend | quote }}
             {{- if ne $backend "local" }}
@@ -124,13 +139,14 @@ spec:
             - name: PII_ENGINE_REMOTE_MAX_CONCURRENT_CALLS
               value: {{ $remote.maxConcurrentCalls | quote }}
             {{- end }}
+            {{- end }}
             - name: HF_HUB_OFFLINE
               value: "1"
             - name: TRANSFORMERS_OFFLINE
               value: "1"
             - name: TOKENIZERS_PARALLELISM
               value: "false"
-            {{- if eq $backend "local" }}
+            {{- if and (not $canonical) (eq $backend "local") }}
             - name: PII_ENGINE_MODEL_CACHE_PATH
               value: /cache
             - name: PII_ENGINE_MODEL_BUNDLE_REFERENCE
@@ -190,23 +206,21 @@ spec:
             - name: PII_ENGINE_POLICY_CONFIG
               value: /etc/pii-engine/policy.yaml
           volumeMounts:
-            {{- if eq $backend "local" }}
+            {{- if and (not $canonical) (eq $backend "local") }}
             - name: model-cache
               mountPath: /cache
               readOnly: true
             {{- end }}
-            {{- if eq $backend "remote-kserve" }}
+            {{- if $needsTokenizers }}
             - name: remote-tokenizers
               mountPath: /remote-tokenizers
               readOnly: true
             {{- end }}
-            {{- if ne $backend "local" }}
-            {{- range $remote.models }}
+            {{- range $keyModels }}
             {{- if .apiKeySecretRef }}
-            - name: remote-key-{{ .name }}
+            - name: remote-key-{{ ternary (sha256sum .name | trunc 16) .name $canonical }}
               mountPath: /var/run/pii-engine/remote/{{ .name }}
               readOnly: true
-            {{- end }}
             {{- end }}
             {{- end }}
             - name: tls
@@ -245,27 +259,25 @@ spec:
               {{ $accelerator.resourceName | quote }}: {{ $accelerator.count }}
               {{- end }}
       volumes:
-        {{- if eq $backend "local" }}
+        {{- if and (not $canonical) (eq $backend "local") }}
         - name: model-cache
           persistentVolumeClaim:
             claimName: monitor-pii-engine-model-cache-pvc
         {{- end }}
-        {{- if eq $backend "remote-kserve" }}
+        {{- if $needsTokenizers }}
         - name: remote-tokenizers
           persistentVolumeClaim:
-            claimName: {{ $remote.tokenizerClaimName | quote }}
+            claimName: {{ ternary (default "" $ner.tokenizerClaimName) $remote.tokenizerClaimName $canonical | quote }}
         {{- end }}
-        {{- if ne $backend "local" }}
-        {{- range $remote.models }}
+        {{- range $keyModels }}
         {{- if .apiKeySecretRef }}
-        - name: remote-key-{{ .name }}
+        - name: remote-key-{{ ternary (sha256sum .name | trunc 16) .name $canonical }}
           secret:
             secretName: {{ required "remote API key Secret name is required" .apiKeySecretRef.name | quote }}
             defaultMode: 0440
             items:
               - key: {{ required "remote API key Secret key is required" .apiKeySecretRef.key | quote }}
                 path: api-key
-        {{- end }}
         {{- end }}
         {{- end }}
         - name: tls
