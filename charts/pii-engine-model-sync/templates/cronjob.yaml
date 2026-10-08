@@ -1,6 +1,3 @@
-{{- if not (contains "-cpu" .Values.monitorPiiEngine.modelSync.image) }}
-{{- fail "monitorPiiEngine.modelSync.image must use the CPU image variant" }}
-{{- end }}
 apiVersion: batch/v1
 kind: CronJob
 metadata:

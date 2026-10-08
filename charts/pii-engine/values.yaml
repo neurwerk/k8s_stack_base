@@ -1,8 +1,7 @@
 # IMAGE SOURCE: owned service
 # The image is built by the pii_engine repository and pinned here.
 monitorPiiEngine:
-  image: ghcr.io/neurwerk/k8s-stack-pii-engine:0.12.0-cpu@sha256:9b358f390648307a27741a37fd16d39a2f6145e251f927722a537853c1c023fe
-  device: cpu
+  image: ghcr.io/neurwerk/k8s-stack-pii-engine:0.13.0@sha256:0dbd797ca5b57b3b1eb8c47f1f601961d32abdcd37f21597691cfc478f72b9ee
   # Local retains the existing baseline / verified transformer selection.
   analyzerBackend: local # local | remote-gliner | remote-kserve
   # null preserves legacy automatic baseline / transformer bundle selection.
@@ -22,10 +21,6 @@ monitorPiiEngine:
     # KServe only: existing PVC holding checksum-pinned tokenizer-only folders.
     # Mounted read-only at /remote-tokenizers; model weights are not needed.
     tokenizerClaimName: ""
-  accelerator:
-    enabled: false
-    resourceName: nvidia.com/gpu
-    count: 1
   nodeSelector: {}
   tolerations: []
   replicas: 1
