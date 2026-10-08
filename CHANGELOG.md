@@ -9,6 +9,10 @@ upgrade path.
 
 ## [Unreleased]
 
+## [0.3.25] - 2026-10-08
+
+
+
 ## [0.3.24] - 2026-10-07
 
 - Upgrade LibreChat to the digest-pinned upstream `v0.8.8` image and add opt-in cost estimates using the client's AgentGateway pricing catalog and model context windows.
