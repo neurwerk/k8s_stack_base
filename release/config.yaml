@@ -1,6 +1,6 @@
-version: 0.3.24
-releaseDate: '2026-10-07'
-summary: Default ContextForge and remote NER support
+version: 0.3.25
+releaseDate: '2026-10-08'
+summary: Independent PII recognition and MCP workflow improvements
 trust:
   signerIdentity: platform-release
   algorithm: ssh-ed25519
@@ -172,27 +172,12 @@ exceptions:
   reason: The reviewed upstream DocumentDB local image requires passwordless sudo to prepare runtime directories
     before dropping back to UID 1000.
 provenance:
-  previousTag: v0.3.23
-  includedThrough: b3ba6b93f841511955a7ef35e9bfa219528d2121
+  previousTag: v0.3.24
+  includedThrough: e3c613139b87d4b023e69b6520bff0fb7ea945bb
   commits:
-  - c25ab307ec980b3242f4e5483526cb7b3056c20e
-  - 9a554c1cbd88c7f48640d3e42b5b5cfc38d23d68
-  - c63e33a6e9a7f33d186d77d4e425e889690672b5
-  - a4581081a106277e9b6e9af79930d1ac06656060
-  - 43b83c1118f38d3c895b9dd73215e3f70f743f4d
-  - 2419977b0e74afde68722e71f37f3234bd55f32c
-  - 039b81c2f56f2abe0401ece3f81332bde72dc423
-  - 87c0e4d5923b12d16dcd98b58a5e39b74b5d6e2c
-  - af0b0150c89e1ec53df8aded52b36229ebac4806
-  - 76d2a08c4e43371c810d9ce5d1c4e453eed257c9
-  - ed731b0903de431e3bbbd3e9732b59f88cd487a3
-  - 69164505fb61f4cdc2cc6be7c43677e10ff666b7
-  - 70a849c3e57e6022fe889551cec5f3faa7615e15
-  - 76dba4c56005237d4e0c0548c8a23919fe5d246b
-  - 2080d00512bdc534e946e45d15c0205206178725
-  - d54a8700987c88ee5d7734c9e94f7c52a3723258
-  - b1a450b0e8f7b05951dfdd49043ff6fcba1f6f88
-  - 248fafcd2f5c0bc1b19ee82d0d43887fbf23af4e
-  - 514251266b71bbe15980e194f0f091a4d7d7c776
-  - b3ba6b93f841511955a7ef35e9bfa219528d2121
-  compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.23...b3ba6b93f841511955a7ef35e9bfa219528d2121
+  - 95698b8eef382b400f9520f44dbea487e57babee
+  - 9ac6ff66479bcb4955a8f0350fab20b495baa162
+  - 7820a180a2425d4851bad26d0b5825905d5b30de
+  - 5967230252def10e652f4137371aa52efe74c2af
+  - e3c613139b87d4b023e69b6520bff0fb7ea945bb
+  compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.24...e3c613139b87d4b023e69b6520bff0fb7ea945bb

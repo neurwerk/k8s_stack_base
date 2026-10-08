@@ -9,6 +9,14 @@ upgrade path.
 
 ## [Unreleased]
 
+## [0.3.25] - 2026-10-08
+
+- Adopt the single, digest-pinned PII Engine `0.13.0` image for Engine and model-sync; local recognition runs on CPU and remote inference services own their hardware.
+- Add independent CPU rules and explicit local, remote or disabled NER selection, including language-to-model profiles; existing clients retain legacy selection until they opt in.
+- Adopt Studio `0.16.3` for named operator MCP discovery, publication status and automatic checks of approved integrations.
+- Isolate MCP provider publication failures and verify approved catalog identity; operator discovery remains disabled until explicitly configured.
+- Before activation, adopt the compatible Base release, remove obsolete Engine device/accelerator settings and follow the NER and operator-discovery guidance in `release/migrations/v0.3.25.md`.
+
 ## [0.3.24] - 2026-10-07
 
 - Upgrade LibreChat to the digest-pinned upstream `v0.8.8` image and add opt-in cost estimates using the client's AgentGateway pricing catalog and model context windows.
