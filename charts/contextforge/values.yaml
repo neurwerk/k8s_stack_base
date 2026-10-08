@@ -39,8 +39,14 @@ contextforge:
     serviceAccountEmail: ""
     ownerRoleName: neurwerk-mcp-provisioner
     activeDeadlineSeconds: 600
-    # Explicit one-time discovery/publication after operator OAuth consent.
+    # Deprecated compatibility input; setup never performs OAuth discovery.
     publishOAuthTools: []
+    # Enable only after a compatible Studio image is published and adopted.
+    operatorDiscovery:
+      enabled: false
+      operatorEmail: ""
+      operatorSubject: ""
+      roleName: neurwerk-mcp-discovery
     # Both API Service and post-DNAT server destinations, supplied by the client.
     kubernetesApiEgress: []
 

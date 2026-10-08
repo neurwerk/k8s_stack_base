@@ -72,6 +72,12 @@ frontendStudio:
       enabled: false
       accountOnboardingEnabled: false
       connectionsEnabled: false
+      # Requires separately published/adopted Studio support and verified setup IDs.
+      operatorDiscovery:
+        enabled: false
+        operatorEmail: ""
+        operatorSubject: ""
+        roleName: neurwerk-mcp-discovery
       studioOrigin: ""
       catalogConfigMapName: mcp-catalog
       catalogKey: studio.json
