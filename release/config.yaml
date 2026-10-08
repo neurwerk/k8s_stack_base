@@ -1,6 +1,6 @@
-version: 0.3.25
+version: 0.3.26
 releaseDate: '2026-10-08'
-summary: Independent PII recognition and MCP workflow improvements
+summary: Role-based MCP administrator discovery
 trust:
   signerIdentity: platform-release
   algorithm: ssh-ed25519
@@ -172,12 +172,9 @@ exceptions:
   reason: The reviewed upstream DocumentDB local image requires passwordless sudo to prepare runtime directories
     before dropping back to UID 1000.
 provenance:
-  previousTag: v0.3.24
-  includedThrough: e3c613139b87d4b023e69b6520bff0fb7ea945bb
+  previousTag: v0.3.25
+  includedThrough: 25d20b22ee107ddbce7402f71305faad06015e15
   commits:
-  - 95698b8eef382b400f9520f44dbea487e57babee
-  - 9ac6ff66479bcb4955a8f0350fab20b495baa162
-  - 7820a180a2425d4851bad26d0b5825905d5b30de
-  - 5967230252def10e652f4137371aa52efe74c2af
-  - e3c613139b87d4b023e69b6520bff0fb7ea945bb
-  compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.24...e3c613139b87d4b023e69b6520bff0fb7ea945bb
+  - debd4c17800c9503ee2137c420af3759bad12900
+  - 25d20b22ee107ddbce7402f71305faad06015e15
+  compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.25...25d20b22ee107ddbce7402f71305faad06015e15

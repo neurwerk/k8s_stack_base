@@ -9,6 +9,13 @@ upgrade path.
 
 ## [Unreleased]
 
+## [0.3.26] - 2026-10-08
+
+- Adopt verified Studio `0.16.4` API and Web images for explicit role-based MCP discovery.
+- Allow any verified `mcp-admin` to discover approved tools using their own saved provider connection; the native `contextforge-tool-discovery` team grant expires after two minutes.
+- Add the focused MCP administrator access group and the subtractable `platform-admin` composite grant, keeping invocation permissions separate.
+- Keep discovery opt-in; adopt the compatible image/chart set, then follow `release/migrations/v0.3.26.md` for activation, legacy migration and separate tool publication.
+
 ## [0.3.25] - 2026-10-08
 
 - Adopt the single, digest-pinned PII Engine `0.13.0` image for Engine and model-sync; local recognition runs on CPU and remote inference services own their hardware.
