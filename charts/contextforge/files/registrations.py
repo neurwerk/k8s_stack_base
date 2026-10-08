@@ -139,12 +139,11 @@ def approved(api, gateway, spec, team, owner):
 
 
 def reconcile(api, specs, team, owner, previous=None):
-    """Isolate providers; never discover OAuth tools or hide approval conflicts."""
+    """Yield each provider for immediate projection before starting the next."""
     previous = previous or {}
     for values in ([s["id"] for s in specs], [s["server_id"] for s in specs],
                    [address(s["upstream_url"]) for s in specs]):
         require(len(values) == len(set(values)), "Duplicate registration identity or upstream")
-    results = []
     for spec in specs:
         try:
             old = previous.get(spec["id"], {})
@@ -162,8 +161,7 @@ def reconcile(api, specs, team, owner, previous=None):
                       "error_code": "verification-failed" if isinstance(exc, SetupError) else "provider-unavailable"}
             if matches_previous(spec, old):
                 result.update({key: old[key] for key in ("gateway_id", "server_id", "approved_config_hash")})
-        results.append(result)
-    return results
+        yield result
 
 
 def reconcile_one(api, spec, team, owner):

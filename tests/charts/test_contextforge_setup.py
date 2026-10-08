@@ -1,7 +1,9 @@
 """Offline regressions for operator grants, exact publication and provider isolation."""
 
 import importlib.util
+import copy
 import json
+from datetime import datetime, timezone
 import sys
 import types
 import unittest
@@ -39,6 +41,107 @@ def projection(spec):
 
 
 class SetupPublicationTests(unittest.TestCase):
+    def run_main(self, specs, entries, reconcile_one, api, previous=None):
+        """Exercise the publication pipeline without transport or credential access."""
+        config = {"origin": "https://native.example.com", "nativeBudgetSeconds": 120,
+                  "catalogHash": "approved-hash", "operatorDiscovery": {"enabled": False}}
+        source = {"metadata": {"resourceVersion": "current-source"}, "data": {
+            "catalogHash": config["catalogHash"], "registrations.json": json.dumps(specs),
+            "studio.json": json.dumps(entries)}}
+        output = {"metadata": {"labels": {"app.kubernetes.io/part-of": "contextforge"}},
+                  "data": copy.deepcopy(previous or {})}
+        kube = Mock()
+        def request(method, path, body=None):
+            if method == "PUT":
+                return body
+            return copy.deepcopy(source if path.endswith("infra-agentgateway-mcp-catalog") else output)
+        kube.request.side_effect = request
+        ids = {"team_id": "team", "global_role_id": "global", "team_role_id": "invoke"}
+        started = datetime(2026, 10, 8, 12, 0, tzinfo=timezone.utc)
+        with patch.object(setup, "Path") as path, patch.object(setup, "API", side_effect=[api, kube]), \
+                patch.object(setup, "Database"), patch.object(setup, "datetime") as clock, \
+                patch.object(setup, "accounts") as accounts, \
+                patch.object(registrations, "reconcile_one", side_effect=reconcile_one), \
+                patch.dict(setup.os.environ, {"PLATFORM_ADMIN_EMAIL": "admin@example.com"}):
+            path.return_value.read_text.return_value = json.dumps(config)
+            path.return_value.__truediv__.return_value.read_text.return_value = "synthetic-token"
+            clock.now.return_value = started
+            def verify_accounts(*args):
+                # Verification-start time must already have been captured.
+                clock.now.assert_called_once_with(timezone.utc)
+                # A Discover can complete later while setup is still running.
+                clock.now.return_value = datetime(2026, 10, 8, 12, 1, tzinfo=timezone.utc)
+                return ids
+            accounts.side_effect = verify_accounts
+            try:
+                setup.main()
+            except registrations.SetupError as exc:
+                return kube, output, exc
+            clock.now.assert_called_once_with(timezone.utc)
+        return kube, output, None
+
+    def test_successful_first_provider_survives_later_budget_exhaustion_and_uses_start_time(self):
+        first = definition("first")
+        second = definition("late") | {"server_id": "d" * 32}
+        exhausted = False
+        api = Mock()
+        def project_request(*args):
+            if exhausted:
+                raise registrations.SetupError("Native setup time budget exhausted")
+            return [{"originalName": "read", "name": "read"}]
+        api.request.side_effect = project_request
+        def reconcile_one(api, spec, team, owner):
+            nonlocal exhausted
+            if spec["id"] == "late":
+                exhausted = True
+                raise registrations.SetupError("Native setup time budget exhausted")
+            return {"id": spec["id"], "gateway_id": "a" * 32, "server_id": spec["server_id"],
+                    "state": "published", "error_code": None,
+                    "approved_config_hash": registrations.config_hash(spec)}
+        kube, _, error = self.run_main([first, second], [projection(first), projection(second)], reconcile_one, api)
+        self.assertIsNone(error)
+        data = next(call.args[2]["data"] for call in kube.request.call_args_list if call.args[0] == "PUT")
+        self.assertEqual(data["team_id"], "team")
+        catalog = json.loads(data["studio.json"])
+        self.assertEqual([entry["id"] for entry in catalog], ["first"])
+        self.assertEqual(catalog[0]["tool_names"], {"read": "first_read"})
+        publication = json.loads(data["publication.json"])
+        self.assertEqual(publication["checked_at"], "2026-10-08T12:00:00+00:00")
+        self.assertEqual([entry["state"] for entry in publication["integrations"]], ["published", "error"])
+
+    def test_legacy_last_oauth_failure_never_overwrites_or_restarts_previous_consumer(self):
+        spec = definition()
+        old_entry = projection(spec) | {"tool_names": {}}
+        previous = {"studio.json": json.dumps([old_entry]), "mappings.json": "[]",
+                    "publication.json": json.dumps({"catalog_hash": "old-hash", "checked_at": "old-time"})}
+        def fail(*args):
+            raise registrations.SetupError("Native verification unavailable")
+        kube, output, error = self.run_main([spec], [projection(spec)], fail, Mock(), previous)
+        self.assertIsInstance(error, registrations.SetupError)
+        self.assertIn("legacy Studio connections", str(error))
+        self.assertFalse(any(call.args[0] == "PUT" for call in kube.request.call_args_list))
+        self.assertEqual(output["data"], previous)
+        # Verified real pending IDs are permitted; unknown/absent OAuth IDs are not invented.
+        setup.legacy_publication_guard({"operatorDiscovery": {"enabled": False}}, [spec], [old_entry], previous)
+        setup.legacy_publication_guard({"operatorDiscovery": {"enabled": True}}, [spec], [], previous)
+        with self.assertRaises(registrations.SetupError):
+            setup.legacy_publication_guard({"operatorDiscovery": {"enabled": False}}, [], [], previous)
+
+    def test_verified_pending_registration_keeps_real_connect_ids_without_extra_native_call(self):
+        spec = definition()
+        result = {"id": spec["id"], "gateway_id": "a" * 32, "server_id": spec["server_id"],
+                  "state": "pending-discovery", "error_code": None,
+                  "approved_config_hash": registrations.config_hash(spec)}
+        api = Mock()
+        api.request.side_effect = registrations.SetupError("Native setup time budget exhausted")
+        entries, _, statuses = setup.project(api, [spec], [projection(spec)], [result], {})
+        self.assertEqual(entries[0]["gateway_id"], result["gateway_id"])
+        self.assertEqual(entries[0]["server_id"], result["server_id"])
+        self.assertEqual(entries[0]["tool_names"], {})
+        self.assertEqual(statuses[0]["state"], "pending-discovery")
+        api.request.assert_not_called()
+        setup.legacy_publication_guard({"operatorDiscovery": {"enabled": False}}, [spec], entries, {})
+
     def test_oauth_pending_server_and_exact_publication_never_refresh(self):
         spec = definition()
         gateway = {"id": "a" * 32, "name": "neurwerk-contextforge-example", "url": spec["upstream_url"]}
@@ -82,7 +185,7 @@ class SetupPublicationTests(unittest.TestCase):
                 raise RuntimeError("sensitive provider response")
             return {"id": spec["id"], "state": "published", "error_code": None}
         with patch.object(registrations, "reconcile_one", side_effect=reconcile_one):
-            results = registrations.reconcile(Mock(), specs, "team", "admin@example.com")
+            results = list(registrations.reconcile(Mock(), specs, "team", "admin@example.com"))
         self.assertEqual(sum(result["state"] == "published" for result in results), 19)
         self.assertEqual(results[3]["error_code"], "provider-unavailable")
         self.assertNotIn("sensitive", json.dumps(results))

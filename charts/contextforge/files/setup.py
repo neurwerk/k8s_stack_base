@@ -226,7 +226,11 @@ def project(api, specs, studio, results, previous_data):
             if result["state"] != "error":
                 require(entry["server_id"] == result["server_id"], "Server projection conflict")
                 entry["gateway_id"] = result["gateway_id"]
-                tools = api.request("GET", f"/servers/{entry['server_id']}/tools?include_inactive=false")
+                # Reconciliation already verified every association of a pending
+                # server is empty; do not spend another call or lose safe Connect
+                # metadata merely because the remaining budget was exhausted.
+                tools = [] if result["state"] == "pending-discovery" else api.request(
+                    "GET", f"/servers/{entry['server_id']}/tools?include_inactive=false")
                 entry["tool_names"] = {tool["originalName"]: entry["id"] + "_" + tool["name"] for tool in tools}
                 expected = set(spec["approved_tools"]) if result["state"] == "published" else set()
                 require(len(entry["tool_names"]) == len(tools) and set(entry["tool_names"]) == expected,
@@ -249,7 +253,23 @@ def project(api, specs, studio, results, previous_data):
     return entries, mappings, statuses
 
 
+def legacy_publication_guard(config, specs, studio, previous_data):
+    """Do not restart legacy connections consumers with an empty OAuth catalog."""
+    if config["operatorDiscovery"]["enabled"]:
+        return
+    previous = json.loads(previous_data.get("studio.json", "[]"))
+    def individual(entries):
+        return any(entry["authentication_model"] == "individual-authentication" for entry in entries)
+    # Setup cannot read the consumer's Helm values. Conservatively protect any
+    # selected or previously published OAuth catalog while legacy mode is active.
+    require(not (individual(specs) or individual(previous)) or individual(studio),
+            "Publication withheld: legacy Studio connections require a safe OAuth entry; previous snapshot unchanged")
+
+
 def main():
+    # Conservative freshness: never claim verification began after a concurrent
+    # Discover completed while this run was already checking native state.
+    verification_started_at = datetime.now(timezone.utc).isoformat()
     config = json.loads(Path("/setup/config.json").read_text())
     admin = os.environ["PLATFORM_ADMIN_EMAIL"]
     # Reserve a minute to publish after slow providers; no per-provider Jobs needed.
@@ -294,10 +314,11 @@ def main():
     print("Reconciling approved native registrations", flush=True)
     results = reconcile(api, registrations, ids["team_id"], admin, previous_mappings)
     studio, mappings, statuses = project(api, registrations, studio, results, output.get("data", {}))
+    legacy_publication_guard(config, registrations, studio, output.get("data", {}))
     # Do not publish results for a catalog changed while this Job was running.
     require(kube.request("GET", source_path)["data"] == source["data"], "Catalog changed; retry setup")
     publication = {"catalog_hash": config["catalogHash"],
-                   "checked_at": datetime.now(timezone.utc).isoformat(), "integrations": statuses}
+                   "checked_at": verification_started_at, "integrations": statuses}
     output["data"] = ids | {"studio.json": json.dumps(studio), "mappings.json": json.dumps(mappings),
                             "ready": "true", "catalogResourceVersion": source["metadata"]["resourceVersion"],
                             "publication.json": json.dumps(publication)}

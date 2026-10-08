@@ -62,7 +62,20 @@ approved native definition, explicit mappings and Studio checks/origin match.
 An operator-profile error withholds the operator binding but does not suppress
 ordinary Studio configuration. A native-call budget reserves publication time;
 remaining providers report errors rather than preventing all output.
+Each provider's complete projection is saved before the next provider begins,
+so a later exhausted budget cannot erase an earlier verified result.
 Core identity/ownership failures or a catalog changed during setup fail closed.
+
+Published Studio `0.16.1` requires an OAuth entry when personal connections are
+enabled. With operator discovery disabled, setup conservatively protects every
+selected or previously published OAuth catalog: if no safe OAuth entry survives
+verification, it fails **without updating the output ConfigMap at all**. The old
+snapshot and its old status/hash/timestamp remain unchanged, so no catalog
+reloader restart or falsely current publication occurs. Verified pending OAuth
+entries retain their real gateway and enabled empty server for Connect. Publishing
+an empty/partial catalog that removes the last OAuth entry requires the explicit
+operator-discovery opt-in and separately adopted dynamic-snapshot Studio support;
+setup does not infer consumer settings or bypass this guard from unknown values.
 
 The Job updates existing `frontend-studio/contextforge-setup` in one ConfigMap PUT.
 Its `studio.json` retains the strict existing schema, including empty `tool_names`
@@ -96,9 +109,11 @@ Only error states carry one of these safe codes:
 | `provider-unavailable` | A transport or unexpected provider-processing failure; details suppressed. |
 
 No provider responses, credentials or account details enter status. `checked_at`
-is UTC publication time; Studio must require a newer timestamp than Discover
-before showing freshly verified publication. A preserved old projection still
-reports `error` for the failed current verification.
+is the UTC **verification-start time**, captured before any native verification,
+not publication-completion time. Studio must require a timestamp newer than
+Discover completion before showing freshly verified publication; a Discover
+concurrent with an already-running setup therefore needs a subsequent setup run.
+A preserved old projection still reports `error` for the failed current verification.
 
 With operator discovery enabled, the Studio chart mounts the complete ConfigMap
 directory at `/var/run/contextforge-setup` without `subPath`, and sets
