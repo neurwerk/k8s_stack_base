@@ -209,6 +209,19 @@ def operator_account(api, db, config, admin, ids, previous):
     return {"operator_email": email, "operator_subject": subject, "operator_role_id": discovery_id}
 
 
+def admin_discovery_role(api, db, config, admin, previous):
+    """Create only the scoped role; Studio leases it to the verified calling admin."""
+    if not config.get("adminDiscovery", {}).get("enabled", False):
+        return {}
+    require(not config["operatorDiscovery"]["enabled"], "Discovery modes are mutually exclusive")
+    # Do not silently leave a former named operator's permanent native grants behind.
+    require(not previous.get("operator_role_id"),
+            "Retire the legacy named operator role and projection before enabling admin discovery")
+    rid = role(api, db, "contextforge-tool-discovery", "team", ["gateways.update"], admin,
+               previous.get("admin_discovery_role_id"), MARKER + "/admin-discovery")
+    return {"admin_discovery_role_id": rid, "admin_discovery_ready": "true"}
+
+
 def project(api, specs, studio, results, previous_data):
     """Publish only verified projections; retain last good entries for exact approvals."""
     old_mappings = {r["id"]: r for r in json.loads(previous_data.get("mappings.json", "[]"))}
@@ -255,7 +268,7 @@ def project(api, specs, studio, results, previous_data):
 
 def legacy_publication_guard(config, specs, studio, previous_data):
     """Do not restart legacy connections consumers with an empty OAuth catalog."""
-    if config["operatorDiscovery"]["enabled"]:
+    if config["operatorDiscovery"]["enabled"] or config.get("adminDiscovery", {}).get("enabled", False):
         return
     previous = json.loads(previous_data.get("studio.json", "[]"))
     def individual(entries):
@@ -306,9 +319,12 @@ def main():
     # an entirely deleted role after a failed verification erased its binding.
     if output.get("data", {}).get("operator_role_id"):
         ids["operator_role_id"] = output["data"]["operator_role_id"]
+    if output.get("data", {}).get("admin_discovery_role_id"):
+        ids["admin_discovery_role_id"] = output["data"]["admin_discovery_role_id"]
     # An operator-profile failure must not suppress ordinary Studio configuration.
     try:
         ids.update(operator_account(api, db, config, admin, ids, output.get("data", {})))
+        ids.update(admin_discovery_role(api, db, config, admin, output.get("data", {})))
     except Exception:
         print("Operator discovery unavailable; identity or grants need explicit operator repair", flush=True)
     print("Reconciling approved native registrations", flush=True)

@@ -13,7 +13,7 @@ authKeycloak:
 
   # The standard groups are owned by files/standard-access.yaml, not client values.
   # Remove only these direct application grants from platform-admin (role names):
-  # keycloak-admin, api-key-admin, opensearch-admin, langfuse-admin, pii-admin,
+  # keycloak-admin, api-key-admin, opensearch-admin, langfuse-admin, pii-admin, mcp-admin,
   # studio-user and librechat-admin.
   # [] restores all defaults. Groups, memberships, and model/MCP grants are unchanged.
   platformAdminRoleExclusions: []

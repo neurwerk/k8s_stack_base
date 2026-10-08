@@ -1,10 +1,16 @@
 # Standard Access Groups
 
-`files/standard-access.yaml` owns the 11 application/administrator groups and
-their unchanged realm roles and composites, plus two resource-only groups.
-All 13 groups are direct children of `/access` and use the `neurwerk-` prefix.
+`files/standard-access.yaml` owns the application/administrator groups and
+their realm roles and composites, plus two resource-only groups.
+All groups are direct children of `/access` and use the `neurwerk-` prefix.
 The initial-administrator chart defaults to `/access/neurwerk-platform-admins`.
 Application administration does not grant model or MCP access.
+
+`mcp-admin` admits explicit shared-tool discovery in compatible Studio releases.
+It is inherited by `platform-admin` unless excluded through
+`authKeycloak.platformAdminRoleExclusions`, and can be assigned separately through
+`/access/neurwerk-mcp-admins`. Studio admission and explicit MCP invocation grants
+are still required; this is not unrestricted native ContextForge administration.
 
 Clients must omit `authKeycloak.accessGroups`, `authKeycloak.realmRoles`, and
 `authKeycloak.realmRoleComposites`; supplying them fails rendering. Configure
@@ -19,7 +25,7 @@ Clients may grant AgentGateway permissions only through
 
 Both groups are created without grants by default. `llm:invoke` is required by
 AgentGateway for both resource types but alone grants no destination access.
-All 13 groups render an explicit `clientRoles.agentgateway: []` before approved
+All groups render an explicit `clientRoles.agentgateway: []` before approved
 grants are applied. This clears stale application-group grants and revokes a
 resource group's grants when its grant-map entry is removed.
 Every grant must be in the effective client-role catalog. Selected OpenRouter

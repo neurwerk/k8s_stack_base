@@ -12,6 +12,11 @@
 {{- end }}
 # =============================================================================
 {{- $operator := .Values.frontendStudio.api.contextforge.operatorDiscovery }}
+{{- $adminDiscovery := .Values.frontendStudio.api.contextforge.adminDiscovery }}
+{{- if not (kindIs "bool" $adminDiscovery.enabled) }}{{ fail "Studio adminDiscovery.enabled must be a boolean" }}{{- end }}
+{{- if and $operator.enabled $adminDiscovery.enabled }}{{ fail "Select adminDiscovery or legacy operatorDiscovery, not both" }}{{- end }}
+{{- $dynamic := or $operator.enabled $adminDiscovery.enabled }}
+{{- if and $adminDiscovery.enabled (not (and .Values.frontendStudio.api.contextforge.enabled .Values.frontendStudio.api.contextforge.connectionsEnabled .Values.frontendStudio.api.contextforge.setupConfigMapName)) }}{{ fail "Studio adminDiscovery requires ContextForge connections and generated setup configuration" }}{{- end }}
 {{- if not (kindIs "bool" $operator.enabled) }}{{ fail "Studio operatorDiscovery.enabled must be a boolean" }}{{- end }}
 {{- if $operator.enabled }}
 {{- if not (and .Values.frontendStudio.api.contextforge.enabled .Values.frontendStudio.api.contextforge.connectionsEnabled .Values.frontendStudio.api.contextforge.setupConfigMapName) }}{{ fail "Studio operatorDiscovery requires ContextForge connections and generated setup configuration" }}{{- end }}
@@ -30,7 +35,7 @@ metadata:
   annotations:
     secret.reloader.stakater.com/reload: "frontend-studio-openbao-secret,{{ .Values.frontendStudio.api.piiEngineClientSecretName }}{{ if .Values.frontendStudio.api.postgres.enabled }},{{ .Values.frontendStudio.api.postgres.secretName }}{{ end }}{{ if .Values.frontendStudio.api.noticePreferences.enabled }},{{ .Values.frontendStudio.api.noticePreferences.serverSecretName }}{{ end }}{{ if .Values.frontendStudio.api.llmLogs.enabled }},{{ .Values.frontendStudio.api.llmLogs.secretName }}{{ end }}"
     {{- if .Values.frontendStudio.api.contextforge.enabled }}
-    configmap.reloader.stakater.com/reload: "{{ .Values.frontendStudio.api.contextforge.caConfigMapName }}{{ if not $operator.enabled }},{{ .Values.frontendStudio.api.contextforge.catalogConfigMapName }}{{ end }}"
+    configmap.reloader.stakater.com/reload: "{{ .Values.frontendStudio.api.contextforge.caConfigMapName }}{{ if not $dynamic }},{{ .Values.frontendStudio.api.contextforge.catalogConfigMapName }}{{ end }}"
     {{- end }}
   labels:
     app.kubernetes.io/name: studio-api
@@ -159,6 +164,12 @@ spec:
               value: {{ $operator.operatorSubject | quote }}
             - name: K8S_STUDIO_CONTEXTFORGE_OPERATOR_ROLE_NAME
               value: {{ $operator.roleName | quote }}
+            {{- end }}
+            {{- if $adminDiscovery.enabled }}
+            - name: K8S_STUDIO_CONTEXTFORGE_ADMIN_DISCOVERY_ENABLED
+              value: "true"
+            {{- end }}
+            {{- if $dynamic }}
             - name: K8S_STUDIO_CONTEXTFORGE_PUBLICATION_STATUS_PATH
               value: /var/run/contextforge-setup/publication.json
             {{- end }}
@@ -255,7 +266,7 @@ spec:
             - name: contextforge-ca
               mountPath: /var/run/contextforge
               readOnly: true
-            {{- if $operator.enabled }}
+            {{- if $dynamic }}
             - name: contextforge-setup
               mountPath: /var/run/contextforge-setup
               readOnly: true
@@ -350,7 +361,7 @@ spec:
           configMap:
             name: {{ .Values.frontendStudio.api.contextforge.caConfigMapName }}
             items: [{key: ca.crt, path: ca.crt}]
-        {{- if $operator.enabled }}
+        {{- if $dynamic }}
         - name: contextforge-setup
           configMap:
             name: {{ .Values.frontendStudio.api.contextforge.setupConfigMapName }}

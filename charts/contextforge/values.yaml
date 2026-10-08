@@ -41,6 +41,9 @@ contextforge:
     activeDeadlineSeconds: 600
     # Deprecated compatibility input; setup never performs OAuth discovery.
     publishOAuthTools: []
+    # Preferred role-based discovery; requires a separately adopted compatible Studio.
+    adminDiscovery:
+      enabled: false
     # Enable only after a compatible Studio image is published and adopted.
     operatorDiscovery:
       enabled: false

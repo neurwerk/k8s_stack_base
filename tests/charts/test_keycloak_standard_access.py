@@ -18,7 +18,7 @@ class KeycloakStandardAccessTests(unittest.TestCase):
         rendered = render(CHART)
         groups = json.loads(env_value(rendered, "KC_ACCESS_GROUPS"))
         role_names = (
-            "keycloak-admin,api-key-admin,opensearch-admin,langfuse-admin,pii-admin,"
+            "keycloak-admin,api-key-admin,opensearch-admin,langfuse-admin,pii-admin,mcp-admin,"
             "platform-admin,studio-user,librechat-user,librechat-admin"
         )
         expected = {
@@ -34,14 +34,14 @@ class KeycloakStandardAccessTests(unittest.TestCase):
             "librechat-admin": ["librechat-user"],
             "platform-admin": [
                 "keycloak-admin", "api-key-admin", "opensearch-admin",
-                "langfuse-admin", "pii-admin", "studio-user", "librechat-admin",
+                "langfuse-admin", "pii-admin", "mcp-admin", "studio-user", "librechat-admin",
             ],
         })
         self.assertEqual(json.loads(env_value(rendered, "KC_REALM_ROLE_COMPOSITE_OWNERSHIP")), {
             "librechat-admin": ["librechat-user"],
             "platform-admin": [
                 "keycloak-admin", "api-key-admin", "opensearch-admin",
-                "langfuse-admin", "pii-admin", "studio-user", "librechat-admin",
+                "langfuse-admin", "pii-admin", "mcp-admin", "studio-user", "librechat-admin",
             ],
         })
         self.assertEqual(env_value(rendered, "KC_PARENT_ROLE"), "keycloak-admin")
@@ -130,7 +130,7 @@ class KeycloakStandardAccessTests(unittest.TestCase):
         self.assertEqual(groups.pop(MCP), {
             "realmRoles": [], "clientRoles": {"agentgateway": ["llm:invoke", mcp]},
         })
-        self.assertEqual(len(groups), 9)
+        self.assertEqual(len(groups), 10)
         self.assertTrue(all(
             group["clientRoles"] == {"agentgateway": []} for group in groups.values()
         ))
