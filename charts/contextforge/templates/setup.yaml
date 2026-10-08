@@ -9,6 +9,14 @@
 {{- $member := required "ContextForge setup requires trustedProxy.defaultTeamMemberRole" $proxy.defaultTeamMemberRole }}
 {{- $owner := required "ContextForge setup requires ownerRoleName" $setup.ownerRoleName }}
 {{- if ne (len (uniq (list $global $member $owner))) 3 }}{{ fail "ContextForge setup role names must be distinct" }}{{- end }}
+{{- $operator := $setup.operatorDiscovery }}
+{{- if lt (int $setup.activeDeadlineSeconds) 120 }}{{ fail "ContextForge setup activeDeadlineSeconds must allow at least 120 seconds" }}{{- end }}
+{{- if not (kindIs "bool" $operator.enabled) }}{{ fail "ContextForge operatorDiscovery.enabled must be a boolean" }}{{- end }}
+{{- if $operator.enabled }}
+{{- $_ := required "ContextForge operatorDiscovery requires operatorEmail" $operator.operatorEmail }}
+{{- $_ := required "ContextForge operatorDiscovery requires operatorSubject" $operator.operatorSubject }}
+{{- if or (empty $operator.roleName) (has $operator.roleName (list $global $member $owner)) (eq $operator.operatorEmail $service) }}{{ fail "ContextForge operator must have a distinct identity and role" }}{{- end }}
+{{- end }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -25,7 +33,7 @@ metadata:
   labels:
     {{- include "contextforge.labels" . | nindent 4 }}
 data:
-  config.json: {{ dict "origin" (printf "https://%s.%s.svc.cluster.local:4444" .Release.Name .Release.Namespace) "teamName" $setup.teamName "serviceAccountEmail" $service "globalRoleName" $global "teamRoleName" $member "ownerRoleName" $owner "publishOAuthTools" $setup.publishOAuthTools "catalogHash" (.Values.mcp.catalog | toJson | sha256sum) | toJson | quote }}
+  config.json: {{ dict "origin" (printf "https://%s.%s.svc.cluster.local:4444" .Release.Name .Release.Namespace) "teamName" $setup.teamName "serviceAccountEmail" $service "globalRoleName" $global "teamRoleName" $member "ownerRoleName" $owner "operatorDiscovery" $operator "nativeBudgetSeconds" (sub (int $setup.activeDeadlineSeconds) 60) "catalogHash" (.Values.mcp.catalog | toJson | sha256sum) | toJson | quote }}
   {{- (.Files.Glob "files/*.py").AsConfig | nindent 2 }}
 ---
 apiVersion: v1

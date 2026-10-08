@@ -11,6 +11,15 @@
 {{- fail "Studio ContextForge requires the private native HTTPS Service endpoint" }}
 {{- end }}
 # =============================================================================
+{{- $operator := .Values.frontendStudio.api.contextforge.operatorDiscovery }}
+{{- if not (kindIs "bool" $operator.enabled) }}{{ fail "Studio operatorDiscovery.enabled must be a boolean" }}{{- end }}
+{{- if $operator.enabled }}
+{{- if not (and .Values.frontendStudio.api.contextforge.enabled .Values.frontendStudio.api.contextforge.connectionsEnabled .Values.frontendStudio.api.contextforge.setupConfigMapName) }}{{ fail "Studio operatorDiscovery requires ContextForge connections and generated setup configuration" }}{{- end }}
+{{- $_ := required "Studio operatorDiscovery requires operatorEmail" $operator.operatorEmail }}
+{{- $_ := required "Studio operatorDiscovery requires operatorSubject" $operator.operatorSubject }}
+{{- $_ := required "Studio operatorDiscovery requires roleName" $operator.roleName }}
+{{- if eq $operator.operatorEmail .Values.frontendStudio.api.contextforge.serviceAccountEmail }}{{ fail "Studio operator must differ from the provisioning identity" }}{{- end }}
+{{- end }}
 # frontend-studio API Deployment (authenticated API + management server)
 # =============================================================================
 apiVersion: apps/v1
@@ -21,7 +30,7 @@ metadata:
   annotations:
     secret.reloader.stakater.com/reload: "frontend-studio-openbao-secret,{{ .Values.frontendStudio.api.piiEngineClientSecretName }}{{ if .Values.frontendStudio.api.postgres.enabled }},{{ .Values.frontendStudio.api.postgres.secretName }}{{ end }}{{ if .Values.frontendStudio.api.noticePreferences.enabled }},{{ .Values.frontendStudio.api.noticePreferences.serverSecretName }}{{ end }}{{ if .Values.frontendStudio.api.llmLogs.enabled }},{{ .Values.frontendStudio.api.llmLogs.secretName }}{{ end }}"
     {{- if .Values.frontendStudio.api.contextforge.enabled }}
-    configmap.reloader.stakater.com/reload: "{{ .Values.frontendStudio.api.contextforge.caConfigMapName }},{{ .Values.frontendStudio.api.contextforge.catalogConfigMapName }}"
+    configmap.reloader.stakater.com/reload: "{{ .Values.frontendStudio.api.contextforge.caConfigMapName }}{{ if not $operator.enabled }},{{ .Values.frontendStudio.api.contextforge.catalogConfigMapName }}{{ end }}"
     {{- end }}
   labels:
     app.kubernetes.io/name: studio-api
@@ -141,6 +150,18 @@ spec:
               value: {{ .Values.frontendStudio.api.contextforge.accountOnboardingEnabled | quote }}
             - name: K8S_STUDIO_MCP_CONNECTIONS_ENABLED
               value: {{ .Values.frontendStudio.api.contextforge.connectionsEnabled | quote }}
+            {{- if $operator.enabled }}
+            - name: K8S_STUDIO_CONTEXTFORGE_OPERATOR_DISCOVERY_ENABLED
+              value: "true"
+            - name: K8S_STUDIO_CONTEXTFORGE_OPERATOR_EMAIL
+              value: {{ $operator.operatorEmail | quote }}
+            - name: K8S_STUDIO_CONTEXTFORGE_OPERATOR_SUBJECT
+              value: {{ $operator.operatorSubject | quote }}
+            - name: K8S_STUDIO_CONTEXTFORGE_OPERATOR_ROLE_NAME
+              value: {{ $operator.roleName | quote }}
+            - name: K8S_STUDIO_CONTEXTFORGE_PUBLICATION_STATUS_PATH
+              value: /var/run/contextforge-setup/publication.json
+            {{- end }}
             {{- if .Values.frontendStudio.api.contextforge.connectionsEnabled }}
             {{- if not .Values.frontendStudio.api.contextforge.accountOnboardingEnabled }}{{ fail "Studio connectionsEnabled requires accountOnboardingEnabled" }}{{- end }}
             {{- $origin := required "Studio ContextForge studioOrigin is required for connections" .Values.frontendStudio.api.contextforge.studioOrigin }}
@@ -234,6 +255,11 @@ spec:
             - name: contextforge-ca
               mountPath: /var/run/contextforge
               readOnly: true
+            {{- if $operator.enabled }}
+            - name: contextforge-setup
+              mountPath: /var/run/contextforge-setup
+              readOnly: true
+            {{- end }}
             {{- end }}
           resources:
             {{- toYaml .Values.frontendStudio.api.resources | nindent 12 }}
@@ -324,6 +350,11 @@ spec:
           configMap:
             name: {{ .Values.frontendStudio.api.contextforge.caConfigMapName }}
             items: [{key: ca.crt, path: ca.crt}]
+        {{- if $operator.enabled }}
+        - name: contextforge-setup
+          configMap:
+            name: {{ .Values.frontendStudio.api.contextforge.setupConfigMapName }}
+        {{- end }}
         {{- end }}
         # Internal CA trust bundle for OpenSearch TLS — synced by the
         # monitor-opensearch-ca-sync-job (optional so the pod can start

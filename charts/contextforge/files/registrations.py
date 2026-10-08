@@ -2,11 +2,29 @@
 
 from pathlib import Path
 from urllib.parse import urlsplit, urlunsplit
+import hashlib
+import json
 import re
 
 
 class SetupError(Exception):
     """Only explicit, credential-free messages may reach Job logs."""
+
+
+class PendingDiscovery(SetupError):
+    """An empty OAuth server still needs operator discovery."""
+
+
+def config_hash(spec):
+    # A resolved gateway ID is output, not a change to the approved definition.
+    definition = {key: value for key, value in spec.items() if key != "gateway_id"}
+    return hashlib.sha256(json.dumps(definition, sort_keys=True).encode()).hexdigest()
+
+
+def matches_previous(spec, previous):
+    return (previous.get("approved_config_hash") == config_hash(spec)
+            and spec.get("gateway_id") in (None, previous.get("gateway_id"))
+            and spec["server_id"] == previous.get("server_id"))
 
 
 def require(ok, message):
@@ -105,86 +123,108 @@ def members(api, server, gateway, spec, team, owner, marker):
 def approved(api, gateway, spec, team, owner):
     rows = api.request("GET", f"/tools?gateway_id={gateway['id']}&include_inactive=true&limit=0")
     ids = set()
+    missing = False
     for name in spec["approved_tools"]:
         matches = [row for row in rows if row.get("originalName") == name]
+        if not matches and spec.get("oauth"):
+            missing = True
+            continue
         require(len(matches) == 1 and matches[0].get("enabled") is True,
                 "Approved tool missing, ambiguous or disabled")
         ids.add(tool_id(matches[0], gateway, spec, team, owner))
+    if missing:
+        raise PendingDiscovery("Approved OAuth tool not yet discovered")
     require(len(ids) == len(spec["approved_tools"]), "Duplicate approved tool IDs")
     return ids
 
 
-def reconcile(api, specs, team, owner, publish_oauth):
-    require(set(publish_oauth) <= {s["id"] for s in specs if s.get("oauth")},
-            "OAuth publication must reference selected individual integrations")
+def reconcile(api, specs, team, owner, previous=None):
+    """Yield each provider for immediate projection before starting the next."""
+    previous = previous or {}
     for values in ([s["id"] for s in specs], [s["server_id"] for s in specs],
                    [address(s["upstream_url"]) for s in specs]):
         require(len(values) == len(set(values)), "Duplicate registration identity or upstream")
-    results = []
     for spec in specs:
-        alias = "neurwerk-contextforge-" + spec["id"]
-        marker = f"neurwerk-contextforge/{spec['provider']}/{spec['id']}/{spec['authentication_model']}"
-        require(spec["authentication_model"] in {"no-authentication", "shared-authentication", "individual-authentication"},
-                "Unsupported authentication model")
-        require(bool(spec.get("oauth")) == (spec["authentication_model"] == "individual-authentication"),
-                "Individual authentication requires approved OAuth app metadata")
-        require(re.fullmatch(r"[0-9a-f]{32}", spec["server_id"]), "Invalid server ID")
-        require(spec["approved_tools"] and len(spec["approved_tools"]) == len(set(spec["approved_tools"])),
-                "Explicit unique tool approval is required")
-        gateways = catalog(api, "gateways")
-        matches = [g for g in gateways if g.get("name") == alias or g.get("id") == spec.get("gateway_id")]
-        require(len(matches) <= 1, "Conflicting native gateway alias or ID")
-        gateway = matches[0] if matches else None
-        require(gateway is not None or not spec.get("gateway_id"), "Configured gateway ID is absent")
-        require(not any(address(g["url"]) == address(spec["upstream_url"]) and g is not gateway for g in gateways),
-                "Upstream already belongs to another gateway")
-        servers = [s for s in catalog(api, "servers") if s.get("id") == spec["server_id"] or s.get("name") == alias]
-        require(len(servers) <= 1 and all(s["id"] == spec["server_id"] for s in servers), "Server alias or ID conflict")
-        server = servers[0] if servers else None
-        require(server is None or gateway is not None, "Server lost its gateway; refusing to replace")
-        if gateway is None:
-            payload = {"name": alias, "description": marker, "url": spec["upstream_url"],
-                       "transport": spec["transport"], "auth_type": "none", "passthrough_headers": [],
-                       "gateway_mode": "cache", "team_id": team, "visibility": spec["visibility"]}
-            if spec.get("oauth"):
-                require(spec["oauth"]["client_secret_ref"] == {"name": "contextforge-oauth-apps", "key": spec["id"]}
-                        and spec["oauth"]["pkce"] is True, "Invalid OAuth Secret reference or PKCE")
-                secret = Path("/oauth-apps", spec["id"]).read_text()
-                require(secret.strip() and len(secret) <= 16384 and not any(ord(c) < 32 for c in secret),
-                        "Invalid OAuth app credential; value hidden")
-                payload.update(auth_type="oauth", oauth_config=native_oauth(spec) | {"client_secret": secret})
-                secret = ""
-            try:
-                api.request("POST", "/gateways", payload)
-            finally:
-                payload.clear()
-            matches = [g for g in catalog(api, "gateways") if g.get("name") == alias]
-            require(len(matches) == 1, "Gateway creation not confirmed; retry same alias")
-            gateway = matches[0]
-        check_gateway(gateway, spec, team, owner, marker)
-        actual = members(api, server, gateway, spec, team, owner, marker) if server else set()
-        if spec["id"] in publish_oauth:
-            result = api.request("POST", f"/gateways/{gateway['id']}/tools/refresh?include_resources=false&include_prompts=false")
-            require(result.get("success") is True and not result.get("error") and not result.get("validationErrors"),
-                    "OAuth tool discovery failed; operator consent is required")
-            fresh = api.request("GET", "/gateways/" + gateway["id"])
-            require(fresh.get("lastRefreshAt") and fresh.get("lastRefreshAt") != gateway.get("lastRefreshAt"),
-                    "OAuth discovery returned no fresh catalog")
-            gateway = fresh
-            check_gateway(gateway, spec, team, owner, marker)
-        desired = approved(api, gateway, spec, team, owner) if not spec.get("oauth") or actual or spec["id"] in publish_oauth else set()
-        if server is None:
-            api.request("POST", "/servers", {"server": {"id": spec["server_id"], "name": alias,
-                        "description": marker + "/" + gateway["id"], "associated_tools": sorted(desired),
-                        "associated_resources": [], "associated_prompts": [], "associated_a2a_agents": [],
-                        "oauth_enabled": False, "team_id": team, "visibility": spec["visibility"]},
-                        "team_id": team, "visibility": spec["visibility"]})
-        elif actual != desired:
-            # Only an explicit OAuth publication can fill an initially empty server.
-            require(not actual and spec["id"] in publish_oauth, "Tool membership conflict; operator repair required")
-            api.request("PUT", "/servers/" + spec["server_id"], {"associated_tools": sorted(desired)})
-        server = api.request("GET", "/servers/" + spec["server_id"])
-        require(members(api, server, gateway, spec, team, owner, marker) == desired, "Server tool verification failed")
-        results.append({"id": spec["id"], "gateway_id": gateway["id"], "server_id": spec["server_id"],
-                        "state": "approved-tools" if desired else "pending-consent"})
-    return results
+        try:
+            old = previous.get(spec["id"], {})
+            if old:
+                require(spec["server_id"] == old["server_id"]
+                        and spec.get("gateway_id") in (None, old["gateway_id"]),
+                        "Previously published native mapping changed")
+                # Alias verification still rejects a replacement gateway with the same name.
+                spec = dict(spec, gateway_id=old["gateway_id"])
+            result = reconcile_one(api, spec, team, owner)
+        except Exception as exc:
+            # No response bodies or exception messages may enter publication data.
+            old = previous.get(spec["id"], {})
+            result = {"id": spec["id"], "state": "error",
+                      "error_code": "verification-failed" if isinstance(exc, SetupError) else "provider-unavailable"}
+            if matches_previous(spec, old):
+                result.update({key: old[key] for key in ("gateway_id", "server_id", "approved_config_hash")})
+        yield result
+
+
+def reconcile_one(api, spec, team, owner):
+    alias = "neurwerk-contextforge-" + spec["id"]
+    marker = f"neurwerk-contextforge/{spec['provider']}/{spec['id']}/{spec['authentication_model']}"
+    require(spec["authentication_model"] in {"no-authentication", "shared-authentication", "individual-authentication"},
+            "Unsupported authentication model")
+    require(bool(spec.get("oauth")) == (spec["authentication_model"] == "individual-authentication"),
+            "Individual authentication requires approved OAuth app metadata")
+    require(re.fullmatch(r"[0-9a-f]{32}", spec["server_id"]), "Invalid server ID")
+    require(spec["approved_tools"] and len(spec["approved_tools"]) == len(set(spec["approved_tools"])),
+            "Explicit unique tool approval is required")
+    gateways = catalog(api, "gateways")
+    matches = [g for g in gateways if g.get("name") == alias or g.get("id") == spec.get("gateway_id")]
+    require(len(matches) <= 1, "Conflicting native gateway alias or ID")
+    gateway = matches[0] if matches else None
+    require(gateway is not None or not spec.get("gateway_id"), "Configured gateway ID is absent")
+    require(not any(address(g["url"]) == address(spec["upstream_url"]) and g is not gateway for g in gateways),
+            "Upstream already belongs to another gateway")
+    servers = [s for s in catalog(api, "servers") if s.get("id") == spec["server_id"] or s.get("name") == alias]
+    require(len(servers) <= 1 and all(s["id"] == spec["server_id"] for s in servers), "Server alias or ID conflict")
+    server = servers[0] if servers else None
+    require(server is None or gateway is not None, "Server lost its gateway; refusing to replace")
+    if gateway is None:
+        payload = {"name": alias, "description": marker, "url": spec["upstream_url"],
+                   "transport": spec["transport"], "auth_type": "none", "passthrough_headers": [],
+                   "gateway_mode": "cache", "team_id": team, "visibility": spec["visibility"]}
+        if spec.get("oauth"):
+            require(spec["oauth"]["client_secret_ref"] == {"name": "contextforge-oauth-apps", "key": spec["id"]}
+                    and spec["oauth"]["pkce"] is True, "Invalid OAuth Secret reference or PKCE")
+            secret = Path("/oauth-apps", spec["id"]).read_text()
+            require(secret.strip() and len(secret) <= 16384 and not any(ord(c) < 32 for c in secret),
+                    "Invalid OAuth app credential; value hidden")
+            payload.update(auth_type="oauth", oauth_config=native_oauth(spec) | {"client_secret": secret})
+            secret = ""
+        try:
+            api.request("POST", "/gateways", payload)
+        finally:
+            payload.clear()
+        matches = [g for g in catalog(api, "gateways") if g.get("name") == alias]
+        require(len(matches) == 1, "Gateway creation not confirmed; retry same alias")
+        gateway = matches[0]
+    check_gateway(gateway, spec, team, owner, marker)
+    actual = members(api, server, gateway, spec, team, owner, marker) if server else set()
+    pending = False
+    try:
+        desired = approved(api, gateway, spec, team, owner)
+    except PendingDiscovery:
+        require(not actual, "Previously published OAuth tools disappeared; operator repair required")
+        pending = True
+        desired = set()
+    if server is None:
+        api.request("POST", "/servers", {"server": {"id": spec["server_id"], "name": alias,
+                    "description": marker + "/" + gateway["id"], "associated_tools": sorted(desired),
+                    "associated_resources": [], "associated_prompts": [], "associated_a2a_agents": [],
+                    "oauth_enabled": False, "team_id": team, "visibility": spec["visibility"]},
+                    "team_id": team, "visibility": spec["visibility"]})
+    elif actual != desired:
+        # Discovery is separate; only verified approved tools may fill an empty OAuth server.
+        require(not actual and spec.get("oauth"), "Tool membership conflict; operator repair required")
+        api.request("PUT", "/servers/" + spec["server_id"], {"associated_tools": sorted(desired)})
+    server = api.request("GET", "/servers/" + spec["server_id"])
+    require(members(api, server, gateway, spec, team, owner, marker) == desired, "Server tool verification failed")
+    return {"id": spec["id"], "gateway_id": gateway["id"], "server_id": spec["server_id"],
+            "approved_config_hash": config_hash(spec),
+            "state": "pending-discovery" if pending else "published", "error_code": None}
