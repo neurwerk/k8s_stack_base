@@ -92,10 +92,15 @@ internalRagEmbedding:
 # is an approved in-cluster workload or an approved static HTTP/SSE target; the
 # chart never renders a dynamic backend that could proxy arbitrary destinations.
 mcp:
+  # Studio owns tool publication and shared-key entry after the coordinated cutover.
+  studioSetup:
+    enabled: false
+  # Supplied only by the ESO values Secret: non-secret version/configured metadata.
+  runtimeCredentials: {}
   # Non-routing upstream Pods retained when an MCP route moves to ContextForge.
   # Entries use {name, port, path, workload}; names match selected native entries.
-  # The same list feeds ContextForge egress. Credentials remain in the existing
-  # infraAgentgatewayWrapperSecrets.mcp.<name> Secret, only mounted by that Pod.
+  # The same list feeds ContextForge egress. Studio setup uses versioned ESO
+  # Secrets; chart-owned mode uses infraAgentgatewayWrapperSecrets.mcp.<name>.
   upstreamWorkloads: [] # Optional overrides; selected presets supply their own workloads.
   enabled: false
   # Activate each native route only after ContextForge setup has succeeded.

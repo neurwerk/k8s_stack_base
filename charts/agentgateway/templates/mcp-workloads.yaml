@@ -10,6 +10,12 @@
 {{- $networkPolicyName := include "infra-agentgateway.mcpResourceName" (dict "id" $serverName "component" "netpol") }}
 {{- $secretName := include "infra-agentgateway.mcpResourceName" (dict "id" $serverName "component" "secret") }}
 {{- $server := . }}
+{{- $managed := and $.Values.mcp.studioSetup.enabled .credential }}
+{{- $record := dict }}
+{{- if $managed }}
+{{- $record = include "infra-agentgateway.mcpCredentialVersion" (dict "root" $ "id" $serverName) | fromYaml }}
+{{- $secretName = include "infra-agentgateway.mcpCredentialName" (dict "id" $serverName "version" $record.version) }}
+{{- end }}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -21,13 +27,21 @@ metadata:
     app.kubernetes.io/instance: infra-agentgateway
     app.kubernetes.io/part-of: infra-agentgateway
 spec:
-  replicas: {{ .workload.replicas | default 1 }}
+  replicas: {{ if and $managed .credential.required (not $record.configured) }}0{{ else }}{{ .workload.replicas | default 1 }}{{ end }}
+  {{- if $managed }}
+  strategy:
+    type: Recreate
+  {{- end }}
   selector:
     matchLabels:
       app.kubernetes.io/name: mcp-{{ $serverName }}
       app.kubernetes.io/instance: infra-agentgateway
   template:
     metadata:
+      {{- if $managed }}
+      annotations:
+        mcp.neurwerk.com/key-version: {{ $record.version | quote }}
+      {{- end }}
       labels:
         app.kubernetes.io/name: mcp-{{ $serverName }}
         app.kubernetes.io/instance: infra-agentgateway

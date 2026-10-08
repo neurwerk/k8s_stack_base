@@ -510,7 +510,13 @@ class CatalogOwnershipTests(unittest.TestCase):
                         self.assertLess(index, catalog_index, ref["name"])
                     if ref["kind"] == "Secret":
                         self.assertLess(catalog_index, index)
-                        self.assertLess(index, client_index)
+                        if ref["name"] == "mcp-runtime-values":
+                            # ESO-owned version/configured metadata follows static
+                            # choices so a saved key can activate its exact runtime.
+                            self.assertEqual(product, "agentgateway")
+                            self.assertGreater(index, names.index("agentgateway-product-values"))
+                        else:
+                            self.assertLess(index, client_index)
                 if product == "librechat":
                     model_index = names.index("librechat-agentgateway-model-values")
                     self.assertLess(client_index, model_index)

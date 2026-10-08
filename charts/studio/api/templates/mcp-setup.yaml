@@ -1,0 +1,12 @@
+{{- if .Values.mcp.studioSetup.enabled }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: studio-mcp
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: studio-api
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: {{ .Release.Namespace }}
+automountServiceAccountToken: false
+{{- end }}

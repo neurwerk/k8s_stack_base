@@ -109,8 +109,8 @@ packages:
     chartPrefixes: []
     prerequisites:
     - name: openbao-stack-setup
-      version: 0.2.26
-      source: https://github.com/neurwerk/k8s_stack_tooling/commit/c19d902964b12af78eec916883a3b9d5f955700b
+      version: 0.2.27
+      source: https://github.com/neurwerk/k8s_stack_tooling/commit/550a2f3b52e7baa53ab8a01a59a417c539663235
   - path: releases/contextforge/oauth-apps
     status: included
     reason: Provider application credential delivery is selected only with approved registrations; all
@@ -118,8 +118,8 @@ packages:
     chartPrefixes: []
     prerequisites:
     - name: openbao-stack-setup
-      version: 0.2.26
-      source: https://github.com/neurwerk/k8s_stack_tooling/commit/c19d902964b12af78eec916883a3b9d5f955700b
+      version: 0.2.27
+      source: https://github.com/neurwerk/k8s_stack_tooling/commit/550a2f3b52e7baa53ab8a01a59a417c539663235
   - path: releases/librechat/rag
     status: excluded
     reason: Deployment readiness and effective client rendering are not complete.
@@ -138,8 +138,8 @@ prerequisites:
   version: 0.0.5
   source: oci://ghcr.io/clickhouse/clickhouse-operator-helm
 - name: openbao-stack-setup
-  version: 0.2.26
-  source: https://github.com/neurwerk/k8s_stack_tooling/commit/c19d902964b12af78eec916883a3b9d5f955700b
+  version: 0.2.27
+  source: https://github.com/neurwerk/k8s_stack_tooling/commit/550a2f3b52e7baa53ab8a01a59a417c539663235
 - name: gateway-api-experimental
   version: 1.6.0
   source: https://github.com/kubernetes-sigs/gateway-api/releases/tag/v1.6.0
