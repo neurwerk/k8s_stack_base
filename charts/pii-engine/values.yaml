@@ -1,13 +1,19 @@
 # IMAGE SOURCE: owned service
 # The image is built by the pii_engine repository and pinned here.
 monitorPiiEngine:
-  image: ghcr.io/neurwerk/k8s-stack-pii-engine:0.13.0@sha256:0dbd797ca5b57b3b1eb8c47f1f601961d32abdcd37f21597691cfc478f72b9ee
+  image: ghcr.io/neurwerk/k8s-stack-pii-engine:0.14.0@sha256:523129c236c303f4294413407f768cb32eee1f447706287cda71da83401a8510
   # Local retains the existing baseline / verified transformer selection.
   analyzerBackend: local # local | remote-gliner | remote-kserve
   # null preserves legacy automatic baseline / transformer bundle selection.
   # Explicit disabled/local/remote requires a compatible Engine >=0.13.0.
   # See README.md; credentials are Secret references, never values.
   ner: null
+  # Process-local NER inference results; requires a compatible Engine >=0.14.0.
+  # One accounted-byte budget across all selected languages/models, not process RSS.
+  nerCache:
+    enabled: true
+    maxBytes: 134217728 # 128 MiB; leave additional process/container memory headroom.
+    ttlSeconds: 86400 # Fixed expiry from entry creation; hits do not extend it.
   remote:
     callTimeout: 10
     maxCalls: 2048

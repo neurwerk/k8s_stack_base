@@ -5,6 +5,7 @@
     "monitorPiiEngine": {
       "type": "object",
       "properties": {
+        "nerCache": {"$ref": "#/definitions/nerCache"},
         "ner": {
           "oneOf": [
             {"type": "null"},
@@ -15,6 +16,16 @@
     }
   },
   "definitions": {
+    "nerCache": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "maxBytes", "ttlSeconds"],
+      "properties": {
+        "enabled": {"type": "boolean"},
+        "maxBytes": {"type": "integer", "minimum": 1},
+        "ttlSeconds": {"type": "integer", "minimum": 1}
+      }
+    },
     "ner": {
       "type": "object",
       "additionalProperties": false,

@@ -96,6 +96,12 @@ spec:
               value: {{ .Values.monitorPiiEngine.policyVersion | quote }}
             - name: PII_ENGINE_LOG_LEVEL
               value: {{ $logLevel | quote }}
+            - name: PII_ENGINE_NER_CACHE_ENABLED
+              value: {{ .Values.monitorPiiEngine.nerCache.enabled | quote }}
+            - name: PII_ENGINE_NER_CACHE_MAX_BYTES
+              value: {{ .Values.monitorPiiEngine.nerCache.maxBytes | int64 | quote }}
+            - name: PII_ENGINE_NER_CACHE_TTL_SECONDS
+              value: {{ .Values.monitorPiiEngine.nerCache.ttlSeconds | int64 | quote }}
             {{- if $canonical }}
             - name: PII_ENGINE_NER_CONFIG
               value: /etc/pii-engine/ner.yaml
