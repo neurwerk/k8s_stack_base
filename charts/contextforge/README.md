@@ -3,13 +3,13 @@
 The optional chart runs private ContextForge and a setup Job that registers the selected MCP catalog and supplies Studio's configuration.
 Keep credentials in OpenBao; stop the application before database migrations and preserve the database with its encryption keys.
 
-## Role-based administrator discovery (source preparation)
+## Role-based administrator discovery
 
 The preferred opt-in flow uses `mcp-admin`, not a specially named login. Enable
 `contextforge.setup.adminDiscovery.enabled` and
-`frontendStudio.api.contextforge.adminDiscovery.enabled` only after separately
-publishing and adopting the compatible Studio implementation (Studio #84).
-Both default to false; the currently pinned Studio `0.16.3` cannot use this mode.
+`frontendStudio.api.contextforge.adminDiscovery.enabled` only after adopting
+Studio `0.16.4` or newer with the compatible Base charts.
+Both default to false; Studio `0.16.3` and earlier cannot use this mode.
 
 Setup creates/verifies the non-inheriting `contextforge-tool-discovery` native
 team role with exactly `gateways.update`, without granting it to a person or
