@@ -4,8 +4,8 @@ metadata:
   name: v0.3.26
 spec:
   version: 0.3.26
-  releaseDate: '2026-10-08'
-  summary: Role-based MCP administrator discovery
+  releaseDate: '2026-10-09'
+  summary: Studio-owned MCP setup and bounded PII NER caching
   trust:
     signerIdentity: platform-release
     algorithm: ssh-ed25519
@@ -1066,8 +1066,13 @@ spec:
       lua: 5.4.9
   provenance:
     previousTag: v0.3.25
-    includedThrough: 25d20b22ee107ddbce7402f71305faad06015e15
+    includedThrough: 17bb0a05c319074ef6a72791973151f303acea64
     commits:
     - debd4c17800c9503ee2137c420af3759bad12900
     - 25d20b22ee107ddbce7402f71305faad06015e15
-    compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.25...25d20b22ee107ddbce7402f71305faad06015e15
+    - ca9eafe070c35a22258acd9e8c270044b6b49c63
+    - 6bde600ce1e79417f311a2250ac9271c432f447b
+    - 8359247347d2e91a624e0083be19399d7e4aafeb
+    - 6494f91f8f0a5c61a7ca5435f45fb81a38f31f8a
+    - 17bb0a05c319074ef6a72791973151f303acea64
+    compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.25...17bb0a05c319074ef6a72791973151f303acea64
