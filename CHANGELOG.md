@@ -9,6 +9,15 @@ upgrade path.
 
 ## [Unreleased]
 
+## [0.3.26] - 2026-10-09
+
+- Adopt verified Studio `0.17.1` API/Web images for administrator-owned MCP setup, shared-key management, tool selection, Publish and Disable, including the native Refresh response fix.
+- Authorize MCP discovery through `mcp-admin` and the caller's own provider connection, with a two-minute native grant and separate invocation permissions.
+- Deliver isolated shared keys through OpenBao and External Secrets; verify the active credential version and exact native tool membership before Publish succeeds, and preserve Studio selections across later bootstrap runs.
+- Use no-surge rolling updates for managed MCP consumers, including the fix for retained rollout settings during the cutover.
+- Adopt verified PII Engine `0.14.0` for bounded, process-local NER caching, enabled by default with a 128 MiB accounted-byte budget per process and a fixed 24-hour entry lifetime; current rules and policy still run on every request.
+- Require `openbao-stack-setup` `0.2.27`; activating Studio MCP Setup needs a separately approved clean cutover with matching charts and images, and does not import old MCP selections, shared credentials or personal connections. Follow `release/migrations/v0.3.26.md` before activation.
+
 ## [0.3.25] - 2026-10-08
 
 - Adopt the single, digest-pinned PII Engine `0.13.0` image for Engine and model-sync; local recognition runs on CPU and remote inference services own their hardware.
