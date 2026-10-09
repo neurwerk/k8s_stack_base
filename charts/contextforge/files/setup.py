@@ -16,11 +16,12 @@ import httpx
 import psycopg
 from psycopg.rows import dict_row
 
-from registrations import SetupError, config_hash, matches_previous, reconcile, require
+from registrations import SetupError, matches_previous, reconcile, require
 
 MARKER = "neurwerk-contextforge/setup-v1"
 INVOKE = ["gateways.read", "servers.read", "servers.use", "tools.execute", "tools.read"]
 PROVISION = ["admin.user_management", "teams.manage_members", "teams.read"]
+PUBLISH = ["gateways.read", "servers.create", "servers.read", "servers.update", "tools.read"]
 
 
 class API:
@@ -81,6 +82,10 @@ def role(api, db, name, scope, permissions, admin, previous=None, description=MA
     exact(result, {"name": name, "scope": scope, "description": description,
                    "created_by": admin, "is_active": True, "inherits_from": None,
                    "is_system_role": False}, "Conflicting setup role; refusing to overwrite")
+    # Role permissions are chart-owned. Reconcile only after proving ownership.
+    if sorted(result["permissions"]) != permissions:
+        api.request("PUT", "/rbac/roles/" + result["id"], {"permissions": permissions})
+        result = api.request("GET", "/rbac/roles/" + result["id"])
     require(sorted(result["permissions"]) == permissions, "Conflicting setup role permissions")
     return result["id"]
 
@@ -97,7 +102,9 @@ def accounts(api, db, config, admin, previous):
             "Previously published Studio service identity changed")
     global_id = role(api, db, config["globalRoleName"], "global", [], admin, previous.get("global_role_id"))
     team_role_id = role(api, db, config["teamRoleName"], "team", INVOKE, admin, previous.get("team_role_id"))
-    owner_id = role(api, db, config["ownerRoleName"], "team", PROVISION, admin, previous.get("owner_role_id"))
+    managed = config.get("studioSetup", False)
+    owner_id = role(api, db, config["ownerRoleName"], "team", sorted(PROVISION + PUBLISH) if managed else PROVISION,
+                    admin, previous.get("owner_role_id"))
     # Include inactive teams: native POST otherwise silently reactivates them.
     teams = db.rows("SELECT id FROM email_teams WHERE name = %(name)s OR slug = %(name)s",
                     name=config["teamName"])
@@ -266,6 +273,25 @@ def project(api, specs, studio, results, previous_data):
     return entries, mappings, statuses
 
 
+def installed_projection(studio, results):
+    """Hand off installed destinations only; Studio owns publication in PostgreSQL."""
+    by_id = {entry["id"]: entry for entry in studio}
+    require(len(by_id) == len(studio), "Duplicate Studio integration identity")
+    entries, mappings, statuses = [], [], []
+    for result in results:
+        require(result["id"] in by_id, "Studio and registration projections disagree")
+        entry = dict(by_id[result["id"]], gateway_id="", tool_names={})
+        if result["state"] != "error":
+            require(entry["server_id"] == result["server_id"], "Server projection conflict")
+            entry["gateway_id"] = result["gateway_id"]
+            mappings.append(result)
+        # A failed installation remains visible without an unverified native ID.
+        entries.append(entry)
+        statuses.append({key: result[key] for key in ("id", "state", "error_code")})
+    require(len(entries) == len(studio), "Studio and registration projections disagree")
+    return entries, mappings, statuses
+
+
 def legacy_publication_guard(config, specs, studio, previous_data):
     """Do not restart legacy connections consumers with an empty OAuth catalog."""
     if config["operatorDiscovery"]["enabled"] or config.get("adminDiscovery", {}).get("enabled", False):
@@ -300,17 +326,14 @@ def main():
             "Output ConfigMap ownership conflict")
     registrations = json.loads(source["data"]["registrations.json"])
     studio = json.loads(source["data"]["studio.json"])
+    managed = config.get("studioSetup", False)
+    require((source["data"].get("studioSetup") == "true") == managed,
+            "Waiting for the matching MCP setup ownership mode")
+    require(managed or output.get("data", {}).get("setup_mode") != "studio-v1",
+            "Studio publication cannot revert to chart-owned selections")
     require(isinstance(registrations, list) and len(registrations) <= 200,
             "Catalog must contain at most 200 native registrations")
     previous_mappings = {r["id"]: r for r in json.loads(output.get("data", {}).get("mappings.json", "[]"))}
-    # Upgrade legacy last-good mappings only with proof that their exact source
-    # object has not changed. Never infer approval from IDs or tool names alone.
-    if output.get("data", {}).get("catalogResourceVersion") == source["metadata"]["resourceVersion"]:
-        for spec in registrations:
-            prior = previous_mappings.get(spec["id"])
-            if prior and not prior.get("approved_config_hash"):
-                prior["approved_config_hash"] = config_hash(spec)
-        output["data"]["mappings.json"] = json.dumps(list(previous_mappings.values()))
     db = Database()
     print("Verifying native team, roles and Studio service identity", flush=True)
     ids = accounts(api, db, config, admin, output.get("data", {}))
@@ -328,20 +351,27 @@ def main():
     except Exception:
         print("Operator discovery unavailable; identity or grants need explicit operator repair", flush=True)
     print("Reconciling approved native registrations", flush=True)
-    results = reconcile(api, registrations, ids["team_id"], admin, previous_mappings)
-    studio, mappings, statuses = project(api, registrations, studio, results, output.get("data", {}))
-    legacy_publication_guard(config, registrations, studio, output.get("data", {}))
+    if managed:
+        service_api = API(config["origin"], {"x-contextforge-account-email": config["serviceAccountEmail"]},
+                          "/trust/ca.crt", api.deadline)
+        results = reconcile(api, registrations, ids["team_id"], admin, previous_mappings,
+                            studio=(service_api, config["serviceAccountEmail"]))
+        ids["setup_mode"] = "studio-v1"
+        studio, mappings, statuses = installed_projection(studio, results)
+    else:
+        results = reconcile(api, registrations, ids["team_id"], admin, previous_mappings)
+        studio, mappings, statuses = project(api, registrations, studio, results, output.get("data", {}))
+        legacy_publication_guard(config, registrations, studio, output.get("data", {}))
     # Do not publish results for a catalog changed while this Job was running.
     require(kube.request("GET", source_path)["data"] == source["data"], "Catalog changed; retry setup")
-    publication = {"catalog_hash": config["catalogHash"],
-                   "checked_at": verification_started_at, "integrations": statuses}
     output["data"] = ids | {"studio.json": json.dumps(studio), "mappings.json": json.dumps(mappings),
                             "ready": "true", "catalogResourceVersion": source["metadata"]["resourceVersion"],
-                            "catalog_hash": config["catalogHash"],
-                            "publication.json": json.dumps(publication)}
+                            "catalog_hash": config["catalogHash"]}
+    # In Studio mode this envelope verifies installation, not user selections.
+    output["data"]["publication.json"] = json.dumps({"catalog_hash": config["catalogHash"],
+        "checked_at": verification_started_at, "integrations": statuses})
     kube.request("PUT", target, output)
-    published = sum(item["state"] == "published" for item in statuses)
-    print(f"Studio core configuration published; {published} freshly verified integrations; pending/errors recorded")
+    print("Studio core configuration and verified native mappings published", flush=True)
 
 
 if __name__ == "__main__":

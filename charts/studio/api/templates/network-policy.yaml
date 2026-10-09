@@ -96,6 +96,27 @@ spec:
         - port: 3000
           protocol: TCP
     {{- end }}
+    {{- if .Values.mcp.studioSetup.enabled }}
+    - to:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: infra-openbao}
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: openbao
+              app.kubernetes.io/instance: infra-openbao
+      ports: [{protocol: TCP, port: 8200}]
+    - to:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: infra-agentgateway}
+          podSelector:
+            matchLabels: {gateway.networking.k8s.io/gateway-name: contextforge-providers}
+      ports: [{protocol: TCP, port: 15000}]
+    {{- range .Values.frontendStudio.api.mcpSetup.kubernetesApiEgress }}
+    - to:
+        - ipBlock: {cidr: {{ .cidr | quote }}}
+      ports: [{protocol: TCP, port: {{ .port }}}]
+    {{- end }}
+    {{- end }}
     {{- if .Values.frontendStudio.api.postgres.enabled }}
     {{- if .Values.frontendStudio.api.contextforge.enabled }}
     - to:

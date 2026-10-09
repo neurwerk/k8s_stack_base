@@ -11,7 +11,7 @@ GLiNER/KServe services own their inference hardware and may use GPUs behind thei
 endpoints; the Engine Pod runs on CPU.
 
 Explicit `ner` requires a compatible Engine **>=0.13.0**. The chart pins the
-published, verified **0.13.0** image. The examples below inherit that image pin.
+published, verified **0.14.0** image. The examples below inherit that image pin.
 
 ## Local NER
 
@@ -41,6 +41,36 @@ monitorPiiEngine:
 
 Omit `models` and `languageModels` (or use empty maps). Do not set remote capacity,
 egress or tokenizers. Disabling NER does **not** disable CPU recognizers or policy.
+
+## Process-local NER result cache
+
+NER result caching requires a published compatible Engine **>=0.14.0**, included
+in the chart's verified image pin.
+
+```yaml
+monitorPiiEngine:
+  nerCache:
+    enabled: true
+    maxBytes: 134217728
+    ttlSeconds: 86400
+```
+
+These defaults enable one 128 MiB budget **per Engine process**, shared across
+all selected languages and models, not one budget per language/model. `maxBytes`
+and `ttlSeconds` must be positive integers. Entries use LRU eviction and expire
+24 hours after creation by default; cache hits do not extend expiry. The Engine
+periodically cleans up expired entries. Set `enabled: false` to disable caching.
+
+Only NER inference results are cached. CPU rules, custom recognizers and current
+policy still run for every request; the cache does not skip full-conversation
+inspection or store policy decisions. This is process memory only, discarded
+when the process exits, with no shared Valkey cache or persistent storage.
+The budget measures accounted cache bytes, **not exact process RSS**; leave
+process/container memory headroom for models, requests and runtime overhead.
+
+The chart emits `PII_ENGINE_NER_CACHE_ENABLED`, `PII_ENGINE_NER_CACHE_MAX_BYTES`
+and `PII_ENGINE_NER_CACHE_TTL_SECONDS`, corresponding to Engine Settings
+`ner_cache_enabled`, `ner_cache_max_bytes` and `ner_cache_ttl_seconds`.
 
 ## One multilingual remote model
 

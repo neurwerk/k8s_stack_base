@@ -10,7 +10,9 @@
 {{- $owner := required "ContextForge setup requires ownerRoleName" $setup.ownerRoleName }}
 {{- if ne (len (uniq (list $global $member $owner))) 3 }}{{ fail "ContextForge setup role names must be distinct" }}{{- end }}
 {{- $operator := $setup.operatorDiscovery }}
-{{- $adminDiscovery := $setup.adminDiscovery }}
+{{- $adminDiscovery := deepCopy $setup.adminDiscovery }}
+{{- $studioSetup := .Values.mcp.studioSetup.enabled }}
+{{- if $studioSetup }}{{- $_ := set $adminDiscovery "enabled" true }}{{- end }}
 {{- if not (kindIs "bool" $adminDiscovery.enabled) }}{{ fail "ContextForge adminDiscovery.enabled must be a boolean" }}{{- end }}
 {{- if and $adminDiscovery.enabled $operator.enabled }}{{ fail "Select adminDiscovery or legacy operatorDiscovery, not both" }}{{- end }}
 {{- if and $adminDiscovery.enabled (has "contextforge-tool-discovery" (list $global $member $owner)) }}{{ fail "ContextForge discovery role must be distinct" }}{{- end }}
@@ -37,7 +39,7 @@ metadata:
   labels:
     {{- include "contextforge.labels" . | nindent 4 }}
 data:
-  config.json: {{ dict "origin" (printf "https://%s.%s.svc.cluster.local:4444" .Release.Name .Release.Namespace) "teamName" $setup.teamName "serviceAccountEmail" $service "globalRoleName" $global "teamRoleName" $member "ownerRoleName" $owner "operatorDiscovery" $operator "adminDiscovery" $adminDiscovery "nativeBudgetSeconds" (sub (int $setup.activeDeadlineSeconds) 60) "catalogHash" (.Values.mcp.catalog | toJson | sha256sum) | toJson | quote }}
+  config.json: {{ dict "origin" (printf "https://%s.%s.svc.cluster.local:4444" .Release.Name .Release.Namespace) "teamName" $setup.teamName "serviceAccountEmail" $service "globalRoleName" $global "teamRoleName" $member "ownerRoleName" $owner "operatorDiscovery" $operator "adminDiscovery" $adminDiscovery "studioSetup" $studioSetup "nativeBudgetSeconds" (sub (int $setup.activeDeadlineSeconds) 60) "catalogHash" (.Values.mcp.catalog | toJson | sha256sum) | toJson | quote }}
   {{- (.Files.Glob "files/*.py").AsConfig | nindent 2 }}
 ---
 apiVersion: v1

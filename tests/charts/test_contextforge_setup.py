@@ -41,13 +41,14 @@ def projection(spec):
 
 
 class SetupPublicationTests(unittest.TestCase):
-    def run_main(self, specs, entries, reconcile_one, api, previous=None, source_changed=False):
+    def run_main(self, specs, entries, reconcile_one, api, previous=None, source_changed=False, managed=False):
         """Exercise the publication pipeline without transport or credential access."""
         config = {"origin": "https://native.example.com", "nativeBudgetSeconds": 120,
-                  "catalogHash": "a" * 64, "operatorDiscovery": {"enabled": False}}
+                  "catalogHash": "a" * 64, "operatorDiscovery": {"enabled": False},
+                  "studioSetup": managed, "serviceAccountEmail": "studio@example.com"}
         source = {"metadata": {"resourceVersion": "current-source"}, "data": {
             "catalogHash": config["catalogHash"], "registrations.json": json.dumps(specs),
-            "studio.json": json.dumps(entries)}}
+            "studio.json": json.dumps(entries), "studioSetup": str(managed).lower()}}
         output = {"metadata": {"labels": {"app.kubernetes.io/part-of": "contextforge"}},
                   "data": copy.deepcopy(previous or {})}
         kube = Mock()
@@ -65,10 +66,12 @@ class SetupPublicationTests(unittest.TestCase):
             return copy.deepcopy(output)
         kube.request.side_effect = request
         ids = {"team_id": "team", "global_role_id": "global", "team_role_id": "invoke"}
+        discovery = {"admin_discovery_role_id": "discovery", "admin_discovery_ready": "true"} if managed else {}
         started = datetime(2026, 10, 8, 12, 0, tzinfo=timezone.utc)
-        with patch.object(setup, "Path") as path, patch.object(setup, "API", side_effect=[api, kube]), \
+        with patch.object(setup, "Path") as path, patch.object(setup, "API", side_effect=[api, kube, Mock()]), \
                 patch.object(setup, "Database"), patch.object(setup, "datetime") as clock, \
                 patch.object(setup, "accounts") as accounts, \
+                patch.object(setup, "admin_discovery_role", return_value=discovery), \
                 patch.object(registrations, "reconcile_one", side_effect=reconcile_one), \
                 patch.dict(setup.os.environ, {"PLATFORM_ADMIN_EMAIL": "admin@example.com"}):
             path.return_value.read_text.return_value = json.dumps(config)
@@ -87,6 +90,108 @@ class SetupPublicationTests(unittest.TestCase):
                 return kube, output, exc
             clock.now.assert_called_once_with(timezone.utc)
         return kube, output, None
+
+    def test_studio_installation_snapshot_matches_loader_without_importing_publication(self):
+        spec = definition() | {"studio_managed": True}
+        unavailable = definition("unavailable") | {"studio_managed": True, "server_id": "d" * 32}
+        def verified(api, item, *args, **kwargs):
+            if item["id"] == unavailable["id"]:
+                raise registrations.SetupError("Native verification unavailable")
+            return {"id": item["id"], "gateway_id": "a" * 32, "server_id": item["server_id"],
+                    "state": "pending-discovery", "error_code": None,
+                    "approved_config_hash": registrations.config_hash(item), "setup_mode": "studio-v1"}
+        previous = {"studio.json": json.dumps([projection(item) | {"tool_names": {"read": "old_read"}}
+                                              for item in (spec, unavailable)]),
+                    "mappings.json": json.dumps([{"id": unavailable["id"], "server_id": unavailable["server_id"],
+                        "gateway_id": "e" * 32, "approved_config_hash": registrations.config_hash(unavailable)}]),
+                    "publication.json": "old-publication"}
+        with patch.object(setup, "project") as publish, patch.object(setup, "legacy_publication_guard") as guard:
+            kube, _, error = self.run_main([spec, unavailable], [projection(spec), projection(unavailable)],
+                                           verified, Mock(), previous, managed=True)
+        self.assertIsNone(error)
+        publish.assert_not_called()
+        guard.assert_not_called()
+        data = next(call.args[2]["data"] for call in kube.request.call_args_list if call.args[0] == "PUT")
+        self.assertEqual(data["setup_mode"], "studio-v1")
+        self.assertEqual({key: data[key] for key in ("team_id", "global_role_id", "team_role_id",
+            "admin_discovery_role_id", "admin_discovery_ready", "ready")}, {
+            "team_id": "team", "global_role_id": "global", "team_role_id": "invoke",
+            "admin_discovery_role_id": "discovery", "admin_discovery_ready": "true", "ready": "true"})
+        catalog = json.loads(data["studio.json"])
+        self.assertEqual([entry["tool_names"] for entry in catalog], [{}, {}])
+        self.assertEqual([entry["gateway_id"] for entry in catalog], ["a" * 32, ""])
+        self.assertEqual([entry["id"] for entry in json.loads(data["mappings.json"])], [spec["id"]])
+        self.assertEqual(data["catalog_hash"], "a" * 64)
+        self.assertEqual(json.loads(data["publication.json"]), {
+            "catalog_hash": data["catalog_hash"], "checked_at": "2026-10-08T12:00:00+00:00",
+            "integrations": [{"id": spec["id"], "state": "pending-discovery", "error_code": None},
+                             {"id": unavailable["id"], "state": "error", "error_code": "verification-failed"}]})
+        self.assertEqual(sum(call.args[0] == "PUT" for call in kube.request.call_args_list), 1)
+
+    def test_studio_initialization_is_empty_and_rerun_preserves_saved_native_state(self):
+        spec = definition() | {"studio_managed": True, "oauth": None, "authentication_model": "shared-authentication"}
+        owner, service, team = "admin@example.com", "studio@example.com", "team"
+        marker = "neurwerk-contextforge/example/example/shared-authentication/studio-v1"
+        gateways, servers, tools, mutations = [], [], [], []
+
+        def request(actor, method, path, body=None):
+            if method != "GET":
+                mutations.append((actor, method, path, body))
+            if method == "POST" and path == "/gateways":
+                self.assertEqual(actor, owner)
+                gateways.append({"id": "a" * 32, "name": body["name"], "description": body["description"],
+                    "url": body["url"], "transport": body["transport"], "teamId": team,
+                    "ownerEmail": owner, "createdBy": owner, "visibility": "public",
+                    "enabled": True, "status": "pending", "gatewayMode": "cache", "reachable": False})
+                return gateways[0]
+            if method == "POST" and path == "/servers":
+                self.assertEqual(actor, service)
+                row = body["server"]
+                servers.append({"id": row["id"], "name": row["name"], "description": row["description"],
+                    "teamId": team, "ownerEmail": service, "createdBy": service, "visibility": "public",
+                    "enabled": True, "oauthEnabled": False, "associatedResources": [], "associatedPrompts": [],
+                    "associatedA2aAgents": [], "associatedToolIds": row["associated_tools"]})
+                return servers[0]
+            self.assertEqual(method, "GET", "Bootstrap must never reset or republish existing native servers")
+            if path.startswith("/gateways?"):
+                return gateways
+            if path.startswith("/servers?"):
+                return servers
+            if "/tools?" in path:
+                return tools
+            if "/resources?" in path or "/prompts?" in path:
+                return []
+            if path == "/servers/" + spec["server_id"]:
+                return servers[0]
+            self.fail("Unexpected native setup request")
+
+        api = Mock(request=lambda *args: request(owner, *args))
+        service_api = Mock(request=lambda *args: request(service, *args))
+        result = registrations.reconcile_one(api, spec, team, owner, studio=(service_api, service))
+        self.assertEqual([call[2] for call in mutations], ["/gateways", "/servers"])
+        self.assertEqual(servers[0]["associatedToolIds"], [])
+        self.assertEqual(servers[0]["description"], marker + "/" + gateways[0]["id"])
+        # A later Studio choice may include newly discovered tools beyond the old
+        # static approved list, or disable the server. Bootstrap must preserve it.
+        tools.append({"id": "c" * 32, "originalName": "newly_discovered", "enabled": True,
+                      "gatewayId": gateways[0]["id"], "teamId": team, "ownerEmail": owner,
+                      "visibility": "public", "integrationType": "MCP", "url": spec["upstream_url"]})
+        servers[0]["associatedToolIds"] = [tools[0]["id"]]
+        servers[0]["enabled"] = False
+        saved = copy.deepcopy(servers)
+        mutations.clear()
+        rerun = list(registrations.reconcile(api, [spec], team, owner, {spec["id"]: result}, (service_api, service)))
+        self.assertNotEqual(rerun[0]["state"], "error")
+        self.assertEqual(servers, saved)
+        self.assertEqual(mutations, [])
+        # Neither a foreign server nor an old gateway is silently adopted/reset.
+        for row, field, value in ((servers[0], "ownerEmail", owner), (gateways[0], "description", marker.removesuffix("/studio-v1"))):
+            before = row[field]
+            row[field] = value
+            with self.assertRaises(registrations.SetupError):
+                registrations.reconcile_one(api, spec, team, owner, studio=(service_api, service))
+            row[field] = before
+        self.assertEqual(mutations, [])
 
     def test_successful_first_provider_survives_later_budget_exhaustion_and_uses_start_time(self):
         first = definition("first")
@@ -243,6 +348,27 @@ class SetupPublicationTests(unittest.TestCase):
 
 
 class OperatorGrantTests(unittest.TestCase):
+    def test_owned_role_reconciles_exact_permissions_after_ownership_check(self):
+        desired = sorted(setup.PROVISION + setup.PUBLISH)
+        row = {"id": "owner", "name": "provisioner", "scope": "team", "description": setup.MARKER,
+               "created_by": "admin@example.com", "is_active": True, "inherits_from": None,
+               "is_system_role": False, "permissions": setup.PROVISION + ["unwanted"]}
+        db, api = Mock(), Mock()
+        db.rows.return_value = [{"id": "owner"}]
+        def request(method, path, body=None):
+            if method == "PUT":
+                row.update(body)
+            return copy.deepcopy(row)
+        api.request.side_effect = request
+        self.assertEqual(setup.role(api, db, "provisioner", "team", desired, "admin@example.com"), "owner")
+        self.assertEqual(row["permissions"], desired)
+        api.request.assert_any_call("PUT", "/rbac/roles/owner", {"permissions": desired})
+        row.update(created_by="other@example.com", permissions=[])
+        api.reset_mock()
+        with self.assertRaises(registrations.SetupError):
+            setup.role(api, db, "provisioner", "team", desired, "admin@example.com")
+        self.assertTrue(all(call.args[0] == "GET" for call in api.request.call_args_list))
+
     def test_admin_discovery_creates_only_scoped_role_without_a_named_account(self):
         api, db = Mock(), Mock()
         config = {"operatorDiscovery": {"enabled": False}, "adminDiscovery": {"enabled": True}}

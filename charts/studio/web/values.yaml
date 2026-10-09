@@ -16,7 +16,7 @@ frontendStudio:
   api:
     contextforge:
       enabled: false
-  webImage: "ghcr.io/neurwerk/k8s-stack-studio-web:0.16.4@sha256:c6a88f8ca89ea31164e99c86bbce4398797374abe04a8bd8a1db8348195ce7b3"
+  webImage: "ghcr.io/neurwerk/k8s-stack-studio-web:0.17.1@sha256:72f302a2240c9469f211cf13d41febd7764efc6974b058346b8bf20cafd9ac61"
   studio:
     hostname: ""          # set in client_*/config/client.yaml
     replicas: 1
