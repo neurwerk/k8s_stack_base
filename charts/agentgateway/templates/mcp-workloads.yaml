@@ -30,9 +30,10 @@ spec:
   replicas: {{ if and $managed .credential.required (not $record.configured) }}0{{ else }}{{ .workload.replicas | default 1 }}{{ end }}
   {{- if $managed }}
   strategy:
-    type: Recreate
-    # Clear API-defaulted settings when switching an existing Deployment.
-    rollingUpdate: null
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: "100%"
   {{- end }}
   selector:
     matchLabels:
