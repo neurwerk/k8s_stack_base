@@ -30,5 +30,8 @@ the `mcp.neurwerk.com/key-version` Pod annotation when it changes.
 Context7 uses the controller's private `contextforge-providers` Gateway on port
 8080 with `mcp-forward-<hash12>-<version>` backends. Only ContextForge can reach
 that listener; only Studio can reach its private admin port 15000 for activation
-checks. Required upstream workload deployments grant Studio only named `get`
-access; it has no Kubernetes write or Secret-read permissions.
+checks. Studio has only named `get` access to the installed shared-key Deployments
+and current versioned `agentgateway.dev/agentgatewaybackends`. Backend access
+follows the same runtime version as the route, including header-only catalogs.
+The RoleBinding targets `frontend-studio/studio-mcp` in `infra-agentgateway`;
+it grants no Kubernetes writes, list access or Secret reads.

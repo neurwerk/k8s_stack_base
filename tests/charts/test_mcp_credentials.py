@@ -95,6 +95,12 @@ class McpCredentialsTests(unittest.TestCase):
                         route = resource(output, "HTTPRoute", "mcp-forward-context7")
                         self.assertEqual(route["spec"]["rules"][0]["backendRefs"][0]["name"], backend_name)
                         self.assertEqual(backend["spec"]["static"], {"host": "mcp.context7.com", "port": 443})
+                        # Studio reads the same exact backend as the active route,
+                        # including after replacing or removing a shared key.
+                        rules = resource(output, "Role", "studio-mcp-runtime")["rules"]
+                        self.assertEqual([rule for rule in rules if rule["apiGroups"] == ["agentgateway.dev"]], [{
+                            "apiGroups": ["agentgateway.dev"], "resources": ["agentgatewaybackends"],
+                            "resourceNames": [backend_name], "verbs": ["get"]}])
                 self.assertFalse(any(doc["kind"] == "Secret" and doc["metadata"]["name"].startswith("mcp-")
                                      for doc in documents(output)))
                 self.assertNotIn("mcp-github-deploy", output.stdout)
@@ -129,12 +135,32 @@ class McpCredentialsTests(unittest.TestCase):
         release = yaml.safe_load((ROOT / "releases/agentgateway/app.yaml").read_text())
         self.assertEqual(release["spec"]["valuesFrom"][-1], {"kind": "Secret", "name": "mcp-runtime-values",
                                                             "valuesKey": "values.yaml", "optional": True})
-        role = resource(output, "Role", "studio-mcp-runtime")
-        self.assertEqual(role["rules"], [{"apiGroups": ["apps"], "resources": ["deployments"],
-                                        "resourceNames": ["mcp-brave-deploy"], "verbs": ["get"]}])
-        binding = resource(output, "RoleBinding", role["metadata"]["name"])
-        self.assertEqual(binding["roleRef"]["name"], role["metadata"]["name"])
-        self.assertEqual(binding["subjects"], [{"kind": "ServiceAccount", "name": "studio-mcp", "namespace": "frontend-studio"}])
+        deployment_rule = {"apiGroups": ["apps"], "resources": ["deployments"],
+                           "resourceNames": ["mcp-brave-deploy"], "verbs": ["get"]}
+        backend_rule = {"apiGroups": ["agentgateway.dev"], "resources": ["agentgatewaybackends"],
+                        "resourceNames": ["mcp-forward-" + hashlib.sha256(b"context7").hexdigest()[:12] + "-initial"],
+                        "verbs": ["get"]}
+        for selected, expected in ((["brave", "context7", "github"], [deployment_rule, backend_rule]),
+                                   (["context7"], [backend_rule]), (["brave"], [deployment_rule]), (["github"], [])):
+            with self.subTest(providers=selected):
+                values = managed_values()
+                for identity, preset in values["mcp"]["catalog"]["presets"].items():
+                    preset["enabled"] = identity in selected
+                scoped = render("agentgateway", values, namespace="infra-agentgateway", release="infra-agentgateway")
+                if not expected:
+                    self.assertFalse(any(doc["kind"] in ("Role", "RoleBinding")
+                                         and doc["metadata"]["name"] == "studio-mcp-runtime" for doc in documents(scoped)))
+                    continue
+                role = resource(scoped, "Role", "studio-mcp-runtime")
+                # Empty resourceNames would grant namespace-wide reads. Omit an
+                # unneeded rule entirely, and never add Secret/list/write access.
+                self.assertEqual(role["rules"], expected)
+                self.assertEqual(role["metadata"]["namespace"], "infra-agentgateway")
+                binding = resource(scoped, "RoleBinding", role["metadata"]["name"])
+                self.assertEqual(binding["metadata"]["namespace"], role["metadata"]["namespace"])
+                self.assertEqual(binding["roleRef"], {"apiGroup": "rbac.authorization.k8s.io", "kind": "Role",
+                                                     "name": role["metadata"]["name"]})
+                self.assertEqual(binding["subjects"], [{"kind": "ServiceAccount", "name": "studio-mcp", "namespace": "frontend-studio"}])
         registrations = json.loads(resource(output, "ConfigMap", "infra-agentgateway-mcp-catalog")["data"]["registrations.json"])
         self.assertTrue(all(entry["studio_managed"] for entry in registrations))
         context7 = next(entry for entry in registrations if entry["id"] == "context7")
