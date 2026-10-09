@@ -71,7 +71,8 @@ class McpCredentialsTests(unittest.TestCase):
                 deployment = resource(output, "Deployment", "mcp-brave-deploy")
                 self.assertEqual(deployment["spec"]["replicas"], 1 if configured else 0)
                 self.assertEqual(deployment["spec"]["template"]["metadata"]["annotations"]["mcp.neurwerk.com/key-version"], version)
-                self.assertEqual(deployment["spec"]["strategy"], {"type": "Recreate"})
+                # Explicit null clears the live RollingUpdate fields during cutover.
+                self.assertEqual(deployment["spec"]["strategy"], {"type": "Recreate", "rollingUpdate": None})
                 container, = deployment["spec"]["template"]["spec"]["containers"]
                 env = {entry["name"]: entry for entry in container["env"]}
                 self.assertNotIn("BRAVE_MCP_ENABLED_TOOLS", env)
