@@ -24,8 +24,11 @@ ESO writes only `version`, `kvVersion` and `configured` into `mcp-runtime-values
 watched by Flux and consumed last by the AgentGateway HelmRelease. Key values
 never enter those Helm inputs. Each runtime Secret is named
 `mcp-key-<sha256(id)[:12]>-<version>` and reads the exact OpenBao KV version.
-Brave waits at zero replicas without a key, and uses a `Recreate` rollout with
-the `mcp.neurwerk.com/key-version` Pod annotation when it changes.
+Brave waits at zero replicas without a key. Managed consumers use a no-surge
+`RollingUpdate` rollout (`maxSurge: 0`, `maxUnavailable: "100%"`) with the
+`mcp.neurwerk.com/key-version` Pod annotation when the key changes. Studio confirms
+activation only after the observed generation, exact replica counts and versioned
+Secret reference match the intended credential version.
 
 Context7 uses the controller's private `contextforge-providers` Gateway on port
 8080 with `mcp-forward-<hash12>-<version>` backends. Only ContextForge can reach
