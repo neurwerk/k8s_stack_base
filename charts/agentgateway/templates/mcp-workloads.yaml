@@ -31,6 +31,8 @@ spec:
   {{- if $managed }}
   strategy:
     type: Recreate
+    # Clear API-defaulted settings when switching an existing Deployment.
+    rollingUpdate: null
   {{- end }}
   selector:
     matchLabels:
