@@ -12,7 +12,13 @@
 {{- end }}
 # =============================================================================
 {{- $operator := .Values.frontendStudio.api.contextforge.operatorDiscovery }}
-{{- $adminDiscovery := .Values.frontendStudio.api.contextforge.adminDiscovery }}
+{{- $studioSetup := .Values.mcp.studioSetup.enabled }}
+{{- if not (kindIs "bool" $studioSetup) }}{{ fail "mcp.studioSetup.enabled must be a boolean" }}{{- end }}
+{{- $adminDiscovery := deepCopy .Values.frontendStudio.api.contextforge.adminDiscovery }}
+{{- if $studioSetup }}
+{{- $_ := set $adminDiscovery "enabled" true }}
+{{- if empty .Values.frontendStudio.api.mcpSetup.kubernetesApiEgress }}{{ fail "Studio MCP setup requires exact frontendStudio.api.mcpSetup.kubernetesApiEgress destinations" }}{{- end }}
+{{- end }}
 {{- if not (kindIs "bool" $adminDiscovery.enabled) }}{{ fail "Studio adminDiscovery.enabled must be a boolean" }}{{- end }}
 {{- if and $operator.enabled $adminDiscovery.enabled }}{{ fail "Select adminDiscovery or legacy operatorDiscovery, not both" }}{{- end }}
 {{- $dynamic := or $operator.enabled $adminDiscovery.enabled }}
@@ -56,6 +62,10 @@ spec:
         app.kubernetes.io/instance: {{ .Release.Name }}
         app.kubernetes.io/part-of: {{ .Release.Namespace }}
     spec:
+      automountServiceAccountToken: false
+      {{- if $studioSetup }}
+      serviceAccountName: studio-mcp
+      {{- end }}
       securityContext:
         runAsUser: {{ .Values.frontendStudio.api.securityContext.runAsUser }}
         runAsNonRoot: {{ .Values.frontendStudio.api.securityContext.runAsNonRoot }}
@@ -133,6 +143,24 @@ spec:
               value: {{ .Values.frontendStudio.api.agentgatewayAdminUrl | quote }}
             - name: K8S_STUDIO_USAGE_TIMEZONE
               value: {{ .Values.frontendStudio.api.usageTimezone | quote }}
+            {{- if $studioSetup }}
+            - name: K8S_STUDIO_MCP_SETUP_ENABLED
+              value: "true"
+            - name: K8S_STUDIO_MCP_OPENBAO_URL
+              value: https://infra-openbao.infra-openbao.svc.cluster.local:8200
+            - name: K8S_STUDIO_MCP_OPENBAO_TOKEN_FILE
+              value: /var/run/mcp-identity/openbao-token
+            - name: K8S_STUDIO_MCP_OPENBAO_CA_CERT
+              value: /var/run/contextforge/ca.crt
+            - name: K8S_STUDIO_MCP_KUBERNETES_URL
+              value: https://kubernetes.default.svc
+            - name: K8S_STUDIO_MCP_KUBERNETES_TOKEN_FILE
+              value: /var/run/mcp-identity/kubernetes-token
+            - name: K8S_STUDIO_MCP_KUBERNETES_CA_CERT
+              value: /var/run/mcp-identity/ca.crt
+            - name: K8S_STUDIO_MCP_PROVIDER_ADMIN_URL
+              value: http://contextforge-providers.infra-agentgateway.svc.cluster.local:15000
+            {{- end }}
             {{- if .Values.frontendStudio.api.contextforge.enabled }}
             - name: K8S_STUDIO_MCP_GATEWAY_URL
               value: {{ printf "http://infra-agentgateway-gateway.infra-agentgateway.svc.cluster.local:%v" .Values.frontendStudio.api.mcpGatewayPort | quote }}
@@ -262,6 +290,11 @@ spec:
             - name: pii-engine-tls
               mountPath: /var/run/pii-engine/tls
               readOnly: true
+            {{- if $studioSetup }}
+            - name: mcp-identity
+              mountPath: /var/run/mcp-identity
+              readOnly: true
+            {{- end }}
             {{- if .Values.frontendStudio.api.contextforge.enabled }}
             - name: contextforge-ca
               mountPath: /var/run/contextforge
@@ -356,6 +389,23 @@ spec:
           resources:
             {{- toYaml .Values.frontendStudio.api.resources | nindent 12 }}
       volumes:
+        {{- if $studioSetup }}
+        - name: mcp-identity
+          projected:
+            defaultMode: 0440
+            sources:
+              - serviceAccountToken:
+                  audience: openbao
+                  expirationSeconds: 600
+                  path: openbao-token
+              # Omitted audience selects this cluster's API-server audience.
+              - serviceAccountToken:
+                  expirationSeconds: 600
+                  path: kubernetes-token
+              - configMap:
+                  name: kube-root-ca.crt
+                  items: [{key: ca.crt, path: ca.crt}]
+        {{- end }}
         {{- if .Values.frontendStudio.api.contextforge.enabled }}
         - name: contextforge-ca
           configMap:

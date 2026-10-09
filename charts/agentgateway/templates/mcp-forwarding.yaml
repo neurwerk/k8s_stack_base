@@ -1,0 +1,125 @@
+{{- if .Values.mcp.studioSetup.enabled }}
+{{- $forward := list }}
+{{- range include "infra-agentgateway.effectiveMcpServers" . | fromYamlArray }}
+{{- if eq (.credential.method | default "none") "gateway-header" }}{{- $forward = append $forward . }}{{- end }}
+{{- end }}
+{{- if $forward }}
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayParameters
+metadata:
+  name: contextforge-providers
+  namespace: infra-agentgateway
+spec:
+  service:
+    spec:
+      type: ClusterIP
+      ports: [{name: admin, port: 15000, targetPort: 15000, protocol: TCP}]
+  rawConfig:
+    config:
+      adminAddr: "0.0.0.0:15000"
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: contextforge-providers
+  namespace: infra-agentgateway
+spec:
+  gatewayClassName: agentgateway
+  infrastructure:
+    parametersRef: {group: agentgateway.dev, kind: AgentgatewayParameters, name: contextforge-providers}
+  listeners:
+    - name: providers
+      port: 8080
+      protocol: HTTP
+      allowedRoutes:
+        namespaces: {from: Same}
+        kinds: [{group: gateway.networking.k8s.io, kind: HTTPRoute}]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: contextforge-providers
+  namespace: infra-agentgateway
+spec:
+  podSelector:
+    matchLabels:
+      gateway.networking.k8s.io/gateway-name: contextforge-providers
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: contextforge}
+          podSelector:
+            matchLabels: {app.kubernetes.io/name: contextforge, app.kubernetes.io/component: application}
+      ports: [{protocol: TCP, port: 8080}]
+    - from:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: frontend-studio}
+          podSelector:
+            matchLabels: {app.kubernetes.io/name: studio-api, app.kubernetes.io/instance: frontend-studio-api}
+      ports: [{protocol: TCP, port: 15000}]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: kube-system}
+          podSelector:
+            matchLabels: {k8s-app: kube-dns}
+      ports: [{protocol: UDP, port: 53}, {protocol: TCP, port: 53}]
+    - to:
+        - podSelector:
+            matchLabels: {agentgateway: agentgateway, app.kubernetes.io/instance: infra-agentgateway}
+      ports: [{protocol: TCP, port: grpc-xds-agw}]
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except: [10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 127.0.0.0/8, 169.254.0.0/16]
+      ports: [{protocol: TCP, port: 443}]
+{{- range $server := $forward }}
+{{- $record := include "infra-agentgateway.mcpCredentialVersion" (dict "root" $ "id" $server.name) | fromYaml }}
+{{- $url := urlParse $server.registration.upstream_url }}
+{{- if or (ne $url.scheme "https") (contains ":" $url.host) }}{{ fail "Shared-header MCP forwarding requires a fixed public HTTPS endpoint on port 443" }}{{- end }}
+{{- $backend := include "infra-agentgateway.mcpForwardName" (dict "id" $server.name "version" $record.version) }}
+---
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayBackend
+metadata:
+  name: {{ $backend }}
+  namespace: infra-agentgateway
+spec:
+  static: {host: {{ $url.host | quote }}, port: 443}
+  policies:
+    tls:
+      sni: {{ $url.host | quote }}
+    {{- if $record.configured }}
+    auth:
+      credentials:
+        - secretRef:
+            name: {{ include "infra-agentgateway.mcpCredentialName" (dict "id" $server.name "version" $record.version) }}
+            key: apiKey
+          location:
+            header: {name: {{ $server.credential.header | quote }}}
+    {{- end }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: mcp-forward-{{ $server.name }}
+  namespace: infra-agentgateway
+spec:
+  parentRefs: [{name: contextforge-providers, sectionName: providers}]
+  rules:
+    - matches:
+        - path: {type: Exact, value: {{ printf "/%s" $server.name | quote }}}
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            hostname: {{ $url.host | quote }}
+            path: {type: ReplaceFullPath, replaceFullPath: {{ $url.path | default "/" | quote }}}
+        - type: RequestHeaderModifier
+          requestHeaderModifier:
+            remove: [Authorization, Cookie, x-contextforge-account-email, {{ $server.credential.header | quote }}]
+      backendRefs:
+        - {group: agentgateway.dev, kind: AgentgatewayBackend, name: {{ $backend }}}
+{{- end }}
+{{- end }}
+{{- end }}

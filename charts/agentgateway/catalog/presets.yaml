@@ -2,6 +2,7 @@
 context7:
   name: context7
   displayName: Context7
+  credential: {owner: shared, required: false, method: gateway-header, header: CONTEXT7_API_KEY}
   checks:
     - name: Check connection
       tool: resolve-library-id
@@ -18,6 +19,7 @@ context7:
 brave:
   name: brave
   displayName: Brave Search
+  credential: {owner: shared, required: true, method: upstream-env}
   checks:
     - name: Check connection
       tool: brave_web_search
@@ -50,6 +52,7 @@ brave:
 github:
   name: github
   displayName: GitHub
+  credential: {owner: individual, required: true, method: oauth}
   checks:
     - name: Check connection
       tool: get_me

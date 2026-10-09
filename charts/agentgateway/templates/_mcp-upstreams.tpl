@@ -1,5 +1,5 @@
 {{- define "infra-agentgateway.mcpUpstreamWorkloads" -}}
-{{- $upstreams := .Values.mcp.upstreamWorkloads | default list -}}
+{{- $upstreams := deepCopy (.Values.mcp.upstreamWorkloads | default list) -}}
 {{- if not (kindIs "slice" $upstreams) -}}{{ fail "mcp.upstreamWorkloads must be a list" }}{{- end -}}
 {{- $overrides := dict -}}
 {{- range $upstreams -}}{{- $_ := set $overrides .name true -}}{{- end -}}
@@ -40,6 +40,14 @@
 {{- $url := printf "http://%s.infra-agentgateway.svc.cluster.local:%d%s" $service (int $port) $path -}}
 {{- $entry := get $native $id -}}
 {{- if ne ($entry.registration.upstream_url | default "") $url -}}{{ fail "native registration.upstream_url must match its retained upstream workload Service, port and path" }}{{- end -}}
+{{- if $.Values.mcp.studioSetup.enabled -}}
+{{- if and $entry.credential (eq $entry.credential.method "upstream-env") -}}
+{{- $_ := set $upstream "credential" $entry.credential -}}
+{{- if ne (len ($upstream.workload.secretEnv | default list)) 1 -}}{{ fail "MCP upstream-env requires exactly one apiKey Secret environment reference" }}{{- end -}}
+{{- if ne (first $upstream.workload.secretEnv).key "apiKey" -}}{{ fail "MCP upstream-env Secret reference must use key apiKey" }}{{- end -}}
+{{- if eq $id "brave" -}}{{- $_ := unset $upstream.workload.env "BRAVE_MCP_ENABLED_TOOLS" -}}{{- end -}}
+{{- end -}}
+{{- end -}}
 {{- end -}}
 {{- $upstreams | toYaml -}}
 {{- end -}}

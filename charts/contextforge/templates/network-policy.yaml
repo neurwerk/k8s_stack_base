@@ -71,4 +71,13 @@ spec:
       ports:
         - {protocol: TCP, port: {{ .port }}}
     {{- end }}
+    {{- if .Values.mcp.studioSetup.enabled }}
+    - to:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: infra-agentgateway}
+          podSelector:
+            matchLabels: {gateway.networking.k8s.io/gateway-name: contextforge-providers}
+      ports:
+        - {protocol: TCP, port: 8080}
+    {{- end }}
 {{- end }}

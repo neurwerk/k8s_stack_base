@@ -328,3 +328,8 @@ openbao:
   # Snapshot upload remains disabled until its endpoint and credentials are known.
   snapshotAgent:
     enabled: false
+
+mcp:
+  # Project the same activation setting into OpenBao, AgentGateway, ContextForge and Studio.
+  studioSetup:
+    enabled: false

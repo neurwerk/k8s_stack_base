@@ -19,14 +19,14 @@
 {{- if not (hasKey $presets $id) -}}{{- fail (printf "unknown MCP preset %q; use mcp.catalog.custom for client definitions" $id) -}}{{- end -}}
 {{- if not (kindIs "map" $selection) -}}{{- fail "MCP preset selection must be a map" -}}{{- end -}}
 {{- range $field, $_ := $selection -}}
-{{- if not (has $field (list "enabled" "displayName" "piiEnabled" "contentTracingEnabled" "contextforge" "registration" "checks")) -}}
+{{- if not (has $field (list "enabled" "displayName" "piiEnabled" "contentTracingEnabled" "contextforge" "registration" "checks" "credential")) -}}
 {{- fail (printf "MCP preset selection field %q is unsupported" $field) -}}
 {{- end -}}
 {{- end -}}
 {{- $entry := mergeOverwrite (deepCopy (get $presets $id)) (deepCopy $selection) -}}
 {{- $_ := unset $entry "upstreamWorkload" -}}
-{{- if or (ne $entry.contextforge.provider (get $presets $id).contextforge.provider) (ne $entry.contextforge.authenticationModel (get $presets $id).contextforge.authenticationModel) -}}
-{{- fail "preset provider/authentication model cannot change; use a custom definition" -}}
+{{- if or (ne $entry.contextforge.provider (get $presets $id).contextforge.provider) (ne $entry.contextforge.authenticationModel (get $presets $id).contextforge.authenticationModel) (ne ($entry.credential | toJson) ((get $presets $id).credential | toJson)) -}}
+{{- fail "preset provider/authentication or credential policy cannot change; use a custom definition" -}}
 {{- end -}}
 {{- $entries = append $entries $entry -}}
 {{- end -}}
@@ -38,7 +38,7 @@
 {{- fail "MCP catalog entries require explicit boolean enabled" -}}
 {{- end -}}
 {{- range $field, $_ := $entry -}}
-{{- if not (has $field (list "enabled" "name" "displayName" "piiEnabled" "contentTracingEnabled" "contextforge" "registration" "checks" "host" "workload" "path" "port" "protocol" "tls" "upstreamAuth")) -}}
+{{- if not (has $field (list "enabled" "name" "displayName" "piiEnabled" "contentTracingEnabled" "contextforge" "registration" "checks" "credential" "host" "workload" "path" "port" "protocol" "tls" "upstreamAuth")) -}}
 {{- fail (printf "MCP catalog field %q is unsupported; credentials must use Secret references" $field) -}}
 {{- end -}}
 {{- end -}}
@@ -62,6 +62,17 @@
 {{- if not (kindIs "map" $server.registration) -}}{{- fail "native MCP catalog entries require non-secret registration metadata" -}}{{- end -}}
 {{- $_ := include "infra-agentgateway.validateMcpRegistration" $server -}}
 {{- $_ := include "infra-agentgateway.validateMcpChecks" $server -}}
+{{- $credential := $server.credential | default dict -}}
+{{- if $credential -}}
+{{- if or (not (kindIs "map" $credential)) (not (hasKey $credential "owner")) (not (hasKey $credential "required")) (not (hasKey $credential "method")) -}}{{- fail "MCP credential policy requires owner, required and method" -}}{{- end -}}
+{{- range $key, $_ := $credential -}}{{- if not (has $key (list "owner" "required" "method" "header")) -}}{{- fail "MCP credential policy contains an unsupported field" -}}{{- end -}}{{- end -}}
+{{- if eq $credential.method "gateway-header" -}}
+{{- if not (regexMatch `^[a-zA-Z0-9_-]{1,100}$` ($credential.header | default "")) -}}{{- fail "MCP gateway-header requires an approved header name" -}}{{- end -}}
+{{- else if $credential.header -}}{{- fail "MCP header is only supported for gateway-header credentials" -}}{{- end -}}
+{{- if or (not (has $credential.owner (list "none" "shared" "individual"))) (not (kindIs "bool" $credential.required)) (not (has $credential.method (list "none" "upstream-env" "gateway-header" "oauth"))) -}}{{- fail "Invalid MCP credential policy" -}}{{- end -}}
+{{- if or (and (eq $credential.owner "none") (or $credential.required (ne $credential.method "none"))) (and (eq $credential.owner "shared") (not (has $credential.method (list "upstream-env" "gateway-header")))) (and (eq $credential.owner "individual") (or (not $credential.required) (ne $credential.method "oauth"))) -}}{{- fail "MCP credential owner and method conflict" -}}{{- end -}}
+{{- if or (and (eq $server.contextforge.authenticationModel "individual-authentication") (ne $credential.owner "individual")) (and (ne $server.contextforge.authenticationModel "individual-authentication") (eq $credential.owner "individual")) (and (eq $server.contextforge.authenticationModel "shared-authentication") (ne $credential.owner "shared")) -}}{{- fail "MCP credential policy conflicts with authentication model" -}}{{- end -}}
+{{- end -}}
 {{- else if hasKey $server "registration" -}}{{- fail "registration metadata requires contextforge" -}}{{- end -}}
 {{- $effective = append $effective $server -}}
 {{- end -}}

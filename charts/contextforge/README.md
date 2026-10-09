@@ -1,7 +1,66 @@
 # ContextForge
 
-The optional chart runs private ContextForge and a setup Job that registers the selected MCP catalog and supplies Studio's configuration.
-Keep credentials in OpenBao; stop the application before database migrations and preserve the database with its encryption keys.
+The chart runs private ContextForge and a bootstrap Job for installed MCP destinations.
+Stop the application before native database migrations and retain its encryption keys.
+
+## Studio MCP Setup
+
+Set the single `mcp.studioSetup.enabled: true` switch consistently in AgentGateway,
+ContextForge, Studio API and OpenBao values. Adopt the matching Studio API/Web images
+in the same cutover: the new catalog schema is incompatible with Studio `0.16.4`.
+Keep `contextforge.setup.enabled`, native trusted-proxy access, Studio ContextForge
+connections and onboarding enabled. The setup switch supplies role-based discovery;
+do not enable the old named-operator mode.
+
+Charts own installed integrations, stable IDs/URLs, credential policies and checks.
+Studio/PostgreSQL owns enabled state, selected tools and publication progress.
+Bootstrap creates gateways as the setup administrator and empty native virtual
+servers as `contextforge-studio`. Subsequent bootstrap only verifies those servers;
+it never replaces their tool membership or enabled state, imports selections,
+copies personal connections, or publishes chart-selected tools.
+
+The fixed team owner's role has exactly `admin.user_management`,
+`teams.manage_members`, `teams.read`, `gateways.read`, `servers.create`,
+`servers.read`, `servers.update` and `tools.read`, with no inheritance. Setup
+reconciles this chart-owned permission set only after checking role ownership.
+The temporary caller discovery role still contains only `gateways.update`.
+Individual provider OAuth stays native and uses the calling administrator's
+connection. Shared keys stay in OpenBao and reach their runtime through ESO.
+
+The setup ConfigMap contains installed catalog entries, verified native IDs,
+`setup_mode=studio-v1`, role/team IDs and administrator-discovery readiness. Its
+`publication.json` envelope holds `catalog_hash`, verification-start `checked_at`
+and integration `{id, state, error_code}` entries (`pending-discovery` or `error`).
+This verifies installation; Studio's database owns actual publication. Studio
+loads all keys from one atomic directory snapshot using the existing
+`K8S_STUDIO_CONTEXTFORGE_PUBLICATION_STATUS_PATH` locator. An unavailable
+registration has no unverified gateway ID and can be retried by normal bootstrap.
+
+Only the Studio API container mounts `/var/run/mcp-identity`: an OpenBao-audience
+token, a separate Kubernetes API-audience token, and the Kubernetes CA. OpenBao
+uses the fixed `studio-mcp` role and `/var/run/contextforge/ca.crt` trust bundle.
+No separate activation or role environment setting is needed.
+
+### Clean cutover
+
+1. Prepare the exact shared OpenBao paths and scoped Studio/ESO roles with the
+   matching Tooling version; seed empty records only when absent.
+2. During the approved cutover, remove only the affected old native server/gateway
+   IDs and obsolete setup projection. This is a separate operator action, never
+   part of bootstrap. Existing MCP selections, keys and personal connections are
+   deliberately not imported.
+3. Adopt compatible Studio images and the chart set, including the shared switch,
+   native provider egress/SSRF ranges, `contextforge.setup.kubernetesApiEgress`, and
+   `frontendStudio.api.mcpSetup.kubernetesApiEgress` for the API Service and server
+   addresses. Required shared-key workloads wait at zero replicas until configured.
+4. Verify native bootstrap, ESO delivery, gateway/controller readiness, and Studio
+   setup. Administrators then save keys, discover tools and publish selections in
+   Studio. Later bootstrap runs preserve these choices.
+
+## Chart-owned publication (`mcp.studioSetup.enabled: false` only)
+
+The remaining sections describe the older chart-owned workflow. They do not apply
+to Studio MCP Setup.
 
 ## Role-based administrator discovery
 

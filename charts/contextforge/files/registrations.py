@@ -68,7 +68,7 @@ def check_gateway(row, spec, team, owner, marker):
     owned(row, spec, team, owner, marker)
     require(re.fullmatch(r"[0-9a-f]{32}", row["id"]), "Invalid native gateway ID")
     require(not spec.get("gateway_id") or row["id"] == spec["gateway_id"], "Gateway ID conflict")
-    require(row.get("enabled") is True and row.get("status") == "active"
+    require(row.get("enabled") is True and (row.get("status") == "active" or spec.get("studio_managed"))
             and row.get("gatewayMode") == "cache" and row.get("transport") == spec["transport"]
             and address(row["url"], True) == address(spec["upstream_url"], True),
             "Conflicting or inactive native gateway")
@@ -88,7 +88,7 @@ def check_gateway(row, spec, team, owner, marker):
                 "Conflicting OAuth app metadata; refusing to rotate or overwrite")
     else:
         require(row.get("authType") in (None, "", "none") and empty(row.get("oauthConfig"))
-                and row.get("reachable") is True, "Upstream authentication or reachability conflict")
+                and (row.get("reachable") is True or spec.get("studio_managed")), "Upstream authentication or reachability conflict")
 
 
 def tool_id(row, gateway, spec, team, owner):
@@ -103,9 +103,10 @@ def tool_id(row, gateway, spec, team, owner):
     return row["id"]
 
 
-def members(api, server, gateway, spec, team, owner, marker):
-    owned(server, spec, team, owner, marker + "/" + gateway["id"])
-    require(server.get("id") == spec["server_id"] and server.get("enabled") is True
+def members(api, server, gateway, spec, team, owner, marker, server_owner=None):
+    owned(server, spec, team, server_owner or owner, marker + "/" + gateway["id"])
+    require(server.get("id") == spec["server_id"]
+            and (isinstance(server.get("enabled"), bool) if spec.get("studio_managed") else server.get("enabled") is True)
             and server.get("oauthEnabled") is False and empty(server.get("oauthConfig"))
             and all(server.get(k) == [] for k in ("associatedResources", "associatedPrompts", "associatedA2aAgents")),
             "Conflicting server state or non-tool associations")
@@ -138,7 +139,7 @@ def approved(api, gateway, spec, team, owner):
     return ids
 
 
-def reconcile(api, specs, team, owner, previous=None):
+def reconcile(api, specs, team, owner, previous=None, studio=None):
     """Yield each provider for immediate projection before starting the next."""
     previous = previous or {}
     for values in ([s["id"] for s in specs], [s["server_id"] for s in specs],
@@ -153,7 +154,7 @@ def reconcile(api, specs, team, owner, previous=None):
                         "Previously published native mapping changed")
                 # Alias verification still rejects a replacement gateway with the same name.
                 spec = dict(spec, gateway_id=old["gateway_id"])
-            result = reconcile_one(api, spec, team, owner)
+            result = reconcile_one(api, spec, team, owner, studio=studio) if studio else reconcile_one(api, spec, team, owner)
         except Exception as exc:
             # No response bodies or exception messages may enter publication data.
             old = previous.get(spec["id"], {})
@@ -164,7 +165,7 @@ def reconcile(api, specs, team, owner, previous=None):
         yield result
 
 
-def reconcile_one(api, spec, team, owner):
+def reconcile_one(api, spec, team, owner, studio=None):
     alias = "neurwerk-contextforge-" + spec["id"]
     marker = f"neurwerk-contextforge/{spec['provider']}/{spec['id']}/{spec['authentication_model']}"
     require(spec["authentication_model"] in {"no-authentication", "shared-authentication", "individual-authentication"},
@@ -184,6 +185,11 @@ def reconcile_one(api, spec, team, owner):
     servers = [s for s in catalog(api, "servers") if s.get("id") == spec["server_id"] or s.get("name") == alias]
     require(len(servers) <= 1 and all(s["id"] == spec["server_id"] for s in servers), "Server alias or ID conflict")
     server = servers[0] if servers else None
+    server_api, server_owner = api, owner
+    if studio:
+        server_api, server_owner = studio
+        require(spec.get("studio_managed") and spec["visibility"] == "public", "Studio requires a managed private-ingress server")
+        marker += "/studio-v1"
     require(server is None or gateway is not None, "Server lost its gateway; refusing to replace")
     if gateway is None:
         payload = {"name": alias, "description": marker, "url": spec["upstream_url"],
@@ -205,16 +211,20 @@ def reconcile_one(api, spec, team, owner):
         require(len(matches) == 1, "Gateway creation not confirmed; retry same alias")
         gateway = matches[0]
     check_gateway(gateway, spec, team, owner, marker)
-    actual = members(api, server, gateway, spec, team, owner, marker) if server else set()
-    pending = False
-    try:
-        desired = approved(api, gateway, spec, team, owner)
-    except PendingDiscovery:
-        require(not actual, "Previously published OAuth tools disappeared; operator repair required")
-        pending = True
-        desired = set()
+    actual = members(api, server, gateway, spec, team, owner, marker, server_owner) if server else set()
+    pending = bool(studio)
+    if studio:
+        # Studio's database/native membership are authoritative after initialization.
+        desired = actual
+    else:
+        try:
+            desired = approved(api, gateway, spec, team, owner)
+        except PendingDiscovery:
+            require(not actual, "Previously published OAuth tools disappeared; operator repair required")
+            pending = True
+            desired = set()
     if server is None:
-        api.request("POST", "/servers", {"server": {"id": spec["server_id"], "name": alias,
+        server_api.request("POST", "/servers", {"server": {"id": spec["server_id"], "name": alias,
                     "description": marker + "/" + gateway["id"], "associated_tools": sorted(desired),
                     "associated_resources": [], "associated_prompts": [], "associated_a2a_agents": [],
                     "oauth_enabled": False, "team_id": team, "visibility": spec["visibility"]},
@@ -224,7 +234,8 @@ def reconcile_one(api, spec, team, owner):
         require(not actual and spec.get("oauth"), "Tool membership conflict; operator repair required")
         api.request("PUT", "/servers/" + spec["server_id"], {"associated_tools": sorted(desired)})
     server = api.request("GET", "/servers/" + spec["server_id"])
-    require(members(api, server, gateway, spec, team, owner, marker) == desired, "Server tool verification failed")
+    require(members(api, server, gateway, spec, team, owner, marker, server_owner) == desired, "Server tool verification failed")
     return {"id": spec["id"], "gateway_id": gateway["id"], "server_id": spec["server_id"],
             "approved_config_hash": config_hash(spec),
+            **({"setup_mode": "studio-v1"} if studio else {}),
             "state": "pending-discovery" if pending else "published", "error_code": None}
