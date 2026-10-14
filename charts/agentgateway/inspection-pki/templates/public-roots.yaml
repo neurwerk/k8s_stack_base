@@ -1,0 +1,24 @@
+{{- if .Values.agentgateway.inspection.enabled }}
+{{- range $id := .Values.agentgateway.inspection.rootIds }}
+---
+# This is a public candidate export. Publication separately requires its exact
+# reviewed fingerprint; changes here never replace current workstation trust.
+apiVersion: trust.cert-manager.io/v1alpha1
+kind: Bundle
+metadata:
+  name: agentgateway-inspection-root-{{ $id }}-config-map
+  labels:
+    {{- include "agentgateway-inspection-pki.labels" $ | nindent 4 }}
+spec:
+  sources:
+    - secret:
+        name: agentgateway-inspection-root-{{ $id }}-secrets
+        key: tls.crt
+  target:
+    configMap:
+      key: ca.crt
+    namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: infra-cert-manager
+{{- end }}
+{{- end }}

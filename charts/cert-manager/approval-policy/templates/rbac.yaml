@@ -9,6 +9,12 @@ rules:
     resources: [certificaterequestpolicies]
     verbs: [use]
     resourceNames:
+      {{- if .Values.agentgateway.inspection.enabled }}
+      {{- range $id := .Values.agentgateway.inspection.rootIds }}
+      - cert-manager-agentgateway-inspection-root-{{ $id }}
+      - cert-manager-agentgateway-inspection-signer-{{ $id }}
+      {{- end }}
+      {{- end }}
       {{- if and .Values.contextforge.enabled .Values.contextforge.tls.enabled }}
       - cert-manager-internal-contextforge-server
       {{- end }}

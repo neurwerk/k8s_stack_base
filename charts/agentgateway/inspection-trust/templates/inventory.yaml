@@ -1,0 +1,13 @@
+{{- if and .Values.agentgateway.inspection.enabled .Values.agentgateway.inspection.trust.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: agentgateway-inspection-trust-inventory-config-map
+  namespace: frontend-studio
+  labels:
+    {{- include "agentgateway-inspection-trust.labels" . | nindent 4 }}
+data:
+  inventory.json: {{ include "agentgateway-inspection-trust.inventory" . | quote }}
+# The publisher owns the output ConfigMap and its retained history. Helm must
+# neither replace its data on upgrade nor delete that archive on uninstall.
+{{- end }}

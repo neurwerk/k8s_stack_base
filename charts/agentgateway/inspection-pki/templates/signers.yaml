@@ -1,0 +1,28 @@
+{{- if .Values.agentgateway.inspection.enabled }}
+{{- range $id := .Values.agentgateway.inspection.rootIds }}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: agentgateway-inspection-signer-{{ $id }}-certificate
+  namespace: infra-agentgateway
+  labels:
+    {{- include "agentgateway-inspection-pki.labels" $ | nindent 4 }}
+spec:
+  commonName: Neurwerk AgentGateway Inspection Signer {{ $id }}
+  secretName: agentgateway-inspection-signer-{{ $id }}-secrets
+  isCA: true
+  usages: [cert sign, crl sign]
+  duration: 2160h
+  renewBefore: 720h
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+    encoding: PKCS8
+    rotationPolicy: Always
+  issuerRef:
+    group: cert-manager.io
+    kind: ClusterIssuer
+    name: agentgateway-inspection-root-{{ $id }}-issuer
+{{- end }}
+{{- end }}

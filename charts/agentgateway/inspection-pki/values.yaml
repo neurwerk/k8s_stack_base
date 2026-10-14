@@ -1,0 +1,8 @@
+# IMAGE SOURCE: none
+# Canonical client-wide settings; also consumed by certificate approval policy.
+agentgateway:
+  inspection:
+    enabled: false
+    # Add a new generation alongside the old one for an explicit root rollover.
+    # Never rename an existing generation or reuse it for a different root key.
+    rootIds: [r1]

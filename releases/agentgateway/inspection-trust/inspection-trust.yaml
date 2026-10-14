@@ -1,0 +1,28 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: agentgateway-inspection-trust
+  namespace: infra-agentgateway
+spec:
+  releaseName: agentgateway-inspection-trust
+  interval: 5m
+  timeout: 15m
+  install:
+    strategy: {name: RetryOnFailure, retryInterval: 1m}
+  upgrade:
+    strategy: {name: RetryOnFailure, retryInterval: 1m}
+  dependsOn:
+    - name: agentgateway-inspection-pki
+      namespace: infra-agentgateway
+  chart:
+    spec:
+      chart: ./charts/agentgateway/inspection-trust
+      sourceRef: {kind: GitRepository, name: k8s-stack, namespace: flux-system}
+      interval: 10m
+  valuesFrom:
+    - kind: ConfigMap
+      name: client-values
+      valuesKey: values.yaml
+    - kind: ConfigMap
+      name: agentgateway-inspection-trust-product-values
+      valuesKey: values.yaml
