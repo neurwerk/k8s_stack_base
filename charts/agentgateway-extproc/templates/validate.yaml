@@ -1,3 +1,27 @@
+{{- if not (kindIs "bool" .Values.rejectedRequestDebug.enabled) -}}
+{{- fail "rejectedRequestDebug.enabled must be boolean" -}}
+{{- end -}}
+{{- if not (kindIs "bool" .Values.rejectedRequestDebug.captureEnabled) -}}
+{{- fail "rejectedRequestDebug.captureEnabled must be boolean" -}}
+{{- end -}}
+{{- if .Values.rejectedRequestDebug.enabled -}}
+{{- $debug := .Values.monitorAgentgatewayExtproc.rejectionLangfuse -}}
+{{- if ne $debug.endpoint "http://monitor-langfuse-web.monitor-langfuse.svc.cluster.local:3000/api/public/otel/v1/traces" -}}
+{{- fail "monitorAgentgatewayExtproc.rejectionLangfuse.endpoint must use the internal Langfuse OTLP HTTP traces endpoint" -}}
+{{- end -}}
+{{- range $name, $bounds := dict "maxCaptureBytes" (list 1 1048576) "queueCapacity" (list 1 128) -}}
+{{- $value := index $debug $name -}}
+{{- if or (not (regexMatch `^[1-9][0-9]*$` (toJson $value))) (lt (float64 $value) (float64 (first $bounds))) (gt (float64 $value) (float64 (last $bounds))) -}}
+{{- fail (printf "monitorAgentgatewayExtproc.rejectionLangfuse.%s must be an integer from %v to %v" $name (first $bounds) (last $bounds)) -}}
+{{- end -}}
+{{- end -}}
+{{- if not (or (kindIs "int" $debug.timeoutSeconds) (kindIs "int64" $debug.timeoutSeconds) (kindIs "float64" $debug.timeoutSeconds)) -}}
+{{- fail "monitorAgentgatewayExtproc.rejectionLangfuse.timeoutSeconds must be a number" -}}
+{{- end -}}
+{{- if or (le (float64 $debug.timeoutSeconds) 0.0) (gt (float64 $debug.timeoutSeconds) 10.0) -}}
+{{- fail "monitorAgentgatewayExtproc.rejectionLangfuse.timeoutSeconds must be greater than zero and at most ten seconds" -}}
+{{- end -}}
+{{- end -}}
 {{- $controls := .Values.monitorAgentgatewayExtproc.compatibility.controls -}}
 {{- if not (kindIs "slice" $controls) -}}
   {{- fail "monitorAgentgatewayExtproc.compatibility.controls must be a list" -}}

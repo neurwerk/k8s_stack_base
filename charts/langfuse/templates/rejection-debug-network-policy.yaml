@@ -1,0 +1,41 @@
+{{- if .Values.rejectedRequestDebug.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: monitor-langfuse-rejection-debug-init-network-policy
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: langfuse-retention-provisioning
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: monitor-langfuse
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: langfuse-retention-provisioning
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: rejection-debug-init
+  policyTypes: [Ingress, Egress]
+  ingress: []
+  # PostgreSQL and DNS are already permitted by the existing provisioning policy.
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: langfuse
+              app.kubernetes.io/instance: {{ .Release.Name }}
+              app: web
+      ports: [{port: 3000, protocol: TCP}]
+    - to:
+        # ClickHouse operator v0.0.5 labels the generated server Pods this way.
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: clickhouse-server
+              app.kubernetes.io/instance: {{ printf "%s-clickhouse" .Values.langfuse.fullnameOverride | quote }}
+      ports: [{port: 8123, protocol: TCP}]
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: redis
+              app.kubernetes.io/instance: {{ .Release.Name }}
+      ports: [{port: 6379, protocol: TCP}]
+{{- end }}

@@ -6,6 +6,8 @@ metadata:
 spec:
   releaseName: monitor-langfuse
   interval: 5m
+  # Includes the bounded optional debug-project initialization hook.
+  timeout: 15m
   install:
     strategy:
       name: RetryOnFailure

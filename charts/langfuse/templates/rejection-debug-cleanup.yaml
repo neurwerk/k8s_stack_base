@@ -1,0 +1,109 @@
+{{- if .Values.rejectedRequestDebug.enabled }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: monitor-langfuse-rejection-debug-cleanup
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: langfuse-rejection-debug-cleanup
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: monitor-langfuse
+automountServiceAccountToken: false
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: monitor-langfuse-rejection-debug-cleanup
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: langfuse-rejection-debug-cleanup
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: monitor-langfuse
+spec:
+  schedule: "0 * * * *"
+  timeZone: Etc/UTC
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 600
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 660
+      ttlSecondsAfterFinished: 86400
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: langfuse-rejection-debug-cleanup
+            app.kubernetes.io/instance: {{ .Release.Name }}
+            app.kubernetes.io/part-of: monitor-langfuse
+        spec:
+          restartPolicy: Never
+          serviceAccountName: monitor-langfuse-rejection-debug-cleanup
+          automountServiceAccountToken: false
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            seccompProfile: {type: RuntimeDefault}
+          containers:
+            - name: cleanup
+              image: {{ .Values.monitorLangfuseWrapper.rejectionDebug.cleanupImage | quote }}
+              command: [python, -m, agentgateway_extproc.lib.rejection_retention]
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities: {drop: [ALL]}
+                readOnlyRootFilesystem: true
+              resources:
+                {{- toYaml .Values.monitorLangfuseWrapper.rejectionDebug.cleanupResources | nindent 16 }}
+              env:
+                - name: PYTHONDONTWRITEBYTECODE
+                  value: "1"
+                - name: LANGFUSE_DEBUG_BASE_URL
+                  value: http://monitor-langfuse-web.monitor-langfuse.svc.cluster.local:3000
+                - name: LANGFUSE_DEBUG_PUBLIC_KEY
+                  valueFrom:
+                    secretKeyRef: {name: monitor-langfuse-rejection-debug, key: public-key}
+                - name: LANGFUSE_DEBUG_SECRET_KEY
+                  valueFrom:
+                    secretKeyRef: {name: monitor-langfuse-rejection-debug, key: secret-key}
+                - name: LANGFUSE_DEBUG_EXPECTED_PROJECT_ID
+                  value: rejected-request-debug
+                - name: LANGFUSE_DEBUG_EXPECTED_ORG_ID
+                  value: rejected-request-debug
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: monitor-langfuse-rejection-debug-cleanup-network-policy
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: langfuse-rejection-debug-cleanup
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: monitor-langfuse
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: langfuse-rejection-debug-cleanup
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  policyTypes: [Ingress, Egress]
+  ingress: []
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - {port: 53, protocol: UDP}
+        - {port: 53, protocol: TCP}
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: langfuse
+              app.kubernetes.io/instance: {{ .Release.Name }}
+              app: web
+      ports: [{port: 3000, protocol: TCP}]
+{{- end }}

@@ -1,0 +1,102 @@
+{{- if .Values.rejectedRequestDebug.enabled }}
+{{- $ctx := deepCopy .Subcharts.langfuse -}}
+{{- $_ := set $ctx.Values.postgresql.migration "autoMigrate" false -}}
+{{- $_ := set $ctx.Values.clickhouse.migration "autoMigrate" false -}}
+{{- $_ := set $ctx.Values.langfuse "additionalEnv" list -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: monitor-langfuse-rejection-debug-init-config-map
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: langfuse-retention-provisioning
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: monitor-langfuse
+data:
+  initialize.cjs: |
+    {{- .Files.Get "files/rejection-debug-init.cjs" | nindent 4 }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: monitor-langfuse-rejection-debug-init-job
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-weight: "0"
+    helm.sh/hook-delete-policy: before-hook-creation
+  labels:
+    app.kubernetes.io/name: langfuse-retention-provisioning
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: monitor-langfuse
+spec:
+  backoffLimit: 2
+  activeDeadlineSeconds: 300
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        # Existing scoped PostgreSQL provisioning peer; never a web Service Pod.
+        app.kubernetes.io/name: langfuse-retention-provisioning
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/part-of: monitor-langfuse
+        app.kubernetes.io/component: rejection-debug-init
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: initialize
+          image: "{{ .Values.langfuse.langfuse.web.image.repository }}:{{ coalesce .Values.langfuse.langfuse.web.image.tag .Values.langfuse.langfuse.image.tag }}"
+          command: [node, /provisioning/initialize.cjs]
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: {drop: [ALL]}
+          resources:
+            {{- toYaml .Values.monitorLangfuseWrapper.rejectionDebug.initResources | nindent 12 }}
+          env:
+            {{- include "langfuse.commonEnv" $ctx | nindent 12 }}
+            - name: DEBUG_LANGFUSE_BASE_URL
+              value: http://monitor-langfuse-web.monitor-langfuse.svc.cluster.local:3000
+            - name: LANGFUSE_INIT_ORG_ID
+              value: rejected-request-debug
+            - name: LANGFUSE_INIT_ORG_NAME
+              value: rejected-request-debug
+            - name: LANGFUSE_INIT_PROJECT_ID
+              value: rejected-request-debug
+            - name: LANGFUSE_INIT_PROJECT_NAME
+              value: rejected-request-debug
+            - name: LANGFUSE_INIT_PROJECT_PUBLIC_KEY
+              valueFrom:
+                secretKeyRef: {name: monitor-langfuse-rejection-debug, key: public-key}
+            - name: LANGFUSE_INIT_PROJECT_SECRET_KEY
+              valueFrom:
+                secretKeyRef: {name: monitor-langfuse-rejection-debug, key: secret-key}
+            - name: NORMAL_PROJECT_PUBLIC_KEY
+              valueFrom:
+                secretKeyRef: {name: monitor-langfuse-secret, key: init-project-public-key}
+            - name: NORMAL_ORG_ID
+              valueFrom:
+                configMapKeyRef: {name: monitor-langfuse-init-config-map, key: org-id}
+            - name: LANGFUSE_INIT_USER_EMAIL
+              valueFrom:
+                configMapKeyRef: {name: monitor-langfuse-init-config-map, key: user-email}
+            - name: LANGFUSE_INIT_USER_NAME
+              valueFrom:
+                configMapKeyRef: {name: monitor-langfuse-init-config-map, key: user-name}
+            - name: LANGFUSE_INIT_USER_PASSWORD
+              valueFrom:
+                secretKeyRef: {name: monitor-langfuse-secret, key: init-user-password}
+          volumeMounts:
+            - name: provisioning
+              mountPath: /provisioning
+              readOnly: true
+      volumes:
+        - name: provisioning
+          configMap:
+            name: monitor-langfuse-rejection-debug-init-config-map
+{{- end }}
