@@ -158,6 +158,19 @@ spec:
       app.kubernetes.io/instance: {{ .Release.Name }}
   policyTypes: [Ingress]
   ingress:
+    {{- if .Values.frontendStudio.api.gateway.trust.enabled }}
+    # The public-only publisher verifies the exact serving replicas before promotion.
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: infra-agentgateway
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: agentgateway-inspection-trust
+      ports:
+        - port: {{ .Values.frontendStudio.api.ports.container.http }}
+          protocol: TCP
+    {{- end }}
     # The private listener policy isolates the entire API Pod; preserve its public API route.
     - from:
         - namespaceSelector:

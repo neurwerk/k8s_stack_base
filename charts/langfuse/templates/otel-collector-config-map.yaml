@@ -38,6 +38,27 @@ data:
           max_interval: 30s
           max_elapsed_time: 300s
     processors:
+      # Only gateway-produced normalized fields become Studio's top-level metadata.
+      # Native 1.6 OTLP additions stringify booleans; never coerce arbitrary values.
+      transform/langfuse_neurwerk:
+        error_mode: propagate
+        trace_statements:
+          - context: span
+            conditions:
+              - 'resource.attributes["service.name"] == "agentgateway" and attributes["neurwerk.request_id"] != nil'
+            statements:
+              {{- range $field := list "request_id" "entry_mode" "destination_kind" "destination_id" "provider_id" "binding_id" "protocol_profile" "operation_id" "provider_credential_source" "policy_revision" "requested_model" "resolved_model" "billing_classification" "token_usage_known" "cost_known" }}
+              {{- $source := printf "neurwerk.%s" $field }}
+              {{- $target := printf "langfuse.observation.metadata.%s" $source }}
+              - 'delete_key(attributes, "{{ $target }}")'
+              {{- if has $field (list "token_usage_known" "cost_known") }}
+              {{- range $value := list "true" "false" }}
+              - 'set(attributes["{{ $target }}"], {{ $value }}) where attributes["{{ $source }}"] == {{ $value }} or attributes["{{ $source }}"] == "{{ $value }}"'
+              {{- end }}
+              {{- else }}
+              - 'set(attributes["{{ $target }}"], attributes["{{ $source }}"]) where attributes["{{ $source }}"] != nil'
+              {{- end }}
+              {{- end }}
       batch:
         send_batch_size: 1000
         timeout: 5s
@@ -45,5 +66,5 @@ data:
       pipelines:
         traces:
           receivers: [otlp]
-          processors: [batch]
+          processors: [transform/langfuse_neurwerk, batch]
           exporters: [otlphttp/langfuse]

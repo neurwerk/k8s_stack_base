@@ -1,4 +1,5 @@
 {{- $engine := .Values.guardrails.llmPolicyEngine -}}
+{{- $_ := include "infra-agentgateway.aiBindings" . -}}
 {{- if ne $engine.credentialContextEnabled true -}}
   {{- fail "guardrails.llmPolicyEngine.credentialContextEnabled is required for this Base release" -}}
 {{- end -}}

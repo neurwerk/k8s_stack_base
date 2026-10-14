@@ -19,3 +19,15 @@ traefik:
       allowEmptyServices: true
     kubernetesGateway:
       enabled: true
+
+# Shared client-values contract, also consumed by the root AgentGateway chart.
+# Enable only after public inspection trust and gateway hostname TLS are ready.
+aiGateway:
+  enabled: false
+  proxy:
+    enabled: false
+    # Exact public DNS hostname; outer TLS terminates at AgentGateway.
+    hostname: ""
+    # One TCP port for the entrypoint, ClusterIP Service, host port and backend.
+    # Must not collide with web/websecure or vendor admin/metrics ports.
+    port: 8443

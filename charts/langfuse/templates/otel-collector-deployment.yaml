@@ -26,6 +26,8 @@ spec:
       app.kubernetes.io/instance: {{ .Release.Name }}
   template:
     metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/otel-collector-config-map.yaml") . | sha256sum }}
       labels:
         app: monitor-langfuse-otel-collector
         app.kubernetes.io/name: otel-collector

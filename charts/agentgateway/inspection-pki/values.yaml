@@ -6,3 +6,7 @@ agentgateway:
     # Add a new generation alongside the old one for an explicit root rollover.
     # Never rename an existing generation or reuse it for a different root key.
     rootIds: [r1]
+    monitoring:
+      # Opt in through agentgateway-inspection-pki-product-values after selecting
+      # this package. Creates its ServiceMonitor and rules after existing Prometheus.
+      enabled: false

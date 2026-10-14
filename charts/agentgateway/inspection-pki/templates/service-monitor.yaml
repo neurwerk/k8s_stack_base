@@ -1,0 +1,29 @@
+{{- $inspection := .Values.agentgateway.inspection -}}
+{{- if and $inspection.enabled $inspection.monitoring.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: cert-manager-controller-service-monitor
+  namespace: infra-cert-manager
+  labels:
+    {{- include "agentgateway-inspection-pki.labels" . | nindent 4 }}
+    release: monitor-kube-prometheus-stack
+spec:
+  jobLabel: app.kubernetes.io/name
+  namespaceSelector:
+    matchNames:
+      - infra-cert-manager
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: cert-manager
+      app.kubernetes.io/instance: infra-cert-manager-controller
+      app.kubernetes.io/component: controller
+  endpoints:
+    - port: tcp-prometheus-servicemonitor
+      path: /metrics
+      interval: 30s
+      scrapeTimeout: 10s
+      # Preserve the scrape target's namespace. Certificate namespaces become
+      # exported_namespace, used explicitly by the inspection PKI alert rules.
+      honorLabels: false
+{{- end }}

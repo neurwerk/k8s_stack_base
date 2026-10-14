@@ -1,0 +1,154 @@
+{{- if .Values.aiGateway.enabled }}
+{{- $revision := include "infra-agentgateway.aiRevision" . }}
+{{- range $binding := include "infra-agentgateway.aiBindings" . | fromJsonArray }}
+{{- $entries := list }}
+{{- if $binding.api }}{{ $entries = append $entries (dict "name" "api" "listener" "api-bindings" "prefix" $binding.prefix) }}{{ end }}
+{{- if $binding.inspect }}{{ $entries = append $entries (dict "name" "proxy" "listener" (printf "inspect-%s" $binding.id) "prefix" "/") }}{{ end }}
+{{- $pii := dict }}
+{{- range $model := $binding.models }}{{ $_ := set $pii $model.name $model.piiEnabled }}{{ end }}
+{{- $inner := merge (dict "contract_version" "4.1" "destination_kind" "model" "models" $pii) $binding.attachmentPolicy }}
+{{- $innerExpression := printf `%s.merge({"principal_id": metadata.neurwerk_admission.principal_id, "credential_context_version": metadata.neurwerk_admission.credential_context_version, "credential_id": metadata.neurwerk_admission.credential_id, "credential_kind": metadata.neurwerk_admission.credential_kind})` ($inner | toJson) }}
+{{- if gt (len $innerExpression) 16384 }}{{ fail "v5 destination_policy exceeds native metadata limit" }}{{ end }}
+{{- range $entry := $entries }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: ai-{{ $binding.id }}-{{ $entry.name }}
+  namespace: infra-agentgateway
+  labels:
+    {{- include "infra-agentgateway.aiLabels" $ | nindent 4 }}
+spec:
+  parentRefs:
+    - {name: infra-agentgateway-gateway, sectionName: {{ $entry.listener }}}
+  {{- if eq $entry.name "proxy" }}
+  hostnames: [{{ $binding.host | quote }}]
+  {{- end }}
+  rules:
+    - name: models
+      matches:
+        - method: POST
+          path: {type: PathPrefix, value: {{ $entry.prefix | quote }}}
+      backendRefs:
+        - {group: agentgateway.dev, kind: AgentgatewayModel, name: "*"}
+---
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayPolicy
+metadata:
+  name: ai-{{ $binding.id }}-{{ $entry.name }}-processing
+  namespace: infra-agentgateway
+  labels:
+    {{- include "infra-agentgateway.aiLabels" $ | nindent 4 }}
+spec:
+  targetRefs:
+    - {group: gateway.networking.k8s.io, kind: HTTPRoute, name: ai-{{ $binding.id }}-{{ $entry.name }}, sectionName: models}
+  traffic:
+    phase: PostRouting
+    # Disable retries explicitly, including inherited Gateway retry settings.
+    # Accounting currently observes one upstream attempt.
+    retry:
+      attempts: 1
+      precondition: 'false'
+      codes: []
+    extProc:
+      backendRef:
+        group: ""
+        kind: Service
+        name: monitor-agentgateway-extproc-service
+        namespace: monitor-agentgateway-extproc
+        port: {{ $.Values.guardrails.llmPolicyEngine.extProcPort }}
+      failureMode: FailClosed
+      metadataContext:
+        neurwerk.destination_policy:
+          contract_version: '5'
+          request_context: 'metadata.neurwerk_admission'
+          destination_policy: {{ $innerExpression | squote }}
+          model_bindings: {{ $binding.modelBindings | toJson | squote }}
+      processingOptions:
+        requestHeaderMode: Send
+        requestBodyMode: Buffered
+        responseHeaderMode: Send
+        responseBodyMode: FullDuplexStreamed
+        allowModeOverride: false
+{{- end }}
+{{- range $model := $binding.models }}
+{{- $name := printf "ai-%s-%s" $binding.id (sha256sum $model.name | trunc 12) }}
+{{- $matches := list $model.name }}
+{{/* Google selects by URL before consulting body.model. Its unique upstream-name
+alias needs the same exact virtual route; it is not a second catalog destination. */}}
+{{- if eq $binding.provider "Gemini" }}{{ $matches = list $model.name $model.upstreamModel | uniq }}{{ end }}
+{{- range $match := $matches }}
+---
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayModel
+metadata:
+  name: {{ $name }}{{ if ne $match $model.name }}-alias{{ end }}
+  namespace: infra-agentgateway
+  labels:
+    {{- include "infra-agentgateway.aiLabels" $ | nindent 4 }}
+spec:
+  parentRefs:
+    {{- range $entry := $entries }}
+    - {group: gateway.networking.k8s.io, kind: HTTPRoute, name: ai-{{ $binding.id }}-{{ $entry.name }}, sectionName: models}
+    {{- end }}
+  match:
+    model: {{ $match | quote }}
+  visibility: Public
+  # Same canonical model and upstream; only its frozen credential source chooses
+  # an internal target. Every branch is conditional: there is no fallback.
+  virtualModel:
+    conditional:
+      targets:
+        {{- range $source := $binding.credentialSources }}
+        - when: {{ printf `metadata.neurwerk_admission.provider_credential_source == %q` $source | squote }}
+          modelRef:
+            name: {{ $name }}-{{ ternary "personal" $source (eq $source "caller_supplied") }}
+        {{- end }}
+{{- end }}
+{{- range $source := $binding.credentialSources }}
+---
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayModel
+metadata:
+  name: {{ $name }}-{{ ternary "personal" $source (eq $source "caller_supplied") }}
+  namespace: infra-agentgateway
+  labels:
+    {{- include "infra-agentgateway.aiLabels" $ | nindent 4 }}
+spec:
+  parentRefs:
+    {{- range $entry := $entries }}
+    - {group: gateway.networking.k8s.io, kind: HTTPRoute, name: ai-{{ $binding.id }}-{{ $entry.name }}, sectionName: models}
+    {{- end }}
+  visibility: Internal
+  provider: {{ $binding.provider }}
+  baseURL: {{ $binding.upstreamURL | quote }}
+  policies:
+    {{- if eq $source "company" }}
+    auth:
+      secretRef: {name: {{ $binding.authSecret | quote }}}
+    {{- end }}
+    authorization:
+      action: Allow
+      policy:
+        matchExpressions:
+          - >-
+            extproc["neurwerk.request_context"].resolved_model == {{ $model.upstreamModel | toJson }} &&
+            extproc["neurwerk.request_context"].destination_id == {{ $model.name | toJson }} &&
+            extproc["neurwerk.request_context"].requested_model in {{ list $model.name $model.upstreamModel | uniq | toJson }} &&
+            metadata.neurwerk_admission.all(k, extproc["neurwerk.request_context"][k] == metadata.neurwerk_admission[k]) &&
+            metadata.neurwerk_admission.binding_id == {{ $binding.id | toJson }} &&
+            metadata.neurwerk_admission.provider_credential_source == {{ $source | toJson }} &&
+            metadata.neurwerk_admission.policy_revision == {{ $revision | toJson }} &&
+            extproc["neurwerk.request_context"].content_tracing_enabled == {{ $model.contentTracingEnabled }} &&
+            extproc["neurwerk.request_context"].pii_policy.enabled == {{ $model.piiEnabled }} &&
+            {{ (get $binding.modelBindings $model.name).required_permissions | toJson }}.all(p, p in extauthz.permissions)
+            {{- if eq $source "company" }}
+            && {{ printf "provider:%s:company-use" $binding.providerId | toJson }} in extauthz.permissions
+            {{- end }}
+    transformations:
+      - field: model
+        expression: {{ $model.upstreamModel | toJson | squote }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}

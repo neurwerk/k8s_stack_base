@@ -1,0 +1,27 @@
+{{- $vendor := index .Subcharts "cert-manager" -}}
+{{- if $vendor.Values.prometheus.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: cert-manager-controller-metrics-network-policy
+  namespace: {{ include "cert-manager.namespace" $vendor }}
+  labels:
+    {{- include "cert-manager-controller.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "cert-manager-controller.selectorLabels" . | nindent 6 }}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitor-kube-prometheus-stack
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus
+              operator.prometheus.io/name: monitor-kube-prometheus-st
+      ports:
+        - port: 9402
+          protocol: TCP
+{{- end }}

@@ -71,6 +71,26 @@ infraAgentgatewayWrapper:
 externalGateway:
   enabled: false
 
+# Native inspected entry modes. These require the coordinated v5 extProc/bridge
+# release; selecting values does not update those images or qualify a browser.
+aiGateway:
+  enabled: false
+  apiPort: 8082
+  # One provider/upstream binding owns its models and credentialSources. Personal
+  # credentials win on that same URL; company keys require the provider grant.
+  # One source of routing, admission policy and Studio catalog data.
+  # See README.md for the binding schema and actual /bindings/<id>/v1 API URLs.
+  bindings: []
+  proxy:
+    enabled: false
+    hostname: ""
+    port: 8443
+    tlsSecretName: ""       # Publicly trusted TLS for the outer HTTPS proxy.
+    signerSecretName: ""    # Inspection intermediate; owned by inspection-pki.
+    # Explicit Kubernetes NetworkPolicy peers for the selected L4 ingress path.
+    # No public LoadBalancer or permissive ingress rule is created automatically.
+    ingressPeers: []
+
 publicCertificates:
   useProduction: false
 

@@ -41,6 +41,17 @@ spec:
       ports:
         - port: {{ .Values.infraAgentgatewayWrapper.ports.service.http }}
           protocol: TCP
+        {{- if .Values.aiGateway.enabled }}
+        - port: {{ .Values.aiGateway.apiPort }}
+          protocol: TCP
+        {{- end }}
+    {{- if and .Values.aiGateway.enabled .Values.aiGateway.proxy.enabled }}
+    - from:
+        {{- toYaml .Values.aiGateway.proxy.ingressPeers | nindent 8 }}
+      ports:
+        - port: {{ .Values.aiGateway.proxy.port }}
+          protocol: TCP
+    {{- end }}
     - from:
         # The admin listener is unauthenticated in AgentGateway 1.5.0. Only the
         # authenticated Studio API may reach it; it is never publicly routed.
