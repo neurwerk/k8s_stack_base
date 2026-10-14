@@ -6,4 +6,4 @@ description: |
   No Gateway/HTTPRoute — internal-only.
 type: application
 version: 1.4.13
-appVersion: "0.18.0"
+appVersion: "0.18.1"

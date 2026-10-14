@@ -3,4 +3,4 @@ name: studio-api
 description: neurwerk studio API — FastAPI backend for managing AI infrastructure
 type: application
 version: 1.5.0
-appVersion: "0.17.1"
+appVersion: "0.18.0"
