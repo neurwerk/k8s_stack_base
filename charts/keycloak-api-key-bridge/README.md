@@ -1,12 +1,16 @@
 # API-key bridge PostgreSQL contract
 
-The chart runs only the verified `0.8.2` bridge image with an operations
+The chart runs only the verified `0.9.0` bridge image with an operations
 PostgreSQL database. It always runs the `keycloak-api-key-bridge-init-db` init
 container and reads the password from the namespace-local
 `auth-keycloak-api-key-bridge-postgres-secret` (`password` key). SQLite, its
 database URL and its PVC are no longer chart modes. Legacy client values for
 them fail chart rendering; an existing PVC must be retained and handled
 separately if it contains keys. No SQLite import is performed.
+
+Version `0.9.0` adds `/validate/neurwerk` and `/validate/proxy` for explicit
+gateway authentication modes. The existing `/validate` behavior and database
+schema remain compatible; gateway routing must opt into the new endpoints.
 
 `authKeycloakApiKeyBridge.managedRegistrations` defaults to an empty list:
 Base provides no managed-key grant or verifier. Each selected add-on may
