@@ -1,0 +1,97 @@
+{{- if and .Values.agentgateway.inspection.enabled .Values.agentgateway.inspection.trust.enabled }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: agentgateway-inspection-trust-service-account
+  namespace: infra-agentgateway
+  labels:
+    {{- include "agentgateway-inspection-trust.labels" . | nindent 4 }}
+automountServiceAccountToken: true
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: agentgateway-inspection-trust-source-role
+  namespace: infra-cert-manager
+  labels:
+    {{- include "agentgateway-inspection-trust.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: [configmaps]
+    verbs: [get]
+    resourceNames:
+      {{- range .Values.agentgateway.inspection.trust.roots }}
+      - agentgateway-inspection-root-{{ .id }}-config-map
+      {{- end }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: agentgateway-inspection-trust-source-role-binding
+  namespace: infra-cert-manager
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: agentgateway-inspection-trust-source-role
+subjects:
+  - kind: ServiceAccount
+    name: agentgateway-inspection-trust-service-account
+    namespace: infra-agentgateway
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: agentgateway-inspection-trust-publisher-role
+  namespace: frontend-studio
+  labels:
+    {{- include "agentgateway-inspection-trust.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: [configmaps]
+    verbs: [get]
+    resourceNames: [agentgateway-inspection-trust-inventory-config-map, agentgateway-inspection-trust-config-map]
+  - apiGroups: [""]
+    resources: [configmaps]
+    verbs: [update]
+    resourceNames: [agentgateway-inspection-trust-config-map]
+  {{- if eq .Values.agentgateway.inspection.trust.operation "initialize" }}
+  # Kubernetes cannot restrict create by resourceNames. Only initial publication
+  # receives this namespace-local permission; subsequent operations do not.
+  - apiGroups: [""]
+    resources: [configmaps]
+    verbs: [create]
+  {{- end }}
+  {{- if eq .Values.agentgateway.inspection.trust.operation "promote" }}
+  - apiGroups: [apps]
+    resources: [deployments]
+    verbs: [get]
+    resourceNames: [{{ .Values.agentgateway.inspection.trust.studio.deployment | quote }}]
+  - apiGroups: [apps]
+    resources: [replicasets]
+    verbs: [list]
+  - apiGroups: [""]
+    resources: [pods]
+    verbs: [list]
+  - apiGroups: [""]
+    resources: [services]
+    verbs: [get]
+    resourceNames: [{{ .Values.agentgateway.inspection.trust.studio.service | quote }}]
+  - apiGroups: [discovery.k8s.io]
+    resources: [endpointslices]
+    verbs: [list]
+  {{- end }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: agentgateway-inspection-trust-publisher-role-binding
+  namespace: frontend-studio
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: agentgateway-inspection-trust-publisher-role
+subjects:
+  - kind: ServiceAccount
+    name: agentgateway-inspection-trust-service-account
+    namespace: infra-agentgateway
+{{- end }}

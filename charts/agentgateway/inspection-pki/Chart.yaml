@@ -1,0 +1,5 @@
+apiVersion: v2
+name: agentgateway-inspection-pki
+description: Optional dedicated inspection root and renewable AgentGateway intermediate
+type: application
+version: 0.1.0

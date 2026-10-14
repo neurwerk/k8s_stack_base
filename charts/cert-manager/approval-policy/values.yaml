@@ -1,6 +1,12 @@
 # IMAGE SOURCE: none
 # Client hostnames are supplied by the namespace-local client-values ConfigMap.
 
+# Canonical client-wide flag; reconcile these profiles before the PKI release.
+agentgateway:
+  inspection:
+    enabled: false
+    rootIds: [r1]
+
 authKeycloak:
   hostname: ""
 

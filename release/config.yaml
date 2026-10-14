@@ -19,6 +19,40 @@ packages:
   - releases/infrastructure
   - releases/applications
   optional:
+  - path: releases/agentgateway/inspection-pki
+    status: included
+    reason: Optional dedicated inspection PKI; disabled by default. Reconcile current-generation approval
+      profiles before issuance, and complete public trust publication and Studio readiness before enabling
+      the inspected forward listener.
+    chartPrefixes:
+    - charts/agentgateway/inspection-pki
+    prerequisites:
+    - name: cert-manager
+      version: 1.20.2
+      source: oci://quay.io/jetstack/charts/cert-manager
+    - name: cert-manager-approver-policy
+      version: 0.25.1
+      source: oci://quay.io/jetstack/charts/cert-manager-approver-policy
+    - name: cert-manager-approval-policy
+      version: 1.2.7
+      source: releases/cert-manager/approval-policy.yaml
+    - name: trust-manager
+      version: 0.24.0
+      source: oci://quay.io/jetstack/charts/trust-manager
+  - path: releases/agentgateway/inspection-trust
+    status: included
+    reason: Optional public-root snapshot publication after inspection PKI using verified Tooling 0.8.0;
+      disabled by default. Initial publication precedes Studio trust readiness; subsequent promotion
+      requires every serving Studio replica to load the staged version.
+    chartPrefixes:
+    - charts/agentgateway/inspection-trust
+    prerequisites:
+    - name: agentgateway-inspection-pki
+      version: 0.1.0
+      source: releases/agentgateway/inspection-pki
+    - name: k8s-stack-tooling
+      version: 0.8.0
+      source: https://github.com/neurwerk/k8s_stack_tooling/releases/tag/v0.8.0
   - path: releases/keycloak/active-directory
     status: included
     reason: Optional Active Directory federation; existing installations require a reviewed single-owner

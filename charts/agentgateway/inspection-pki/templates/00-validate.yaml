@@ -1,0 +1,11 @@
+{{- $inspection := .Values.agentgateway.inspection -}}
+{{- if not (kindIs "bool" $inspection.enabled) }}{{ fail "agentgateway.inspection.enabled must be boolean" }}{{- end }}
+{{- if $inspection.enabled -}}
+{{- if or (not (kindIs "slice" $inspection.rootIds)) (lt (len $inspection.rootIds) 1) (gt (len $inspection.rootIds) 16) }}{{ fail "inspection rootIds must contain 1 to 16 generations" }}{{- end }}
+{{- $seen := dict -}}
+{{- range $id := $inspection.rootIds -}}
+{{- if or (not (kindIs "string" $id)) (not (regexMatch "^[a-z0-9]([-a-z0-9]{0,14}[a-z0-9])?$" $id)) }}{{ fail "inspection root ID must be a DNS label of at most 16 characters" }}{{- end }}
+{{- if hasKey $seen $id }}{{ fail "inspection rootIds must be unique" }}{{- end }}
+{{- $_ := set $seen $id true -}}
+{{- end -}}
+{{- end -}}

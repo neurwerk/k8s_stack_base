@@ -1,0 +1,51 @@
+{{- if and .Values.agentgateway.inspection.enabled .Values.agentgateway.inspection.trust.enabled }}
+{{- $trust := .Values.agentgateway.inspection.trust }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: agentgateway-inspection-trust-publisher-job
+  namespace: infra-agentgateway
+  labels:
+    {{- include "agentgateway-inspection-trust.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-delete-policy: before-hook-creation
+spec:
+  backoffLimit: 2
+  activeDeadlineSeconds: 600
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        {{- include "agentgateway-inspection-trust.labels" . | nindent 8 }}
+    spec:
+      serviceAccountName: agentgateway-inspection-trust-service-account
+      automountServiceAccountToken: true
+      restartPolicy: Never
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: publisher
+          image: {{ $trust.image | quote }}
+          imagePullPolicy: IfNotPresent
+          command: [agentgateway-trust-publish]
+          args: {{ if eq $trust.operation "initialize" }}[stage, --initialize]{{ else }}[{{ $trust.operation }}]{{ end }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          env:
+            - name: PYTHONDONTWRITEBYTECODE
+              value: "1"
+            - name: AGENTGATEWAY_TRUST_DEPLOYMENT
+              value: {{ $trust.studio.deployment | quote }}
+            - name: AGENTGATEWAY_TRUST_SERVICE
+              value: {{ $trust.studio.service | quote }}
+            - name: AGENTGATEWAY_TRUST_POD_PORT
+              value: {{ $trust.studio.podPort | quote }}
+          resources:
+            {{- toYaml $trust.resources | nindent 12 }}
+{{- end }}

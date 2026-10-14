@@ -1,0 +1,50 @@
+{{- if .Values.agentgateway.inspection.enabled }}
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: agentgateway-inspection-bootstrap-issuer
+  namespace: infra-cert-manager
+  labels:
+    {{- include "agentgateway-inspection-pki.labels" . | nindent 4 }}
+spec:
+  selfSigned: {}
+{{- range $id := .Values.agentgateway.inspection.rootIds }}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: agentgateway-inspection-root-{{ $id }}-certificate
+  namespace: infra-cert-manager
+  labels:
+    {{- include "agentgateway-inspection-pki.labels" $ | nindent 4 }}
+spec:
+  commonName: Neurwerk AgentGateway Inspection Root {{ $id }}
+  secretName: agentgateway-inspection-root-{{ $id }}-secrets
+  isCA: true
+  usages: [cert sign, crl sign]
+  duration: 87600h
+  renewBefore: 8760h
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+    encoding: PKCS8
+    # This preserves the key, not the certificate. Replace the root generation
+    # before renewalTime; cert-manager 1.20 has no renewal.policy: Disabled.
+    rotationPolicy: Never
+  issuerRef:
+    group: cert-manager.io
+    kind: Issuer
+    name: agentgateway-inspection-bootstrap-issuer
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: agentgateway-inspection-root-{{ $id }}-issuer
+  labels:
+    {{- include "agentgateway-inspection-pki.labels" $ | nindent 4 }}
+spec:
+  ca:
+    # The existing controller's cluster-resource namespace is infra-cert-manager.
+    secretName: agentgateway-inspection-root-{{ $id }}-secrets
+{{- end }}
+{{- end }}

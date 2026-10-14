@@ -24,6 +24,40 @@ spec:
     - releases/infrastructure
     - releases/applications
     optional:
+    - path: releases/agentgateway/inspection-pki
+      status: included
+      reason: Optional dedicated inspection PKI; disabled by default. Reconcile current-generation approval
+        profiles before issuance, and complete public trust publication and Studio readiness before enabling
+        the inspected forward listener.
+      chartPrefixes:
+      - charts/agentgateway/inspection-pki
+      prerequisites:
+      - name: cert-manager
+        version: 1.20.2
+        source: oci://quay.io/jetstack/charts/cert-manager
+      - name: cert-manager-approver-policy
+        version: 0.25.1
+        source: oci://quay.io/jetstack/charts/cert-manager-approver-policy
+      - name: cert-manager-approval-policy
+        version: 1.2.7
+        source: releases/cert-manager/approval-policy.yaml
+      - name: trust-manager
+        version: 0.24.0
+        source: oci://quay.io/jetstack/charts/trust-manager
+    - path: releases/agentgateway/inspection-trust
+      status: included
+      reason: Optional public-root snapshot publication after inspection PKI using verified Tooling 0.8.0;
+        disabled by default. Initial publication precedes Studio trust readiness; subsequent promotion
+        requires every serving Studio replica to load the staged version.
+      chartPrefixes:
+      - charts/agentgateway/inspection-trust
+      prerequisites:
+      - name: agentgateway-inspection-pki
+        version: 0.1.0
+        source: releases/agentgateway/inspection-pki
+      - name: k8s-stack-tooling
+        version: 0.8.0
+        source: https://github.com/neurwerk/k8s_stack_tooling/releases/tag/v0.8.0
     - path: releases/keycloak/active-directory
       status: included
       reason: Optional Active Directory federation; existing installations require a reviewed single-owner
@@ -192,13 +226,20 @@ spec:
         archives:
         - path: charts/agentgateway/charts/agentgateway-1.6.0.tgz
           sha256: 61b97c2a34d6e0f1e2024a58804001c159dbc40a0f72173e70e8df767088c007
+    - path: charts/agentgateway/inspection-pki
+      name: agentgateway-inspection-pki
+      version: 0.1.0
+    - path: charts/agentgateway/inspection-trust
+      name: agentgateway-inspection-trust
+      version: 0.1.0
+      appVersion: 0.8.0
     - path: charts/agentgateway-extproc
       name: agentgateway-extproc
       version: 1.4.12
       appVersion: 0.17.0
     - path: charts/cert-manager/approval-policy
       name: infra-cert-manager-approval-policy
-      version: 1.2.6
+      version: 1.2.7
     - path: charts/cert-manager/approver-policy
       name: infra-cert-manager-approver-policy
       version: 1.0.0
@@ -503,6 +544,14 @@ spec:
       namespace: infra-agentgateway
       name: agentgateway
       chart: ./charts/agentgateway
+    - path: releases/agentgateway/inspection-pki/inspection-pki.yaml
+      namespace: infra-agentgateway
+      name: agentgateway-inspection-pki
+      chart: ./charts/agentgateway/inspection-pki
+    - path: releases/agentgateway/inspection-trust/inspection-trust.yaml
+      namespace: infra-agentgateway
+      name: agentgateway-inspection-trust
+      chart: ./charts/agentgateway/inspection-trust
     - path: releases/agentgateway-extproc/app.yaml
       namespace: monitor-agentgateway-extproc
       name: agentgateway-extproc
@@ -886,6 +935,11 @@ spec:
       - charts/maintenance/values.yaml
       - charts/opensearch/app/values.yaml
       - charts/opensearch/dashboards/values.yaml
+    - reference: ghcr.io/neurwerk/k8s-stack-tooling:0.8.0@sha256:49000b15faeda690c0613f3fec9e6f08b114ca2b7acb7f25523e81d916fd35a9
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/agentgateway/inspection-trust/values.yaml
     - reference: ghcr.io/neurwerk/librechat-code-interpreter-api:fea707467600f3802d65596a6875c7822f25cfd8
       pinned: true
       eligibility: excluded
