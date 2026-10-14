@@ -10,6 +10,38 @@
 {{- if and .Values.frontendStudio.api.contextforge.enabled (ne .Values.frontendStudio.api.contextforge.url "https://contextforge.contextforge.svc.cluster.local:4444") }}
 {{- fail "Studio ContextForge requires the private native HTTPS Service endpoint" }}
 {{- end }}
+{{- $gateway := .Values.frontendStudio.api.gateway }}
+{{- if or (not (kindIs "bool" $gateway.enabled)) (not (kindIs "bool" $gateway.trust.enabled)) }}
+{{- fail "Studio gateway.enabled and gateway.trust.enabled must be booleans" }}
+{{- end }}
+{{- if and $gateway.trust.enabled (not $gateway.enabled) }}
+{{- fail "Studio gateway trust requires gateway.enabled" }}
+{{- end }}
+{{- if and $gateway.trust.requiredVersion (not $gateway.trust.enabled) }}
+{{- fail "Studio gateway trust requiredVersion requires trust.enabled" }}
+{{- end }}
+{{- if not (kindIs "string" $gateway.trust.requiredVersion) }}
+{{- fail "Studio gateway trust requiredVersion must be a lowercase SHA-256 digest string" }}
+{{- end }}
+{{- if and $gateway.trust.requiredVersion (not (regexMatch "^[a-f0-9]{64}$" $gateway.trust.requiredVersion)) }}
+{{- fail "Studio gateway trust requiredVersion must be a lowercase SHA-256 digest" }}
+{{- end }}
+{{- if $gateway.enabled }}
+{{- $names := list $gateway.catalogConfigMapName }}
+{{- if $gateway.trust.enabled }}{{- $names = append $names $gateway.trust.configMapName }}{{- end }}
+{{- if not (kindIs "string" $gateway.statusConfigMapName) }}
+{{- fail "Studio gateway statusConfigMapName must be a resource name string" }}
+{{- end }}
+{{- if $gateway.statusConfigMapName }}{{- $names = append $names $gateway.statusConfigMapName }}{{- end }}
+{{- range $name := $names }}
+{{- if not (kindIs "string" $name) }}
+{{- fail "Studio gateway ConfigMap names must be resource name strings" }}
+{{- end }}
+{{- if or (not $name) (gt (len $name) 253) (not (regexMatch "^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$" $name)) }}
+{{- fail "Studio gateway ConfigMap names must be valid nonempty resource names" }}
+{{- end }}
+{{- end }}
+{{- end }}
 # =============================================================================
 {{- $operator := .Values.frontendStudio.api.contextforge.operatorDiscovery }}
 {{- $studioSetup := .Values.mcp.studioSetup.enabled }}
@@ -143,6 +175,20 @@ spec:
               value: {{ .Values.frontendStudio.api.agentgatewayAdminUrl | quote }}
             - name: K8S_STUDIO_USAGE_TIMEZONE
               value: {{ .Values.frontendStudio.api.usageTimezone | quote }}
+            {{- if $gateway.enabled }}
+            - name: STUDIO_GATEWAY_CATALOG_FILE
+              value: /var/run/gateway/catalog/catalog.json
+            {{- if $gateway.statusConfigMapName }}
+            - name: STUDIO_GATEWAY_STATUS_FILE
+              value: /var/run/gateway/status/status.json
+            {{- end }}
+            {{- if $gateway.trust.enabled }}
+            - name: STUDIO_GATEWAY_TRUST_FILE
+              value: /var/run/gateway/trust/snapshots.json
+            - name: STUDIO_GATEWAY_TRUST_REQUIRED_VERSION
+              value: {{ $gateway.trust.requiredVersion | quote }}
+            {{- end }}
+            {{- end }}
             {{- if $studioSetup }}
             - name: K8S_STUDIO_MCP_SETUP_ENABLED
               value: "true"
@@ -273,7 +319,15 @@ spec:
             failureThreshold: 60
           readinessProbe:
             httpGet:
+              {{- if $gateway.trust.enabled }}
+              {{- if $gateway.trust.requiredVersion }}
+              path: {{ printf "/api/gateway/trust/bundles/%s.pem" $gateway.trust.requiredVersion | quote }}
+              {{- else }}
+              path: /api/gateway/trust/bundle.pem
+              {{- end }}
+              {{- else }}
               path: /api/version
+              {{- end }}
               port: http
             periodSeconds: 5
             failureThreshold: 3
@@ -284,6 +338,21 @@ spec:
             periodSeconds: 10
             failureThreshold: 6
           volumeMounts:
+            {{- if $gateway.enabled }}
+            - name: gateway-catalog
+              mountPath: /var/run/gateway/catalog
+              readOnly: true
+            {{- if $gateway.statusConfigMapName }}
+            - name: gateway-status
+              mountPath: /var/run/gateway/status
+              readOnly: true
+            {{- end }}
+            {{- if $gateway.trust.enabled }}
+            - name: gateway-trust
+              mountPath: /var/run/gateway/trust
+              readOnly: true
+            {{- end }}
+            {{- end }}
             - name: opensearch-ca
               mountPath: /certs
               readOnly: true
@@ -389,6 +458,25 @@ spec:
           resources:
             {{- toYaml .Values.frontendStudio.api.resources | nindent 12 }}
       volumes:
+        {{- if $gateway.enabled }}
+        - name: gateway-catalog
+          configMap:
+            name: {{ $gateway.catalogConfigMapName | quote }}
+            items: [{key: catalog.json, path: catalog.json}]
+        {{- if $gateway.statusConfigMapName }}
+        - name: gateway-status
+          configMap:
+            name: {{ $gateway.statusConfigMapName | quote }}
+            optional: true
+            items: [{key: status.json, path: status.json}]
+        {{- end }}
+        {{- if $gateway.trust.enabled }}
+        - name: gateway-trust
+          configMap:
+            name: {{ $gateway.trust.configMapName | quote }}
+            items: [{key: snapshots.json, path: snapshots.json}]
+        {{- end }}
+        {{- end }}
         {{- if $studioSetup }}
         - name: mcp-identity
           projected:
