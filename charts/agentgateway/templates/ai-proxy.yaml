@@ -1,0 +1,35 @@
+{{- if and .Values.aiGateway.enabled .Values.aiGateway.proxy.enabled }}
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayPolicy
+metadata:
+  name: infra-agentgateway-forward-proxy
+  namespace: infra-agentgateway
+  labels:
+    {{- include "infra-agentgateway.aiLabels" . | nindent 4 }}
+spec:
+  targetRefs:
+    - {group: gateway.networking.k8s.io, kind: Gateway, name: infra-agentgateway-gateway, sectionName: forward-proxy}
+  frontend:
+    connect:
+      mode: Tunnel
+---
+# Only this port is eligible for a separately reviewed L4 exposure path.
+apiVersion: v1
+kind: Service
+metadata:
+  name: infra-agentgateway-forward-proxy
+  namespace: infra-agentgateway
+  labels:
+    app.kubernetes.io/name: forward-proxy
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: infra-agentgateway
+spec:
+  type: ClusterIP
+  selector:
+    gateway.networking.k8s.io/gateway-name: infra-agentgateway-gateway
+  ports:
+    - name: proxy
+      port: {{ .Values.aiGateway.proxy.port }}
+      targetPort: {{ .Values.aiGateway.proxy.port }}
+      protocol: TCP
+{{- end }}

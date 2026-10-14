@@ -55,6 +55,14 @@ spec:
     metadata:
       annotations:
         secret.reloader.stakater.com/reload: infra-agentgateway-database-secret
+    {{- if .Values.aiGateway.enabled }}
+    spec:
+      template:
+        metadata:
+          annotations:
+            # sensitiveHeaders is startup-only; enabling v5 must restart the proxy.
+            neurwerk.com/ai-gateway-config: {{ include "infra-agentgateway.aiRevision" . | quote }}
+    {{- end }}
   # AgentGateway otherwise generates a LoadBalancer Service. Keep its data plane
   # private so external traffic always enters through Traefik's HTTPS Gateway.
   service:
@@ -76,12 +84,23 @@ spec:
       accessLog:
         database:
           llm: metadata
+          {{- if .Values.aiGateway.enabled }}
+          add:
+            {{- include "infra-agentgateway.aiTelemetry" . | nindent 12 }}
+          {{- end }}
+        {{- if .Values.aiGateway.enabled }}
+        add:
+          {{- include "infra-agentgateway.aiTelemetry" . | nindent 10 }}
+        {{- end }}
       {{- if .Values.guardrails.llmPolicyEngine.enabled }}
       http:
         maxBufferSize: {{ if .Values.docling.enabled }}67108864{{ else }}{{ int .Values.guardrails.llmPolicyEngine.maxBufferSize }}{{ end }}
       {{- end }}
     config:
       adminAddr: "0.0.0.0:15000"
+      {{- if .Values.aiGateway.enabled }}
+      sensitiveHeaders: [x-neurwerk-authorization, x-api-key, x-goog-api-key, cookie, set-cookie]
+      {{- end }}
       standardAttributes:
         user: >-
           has(jwt.sub)
@@ -112,6 +131,19 @@ spec:
     {{- /* MCP backend target names are the exact reviewed server IDs. */}}
     {{- $_ := set $add "langfuse.observation.input" (printf `has(mcp.tool.arguments) && has(mcp.tool.target) && !(mcp.tool.target in %s) ? flattenRecursive(mcp.tool.arguments) : null` ($mcpContentDisabled | toJson)) }}
     {{- $_ := set $add "langfuse.observation.output" (printf `has(mcp.tool.result) && has(mcp.tool.target) && !(mcp.tool.target in %s) ? flattenRecursive(mcp.tool.result) : null` ($mcpContentDisabled | toJson)) }}
+    {{- if .Values.aiGateway.enabled }}
+    {{- range $field, $expression := include "infra-agentgateway.aiTelemetry" . | fromYaml }}
+    {{- $_ := set $add $field $expression }}
+    {{- end }}
+    {{- range $field := list "gen_ai.prompt" "gen_ai.completion" }}
+    {{- $legacy := get $add $field }}
+    {{- $content := ternary `flattenRecursive(llm.prompt)` `flattenRecursive(llm.completion.map(c, {"role":"assistant", "content": c}))` (eq $field "gen_ai.prompt") }}
+    {{- $_ := set $add $field (printf `has(metadata.neurwerk_admission) ? (default(extproc["neurwerk.request_context"].content_tracing_enabled, false) ? %s : null) : (%s)` $content $legacy) }}
+    {{- end }}
+    {{- $_ := set $add "gen_ai.usage.cost" (printf `has(metadata.neurwerk_admission) ? (has(llm.cost) ? double(llm.cost.total) : null) : (%s)` (get $add "gen_ai.usage.cost" | default "null")) }}
+    {{- $_ := set $add "langfuse.session.id" (printf `has(metadata.neurwerk_admission) ? metadata.neurwerk_admission.request_id : (%s)` (get $add "langfuse.session.id" | default "null")) }}
+    {{- $_ := set $add "langfuse.observation.metadata.requested_model" (printf `has(metadata.neurwerk_admission) ? default(extproc["neurwerk.request_context"].requested_model, null) : (%s)` (get $add "langfuse.observation.metadata.requested_model" | default "null")) }}
+    {{- end }}
     {{- $_ := set $fields "add" $add }}
       tracing:
         otlpEndpoint: {{ .Values.infraAgentgatewayWrapper.tracing.otlpEndpoint | quote }}

@@ -17,6 +17,10 @@ kind: Gateway
 metadata:
   name: infra-agentgateway-gateway
   namespace: infra-agentgateway
+  {{- if and .Values.aiGateway.enabled .Values.aiGateway.proxy.enabled }}
+  annotations:
+    agentgateway.dev/internal-ports: "443"
+  {{- end }}
   labels:
     app.kubernetes.io/name: gateway
     app.kubernetes.io/instance: {{ .Release.Name }}
@@ -50,4 +54,43 @@ spec:
         kinds:
           - group: agentgateway.dev
             kind: AgentgatewayModel
+    {{- end }}
+    {{- if .Values.aiGateway.enabled }}
+    - name: api-bindings
+      port: {{ .Values.aiGateway.apiPort }}
+      protocol: HTTP
+      allowedRoutes:
+        namespaces: {from: Same}
+        kinds:
+          - {group: gateway.networking.k8s.io, kind: HTTPRoute}
+    {{- if .Values.aiGateway.proxy.enabled }}
+    - name: forward-proxy
+      port: {{ .Values.aiGateway.proxy.port }}
+      hostname: {{ .Values.aiGateway.proxy.hostname | quote }}
+      protocol: HTTPS
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - {kind: Secret, name: {{ .Values.aiGateway.proxy.tlsSecretName | quote }}}
+      allowedRoutes:
+        namespaces: {from: Same}
+    {{- range include "infra-agentgateway.aiBindings" . | fromJsonArray }}
+    {{- if .inspect }}
+    - name: inspect-{{ .id }}
+      port: 443
+      hostname: {{ .host | quote }}
+      protocol: HTTPS
+      tls:
+        mode: Terminate
+        options:
+          agentgateway.dev/tls-certificate-source: DYNAMIC_CA
+        certificateRefs:
+          - {kind: Secret, name: {{ $.Values.aiGateway.proxy.signerSecretName | quote }}}
+      allowedRoutes:
+        namespaces: {from: Same}
+        kinds:
+          - {group: gateway.networking.k8s.io, kind: HTTPRoute}
+    {{- end }}
+    {{- end }}
+    {{- end }}
     {{- end }}

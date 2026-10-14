@@ -65,3 +65,21 @@ itself binds its random data port to a wildcard address; the test authorization
 restricts sources to `127.0.0.1`. Run on a trusted workstation. No cluster, external
 requests, real credentials, or persistent data are used. This is not PII,
 application-client, verified-JWT, or in-cluster end-to-end proof.
+
+## Native accounting regression
+
+With the same verified binary, run:
+
+```bash
+mise exec -- uv run --frozen python tests/live/agentgateway/test_accounting.py
+```
+
+This renders the current chart and evaluates its actual database/stdout telemetry
+expressions on native OpenAI and Anthropic responses. It compares reported zero,
+nonzero, partial and missing usage, a provider 401, an interrupted response, zero
+pricing, absent pricing and historical metadata. Normalized completeness stays
+unknown while the native reported sums remain available. This protects against
+mistaking normalized/defaulted counters or a priced zero for complete evidence.
+The fixture injects synthetic admission metadata directly; it does not qualify
+identity, extProc, the collector or a production provider. Its native admin API,
+provider and gateway bind loopback; temporary SQLite data is removed on exit.

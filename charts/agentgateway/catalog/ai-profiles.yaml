@@ -1,0 +1,66 @@
+# Adapter IDs are part of the extProc contract, not user-defined code or CEL.
+openai-chat-completions-v1:
+  providers: [OpenAI, Openrouter]
+  credentialHeader: authorization
+  revision: "1"
+  path: /v1/chat/completions
+  operations:
+    - id: create
+      support: unknown
+      restoration_scope: request
+      limitations: ["JSON and SSE only; WebSocket upgrades are rejected."]
+  limitations: ["Production v5 integration qualification pending.", "Dedicated API entry accepts Neurwerk keys only; legacy OIDC remains separate.", "Proxy preemptive Basic is proven locally; browser challenge coverage is being qualified.", "Provider credentials do not establish ownership or subscription status."]
+openai-responses-v1:
+  providers: [OpenAI, Openrouter]
+  credentialHeader: authorization
+  revision: "1"
+  path: /v1/responses
+  operations:
+    - id: create
+      support: unknown
+      restoration_scope: request
+      limitations: ["JSON and SSE only; persistent history and WebSocket operations are unqualified."]
+  limitations: ["Production v5 integration qualification pending.", "Dedicated API entry accepts Neurwerk keys only; legacy OIDC remains separate.", "Proxy preemptive Basic is proven locally; browser challenge coverage is being qualified.", "Restoration mappings are request-local."]
+anthropic-messages-v1:
+  providers: [Anthropic]
+  credentialHeader: x-api-key
+  revision: "1"
+  path: /v1/messages
+  operations:
+    - id: create
+      support: unknown
+      restoration_scope: request
+      limitations: ["JSON/SSE with anthropic-version 2023-06-01; beta and extended operations are not admitted."]
+  limitations: ["Production Base/controller integration qualification pending.", "Only x-api-key is an approved provider credential location."]
+google-generate-content-v1:
+  providers: [Gemini]
+  credentialHeader: x-goog-api-key
+  revision: "1"
+  operations:
+    - id: generateContent
+      support: unknown
+      restoration_scope: request
+      limitations: ["Exact approved model path and JSON only."]
+    - id: streamGenerateContent
+      support: unknown
+      restoration_scope: request
+      limitations: ["Exact approved model path with alt=sse only."]
+  limitations: ["Production Base/controller integration qualification pending.", "Inspected native /v1beta paths only; prefixed API mounts await separate acceptance.", "Only x-goog-api-key is admitted; query-string credentials are rejected."]
+chatgpt-web-v1:
+  revision: "1"
+  operations:
+    - {id: login, support: unknown, restoration_scope: none, limitations: ["Browser qualification pending."]}
+    - {id: inference, support: unknown, restoration_scope: none, limitations: ["Website adapter qualification pending."]}
+    - {id: upload, support: unknown, restoration_scope: none, limitations: ["Website adapter qualification pending."]}
+    - {id: history, support: unknown, restoration_scope: none, limitations: ["Persistent restoration is not implemented."]}
+    - {id: export, support: unknown, restoration_scope: none, limitations: ["Persistent restoration is not implemented."]}
+  limitations: ["No website route or uninspected fallback is enabled by this profile."]
+gamma-web-v1:
+  revision: "1"
+  operations:
+    - {id: login, support: unknown, restoration_scope: none, limitations: ["Browser qualification pending."]}
+    - {id: inference, support: unknown, restoration_scope: none, limitations: ["Website adapter qualification pending."]}
+    - {id: upload, support: unknown, restoration_scope: none, limitations: ["Website adapter qualification pending."]}
+    - {id: history, support: unknown, restoration_scope: none, limitations: ["Persistent restoration is not implemented."]}
+    - {id: export, support: unknown, restoration_scope: none, limitations: ["Website adapter qualification pending."]}
+  limitations: ["No website route or uninspected fallback is enabled by this profile."]
