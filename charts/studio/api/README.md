@@ -72,3 +72,23 @@ Operator access to Langfuse outside Studio is separate.
 Enable `frontendStudio.api.contextforge` with the dedicated service account and
 `setupConfigMapName`/`catalogConfigMapName` both set to `contextforge-setup`.
 Personal connections use the Studio origin plus `/oauth/callback`.
+
+## AI Gateway catalog and public inspection trust
+
+Compatible Studio API and Web releases present the effective gateway catalog
+when `frontendStudio.api.gateway.enabled` is true. The gateway chart owns
+`agentgateway-catalog-config-map` in the Studio namespace; Studio mounts only
+its non-secret `catalog.json`. Optional `statusConfigMapName` supplies observed
+`status.json`. Missing, stale or mismatched observations remain unknown.
+
+`gateway.trust.enabled` additionally mounts the publisher-owned
+`agentgateway-inspection-trust-config-map` with public `snapshots.json` only.
+Neither inspection signing Secrets nor their keys are mounted. Full directory
+mounts preserve Kubernetes atomic projected-volume updates.
+
+During root rollover, stage the new immutable bundle, set
+`gateway.trust.requiredVersion` to its lowercase SHA-256, and wait for all serving
+replicas to verify that bundle before promoting the current pointer. The API
+readiness probe requests the exact immutable bundle, while startup and liveness
+remain dependency-independent. The scoped trust publisher can reach only the
+ordinary API port, not Studio's private notice-preferences listener.

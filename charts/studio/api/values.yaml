@@ -63,6 +63,18 @@ frontendStudio:
     mcpGatewayPort: 80
     usageTimezone: "UTC"
 
+    # Read-only presentation of the gateway-owned effective configuration.
+    gateway:
+      enabled: false
+      catalogConfigMapName: agentgateway-catalog-config-map
+      # Optional runtime observations; missing or stale evidence stays unknown.
+      statusConfigMapName: ""
+      trust:
+        enabled: false
+        configMapName: agentgateway-inspection-trust-config-map
+        # SHA-256 of a staged public bundle required before this replica is ready.
+        requiredVersion: ""
+
     mcpSetup:
       # Both API Service and post-DNAT server destinations, supplied by the client.
       # Used only when the shared mcp.studioSetup.enabled switch is true.
