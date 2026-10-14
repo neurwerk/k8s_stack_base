@@ -8,6 +8,8 @@ agentgateway:
   inspection:
     enabled: true
     rootIds: [r1, r2]
+    monitoring:
+      enabled: true
     trust:
       enabled: true
       # Use the verified runtime pin: release image inventory also renders this file.

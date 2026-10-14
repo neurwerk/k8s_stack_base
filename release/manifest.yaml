@@ -44,6 +44,9 @@ spec:
       - name: trust-manager
         version: 0.24.0
         source: oci://quay.io/jetstack/charts/trust-manager
+      - name: kube-prometheus-stack
+        version: 72.4.0
+        source: oci://ghcr.io/prometheus-community/charts/kube-prometheus-stack
     - path: releases/agentgateway/inspection-trust
       status: included
       reason: Optional public-root snapshot publication after inspection PKI using verified Tooling 0.8.0;
@@ -53,7 +56,7 @@ spec:
       - charts/agentgateway/inspection-trust
       prerequisites:
       - name: agentgateway-inspection-pki
-        version: 0.1.0
+        version: 0.1.1
         source: releases/agentgateway/inspection-pki
       - name: k8s-stack-tooling
         version: 0.8.0
@@ -228,7 +231,7 @@ spec:
           sha256: 61b97c2a34d6e0f1e2024a58804001c159dbc40a0f72173e70e8df767088c007
     - path: charts/agentgateway/inspection-pki
       name: agentgateway-inspection-pki
-      version: 0.1.0
+      version: 0.1.1
     - path: charts/agentgateway/inspection-trust
       name: agentgateway-inspection-trust
       version: 0.1.0
@@ -255,7 +258,7 @@ spec:
           sha256: 47d7510a1a9120fc4f26a026599b96c4316a0d1bd5ab53cd5178a69e0f8d4488
     - path: charts/cert-manager/controller
       name: infra-cert-manager-controller
-      version: 1.0.0
+      version: 1.0.1
       dependencyLock:
         digest: sha256:9a5ee0de189d2c08f867194829020c540f3af2577e25e55f2f68bb7fabd8ba72
         dependencies:
