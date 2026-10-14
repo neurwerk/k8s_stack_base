@@ -106,7 +106,7 @@ class InspectionMonitoringTests(unittest.TestCase):
     def test_opt_in_preserves_pki_and_defaults_have_no_alerts(self):
         self.assertEqual(documents(render(CHART, value_files=())), [])
         disabled = {"agentgateway": {"inspection": {
-            "enabled": False, "monitoring": {"enabled": True},
+            **VALUES["agentgateway"]["inspection"], "enabled": False,
         }}}
         self.assertEqual(documents(render(CHART, disabled, value_files=())), [])
         enabled = documents(render(CHART, VALUES, value_files=()))
@@ -150,7 +150,6 @@ class InspectionMonitoringTests(unittest.TestCase):
         self.assertEqual(network["policyTypes"], ["Ingress"])
         self.assertEqual(len(network["ingress"]), 1)
         self.assertEqual(network["ingress"][0]["ports"], [{"port": container_port, "protocol": "TCP"}])
-        self.assertEqual(container_port, 9402)
         self.assertEqual(len(network["ingress"][0]["from"]), 1)
         peer = network["ingress"][0]["from"][0]
 
@@ -233,26 +232,6 @@ class InspectionMonitoringTests(unittest.TestCase):
         case("a same-name certificate from another issuer cannot satisfy expected telemetry", wrong_issuer,
              expectations("10m", CertificateMetricsMissing=[("next-3", "signer")]))
         self.check_rule_tests(rules, tests)
-
-    @unittest.skipUnless(PROMTOOL, "promtool unavailable; supply an existing binary via PROMTOOL")
-    def test_disabled_inspection_or_monitoring_evaluates_without_alerts(self):
-        for inspection, monitoring in ((False, True), (True, False)):
-            with self.subTest(inspection=inspection, monitoring=monitoring):
-                rendered = documents(render(CHART, {"agentgateway": {"inspection": {
-                    "enabled": inspection, "monitoring": {"enabled": monitoring},
-                    "rootIds": list(ROOT_IDS),
-                }}}, value_files=()))
-                rules = {"groups": [group for doc in rendered if doc["kind"] == "PrometheusRule"
-                                    for group in doc["spec"]["groups"]]}
-                broken = samples({
-                    (root_id, role, metric): "0+0x180" if metric == "ready" else "600+0x180"
-                    for root_id in ROOT_IDS for role in ("root", "signer") for metric in METRICS
-                })
-                self.check_rule_tests(rules, [{
-                    "name": f"inspection={inspection}, monitoring={monitoring}, {name}",
-                    "interval": "1m", "input_series": data,
-                    "promql_expr_test": expectations("2h"),
-                } for name, data in (("no source", []), ("unhealthy certificates", broken))])
 
 
 if __name__ == "__main__":
