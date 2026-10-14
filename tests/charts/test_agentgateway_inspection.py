@@ -1,6 +1,5 @@
 """Opt-in v5 routing, identity isolation and effective catalog contracts."""
 
-import copy
 import json
 import re
 import unittest
@@ -371,7 +370,7 @@ class InspectedGatewayTests(unittest.TestCase):
         ]
         for label, mutate in mutations:
             with self.subTest(label=label):
-                values = copy.deepcopy(binding_values())
+                values = binding_values()
                 mutate(values)
                 self.assertNotEqual(render("agentgateway", values, check=False).returncode, 0)
 
