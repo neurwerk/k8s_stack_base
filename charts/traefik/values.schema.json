@@ -1,0 +1,47 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["aiGateway"],
+  "properties": {
+    "aiGateway": {
+      "type": "object",
+      "required": ["enabled", "proxy"],
+      "properties": {
+        "enabled": {"type": "boolean"},
+        "proxy": {
+          "type": "object",
+          "required": ["enabled", "hostname", "port"],
+          "properties": {
+            "enabled": {"type": "boolean"},
+            "hostname": {"type": "string"},
+            "port": {"type": "integer", "minimum": 1, "maximum": 65535}
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "enabled": {"const": true},
+              "proxy": {"properties": {"enabled": {"const": true}}}
+            }
+          },
+          "then": {
+            "properties": {
+              "proxy": {
+                "properties": {
+                  "hostname": {
+                    "minLength": 1,
+                    "maxLength": 253,
+                    "pattern": "^([a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?\\.)+[a-z]([-a-z0-9]{0,61}[a-z0-9])?$",
+                    "description": "An exact lowercase public DNS hostname, without a scheme, port, wildcard or trailing dot."
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}
