@@ -87,8 +87,36 @@ function assertProject(body) {
   }
 }
 
-async function initialize({ env = process.env, start = spawn, request = fetch,
-                            wait = sleep, now = Date.now, verify = verifyDatabase } = {}) {
+// Only fixed categories escape the supervisor. Never log messages, stacks,
+// request bodies, URLs, credentials, or arbitrary upstream error fields.
+function safeError(error) {
+  const classes = ["Error", "TypeError", "SyntaxError", "AbortError", "TimeoutError",
+    "PrismaClientInitializationError", "PrismaClientKnownRequestError",
+    "PrismaClientValidationError", "PrismaClientUnknownRequestError"];
+  const codes = ["P1000", "P1001", "P1002", "P1003", "P1010", "P1011", "P1013",
+    "P2021", "P2022", "P2024", "P2028", "ENOENT", "EACCES", "ECONNREFUSED",
+    "ECONNRESET", "ETIMEDOUT", "ENOTFOUND", "EAI_AGAIN", "UND_ERR_CONNECT_TIMEOUT",
+    "INIT_CHILD_EXIT", "INIT_DEADLINE"];
+  const code = error?.code ?? error?.errorCode ?? error?.cause?.code;
+  return {
+    errorClass: classes.includes(error?.name) ? error.name : "Unknown",
+    errorCode: codes.includes(code) ? code : "UNKNOWN",
+  };
+}
+
+async function initialize(options = {}) {
+  const state = { stage: "credentials" };
+  const report = options.report ?? ((entry) => console.error(JSON.stringify(entry)));
+  try {
+    await runInitialization(options, state);
+  } catch (error) {
+    report({ event: "rejection_debug_init_failed", ...state, ...safeError(error) });
+    throw error;
+  }
+}
+
+async function runInitialization({ env = process.env, start = spawn, request = fetch,
+                                   wait = sleep, now = Date.now, verify = verifyDatabase }, state) {
   const publicKey = env.LANGFUSE_INIT_PROJECT_PUBLIC_KEY;
   const secretKey = env.LANGFUSE_INIT_PROJECT_SECRET_KEY;
   if (!publicKey || !secretKey || !env.NORMAL_PROJECT_PUBLIC_KEY ||
@@ -96,47 +124,66 @@ async function initialize({ env = process.env, start = spawn, request = fetch,
     throw new Error("Debug key must be present and distinct from the normal project key");
   }
   const authorization = "Basic " + Buffer.from(`${publicKey}:${secretKey}`).toString("base64");
+  state.stage = "database_preflight";
   await verify(env, false);
   const options = () => ({ headers: { authorization }, redirect: "error",
                           signal: AbortSignal.timeout(5000) });
-  // Detect a valid key assigned to another project before upstream initialization
-  // can move it. Trusted setup additionally guarantees newly generated unique keys.
-  const preflight = await request(env.DEBUG_LANGFUSE_BASE_URL + "/api/public/projects", options());
-  if (preflight.status === 200) {
-    assertProject(await preflight.json());
-  } else if (preflight.status !== 401) {
-    throw new Error("Debug project preflight failed");
-  }
+  // Database preflight rejects public-key ownership collisions. Do not authenticate
+  // before creation: Langfuse caches missing keys in Redis with a sliding TTL.
+  state.stage = "child_start";
   const child = start("./web/entrypoint.sh", ["node", "./web/server.js"], {
-    cwd: "/app", env: { ...env, DATABASE_URL: databaseUrl(env), HOSTNAME: "127.0.0.1", PORT: "3000" },
+    cwd: "/app", env: { ...env, DATABASE_URL: databaseUrl(env), HOSTNAME: "127.0.0.1", PORT: "3000",
+      // Supported by pinned 4.28.1 web/src/env.mjs and apiAuth.ts. Ignore existing
+      // negative entries and never let readiness polling create/refresh them.
+      LANGFUSE_CACHE_API_KEY_ENABLED: "false" },
     // Upstream errors may include connection strings; report bounded status only.
     stdio: "ignore",
   });
   let exited = false;
-  child.on("exit", () => { exited = true; });
-  child.on("error", () => { exited = true; });
+  let stopping = false;
+  child.on("exit", (code, signal) => {
+    exited = true;
+    if (!stopping) {
+      state.childExitCode = Number.isInteger(code) && code >= 0 && code <= 255 ? code : null;
+      state.childSignal = ["SIGTERM", "SIGINT", "SIGKILL", "SIGABRT", "SIGSEGV"].includes(signal) ? signal : null;
+    }
+  });
+  child.on("error", (error) => {
+    exited = true;
+    if (!stopping) state.childError = safeError(error);
+  });
   const abort = () => child.kill("SIGTERM");
   process.once("SIGTERM", abort);
   process.once("SIGINT", abort);
   try {
+    state.stage = "api_wait";
     const deadline = now() + 240000;
     while (now() < deadline && !exited) {
       let response;
       try {
         response = await request("http://127.0.0.1:3000/api/public/projects", options());
-      } catch {
+      } catch (error) {
+        state.requestError = safeError(error);
         await wait(1000);
         continue;
       }
+      delete state.requestError;
+      state.httpStatus = Number.isInteger(response.status) && response.status >= 100 && response.status <= 599
+        ? response.status : null;
       if (response.status === 200) {
+        state.stage = "api_identity";
         assertProject(await response.json());
+        state.stage = "database_postflight";
         await verify(env, true);
         return;
       }
       await wait(1000);
     }
-    throw new Error("Debug project initialization did not become ready");
+    throw Object.assign(new Error("Debug project initialization did not become ready"), {
+      code: exited ? "INIT_CHILD_EXIT" : "INIT_DEADLINE",
+    });
   } finally {
+    stopping = true;
     child.kill("SIGTERM");
     const deadline = now() + 10000;
     while (!exited && now() < deadline) await wait(100);
@@ -150,7 +197,6 @@ module.exports = { assertProject, databaseUrl, initialize, verifyMemberships };
 if (require.main === module) {
   initialize().then(() => console.log("Debug project initialized and verified"))
     .catch(() => {
-      console.error("Debug project initialization failed");
       process.exitCode = 1;
     });
 }

@@ -322,7 +322,7 @@ spec:
           sha256: b344a03d0006aba69a8c20ae1ff0354ac7687bdf72c3611c4f330b59a22b7548
     - path: charts/langfuse
       name: monitor-langfuse
-      version: 2.0.5
+      version: 2.0.6
       appVersion: 4.28.1
       dependencyLock:
         digest: sha256:68156b8f74aa153f2e33eb76f6ac11e9277c1a8fe8073c3f37da8834a97292cc
