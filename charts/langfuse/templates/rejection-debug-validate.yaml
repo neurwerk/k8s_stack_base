@@ -1,0 +1,20 @@
+{{- if .Values.rejectedRequestDebug.enabled -}}
+{{- $env := dict -}}
+{{- range concat (.Values.langfuse.langfuse.additionalEnv | default list) (.Values.langfuse.langfuse.worker.pod.additionalEnv | default list) -}}
+{{- $_ := set $env .name . -}}
+{{- end -}}
+{{- range $name := list "LANGFUSE_MIGRATION_V4_ALLOW_PREVIEW_OPT_IN" "LANGFUSE_ENABLE_BLOB_STORAGE_FILE_LOG" -}}
+{{- $entry := get $env $name | default dict -}}
+{{- if or (hasKey $entry "valueFrom") (ne (toString (get $entry "value")) "true") -}}
+{{- fail (printf "rejectedRequestDebug requires worker %s=true" $name) -}}
+{{- end -}}
+{{- end -}}
+{{- $skip := get $env "DELETE_SKIP_PROJECT_IDS" | default dict -}}
+{{- $envFrom := concat (.Values.langfuse.langfuse.additionalEnvFrom | default list) (.Values.langfuse.langfuse.worker.pod.additionalEnvFrom | default list) -}}
+{{- if and $envFrom (or (not (hasKey $skip "value")) (not (kindIs "string" (get $skip "value")))) -}}
+{{- fail "rejectedRequestDebug requires an explicit string DELETE_SKIP_PROJECT_IDS value when common or worker additionalEnvFrom is configured; use an empty string for no exclusions" -}}
+{{- end -}}
+{{- if or (hasKey $skip "valueFrom") (contains "rejected-request-debug" (toString (get $skip "value"))) -}}
+{{- fail "rejectedRequestDebug requires debug project absent from worker DELETE_SKIP_PROJECT_IDS" -}}
+{{- end -}}
+{{- end -}}

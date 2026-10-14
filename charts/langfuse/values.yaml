@@ -32,7 +32,22 @@
 # ── Wrapper chart own values ─────────────────────────────────────────────────
 # Used ONLY by our custom templates (gateway, http-route, secret, OTel collector).
 # Nothing here is passed to the langfuse subchart.
+# Canonical client-wide opt-in shared with extProc via client-values.
+# Opens only the debug exporter peer; project/key provisioning is external.
+rejectedRequestDebug:
+  enabled: false
+  captureEnabled: true
+
 monitorLangfuseWrapper:
+  rejectionDebug:
+    # Same published retention-capable image as the extProc runtime.
+    cleanupImage: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.17.0@sha256:b0c91b96c5725415d4ba6c8a5e2453a50fbe91428390b3a849213c63857740b7
+    cleanupResources:
+      requests: {cpu: 50m, memory: 64Mi}
+      limits: {cpu: 250m, memory: 128Mi}
+    initResources:
+      requests: {cpu: 100m, memory: 512Mi}
+      limits: {cpu: "1", memory: 1Gi}
   otelCollectorImage: docker.io/otel/opentelemetry-collector-contrib:0.132.1
   retentionPostgresImage: docker.io/bitnamilegacy/postgresql:17.3.0-debian-12-r1
   hostname: ""                        # set in client_*/config/client.yaml
@@ -107,6 +122,11 @@ langfuse:
     # Non-secret identity metadata comes from the chart-owned init ConfigMap;
     # credentials remain in monitor-langfuse-secret.
     additionalEnv:
+      # Public trace deletion must run for v4 events and remove raw event blobs.
+      - name: LANGFUSE_MIGRATION_V4_ALLOW_PREVIEW_OPT_IN
+        value: "true"
+      - name: LANGFUSE_ENABLE_BLOB_STORAGE_FILE_LOG
+        value: "true"
       - name: LANGFUSE_INIT_ORG_ID
         valueFrom:
           configMapKeyRef:

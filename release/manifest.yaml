@@ -144,8 +144,8 @@ spec:
     version: 0.0.5
     source: oci://ghcr.io/clickhouse/clickhouse-operator-helm
   - name: openbao-stack-setup
-    version: 0.2.27
-    source: https://github.com/neurwerk/k8s_stack_tooling/commit/550a2f3b52e7baa53ab8a01a59a417c539663235
+    version: 0.2.28
+    source: https://github.com/neurwerk/k8s_stack_tooling/commit/e0146e229ee61839b37785dfa3f509768b2276fd
   - name: gateway-api-experimental
     version: 1.6.0
     source: https://github.com/kubernetes-sigs/gateway-api/releases/tag/v1.6.0
@@ -194,8 +194,8 @@ spec:
           sha256: 61b97c2a34d6e0f1e2024a58804001c159dbc40a0f72173e70e8df767088c007
     - path: charts/agentgateway-extproc
       name: agentgateway-extproc
-      version: 1.4.11
-      appVersion: 0.16.2
+      version: 1.4.12
+      appVersion: 0.17.0
     - path: charts/cert-manager/approval-policy
       name: infra-cert-manager-approval-policy
       version: 1.2.6
@@ -232,7 +232,7 @@ spec:
       version: 1.0.0
     - path: charts/contextforge
       name: contextforge
-      version: 0.3.0
+      version: 0.3.1
       appVersion: 1.0.11
     - path: charts/contextforge/certificates
       name: contextforge-certificates
@@ -243,7 +243,7 @@ spec:
       appVersion: 1.33.0
     - path: charts/external-secrets
       name: infra-external-secrets
-      version: 1.0.1
+      version: 1.0.2
       appVersion: 2.9.0
       dependencyLock:
         digest: sha256:f29853b9f97cc5a9a2eed070aab1047ada3464720356c31851017390487a3233
@@ -256,7 +256,7 @@ spec:
           sha256: da2d5c126a103b4c1b16a9dc1c168c4332a3687144e88ac070e594f81a0b6578
     - path: charts/fluent-bit
       name: monitor-fluent-bit
-      version: 1.0.9
+      version: 1.0.10
       appVersion: 3.2.8
       dependencyLock:
         digest: sha256:90275c51b97202d8b18e353f33c38e5800924b94be0b21d2adf9a62590334d17
@@ -322,7 +322,7 @@ spec:
           sha256: b344a03d0006aba69a8c20ae1ff0354ac7687bdf72c3611c4f330b59a22b7548
     - path: charts/langfuse
       name: monitor-langfuse
-      version: 2.0.4
+      version: 2.0.5
       appVersion: 4.28.1
       dependencyLock:
         digest: sha256:68156b8f74aa153f2e33eb76f6ac11e9277c1a8fe8073c3f37da8834a97292cc
@@ -833,11 +833,12 @@ spec:
       eligibility: included
       origins:
       - charts/wireguard/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.16.2@sha256:cf389da7f167f8e28b059d498c2e0d7ea7758ff54781caa43f5cb738f1df859c
+    - reference: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.17.0@sha256:b0c91b96c5725415d4ba6c8a5e2453a50fbe91428390b3a849213c63857740b7
       pinned: true
       eligibility: included
       origins:
       - charts/agentgateway-extproc/values.yaml
+      - charts/langfuse/values.yaml
     - reference: ghcr.io/neurwerk/k8s-stack-keycloak-api-key-bridge:0.8.2@sha256:0a1c52f2eccadcfbd146997d3ed532d0329da752eeeed3f9cad07ef3525782a0
       pinned: true
       eligibility: included

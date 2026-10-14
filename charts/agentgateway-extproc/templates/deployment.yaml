@@ -17,6 +17,9 @@
 {{- $_ := set $securityContext "fsGroup" 1000 -}}
 {{- end -}}
 {{- $reloadSecrets := "monitor-agentgateway-extproc-engine-client-tls" -}}
+{{- if .Values.rejectedRequestDebug.enabled -}}
+{{- $reloadSecrets = printf "%s,monitor-agentgateway-extproc-rejection-debug" $reloadSecrets -}}
+{{- end -}}
 {{- if $docling.enabled -}}
 {{- $reloadSecrets = printf "%s,monitor-agentgateway-extproc-docling-secret" $reloadSecrets -}}
 {{- end -}}
@@ -77,6 +80,32 @@ spec:
               name: http
               protocol: TCP
           env:
+            {{- if and .Values.rejectedRequestDebug.enabled .Values.rejectedRequestDebug.captureEnabled }}
+            - name: EXTPROC_REJECTION_LANGFUSE__ENABLED
+              value: "true"
+            - name: EXTPROC_REJECTION_LANGFUSE__ENDPOINT
+              value: {{ .Values.monitorAgentgatewayExtproc.rejectionLangfuse.endpoint | quote }}
+            - name: EXTPROC_REJECTION_LANGFUSE__ALLOW_HTTP
+              value: "true"
+            - name: EXTPROC_REJECTION_LANGFUSE__PUBLIC_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: monitor-agentgateway-extproc-rejection-debug
+                  key: public-key
+                  optional: true
+            - name: EXTPROC_REJECTION_LANGFUSE__SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: monitor-agentgateway-extproc-rejection-debug
+                  key: secret-key
+                  optional: true
+            - name: EXTPROC_REJECTION_LANGFUSE__MAX_CAPTURE_BYTES
+              value: {{ .Values.monitorAgentgatewayExtproc.rejectionLangfuse.maxCaptureBytes | int64 | quote }}
+            - name: EXTPROC_REJECTION_LANGFUSE__QUEUE_CAPACITY
+              value: {{ .Values.monitorAgentgatewayExtproc.rejectionLangfuse.queueCapacity | int | quote }}
+            - name: EXTPROC_REJECTION_LANGFUSE__TIMEOUT_SECONDS
+              value: {{ .Values.monitorAgentgatewayExtproc.rejectionLangfuse.timeoutSeconds | quote }}
+            {{- end }}
             {{- with .Values.monitorAgentgatewayExtproc.compatibility.controls }}
             - name: EXTPROC_COMPATIBILITY__CONTROLS
               value: {{ . | toJson | quote }}

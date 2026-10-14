@@ -45,6 +45,20 @@ spec:
         - port: {{ .Values.monitorAgentgatewayExtproc.ports.container.http }}
           protocol: TCP
   egress:
+    {{- if .Values.rejectedRequestDebug.enabled }}
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitor-langfuse
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: langfuse
+              app.kubernetes.io/instance: monitor-langfuse
+              app: web
+      ports:
+        - port: 3000
+          protocol: TCP
+    {{- end }}
     {{- if .Values.monitorAgentgatewayExtproc.noticePreferences.enabled }}
     - to:
         - namespaceSelector:

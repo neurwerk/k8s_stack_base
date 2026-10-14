@@ -12,13 +12,21 @@
 #   - ConfigMap: agentgateway-extproc-product-values (client product values)
 # =============================================================================
 
+# Canonical client-wide opt-in shared with Langfuse via client-values.
+# Requires a capture-capable image and a separately provisioned debug project/key.
+# Never override independently in product values. No remote retention is set here.
+rejectedRequestDebug:
+  enabled: false
+  # Stop new content while keeping the lifecycle/cleanup enabled until drained.
+  captureEnabled: true
+
 # ── extProc gRPC service ──────────────────────────────────────────────────────
 monitorAgentgatewayExtproc:
   alerts:
     # Covers dependency failures and response failures after headers were sent.
     enabled: true
 
-  extprocImage: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.16.2@sha256:cf389da7f167f8e28b059d498c2e0d7ea7758ff54781caa43f5cb738f1df859c
+  extprocImage: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.17.0@sha256:b0c91b96c5725415d4ba6c8a5e2453a50fbe91428390b3a849213c63857740b7
 
   # Docling requires exactly two fixed replicas (no HPA while enabled).
   replicas: 2
@@ -72,6 +80,15 @@ monitorAgentgatewayExtproc:
   # Rules are validated by the shared inspection package at runtime startup.
   compatibility:
     controls: []
+
+  # Optional bounded export to the separate Langfuse debug project. Enabled only
+  # by rejectedRequestDebug.enabled; independent of local rejectionCapture files.
+  # Endpoint is restricted to the internal web listener matched by NetworkPolicy.
+  rejectionLangfuse:
+    endpoint: http://monitor-langfuse-web.monitor-langfuse.svc.cluster.local:3000/api/public/otel/v1/traces
+    maxCaptureBytes: 65536
+    queueCapacity: 32
+    timeoutSeconds: 2
 
   # Optional short-lived rejection diagnostics; requires a capture-capable image.
   # No capture environment or writable volume is added while disabled.
