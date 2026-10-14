@@ -60,8 +60,6 @@ spec:
             {{- toYaml .Values.monitorLangfuseWrapper.rejectionDebug.initResources | nindent 12 }}
           env:
             {{- include "langfuse.commonEnv" $ctx | nindent 12 }}
-            - name: DEBUG_LANGFUSE_BASE_URL
-              value: http://monitor-langfuse-web.monitor-langfuse.svc.cluster.local:3000
             - name: LANGFUSE_INIT_ORG_ID
               value: rejected-request-debug
             - name: LANGFUSE_INIT_ORG_NAME
