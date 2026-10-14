@@ -14,18 +14,19 @@ authKeycloak:
   # The standard groups are owned by files/standard-access.yaml, not client values.
   # Remove only these direct application grants from platform-admin (role names):
   # keycloak-admin, api-key-admin, opensearch-admin, langfuse-admin, pii-admin, mcp-admin,
-  # studio-user and librechat-admin.
-  # [] restores all defaults. Groups, memberships, and model/MCP grants are unchanged.
+  # gateway-admin, studio-user and librechat-admin.
+  # [] restores all defaults. Groups, memberships, and invocation grants are unchanged.
   platformAdminRoleExclusions: []
 
-  # Clients retain explicit llm, MCP, and custom/local model permissions. The
+  # Clients retain explicit llm, MCP, application, provider company-use and custom/local model permissions. The
   # platform derives inherited OpenRouter model permissions from its catalog.
   agentgatewayClientRoles:
     - llm:invoke
 
-  # Only /access/neurwerk-llm-all-users (llm/model permissions) and
-  # /access/neurwerk-mcp-all-users (llm/MCP permissions) may receive these grants.
-  # Both groups exist without grants; application admission implies no access.
+  # /access/neurwerk-llm-all-users accepts llm/model/provider permissions;
+  # /access/neurwerk-mcp-all-users accepts llm/MCP permissions;
+  # /access/neurwerk-ai-application-users accepts llm/application/provider permissions.
+  # All resource groups exist without grants; application admission implies no access.
   agentgatewayAccessGroups: {}
 
 openrouterCatalog:

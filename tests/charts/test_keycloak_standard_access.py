@@ -11,6 +11,7 @@ from helm import env_value, render
 CHART = "keycloak/realm-config/realm-roles"
 LLM = "/access/neurwerk-llm-all-users"
 MCP = "/access/neurwerk-mcp-all-users"
+APPLICATION = "/access/neurwerk-ai-application-users"
 
 
 class KeycloakStandardAccessTests(unittest.TestCase):
@@ -18,14 +19,14 @@ class KeycloakStandardAccessTests(unittest.TestCase):
         rendered = render(CHART)
         groups = json.loads(env_value(rendered, "KC_ACCESS_GROUPS"))
         role_names = (
-            "keycloak-admin,api-key-admin,opensearch-admin,langfuse-admin,pii-admin,mcp-admin,"
+            "keycloak-admin,api-key-admin,opensearch-admin,langfuse-admin,pii-admin,mcp-admin,gateway-admin,"
             "platform-admin,studio-user,librechat-user,librechat-admin"
         )
         expected = {
             f"/access/neurwerk-{role}s": {"realmRoles": [role]}
             for role in role_names.split(",")
         }
-        expected.update({LLM: {"realmRoles": []}, MCP: {"realmRoles": []}})
+        expected.update({name: {"realmRoles": []} for name in (LLM, MCP, APPLICATION)})
         for group in expected.values():
             group["clientRoles"] = {"agentgateway": []}
         self.assertEqual(groups, expected)
@@ -34,14 +35,14 @@ class KeycloakStandardAccessTests(unittest.TestCase):
             "librechat-admin": ["librechat-user"],
             "platform-admin": [
                 "keycloak-admin", "api-key-admin", "opensearch-admin",
-                "langfuse-admin", "pii-admin", "mcp-admin", "studio-user", "librechat-admin",
+                "langfuse-admin", "pii-admin", "mcp-admin", "gateway-admin", "studio-user", "librechat-admin",
             ],
         })
         self.assertEqual(json.loads(env_value(rendered, "KC_REALM_ROLE_COMPOSITE_OWNERSHIP")), {
             "librechat-admin": ["librechat-user"],
             "platform-admin": [
                 "keycloak-admin", "api-key-admin", "opensearch-admin",
-                "langfuse-admin", "pii-admin", "mcp-admin", "studio-user", "librechat-admin",
+                "langfuse-admin", "pii-admin", "mcp-admin", "gateway-admin", "studio-user", "librechat-admin",
             ],
         })
         self.assertEqual(env_value(rendered, "KC_PARENT_ROLE"), "keycloak-admin")
@@ -59,7 +60,7 @@ class KeycloakStandardAccessTests(unittest.TestCase):
         baseline = render(CHART)
         composites = json.loads(env_value(baseline, "KC_REALM_ROLE_COMPOSITES"))
         defaults = composites["platform-admin"]
-        for exclusions in (["studio-user", "librechat-admin"], defaults, []):
+        for exclusions in (["studio-user", "librechat-admin"], ["gateway-admin"], defaults, []):
             with self.subTest(exclusions=exclusions):
                 rendered = render(CHART, {"authKeycloak": {"platformAdminRoleExclusions": exclusions}})
                 self.assertEqual(
@@ -112,30 +113,38 @@ class KeycloakStandardAccessTests(unittest.TestCase):
         del selected["grantToAccessGroups"]  # Exercise the fail-closed chart default.
         model = "model:remote/openrouter/acme/model:invoke"
         mcp = "mcp:example:invoke"
+        application = "application:assistant:invoke"
+        provider = "provider:example:company-use"
         values = {
             "openrouterCatalog": selected,
             "authKeycloak": {
                 "platformAdminRoleExclusions": ["librechat-admin"],
-                "agentgatewayClientRoles": ["llm:invoke", mcp],
+                "agentgatewayClientRoles": ["llm:invoke", mcp, application, provider],
                 "agentgatewayAccessGroups": {
-                    LLM: ["llm:invoke", model, model],
+                    LLM: ["llm:invoke", model, model, provider],
                     MCP: ["llm:invoke", mcp],
+                    APPLICATION: ["llm:invoke", application, provider],
                 },
             },
         }
         groups = json.loads(env_value(render(CHART, values), "KC_ACCESS_GROUPS"))
+        oidc_roles = json.loads(env_value(render("keycloak/oidc/agentgateway", values), "KC_CLIENT_ROLES"))
+        self.assertTrue({application, provider} <= set(oidc_roles))
         self.assertEqual(groups.pop(LLM), {
-            "realmRoles": [], "clientRoles": {"agentgateway": ["llm:invoke", model]},
+            "realmRoles": [], "clientRoles": {"agentgateway": ["llm:invoke", model, provider]},
         })
         self.assertEqual(groups.pop(MCP), {
             "realmRoles": [], "clientRoles": {"agentgateway": ["llm:invoke", mcp]},
         })
-        self.assertEqual(len(groups), 10)
+        self.assertEqual(groups.pop(APPLICATION), {
+            "realmRoles": [], "clientRoles": {"agentgateway": ["llm:invoke", application, provider]},
+        })
+        self.assertEqual(len(groups), 11)
         self.assertTrue(all(
             group["clientRoles"] == {"agentgateway": []} for group in groups.values()
         ))
 
-        for removed in (LLM, MCP):
+        for removed in (LLM, MCP, APPLICATION):
             with self.subTest(removed=removed):
                 del values["authKeycloak"]["agentgatewayAccessGroups"][removed]
                 updated = json.loads(env_value(render(CHART, values), "KC_ACCESS_GROUPS"))
@@ -149,24 +158,32 @@ class KeycloakStandardAccessTests(unittest.TestCase):
     def test_mapping_overrides_and_unsafe_grants_fail_closed(self) -> None:
         model = "model:example:invoke"
         mcp = "mcp:example:invoke"
+        application = "application:assistant:invoke"
+        provider = "provider:example:company-use"
         for auth, catalog_values, message in [
             ({"accessGroups": {}}, {}, "accessGroups is platform-owned"),
             ({"accessGroups": {LLM: {"realmRoles": ["platform-admin"]}}}, {}, "accessGroups is platform-owned"),
             ({"realmRoles": "platform-admin"}, {}, "realmRoles is platform-owned"),
             ({"realmRoleComposites": {}}, {}, "realmRoleComposites is platform-owned"),
             ({}, {"grantToAccessGroups": True}, "grantToAccessGroups must be false"),
-            ({"agentgatewayAccessGroups": {"/access/neurwerk-platform-admins": [model]}}, {}, "only allowed for the two standard resource groups"),
-            ({"agentgatewayAccessGroups": {"/access/neurwerk-studio-users": ["llm:invoke"]}}, {}, "only allowed for the two standard resource groups"),
-            ({"agentgatewayAccessGroups": {"/access/custom": []}}, {}, "only allowed for the two standard resource groups"),
+            ({"agentgatewayAccessGroups": {"/access/neurwerk-platform-admins": [model]}}, {}, "only allowed for the standard resource groups"),
+            ({"agentgatewayAccessGroups": {"/access/neurwerk-studio-users": ["llm:invoke"]}}, {}, "only allowed for the standard resource groups"),
+            ({"agentgatewayAccessGroups": {"/access/custom": []}}, {}, "only allowed for the standard resource groups"),
             ({"agentgatewayAccessGroups": {LLM: [mcp]}}, {}, "cannot grant cross-resource role"),
+            ({"agentgatewayAccessGroups": {LLM: [application]}}, {}, "cannot grant cross-resource role"),
             ({"agentgatewayAccessGroups": {MCP: [model]}}, {}, "cannot grant cross-resource role"),
+            ({"agentgatewayAccessGroups": {MCP: [application]}}, {}, "cannot grant cross-resource role"),
+            ({"agentgatewayAccessGroups": {MCP: [provider]}}, {}, "cannot grant cross-resource role"),
+            ({"agentgatewayAccessGroups": {APPLICATION: [model]}}, {}, "cannot grant cross-resource role"),
+            ({"agentgatewayAccessGroups": {APPLICATION: [mcp]}}, {}, "cannot grant cross-resource role"),
             ({"agentgatewayAccessGroups": {LLM: ["model:missing:invoke"]}}, {}, "grants undeclared role"),
+            ({"agentgatewayAccessGroups": {APPLICATION: ["provider:missing:company-use"]}}, {}, "grants undeclared role"),
             ({"agentgatewayAccessGroups": {LLM: "llm:invoke"}}, {}, "roles must be a list"),
         ]:
             with self.subTest(auth=auth, catalog=catalog_values):
                 result = render(CHART, {
                     "authKeycloak": {
-                        "agentgatewayClientRoles": ["llm:invoke", model, mcp], **auth,
+                        "agentgatewayClientRoles": ["llm:invoke", model, mcp, application, provider], **auth,
                     },
                     "openrouterCatalog": catalog_values,
                 }, check=False)
