@@ -15,3 +15,11 @@ cert-manager:
   replicaCount: 1
   config:
     enableGatewayAPI: true
+  prometheus:
+    # Expose metrics during bootstrap. The optional inspection PKI package owns
+    # the ServiceMonitor after kube-prometheus-stack; keep vendor monitors off.
+    enabled: true
+    servicemonitor:
+      enabled: false
+    podmonitor:
+      enabled: false

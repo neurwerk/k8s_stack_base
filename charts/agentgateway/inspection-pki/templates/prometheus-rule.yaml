@@ -1,0 +1,108 @@
+{{- $inspection := .Values.agentgateway.inspection -}}
+{{- if and $inspection.enabled $inspection.monitoring.enabled }}
+{{- $source := `job="cert-manager",namespace="infra-cert-manager",service="infra-cert-manager-controller",endpoint="tcp-prometheus-servicemonitor"` -}}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: agentgateway-inspection-pki-prometheus-rule
+  namespace: infra-agentgateway
+  labels:
+    {{- include "agentgateway-inspection-pki.labels" . | nindent 4 }}
+    release: monitor-kube-prometheus-stack
+spec:
+  groups:
+    - name: agentgateway-inspection-pki
+      interval: 30s
+      rules:
+        - alert: InspectionCertificateSourceUnavailable
+          expr: (max(up{ {{- $source -}} }) or vector(0)) == 0
+          for: 10m
+          labels:
+            severity: critical
+            namespace: infra-cert-manager
+          annotations:
+            summary: Inspection certificate telemetry is unavailable
+            description: Check the cert-manager controller, ServiceMonitor discovery and TCP 9402 scrape path. Certificate health is unknown while the source is unavailable.
+        {{- range $id := $inspection.rootIds }}
+        {{- range $role := list "root" "signer" }}
+        {{- $namespace := ternary "infra-cert-manager" "infra-agentgateway" (eq $role "root") }}
+        {{- $name := printf "agentgateway-inspection-%s-%s-certificate" $role $id }}
+        {{- $issuer := ternary "agentgateway-inspection-bootstrap-issuer" (printf "agentgateway-inspection-root-%s-issuer" $id) (eq $role "root") }}
+        {{- $kind := ternary "Issuer" "ClusterIssuer" (eq $role "root") }}
+        {{- $certificate := printf "%s,exported_namespace=%q,name=%q,issuer_name=%q,issuer_kind=%q,issuer_group=\"cert-manager.io\"" $source $namespace $name $issuer $kind }}
+        - alert: InspectionCertificateNotReady
+          expr: min(certmanager_certificate_ready_status{ {{- $certificate -}},condition="True"}) == 0
+          for: 10m
+          labels:
+            severity: critical
+            namespace: {{ $namespace }}
+            certificate: {{ $name }}
+            root_id: {{ $id | quote }}
+            certificate_role: {{ $role }}
+          annotations:
+            summary: Inspection certificate is not Ready
+            description: Inspect the Certificate and its approved request for {{ $namespace }}/{{ $name }}. Ready=False or Unknown does not establish usable issuance; never bypass approval.
+        - alert: InspectionCertificateRenewalOverdue
+          # A Certificate can remain Ready=True while renewal is failing. Zero
+          # timestamps mean uninitialized status and belong to MetricsMissing.
+          expr: time() - min(certmanager_certificate_renewal_timestamp_seconds{ {{- $certificate -}} } > 0) > 3600
+          for: 10m
+          labels:
+            severity: critical
+            namespace: {{ $namespace }}
+            certificate: {{ $name }}
+            root_id: {{ $id | quote }}
+            certificate_role: {{ $role }}
+          annotations:
+            summary: Inspection certificate renewal is overdue
+            description: {{ $namespace }}/{{ $name }} is over one hour past status.renewalTime. Check issuance and approval; successful issuance still requires separate loaded-signer verification.
+        - alert: InspectionCertificateExpiringSoon
+          # Roots need explicit rollover before their one-year renewal window;
+          # signers normally renew at 30 days and become urgent below 14 days.
+          expr: min(certmanager_certificate_expiration_timestamp_seconds{ {{- $certificate -}} } > 0) - time() < {{ ternary "365" "14" (eq $role "root") }} * 86400
+          for: 10m
+          labels:
+            severity: critical
+            namespace: {{ $namespace }}
+            certificate: {{ $name }}
+            root_id: {{ $id | quote }}
+            certificate_role: {{ $role }}
+          annotations:
+            summary: Inspection certificate is approaching expiry
+            description: {{ $namespace }}/{{ $name }} has less than {{ ternary "365" "14" (eq $role "root") }} days left (or has expired). {{ if eq $role "root" }}Complete explicit root rollover and public trust overlap; automatic root renewal is not a trust-publication operation.{{ else }}Restore renewal of the 90-day signer and verify the native loaded chain and old-tunnel drainage separately.{{ end }}
+        - alert: InspectionCertificateMetricsMissing
+          # One rule per expected Certificate catches a missing generation or
+          # individual family even when other certificates are still exported.
+          expr: >-
+            max(
+              absent(certmanager_certificate_ready_status{ {{- $certificate -}},condition="True"})
+              or absent(certmanager_certificate_renewal_timestamp_seconds{ {{- $certificate -}} } > 0)
+              or absent(certmanager_certificate_expiration_timestamp_seconds{ {{- $certificate -}} } > 0)
+            ) and on() (max(up{ {{- $source -}} }) == 1)
+          for: 10m
+          labels:
+            severity: critical
+            namespace: {{ $namespace }}
+            certificate: {{ $name }}
+            root_id: {{ $id | quote }}
+            certificate_role: {{ $role }}
+          annotations:
+            summary: Expected inspection certificate metrics are missing
+            description: The cert-manager source is up but {{ $namespace }}/{{ $name }} lacks readiness or initialized renewal/expiry metrics. Check the expected Certificate, issuer labels and scrape label mapping.
+        {{- if eq $role "root" }}
+        - alert: InspectionRootRolloverDue
+          expr: min(certmanager_certificate_renewal_timestamp_seconds{ {{- $certificate -}} } > 0) - time() < 90 * 86400
+          for: 1h
+          labels:
+            severity: warning
+            namespace: {{ $namespace }}
+            certificate: {{ $name }}
+            root_id: {{ $id | quote }}
+            certificate_role: root
+          annotations:
+            summary: Plan inspection root rollover now
+            description: {{ $namespace }}/{{ $name }} is within 90 days of its one-year-before-expiry renewal window (or has passed it). Add a new generation, publish overlapping roots, allow workstation updates, switch and verify the signer, then explicitly retire old current trust.
+        {{- end }}
+        {{- end }}
+        {{- end }}
+{{- end }}

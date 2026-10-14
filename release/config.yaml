@@ -39,6 +39,9 @@ packages:
     - name: trust-manager
       version: 0.24.0
       source: oci://quay.io/jetstack/charts/trust-manager
+    - name: kube-prometheus-stack
+      version: 72.4.0
+      source: oci://ghcr.io/prometheus-community/charts/kube-prometheus-stack
   - path: releases/agentgateway/inspection-trust
     status: included
     reason: Optional public-root snapshot publication after inspection PKI using verified Tooling 0.8.0;
@@ -48,7 +51,7 @@ packages:
     - charts/agentgateway/inspection-trust
     prerequisites:
     - name: agentgateway-inspection-pki
-      version: 0.1.0
+      version: 0.1.1
       source: releases/agentgateway/inspection-pki
     - name: k8s-stack-tooling
       version: 0.8.0

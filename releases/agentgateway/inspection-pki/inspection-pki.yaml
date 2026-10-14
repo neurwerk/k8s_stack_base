@@ -31,6 +31,8 @@ spec:
       readyExpr: dep.metadata.generation == dep.status.observedGeneration && dep.status.conditions.exists(c, c.type == 'Ready' && c.status == 'True')
     - name: trust-manager
       namespace: infra-trust-manager
+    - name: kube-prometheus-stack
+      namespace: monitor-kube-prometheus-stack
   chart:
     spec:
       chart: ./charts/agentgateway/inspection-pki
@@ -41,5 +43,5 @@ spec:
       name: client-values
       valuesKey: values.yaml
     - kind: ConfigMap
-      name: agentgateway-product-values
+      name: agentgateway-inspection-pki-product-values
       valuesKey: values.yaml

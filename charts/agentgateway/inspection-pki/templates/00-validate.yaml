@@ -1,5 +1,6 @@
 {{- $inspection := .Values.agentgateway.inspection -}}
 {{- if not (kindIs "bool" $inspection.enabled) }}{{ fail "agentgateway.inspection.enabled must be boolean" }}{{- end }}
+{{- if not (kindIs "bool" $inspection.monitoring.enabled) }}{{ fail "agentgateway.inspection.monitoring.enabled must be boolean" }}{{- end }}
 {{- if $inspection.enabled -}}
 {{- if or (not (kindIs "slice" $inspection.rootIds)) (lt (len $inspection.rootIds) 1) (gt (len $inspection.rootIds) 16) }}{{ fail "inspection rootIds must contain 1 to 16 generations" }}{{- end }}
 {{- $seen := dict -}}
