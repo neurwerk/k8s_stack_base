@@ -11,7 +11,18 @@ GLiNER/KServe services own their inference hardware and may use GPUs behind thei
 endpoints; the Engine Pod runs on CPU.
 
 Explicit `ner` requires a compatible Engine **>=0.13.0**. The chart pins the
-published, verified **0.14.0** image. The examples below inherit that image pin.
+published, verified **0.15.0** image. The examples below inherit that image pin.
+
+## Request capacity
+
+`monitorPiiEngine.capacity.maxTextLeaves` defaults to `"2000"` and accepts any
+positive integer. It becomes `PII_ENGINE_MAX_TEXT_LEAVES`; changes require only
+a configuration rollout. This is the total inspected text-piece count across a
+request, not its JSON key count or a per-message allowance. Byte, character,
+nesting and timeout bounds remain independent, and cache misses still need analysis.
+
+Limits above 256 require Engine >=0.15.0; use the coordinated adapter >=0.19.2 and
+Studio >=0.19.1 to avoid their old history-array and response-count ceilings.
 
 ## Local NER
 
