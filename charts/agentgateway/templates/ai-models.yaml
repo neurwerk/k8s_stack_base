@@ -64,6 +64,7 @@ spec:
           request_context: 'metadata.neurwerk_admission'
           destination_policy: {{ $innerExpression | squote }}
           model_bindings: {{ $binding.modelBindings | toJson | squote }}
+          reroute_targets: {{ $binding.rerouteTargets | toJson | squote }}
       processingOptions:
         requestHeaderMode: Send
         requestBodyMode: Buffered
@@ -99,8 +100,12 @@ spec:
   virtualModel:
     conditional:
       targets:
+        {{- if $binding.localReroute }}
+        - when: {{ printf `metadata.neurwerk_admission.provider_credential_source == "company" && extproc["neurwerk.request_context"].dispatch_destination_id == %q && extproc["neurwerk.request_context"].dispatch_binding_id == %q` $binding.localReroute $binding.localRerouteBackend.binding_id | squote }}
+          modelRef: {name: {{ $name }}-local-reroute}
+        {{- end }}
         {{- range $source := $binding.credentialSources }}
-        - when: {{ printf `metadata.neurwerk_admission.provider_credential_source == %q` $source | squote }}
+        - when: {{ printf `metadata.neurwerk_admission.provider_credential_source == %q && extproc["neurwerk.request_context"].dispatch_destination_id == %q && extproc["neurwerk.request_context"].dispatch_binding_id == %q` $source $model.name $binding.id | squote }}
           modelRef:
             name: {{ $name }}-{{ ternary "personal" $source (eq $source "caller_supplied") }}
         {{- end }}
@@ -122,6 +127,10 @@ spec:
   visibility: Internal
   provider: {{ $binding.provider }}
   baseURL: {{ $binding.upstreamURL | quote }}
+  {{- if eq $binding.provider "Custom" }}
+  custom:
+    formats: [{type: Completions}]
+  {{- end }}
   policies:
     {{- if eq $source "company" }}
     auth:
@@ -134,6 +143,8 @@ spec:
           - >-
             extproc["neurwerk.request_context"].resolved_model == {{ $model.upstreamModel | toJson }} &&
             extproc["neurwerk.request_context"].destination_id == {{ $model.name | toJson }} &&
+            extproc["neurwerk.request_context"].dispatch_destination_id == {{ $model.name | toJson }} &&
+            extproc["neurwerk.request_context"].dispatch_binding_id == {{ $binding.id | toJson }} &&
             extproc["neurwerk.request_context"].requested_model in {{ list $model.name $model.upstreamModel | uniq | toJson }} &&
             metadata.neurwerk_admission.all(k, extproc["neurwerk.request_context"][k] == metadata.neurwerk_admission[k]) &&
             metadata.neurwerk_admission.binding_id == {{ $binding.id | toJson }} &&
@@ -141,13 +152,57 @@ spec:
             metadata.neurwerk_admission.policy_revision == {{ $revision | toJson }} &&
             extproc["neurwerk.request_context"].content_tracing_enabled == {{ $model.contentTracingEnabled }} &&
             extproc["neurwerk.request_context"].pii_policy.enabled == {{ $model.piiEnabled }} &&
-            {{ (get $binding.modelBindings $model.name).required_permissions | toJson }}.all(p, p in extauthz.permissions)
+            {{ (get $binding.modelBindings $model.name).required_permissions | toJson }}.all(p, p in metadata.neurwerk_admission.permissions)
             {{- if eq $source "company" }}
-            && {{ printf "provider:%s:company-use" $binding.providerId | toJson }} in extauthz.permissions
+            && {{ printf "provider:%s:company-use" $binding.providerId | toJson }} in metadata.neurwerk_admission.permissions
             {{- end }}
     transformations:
       - field: model
         expression: {{ $model.upstreamModel | toJson | squote }}
+{{- end }}
+{{- if $binding.localReroute }}
+{{- $target := $binding.localRerouteBackend }}
+---
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayModel
+metadata:
+  name: {{ $name }}-local-reroute
+  namespace: infra-agentgateway
+  labels:
+    {{- include "infra-agentgateway.aiLabels" $ | nindent 4 }}
+spec:
+  parentRefs:
+    {{- range $entry := $entries }}
+    - {group: gateway.networking.k8s.io, kind: HTTPRoute, name: ai-{{ $binding.id }}-{{ $entry.name }}, sectionName: models}
+    {{- end }}
+  visibility: Internal
+  provider: {{ $target.provider }}
+  baseURL: {{ $target.upstreamURL | quote }}
+  {{- if eq $target.provider "Custom" }}
+  custom:
+    formats: [{type: Completions}]
+  {{- end }}
+  policies:
+    authorization:
+      action: Allow
+      policy:
+        matchExpressions:
+          - >-
+            metadata.neurwerk_admission.all(k, extproc["neurwerk.request_context"][k] == metadata.neurwerk_admission[k]) &&
+            metadata.neurwerk_admission.binding_id == {{ $binding.id | toJson }} &&
+            metadata.neurwerk_admission.provider_credential_source == "company" &&
+            metadata.neurwerk_admission.policy_revision == {{ $revision | toJson }} &&
+            extproc["neurwerk.request_context"].destination_id == {{ $model.name | toJson }} &&
+            extproc["neurwerk.request_context"].requested_model in {{ list $model.name $model.upstreamModel | uniq | toJson }} &&
+            extproc["neurwerk.request_context"].dispatch_destination_id == {{ $binding.localReroute | toJson }} &&
+            extproc["neurwerk.request_context"].dispatch_binding_id == {{ $target.binding_id | toJson }} &&
+            extproc["neurwerk.request_context"].resolved_model == {{ $target.upstream_model | toJson }} &&
+            extproc["neurwerk.request_context"].pii_policy.enabled == {{ $model.piiEnabled }} &&
+            extproc["neurwerk.request_context"].content_tracing_enabled == {{ and $model.contentTracingEnabled $target.content_tracing_enabled }} &&
+            {{ concat (get $binding.modelBindings $model.name).required_permissions $target.required_permissions (list (printf "provider:%s:company-use" $binding.providerId)) | uniq | toJson }}.all(p, p in metadata.neurwerk_admission.permissions)
+    transformations:
+      - field: model
+        expression: {{ $target.upstream_model | toJson | squote }}
 {{- end }}
 {{- end }}
 {{- end }}

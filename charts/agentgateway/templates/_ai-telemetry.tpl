@@ -6,7 +6,7 @@
 {{- range $field := list "destination_id" "requested_model" "resolved_model" -}}
 {{- $_ := set $fields (printf "neurwerk.%s" $field) (printf `has(metadata.neurwerk_admission) ? default(extproc["neurwerk.request_context"].%s, null) : null` $field) -}}
 {{- end -}}
-{{- $_ := set $fields "neurwerk.billing_classification" `has(metadata.neurwerk_admission) ? (metadata.neurwerk_admission.provider_credential_source == "company" ? "company_api" : "unknown") : null` -}}
+{{- $_ := set $fields "neurwerk.billing_classification" `default(extproc["neurwerk.request_context"].billing_classification, "unknown")` -}}
 {{/* Native 1.6.0 loses evidence needed for complete v5 accounting:
 - Chat/Gemini parsers fill absent counters with zero; cost also coalesces usage.
 - CEL exposes neither SSE completion nor Responses in-band status/error.

@@ -40,8 +40,8 @@ class DoclingTests(unittest.TestCase):
 
     def test_native_tls_config_and_disposable_runtime(self):
         gateway = render("agentgateway")
-        policy = resource(gateway, "AgentgatewayPolicy", "infra-agentgateway-policy-extproc")
-        processor = policy["spec"]["traffic"]["extProc"]["conditional"][0]["policy"]
+        policy = resource(gateway, "AgentgatewayPolicy", "ai-example-api-processing")
+        processor = policy["spec"]["traffic"]["extProc"]
         self.assertEqual(processor["backendRef"], {
             "group": "", "kind": "Service", "name": "monitor-agentgateway-extproc-service",
             "namespace": "monitor-agentgateway-extproc", "port": 9000,

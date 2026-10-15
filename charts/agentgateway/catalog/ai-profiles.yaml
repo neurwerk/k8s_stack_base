@@ -1,6 +1,6 @@
 # Adapter IDs are part of the extProc contract, not user-defined code or CEL.
 openai-chat-completions-v1:
-  providers: [OpenAI, Openrouter]
+  providers: [OpenAI, Openrouter, Deepseek, Custom]
   credentialHeader: authorization
   revision: "1"
   path: /v1/chat/completions
@@ -9,7 +9,7 @@ openai-chat-completions-v1:
       support: unknown
       restoration_scope: request
       limitations: ["JSON and SSE only; WebSocket upgrades are rejected."]
-  limitations: ["Production v5 integration qualification pending.", "Dedicated API entry accepts Neurwerk keys only; legacy OIDC remains separate.", "Proxy preemptive Basic is proven locally; browser challenge coverage is being qualified.", "Provider credentials do not establish ownership or subscription status."]
+  limitations: ["Browser proxy challenges are unsupported.", "Provider credentials do not establish ownership or subscription status."]
 openai-responses-v1:
   providers: [OpenAI, Openrouter]
   credentialHeader: authorization
@@ -20,7 +20,7 @@ openai-responses-v1:
       support: unknown
       restoration_scope: request
       limitations: ["JSON and SSE only; persistent history and WebSocket operations are unqualified."]
-  limitations: ["Production v5 integration qualification pending.", "Dedicated API entry accepts Neurwerk keys only; legacy OIDC remains separate.", "Proxy preemptive Basic is proven locally; browser challenge coverage is being qualified.", "Restoration mappings are request-local."]
+  limitations: ["Browser proxy challenges are unsupported.", "Restoration mappings are request-local; opaque continuation is unsupported."]
 anthropic-messages-v1:
   providers: [Anthropic]
   credentialHeader: x-api-key

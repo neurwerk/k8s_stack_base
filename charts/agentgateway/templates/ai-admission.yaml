@@ -2,10 +2,20 @@
 {{- $bindings := include "infra-agentgateway.aiBindings" . | fromJsonArray }}
 {{- $revision := include "infra-agentgateway.aiRevision" . }}
 {{- $apiBindings := list }}
+{{- $mcpPaths := list }}
 {{- $listeners := list }}
 {{- range $binding := $bindings }}
 {{- if $binding.api }}{{ $apiBindings = append $apiBindings $binding }}{{ end }}
 {{- if $binding.inspect }}{{ $listeners = append $listeners (dict "name" (printf "inspect-%s" $binding.id) "mode" "forward_proxy" "bindings" (list $binding)) }}{{ end }}
+{{- end }}
+{{- if .Values.mcp.enabled }}
+{{- range $server := include "infra-agentgateway.effectiveMcpServers" . | fromYamlArray }}
+{{- if or (not $server.contextforge) (has $server.name $.Values.mcp.contextforgeRoutesEnabled) }}
+{{- $prefix := printf "/bindings/mcp-%s" $server.name }}
+{{- $mcpPaths = append $mcpPaths (printf "%s/mcp" $prefix) }}
+{{- $apiBindings = append $apiBindings (dict "id" (printf "mcp-%s" $server.name) "prefix" $prefix "kind" "mcp" "providerId" nil "local" true "credentialSources" (list "none") "credentialHeader" "" "requiredPermission" (printf "mcp:%s:invoke" $server.name) "operations" (list (dict "profile" "mcp-streamable-http-v1" "id" "exchange" "paths" (list "/mcp")))) }}
+{{- end }}
+{{- end }}
 {{- end }}
 {{- $listeners = prepend $listeners (dict "name" "api-bindings" "mode" "api" "bindings" $apiBindings) }}
 {{- range $listener := $listeners }}
@@ -21,7 +31,13 @@
 {{- $paths = append $paths $path }}
 {{- end }}
 {{- end }}
-{{- $matches = append $matches (printf `(request.path in %s && (%s))` ($paths | toJson) (include "infra-agentgateway.aiCredentialAuthorization" $binding)) }}
+{{- $methods := list "POST" }}
+{{- $permissions := "true" }}
+{{- if eq ($binding.kind | default "model") "mcp" }}
+{{- $methods = list "POST" "GET" "DELETE" }}
+{{- $permissions = printf `%q in (has(jwt.sub) ? jwt.resource_access.agentgateway.roles : extauthz.permissions)` $binding.requiredPermission }}
+{{- end }}
+{{- $matches = append $matches (printf `(request.path in %s && request.method in %s && (%s) && (%s))` ($paths | toJson) ($methods | toJson) $permissions (include "infra-agentgateway.aiCredentialAuthorization" $binding)) }}
 {{- end }}
 {{- $allowed := join " || " $matches | default "false" }}
 {{- if gt (len $allowed) 14000 }}{{ fail "binding operation allowlist exceeds native authorization expression bounds" }}{{ end }}
@@ -38,33 +54,67 @@ spec:
     - {group: gateway.networking.k8s.io, kind: Gateway, name: infra-agentgateway-gateway, sectionName: {{ $listener.name }}}
   traffic:
     phase: PreRouting
+    {{- if not $proxy }}
+    jwtAuthentication:
+      mode: Permissive
+      location:
+        # Standard OIDC clients send only Authorization; personal-provider calls
+        # use the separate Neurwerk header. Expression extraction never removes
+        # provider Authorization. The admitted branch strips employee credentials.
+        expression: >-
+          ("x-neurwerk-authorization" in request.headers
+          ? (size(request.headers.raw()["x-neurwerk-authorization"]) == 1 && request.headers["x-neurwerk-authorization"].startsWith("Bearer ") ? request.headers["x-neurwerk-authorization"].substring(7) : "")
+          : ("authorization" in request.headers && size(request.headers.raw()["authorization"]) == 1 && request.headers["authorization"].startsWith("Bearer ") ? request.headers["authorization"].substring(7) : ""))
+      providers:
+        - issuer: {{ printf "https://%s/realms/%s" $.Values.authKeycloak.hostname $.Values.authKeycloak.realm | quote }}
+          audiences: {{ $.Values.infraAgentgatewayWrapper.jwtAuth.allowedAudiences | toJson }}
+          jwks:
+            remote:
+              backendRef:
+                name: auth-keycloak-keycloak-service
+                namespace: auth-keycloak
+                port: 80
+              jwksPath: {{ printf "/realms/%s/protocol/openid-connect/certs" $.Values.authKeycloak.realm | quote }}
+              cacheDuration: "5m"
+    {{- end }}
     extAuth:
-      backendRef:
-        group: agentgateway.dev
-        kind: AgentgatewayBackend
-        name: infra-agentgateway-extauth-apikey-bridge-backend
-      http:
-        path: {{ ternary `"/validate/proxy"` `"/validate/neurwerk"` $proxy | squote }}
-        # Empty defaults to Authorization; simple allowlists collapse duplicates.
-        allowedRequestHeaders: [content-type]
-        addRequestHeaders:
-          {{ $credential }}: {{ printf `%q in %s && size(%s.raw()[%q]) == 1 ? %s[%q] : ""` $credential $headers $headers $credential $headers $credential | squote }}
-        responseMetadata:
-          {{- range $field := list "contract_version" "principal_id" "permissions" "credential_id" "credential_kind" }}
-          {{ $field }}: {{ printf `json(response.headers["x-agentgateway-auth-context"]).%s` $field | squote }}
-          {{- end }}
+      conditional:
+        - condition: {{ ternary "true" "!has(jwt.sub)" $proxy | squote }}
+          policy:
+            backendRef:
+              group: agentgateway.dev
+              kind: AgentgatewayBackend
+              name: infra-agentgateway-extauth-apikey-bridge-backend
+            http:
+              path: {{ ternary `"/validate/proxy"` `"/validate/neurwerk"` $proxy | squote }}
+              # Employee identity comes only from the dedicated header.
+              allowedRequestHeaders: [content-type]
+              addRequestHeaders:
+                {{ $credential }}: {{ printf `%q in %s && size(%s.raw()[%q]) == 1 ? %s[%q] : ""` $credential $headers $headers $credential $headers $credential | squote }}
+              responseMetadata:
+                {{- range $field := list "contract_version" "principal_id" "permissions" "credential_id" "credential_kind" "account_email" }}
+                {{ $field }}: {{ printf `json(response.headers["x-agentgateway-auth-context"]).%s` $field | squote }}
+                {{- end }}
     authorization:
       action: Allow
       policy:
         matchExpressions:
           - >-
-            extauthz.contract_version == 1 && type(extauthz.principal_id) == string && size(extauthz.principal_id) > 0 &&
+            ((has(jwt.sub) && type(jwt.sub) == string && size(jwt.sub) > 0 &&
+            has(jwt.azp) && (jwt.azp in ["librechat", "agentgateway"] ||
+            (jwt.azp == {{ $.Values.authKeycloak.studioClientId | default "studio" | toJson }} && request.path in {{ $mcpPaths | toJson }} && has(jwt.realm_access.roles) && "studio-user" in jwt.realm_access.roles)) &&
+            has(jwt.resource_access.agentgateway.roles) && type(jwt.resource_access.agentgateway.roles) == list &&
+            "llm:invoke" in jwt.resource_access.agentgateway.roles) ||
+            (!has(jwt.sub) && extauthz.contract_version == 1 && type(extauthz.principal_id) == string && size(extauthz.principal_id) > 0 &&
             type(extauthz.credential_id) == string && size(extauthz.credential_id) > 0 &&
             extauthz.credential_kind in ["personal", "managed"] &&
             type(extauthz.permissions) == list && size(extauthz.permissions) <= 256 &&
             extauthz.permissions.all(p, type(p) == string && size(p) > 0 && size(p) <= 256 && extauthz.permissions.filter(q, q == p).size() == 1) &&
-            "llm:invoke" in extauthz.permissions && request.method == "POST" &&
+            "llm:invoke" in extauthz.permissions)) &&
             ({{ $allowed }}) && !("upgrade" in request.headers)
+            {{- if not $proxy }}
+            && ("x-neurwerk-authorization" in request.headers ? size(request.headers.raw()["x-neurwerk-authorization"]) == 1 : has(jwt.sub))
+            {{- end }}
             {{- if $proxy }}
             && request.host in {{ list (first $listener.bindings).host (printf "%s:443" (first $listener.bindings).host) | toJson }}
             {{- end }}
@@ -78,16 +128,22 @@ spec:
         {{- if not $proxy }}{{ $path = printf "%s%s" $binding.prefix $path }}{{ end }}
         {{- $paths = append $paths $path }}
         {{- end }}
-        - condition: {{ printf `request.path in %s` ($paths | toJson) | squote }}
+        {{- $variants := list "dedicated" }}
+        {{- if not $proxy }}{{ $variants = list "oidc" "dedicated" }}{{ end }}
+        {{- range $variant := $variants }}
+        {{- $condition := printf `request.path in %s` ($paths | toJson) }}
+        {{- if not $proxy }}{{ $condition = printf `%s && %s(has(jwt.sub) && !("x-neurwerk-authorization" in request.headers))` $condition (ternary "" "!" (eq $variant "oidc")) }}{{ end }}
+        - condition: {{ $condition | squote }}
           policy:
             request:
               metadata:
                 # Generated once after authentication, before the route extProc.
                 neurwerk_admission: >-
-                  {"request_id": uuid(), "principal_id": extauthz.principal_id,
-                  "credential_context_version": "1", "credential_id": extauthz.credential_id,
-                  "credential_kind": extauthz.credential_kind, "permissions": extauthz.permissions,
-                  "entry_mode": {{ $listener.mode | toJson }}, "destination_kind": "model",
+                  {"request_id": uuid(), "principal_id": has(jwt.sub) ? jwt.sub : extauthz.principal_id,
+                  "credential_context_version": has(jwt.sub) ? null : "1", "credential_id": has(jwt.sub) ? null : extauthz.credential_id,
+                  "credential_kind": has(jwt.sub) ? null : extauthz.credential_kind,
+                  "permissions": has(jwt.sub) ? jwt.resource_access.agentgateway.roles : extauthz.permissions,
+                  "entry_mode": {{ $listener.mode | toJson }}, "destination_kind": {{ $binding.kind | default "model" | toJson }},
                   "provider_id": {{ $binding.providerId | toJson }}, "binding_id": {{ $binding.id | toJson }},
                   "protocol_profile": {{ $operation.profile | toJson }}, "operation_id": {{ $operation.id | toJson }},
                   "provider_credential_source": ({{ include "infra-agentgateway.aiCredentialSource" $binding }}),
@@ -102,15 +158,17 @@ spec:
                 - x-auth-permissions
                 - x-agentgateway-permissions
                 - x-agentgateway-auth-context
+                - x-contextforge-account-email
                 - x-remote-allowed
                 - x-route-class
                 {{- range $header := list "authorization" "x-api-key" "x-goog-api-key" }}
-                {{- if or $binding.local (ne $header $binding.credentialHeader) }}
+                {{- if or $binding.local (eq $variant "oidc") (ne $header $binding.credentialHeader) }}
                 - {{ $header }}
                 {{- end }}
                 {{- end }}
             response:
               remove: [authorization, proxy-authorization, x-neurwerk-authorization, x-api-key, x-goog-api-key, set-cookie, x-agentgateway-auth-context]
+        {{- end }}
         {{- end }}
         {{- end }}
     {{- end }}

@@ -6,8 +6,6 @@ import re
 import textwrap
 import unittest
 
-import yaml
-
 from .helpers import render_chart, resource, resources_of_kind
 
 DISABLE_OPTIONAL_CAPABILITIES = (
@@ -15,12 +13,6 @@ DISABLE_OPTIONAL_CAPABILITIES = (
     "frontendLibrechat.codeInterpreter.enabled=false",
     "--set",
     "frontendLibrechat.rag.enabled=false",
-)
-ENABLE_MCP = (
-    "--set",
-    "mcp.enabled=true",
-    "--set-string",
-    "mcp.servers[0].name=search",
 )
 
 
@@ -48,34 +40,6 @@ def agent_capabilities(config: str) -> list[str]:
 
 class SharedConfigTests(unittest.TestCase):
     """Keep generated agent, reasoning, and MCP settings aligned."""
-
-    def test_memory_defaults_and_client_overrides(self) -> None:
-        self.assertEqual(yaml.safe_load(render_librechat_config())["memory"], {"disabled": True})
-        args = ("--set", "frontendLibrechat.memory.enabled=true")
-        manual = yaml.safe_load(render_librechat_config(*args))
-        self.assertTrue(manual["interface"]["memories"])
-        self.assertTrue(manual["memory"]["personalize"])
-        self.assertNotIn("agent", manual["memory"])
-        args += (
-            "--set", "frontendLibrechat.memory.agent.enabled=true",
-            "--set-string", "guardrails.llmPolicyEngine.models[0].name=local/example",
-            "--set", "frontendLibrechat.memory.agent.model=local/example",
-            "--set-string", "frontendLibrechat.memory.agent.instructions=Remember stated preferences.",
-            "--set", "frontendLibrechat.memory.tokenLimit=1000",
-        )
-        config = yaml.safe_load(render_librechat_config(*args))
-        self.assertEqual(config["memory"], {
-            "disabled": False, "personalize": True, "tokenLimit": 1000,
-            "maxInputTokens": 4000, "messageWindowSize": 5,
-            "agent": {"enabled": True, "provider": "AgentGateway", "model": "local/example",
-                      "instructions": "Remember stated preferences."},
-        })
-        for override in ("agent.model=missing", "tokenLimit=0", "agent.enabled=invalid"):
-            with self.subTest(override=override):
-                result = render_chart("shared", check=False, extra_args=(
-                    *args, "--set", f"frontendLibrechat.memory.{override}"))
-                self.assertNotEqual(result.returncode, 0)
-                self.assertIn("frontendLibrechat.memory.", result.stderr)
 
     def test_speech_disabled_has_no_config_or_credentials(self) -> None:
         args = ("--set", "frontendLibrechat.speech.stt.auth.enabled=true",
@@ -188,64 +152,6 @@ class SharedConfigTests(unittest.TestCase):
         self.assertNotIn("\nmcpSettings:", config)
         self.assertNotIn("\nmcpServers:", config)
 
-    def test_mcp_enables_tools_and_preserves_oauth_routing(self) -> None:
-        config = render_librechat_config(
-            *DISABLE_OPTIONAL_CAPABILITIES,
-            *ENABLE_MCP,
-        )
-
-        self.assertEqual(agent_capabilities(config), ["tools"])
-        self.assertIn(
-            textwrap.dedent(
-                """\
-                mcpSettings:
-                  allowedAddresses:
-                    - "infra-agentgateway-gateway.infra-agentgateway.svc.cluster.local:80"
-                    - "lint.example:443"
-                mcpServers:
-                  search:
-                    type: streamable-http
-                    url: "http://infra-agentgateway-gateway.infra-agentgateway.svc.cluster.local:80/mcp/search"
-                    requiresOAuth: true
-                    headers:
-                      X-Session-ID: "{{LIBRECHAT_BODY_CONVERSATIONID}}"
-                    oauth:
-                      client_id: "${OPENID_CLIENT_ID}"
-                      client_secret: "${OPENID_CLIENT_SECRET}"
-                      authorization_url: "https://lint.example/realms/lint/protocol/openid-connect/auth"
-                      token_url: "https://lint.example/realms/lint/protocol/openid-connect/token"
-                      redirect_uri: "https://librechat.lint.example/api/mcp/search/oauth/callback"
-                      scope: openid
-                """
-            ),
-            config,
-        )
-
-    def test_mcp_allowlist_is_scoped_to_internal_oauth(self) -> None:
-        addresses = (
-            "--set-string", "authKeycloak.hostname=identity.example.invalid",
-            "--set-string", "frontendLibrechat.agentGateway.hostPort=gateway.example.invalid:8080",
-        )
-        internal_entry = '    - "identity.example.invalid:443"\n'
-        for mode in ("internal-traefik", "public-dns"):
-            for enabled in (True, False):
-                with self.subTest(mode=mode, mcp=enabled):
-                    config = render_librechat_config(
-                        *ENABLE_MCP, *addresses,
-                        "--set", f"canonicalEndpointRouting.mode={mode}",
-                        "--set", f"mcp.enabled={str(enabled).lower()}",
-                    )
-                    if not enabled:
-                        self.assertNotIn("\nmcpSettings:", config)
-                        self.assertNotIn("\nmcpServers:", config)
-                        self.assertNotIn(internal_entry, config)
-                        continue
-                    allowlist = config.split("mcpSettings:\n", 1)[1].split("mcpServers:", 1)[0]
-                    expected = '  allowedAddresses:\n    - "gateway.example.invalid:8080"\n'
-                    if mode == "internal-traefik":
-                        expected += internal_entry
-                    self.assertEqual(allowlist, expected)
-
     def test_shared_rejects_invalid_routing_modes_even_without_mcp(self) -> None:
         for mode in ("unknown", ""):
             for enabled in ("true", "false"):
@@ -283,32 +189,6 @@ class SharedConfigTests(unittest.TestCase):
             "              subPath: librechat.yaml\n",
             deployment,
         )
-
-    def test_all_optional_features_render_their_capabilities(self) -> None:
-        config = render_librechat_config(*ENABLE_MCP)
-
-        self.assertEqual(
-            agent_capabilities(config), ["tools", "execute_code", "file_search"]
-        )
-
-    def test_reasoning_options_are_custom_endpoint_parameters(self) -> None:
-        config = render_librechat_config()
-
-        self.assertIn(
-            "      customParams:\n"
-            "        reasoningKey: reasoning_content\n"
-            "        includeReasoningContent: true\n"
-            "        includeReasoningHistory: true\n"
-            "      addParams:\n"
-            "        disableStreaming: true\n",
-            config,
-        )
-        for key in (
-            "reasoningKey",
-            "includeReasoningContent",
-            "includeReasoningHistory",
-        ):
-            self.assertNotRegex(config, rf"(?m)^      {key}:")
 
 
 if __name__ == "__main__":

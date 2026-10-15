@@ -1,9 +1,9 @@
 {{- $engine := .Values.guardrails.llmPolicyEngine -}}
+{{- if (.Values.internalRagEmbedding | default dict).enabled }}{{ fail "internalRagEmbedding has been removed; the retired embedding listener cannot be enabled" }}{{ end -}}
 {{- $_ := include "infra-agentgateway.aiBindings" . -}}
 {{- if ne $engine.credentialContextEnabled true -}}
   {{- fail "guardrails.llmPolicyEngine.credentialContextEnabled is required for this Base release" -}}
 {{- end -}}
-{{- $_ := include "infra-agentgateway.attachmentPolicy" . -}}
 {{- if not (kindIs "bool" .Values.docling.enabled) -}}
   {{- fail "docling.enabled must be boolean" -}}
 {{- end -}}
@@ -14,6 +14,13 @@
 {{- end -}}
 {{- end -}}
 {{- $models := include "infra-agentgateway.effectiveModels" . | fromYamlArray -}}
+{{- $boundModels := dict -}}
+{{- range include "infra-agentgateway.aiBindings" . | fromJsonArray -}}
+{{- range .models }}{{ $_ := set $boundModels .name true }}{{ end -}}
+{{- end -}}
+{{- range $models -}}
+{{- if not (hasKey $boundModels .name) }}{{ fail (printf "model %s requires an explicit aiGateway binding; the unbound /v1 API has been removed" .name) }}{{ end -}}
+{{- end -}}
 {{- if gt (len $models) 256 -}}
 {{-   fail "effective model catalog supports at most 256 destinations" -}}
 {{- end -}}
@@ -132,7 +139,6 @@
 {{- $mcpIds := dict -}}
 {{- $nativeServerIds := dict -}}
 {{- $nativeGatewayIds := dict -}}
-{{- $legacyMcp := not (empty .Values.mcp.servers) -}}
 {{- $upstreamIds := dict -}}
 {{- range include "infra-agentgateway.mcpUpstreamWorkloads" . | fromYamlArray -}}{{- $_ := set $upstreamIds .name true -}}{{- end -}}
 {{- range $server := $mcpServers -}}
@@ -157,7 +163,7 @@
 {{-       fail (printf "mcp server %q contextforge must be a map" $serverId) -}}
 {{-     end -}}
 {{-     range $field, $_ := $native -}}
-{{-       if or (not (has $field (list "serverId" "provider" "authenticationModel" "gatewayId"))) (and $legacyMcp (eq $field "gatewayId")) -}}
+{{-       if not (has $field (list "serverId" "provider" "authenticationModel" "gatewayId")) -}}
 {{-         fail (printf "mcp server %q contextforge field %q is unsupported; gateway IDs and credentials are catalog-management only" $serverId $field) -}}
 {{-       end -}}
 {{-     end -}}
@@ -176,9 +182,6 @@
 {{-       fail "ContextForge native server IDs must be unique across platform MCP destinations" -}}
 {{-     end -}}
 {{-     $_ := set $nativeServerIds $native.serverId true -}}
-{{-     if and $legacyMcp (eq $native.authenticationModel "individual-authentication") -}}
-{{-       fail "legacy mcp.servers does not support individual-authentication; migrate explicitly to mcp.catalog; this does not fix Base #424" -}}
-{{-     end -}}
 {{-     if and $native.gatewayId (or (not (kindIs "string" $native.gatewayId)) (not (regexMatch "^[0-9a-f]{32}$" (toString $native.gatewayId)))) -}}
 {{-       fail "ContextForge gatewayId must be an exact 32 lowercase hex native UUID" -}}
 {{-     end -}}

@@ -3,10 +3,8 @@
 {{- $catalog := .Values.mcp.catalog | default dict -}}
 {{- $presets := $catalog.presets | default dict -}}
 {{- $custom := $catalog.custom | default list -}}
-{{- $legacy := .Values.mcp.servers | default list -}}
-{{- if and $legacy (or $presets $custom) -}}{{ fail "choose mcp.servers or mcp.catalog, not both" }}{{- end -}}
+{{- if .Values.mcp.servers }}{{ fail "mcp.servers has been removed; configure mcp.catalog" }}{{ end -}}
 {{- $names := list -}}
-{{- range $legacy -}}{{- $names = append $names .name -}}{{- end -}}
 {{- range $id, $selection := $presets -}}
 {{- if not (kindIs "bool" $selection.enabled) -}}{{ fail "MCP preset selection requires boolean enabled" }}{{- end -}}
 {{- if $selection.enabled -}}{{- $names = append $names $id -}}{{- end -}}

@@ -38,7 +38,7 @@ data:
       {{- if $memory.agent.enabled }}
       agent:
         enabled: true
-        provider: AgentGateway
+        provider: {{ get $modelCatalog.modelEndpoints $memory.agent.model | quote }}
         model: {{ $memory.agent.model | quote }}
         instructions: {{ $memory.agent.instructions | quote }}
       {{- end }}
@@ -61,10 +61,11 @@ data:
     {{- if lt (int64 .Values.documentAttachments.totalBytes) (int64 .Values.documentAttachments.fileBytes) }}{{ fail "documentAttachments.totalBytes must cover fileBytes" }}{{ end }}
     fileConfig:
       endpoints:
-        AgentGateway:
-          fileLimit: {{ .Values.documentAttachments.count }}
-          fileSizeLimit: {{ divf .Values.documentAttachments.fileBytes 1048576 }}
-          totalSizeLimit: {{ divf .Values.documentAttachments.totalBytes 1048576 }}
+        {{- range $modelCatalog.endpoints }}
+        {{ .name }}:
+          fileLimit: {{ $.Values.documentAttachments.count }}
+          fileSizeLimit: {{ divf $.Values.documentAttachments.fileBytes 1048576 }}
+          totalSizeLimit: {{ divf $.Values.documentAttachments.totalBytes 1048576 }}
           supportedMimeTypes:
             - '^application/pdf$'
             - '^application/vnd\.openxmlformats-officedocument\.wordprocessingml\.document$'
@@ -83,6 +84,7 @@ data:
             {{- end }}
           defaultLLMDeliveryPath:
             fallback: provider
+        {{- end }}
     {{- end }}
     {{- if $speech }}
     speech:
@@ -171,16 +173,17 @@ data:
         capabilities: []
         {{- end }}
       custom:
-        - name: AgentGateway
+        {{- range $endpoint := $modelCatalog.endpoints }}
+        - name: {{ $endpoint.name }}
           apiKey: unused
-          baseURL: {{ .Values.frontendLibrechat.agentGateway.baseUrl | quote }}
-          {{- if .Values.frontendLibrechat.costs.enabled }}
+          baseURL: {{ printf "%s/bindings/%s/v1" $.Values.frontendLibrechat.agentGateway.origin $endpoint.id | quote }}
+          {{- if $.Values.frontendLibrechat.costs.enabled }}
           tokenConfig:
             {{- $costTokenConfig | toYaml | nindent 12 }}
           {{- end }}
           models:
             # Keep request validation aligned with the grouped model specs.
-            default: {{ $modelCatalog.names | toJson }}
+            default: {{ $endpoint.models | toJson }}
             fetch: false
           titleConvo: true
           titleModel: current_model
@@ -189,15 +192,17 @@ data:
           forcePrompt: false
           customParams:
             reasoningKey: reasoning_content
-            includeReasoningContent: true
-            includeReasoningHistory: true
+            includeReasoningContent: false
+            includeReasoningHistory: false
           addParams:
-            disableStreaming: {{ not .Values.frontendLibrechat.agentGateway.streaming }}
+            reasoning_effort: none
+            disableStreaming: {{ not $.Values.frontendLibrechat.agentGateway.streaming }}
           headers:
             Authorization: {{ printf "Bearer {{LIBRECHAT_OPENID_ACCESS_TOKEN}}" | quote }}
             X-User-ID: {{ printf "{{LIBRECHAT_OPENID_USER_ID}}" | quote }}
             X-User-Email: {{ printf "{{LIBRECHAT_OPENID_USER_EMAIL}}" | quote }}
             X-Session-ID: {{ printf "{{LIBRECHAT_BODY_CONVERSATIONID}}" | quote }}
+        {{- end }}
     {{- if .Values.mcp.enabled }}
     mcpSettings:
       allowedAddresses:
@@ -209,7 +214,7 @@ data:
       {{- range include "frontend-librechat-shared.mcpNames" . | fromYamlArray }}
       {{ . }}:
         type: streamable-http
-        url: {{ printf "%s/mcp/%s" (trimSuffix "/v1" $.Values.frontendLibrechat.agentGateway.baseUrl) . | quote }}
+        url: {{ printf "%s/bindings/mcp-%s/mcp" $.Values.frontendLibrechat.agentGateway.origin . | quote }}
         requiresOAuth: true
         headers:
           X-Session-ID: {{ printf "{{LIBRECHAT_BODY_CONVERSATIONID}}" | quote }}

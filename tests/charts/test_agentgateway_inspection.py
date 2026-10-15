@@ -11,6 +11,7 @@ from helm import documents, render, resource
 
 def binding_values():
     return {
+        "guardrails": {"llmPolicyEngine": {"models": []}},
         "authKeycloak": {
             "agentgatewayClientRoles": [
                 "llm:invoke",
@@ -108,14 +109,14 @@ class InspectedGatewayTests(unittest.TestCase):
     def setUpClass(cls):
         cls.enabled = render("agentgateway", binding_values())
 
-    def test_disabled_has_only_legacy_listeners_and_auth(self):
+    def test_retired_listener_and_unbound_routes_are_absent(self):
         result = render("agentgateway")
         listeners = resource(result, "Gateway", "infra-agentgateway-gateway")["spec"]["listeners"]
-        self.assertEqual([entry["name"] for entry in listeners], ["websecure"])
-        self.assertNotIn("agentgateway-catalog-config-map", result.stdout)
-        policy = resource(result, "AgentgatewayPolicy", "infra-agentgateway-auth-ag-policy")["spec"]
-        self.assertNotIn("sectionName", policy["targetRefs"][0])
-        self.assertEqual(policy["traffic"]["jwtAuthentication"]["mode"], "Permissive")
+        self.assertEqual([entry["name"] for entry in listeners], ["api-bindings"])
+        self.assertNotIn("infra-agentgateway-auth-ag-policy", result.stdout)
+        route = resource(result, "HTTPRoute", "infra-agentgateway-external-httproute")
+        self.assertEqual([rule["matches"][0]["path"]["value"] for rule in route["spec"]["rules"]], ["/bindings"])
+        self.assertNotEqual(render("agentgateway", {"aiGateway": {"enabled": False}}, check=False).returncode, 0)
 
     def test_identity_is_separate_from_provider_credentials(self):
         for listener, header, source, path in [
@@ -123,8 +124,12 @@ class InspectedGatewayTests(unittest.TestCase):
             ("inspect-openai", "proxy-authorization", "source.connectHeaders", "/validate/proxy"),
         ]:
             traffic = resource(self.enabled, "AgentgatewayPolicy", f"ai-admission-{listener}")["spec"]["traffic"]
-            self.assertNotIn("jwtAuthentication", traffic)
-            auth = traffic["extAuth"]["http"]
+            if listener == "api-bindings":
+                self.assertIn("x-neurwerk-authorization", traffic["jwtAuthentication"]["location"]["expression"])
+                self.assertIn('size(request.headers.raw()["authorization"]) == 1', traffic["jwtAuthentication"]["location"]["expression"])
+            else:
+                self.assertNotIn("jwtAuthentication", traffic)
+            auth = traffic["extAuth"]["conditional"][0]["policy"]["http"]
             self.assertEqual(auth["path"], json.dumps(path))
             self.assertEqual(auth["allowedRequestHeaders"], ["content-type"])
             self.assertEqual(list(auth["addRequestHeaders"]), [header])
@@ -138,10 +143,12 @@ class InspectedGatewayTests(unittest.TestCase):
                 self.assertNotIn("request.headers[", context)
                 self.assertIn("x-neurwerk-authorization", request["remove"])
                 self.assertIn("proxy-authorization", request["remove"])
-                self.assertEqual("authorization" in request["remove"], not any(
-                    f'"binding_id": "{name}"' in context for name in ["openai", "openrouter"]))
-        legacy = resource(self.enabled, "AgentgatewayPolicy", "infra-agentgateway-auth-ag-policy")["spec"]
-        self.assertEqual([ref["sectionName"] for ref in legacy["targetRefs"]], ["websecure"])
+                if '&& (has(jwt.sub)' in conditional["condition"]:
+                    self.assertIn("authorization", request["remove"])
+                else:
+                    self.assertEqual("authorization" in request["remove"], not any(
+                        f'"binding_id": "{name}"' in context for name in ["openai", "openrouter"]))
+        self.assertNotIn("infra-agentgateway-auth-ag-policy", self.enabled.stdout)
 
     def test_fixed_upstreams_models_and_no_company_fallback(self):
         models = [m for m in documents(self.enabled) if m["kind"] == "AgentgatewayModel" and m["metadata"]["name"].startswith("ai-")]
@@ -179,7 +186,7 @@ class InspectedGatewayTests(unittest.TestCase):
             self.assertEqual(processor["processingOptions"]["requestBodyMode"], "Buffered")
             self.assertFalse(processor["processingOptions"]["allowModeOverride"])
             metadata = processor["metadataContext"]["neurwerk.destination_policy"]
-            self.assertEqual(set(metadata), {"contract_version", "request_context", "destination_policy", "model_bindings"})
+            self.assertEqual(set(metadata), {"contract_version", "request_context", "destination_policy", "model_bindings", "reroute_targets"})
             self.assertEqual(metadata["contract_version"], "5")
             self.assertEqual(metadata["request_context"], "metadata.neurwerk_admission")
             for model in json.loads(metadata["model_bindings"]).values():
@@ -212,7 +219,7 @@ class InspectedGatewayTests(unittest.TestCase):
         self.assertEqual(catalog["schema_version"], 1)
         endpoints = {entry["id"]: entry for entry in catalog["endpoints"]}
         self.assertEqual(endpoints["api-openai"]["url"], "https://agentgateway.lint.example/bindings/openai/v1")
-        self.assertEqual(endpoints["api-openai"]["caller_auth_modes"], ["neurwerk_bearer"])
+        self.assertEqual(endpoints["api-openai"]["caller_auth_modes"], ["neurwerk_bearer", "oidc_bearer"])
         destination = next(entry for entry in catalog["destinations"] if entry["id"] == "example-chat")
         self.assertEqual(set(destination["endpoint_ids"]), {"api-openai", "forward-proxy"})
         modes = {entry["source"]: entry for entry in destination["credential_modes"]}
@@ -307,10 +314,10 @@ class InspectedGatewayTests(unittest.TestCase):
         self.assertIn('"authorization" in request.headers ? "caller_supplied" : "company"', context)
         self.assertNotIn("response", context)
         gate = traffic["authorization"]["policy"]["matchExpressions"][0]
-        self.assertIn('"authorization" in request.headers ? true : ("provider:openai:company-use" in extauthz.permissions)', gate)
+        self.assertIn('"authorization" in request.headers ? true : ("provider:openai:company-use" in (has(jwt.sub) ? jwt.resource_access.agentgateway.roles : extauthz.permissions))', gate)
         self.assertIn('h == "authorization" || !(h in request.headers)', gate)
 
-    def test_canonical_catalog_does_not_duplicate_a_legacy_model(self):
+    def test_canonical_catalog_contains_only_bound_models(self):
         values = binding_values()
         values["guardrails"] = {"llmPolicyEngine": {"models": [{
             "name": "example-chat", "model": "provider-chat", "provider": "OpenAI", "baseURL": "https://provider.example.test/v1",
@@ -318,7 +325,7 @@ class InspectedGatewayTests(unittest.TestCase):
         result = render("agentgateway", values)
         catalog = json.loads(resource(result, "ConfigMap", "agentgateway-catalog-config-map")["data"]["catalog.json"])
         self.assertEqual(sum(entry["id"] == "example-chat" for entry in catalog["destinations"]), 1)
-        self.assertNotIn("legacy/model/example-chat", json.dumps(catalog))
+        self.assertNotIn("legacy-api", json.dumps(catalog))
 
     def test_google_only_admits_exact_model_operation_paths(self):
         traffic = resource(self.enabled, "AgentgatewayPolicy", "ai-admission-inspect-google")["spec"]["traffic"]

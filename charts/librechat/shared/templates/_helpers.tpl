@@ -64,5 +64,34 @@ app.kubernetes.io/component: shared
 {{- end -}}
 {{- if gt (len $specs) 256 }}{{- fail "effective LibreChat model catalog supports at most 256 destinations" }}{{- end -}}
 {{- if and $defaultModel (not (hasKey $effectiveNames $defaultModel)) }}{{- fail (printf "frontendLibrechat.agentGateway.defaultModel %q is not in the effective model catalog" $defaultModel) }}{{- end -}}
-{{- dict "names" $names "specs" $specs "pricingModels" $pricingModels | toYaml -}}
+{{- $modelEndpoints := dict -}}
+{{- $endpoints := list -}}
+{{- range $binding := (.Values.aiGateway | default dict).bindings | default list -}}
+{{- if and $binding.enabled (ne (toJson $binding.api) "false") (has "openai-chat-completions-v1" $binding.profiles) (or (has "company" $binding.credentialSources) (has "none" $binding.credentialSources)) -}}
+{{- $endpointName := printf "AgentGateway-%s" $binding.id -}}
+{{- if eq $binding.id $.Values.frontendLibrechat.agentGateway.primaryBinding }}{{ $endpointName = "AgentGateway" }}{{ end -}}
+{{- $selected := $binding.catalogModels | default list -}}
+{{- range $model := $binding.models | default list -}}
+{{- $selected = append $selected $model.name -}}
+{{- if not (hasKey $effectiveNames $model.name) -}}
+{{- $spec := dict "name" $model.name "label" ($model.displayName | default $model.name) "group" (printf "Gateway-%s" $binding.id) "preset" (dict "endpoint" $endpointName "model" $model.name) -}}
+{{- if eq $model.name $defaultModel }}{{ $_ := set $spec "default" true }}{{ end -}}
+{{- $specs = append $specs $spec -}}{{- $names = append $names $model.name -}}
+{{- $_ := set $effectiveNames $model.name true -}}
+{{- $_ := set $pricingModels $model.name (dict "provider" ($binding.provider | default "OpenAI" | lower) "model" $model.upstreamModel) -}}
+{{- end -}}
+{{- end -}}
+{{- range $name := $selected -}}
+{{- if not (hasKey $effectiveNames $name) }}{{ fail (printf "LibreChat binding selects unknown catalog model %s" $name) }}{{ end -}}
+{{- if hasKey $modelEndpoints $name }}{{ fail "LibreChat models must belong to exactly one API binding" }}{{ end -}}
+{{- $_ := set $modelEndpoints $name $endpointName -}}
+{{- end -}}
+{{- if $selected }}{{ $endpoints = append $endpoints (dict "id" $binding.id "name" $endpointName "models" $selected) }}{{ end -}}
+{{- end -}}
+{{- end -}}
+{{- range $spec := $specs -}}
+{{- if not (hasKey $modelEndpoints $spec.name) }}{{ fail (printf "LibreChat model %s requires an explicit company/local API binding" $spec.name) }}{{ end -}}
+{{- $_ := set $spec.preset "endpoint" (get $modelEndpoints $spec.name) -}}
+{{- end -}}
+{{- dict "names" $names "specs" $specs "pricingModels" $pricingModels "modelEndpoints" $modelEndpoints "endpoints" $endpoints | toYaml -}}
 {{- end -}}

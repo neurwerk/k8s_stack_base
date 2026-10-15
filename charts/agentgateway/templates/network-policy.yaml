@@ -39,12 +39,8 @@ spec:
               app.kubernetes.io/name: studio-api
               app.kubernetes.io/instance: frontend-studio-api
       ports:
-        - port: {{ .Values.infraAgentgatewayWrapper.ports.service.http }}
-          protocol: TCP
-        {{- if .Values.aiGateway.enabled }}
         - port: {{ .Values.aiGateway.apiPort }}
           protocol: TCP
-        {{- end }}
     {{- if and .Values.aiGateway.enabled .Values.aiGateway.proxy.enabled }}
     - from:
         {{- toYaml .Values.aiGateway.proxy.ingressPeers | nindent 8 }}
@@ -77,16 +73,3 @@ spec:
         # The generated data-plane Pod exposes its Prometheus endpoint here.
         - port: metrics
           protocol: TCP
-    {{- if .Values.internalRagEmbedding.enabled }}
-    - from:
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: frontend-librechat
-          podSelector:
-            matchLabels:
-              app.kubernetes.io/name: frontend-librechat-rag-api
-              app.kubernetes.io/component: rag-api
-      ports:
-        - port: {{ required "internalRagEmbedding.listenerPort is required when internalRagEmbedding is enabled" .Values.internalRagEmbedding.listenerPort }}
-          protocol: TCP
-    {{- end }}

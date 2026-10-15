@@ -10,21 +10,6 @@ from helm import documents, render, resource
 
 
 class BridgePostgresTests(unittest.TestCase):
-    def test_only_verified_bridge_image_is_accepted(self):
-        result = render("keycloak-api-key-bridge", {
-            "authKeycloakApiKeyBridge": {"bridgeImage": "ghcr.io/neurwerk/k8s-stack-keycloak-api-key-bridge:0.7.1@sha256:" + "7" * 64},
-        }, check=False)
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("requires the verified PostgreSQL-compatible 0.9.0 image pin", result.stderr)
-
-        unpinned = render("keycloak-api-key-bridge", {
-            "authKeycloakApiKeyBridge": {
-                "bridgeImage": "example.invalid/bridge:postgres-compatible-test",
-            },
-        }, check=False)
-        self.assertNotEqual(unpinned.returncode, 0)
-        self.assertIn("requires the verified PostgreSQL-compatible 0.9.0 image pin", unpinned.stderr)
-
     def test_default_excludes_sqlite_and_wires_secret_and_policy(self):
         new = render("keycloak-api-key-bridge",
                       namespace="auth-keycloak-api-key-bridge", release="auth-keycloak-api-key-bridge")

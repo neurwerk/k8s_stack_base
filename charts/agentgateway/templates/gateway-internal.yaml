@@ -33,29 +33,6 @@ spec:
       group: agentgateway.dev
       kind: AgentgatewayParameters
   listeners:
-    - name: websecure
-      port: {{ .Values.infraAgentgatewayWrapper.ports.service.http }}
-      protocol: HTTP
-      allowedRoutes:
-        namespaces:
-          from: Same
-        kinds:
-          - group: gateway.networking.k8s.io
-            kind: HTTPRoute
-          - group: agentgateway.dev
-            kind: AgentgatewayModel
-    {{- if .Values.internalRagEmbedding.enabled }}
-    - name: internal-rag-embedding
-      port: {{ required "internalRagEmbedding.listenerPort is required when internalRagEmbedding is enabled" .Values.internalRagEmbedding.listenerPort }}
-      protocol: HTTP
-      allowedRoutes:
-        namespaces:
-          from: Same
-        kinds:
-          - group: agentgateway.dev
-            kind: AgentgatewayModel
-    {{- end }}
-    {{- if .Values.aiGateway.enabled }}
     - name: api-bindings
       port: {{ .Values.aiGateway.apiPort }}
       protocol: HTTP
@@ -90,7 +67,6 @@ spec:
         namespaces: {from: Same}
         kinds:
           - {group: gateway.networking.k8s.io, kind: HTTPRoute}
-    {{- end }}
     {{- end }}
     {{- end }}
     {{- end }}
