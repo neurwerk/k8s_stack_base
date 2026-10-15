@@ -107,6 +107,20 @@ legacy permissions from weakening the new company mode. Local targets
 must be explicitly marked `local: true`; lack of credentials does not establish
 locality. New binding routes have no retries or cross-provider reroutes.
 
+### Model trace content
+
+When model content tracing is enabled, Langfuse input contains `messages` plus
+available `tools` and tool-selection settings from the request after HTTP policy
+processing and before provider translation. Output contains textual `messages`
+and native `tool_calls` (IDs, names and arguments), including assembled SSE calls.
+These are recorded observations, not lossless HTTP bodies or proof of tool execution.
+Each input/output is a JSON attribute so empty lists and large tool schemas survive
+without flattening into many span attributes. An unavailable request body omits
+tool context; `tools: []` means a captured request had no `tools` field or an empty
+one. Legacy function and provider tool settings are retained separately when present.
+Missing native call data is `null`, not an empty list. The existing per-model
+content-tracing gate applies to all of this content; MCP tracing is unchanged.
+
 ### Inspection
 
 Set `inspect: true` on a binding and configure:
