@@ -1,7 +1,7 @@
 # IMAGE SOURCE: owned service
 # The image is built by the pii_engine repository and pinned here.
 monitorPiiEngine:
-  image: ghcr.io/neurwerk/k8s-stack-pii-engine:0.14.1@sha256:e7ad510ed3a0b2b87a387b8183a07e0911d77f4119bb0494261fe57ab7bbd7e1
+  image: ghcr.io/neurwerk/k8s-stack-pii-engine:0.15.0@sha256:11f739b425eaa00889765ab3775ed09e5d57e74bc01d67f2a9325538e95b1bf0
   # Local retains the existing baseline / verified transformer selection.
   analyzerBackend: local # local | remote-gliner | remote-kserve
   # null preserves legacy automatic baseline / transformer bundle selection.
@@ -43,7 +43,8 @@ monitorPiiEngine:
     maxAdapterResponseBytes: "10485760"
     # Studio evaluation responses accept 1 KiB through the service hard limit of 10 MiB.
     maxStudioEvaluationResponseBytes: "10485760"
-    maxTextLeaves: "256"
+    # Positive integer; requires Engine >=0.15.0 and compatible adapter/Studio images.
+    maxTextLeaves: "2000"
     maxTextCharacters: "4000000"
     maxNestingDepth: "32"
     maxConcurrentAnalyses: "4"
