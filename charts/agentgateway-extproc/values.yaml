@@ -12,14 +12,6 @@
 #   - ConfigMap: agentgateway-extproc-product-values (client product values)
 # =============================================================================
 
-# Canonical client-wide opt-in shared with Langfuse via client-values.
-# Requires a capture-capable image and a separately provisioned debug project/key.
-# Never override independently in product values. No remote retention is set here.
-rejectedRequestDebug:
-  enabled: false
-  # Stop new content while keeping the lifecycle/cleanup enabled until drained.
-  captureEnabled: true
-
 # ── extProc gRPC service ──────────────────────────────────────────────────────
 monitorAgentgatewayExtproc:
   alerts:
@@ -80,28 +72,6 @@ monitorAgentgatewayExtproc:
   # Rules are validated by the shared inspection package at runtime startup.
   compatibility:
     controls: []
-
-  # Optional bounded export to the separate Langfuse debug project. Enabled only
-  # by rejectedRequestDebug.enabled; independent of local rejectionCapture files.
-  # Endpoint is restricted to the internal web listener matched by NetworkPolicy.
-  rejectionLangfuse:
-    endpoint: http://monitor-langfuse-web.monitor-langfuse.svc.cluster.local:3000/api/public/otel/v1/traces
-    maxCaptureBytes: 65536
-    queueCapacity: 32
-    timeoutSeconds: 2
-
-  # Optional short-lived rejection diagnostics; requires a capture-capable image.
-  # No capture environment or writable volume is added while disabled.
-  rejectionCapture:
-    enabled: false
-    # Maximum bytes per capture and across captures in each pod (positive integers).
-    # The dedicated emptyDir allows maxTotalBytes plus 1 MiB filesystem overhead.
-    maxFileBytes: 6291456
-    maxTotalBytes: 31457280
-    # Maximum retained files and their lifetime in seconds (positive integers).
-    maxFiles: 20
-    retentionSeconds: 3600
-    # Runtime creates its private child at /var/run/extproc-diagnostics/captures.
 
   # Text-only limits. Docling derives 64 MiB requests and a 68222976-byte gRPC
   # envelope instead, even if an existing client still supplies these values.

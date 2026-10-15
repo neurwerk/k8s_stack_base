@@ -1,4 +1,4 @@
-"""Security boundaries for opt-in rejected content export (offline)."""
+"""Historical debug retention and removal of gateway capture authority (offline)."""
 
 import unittest
 import subprocess
@@ -9,7 +9,6 @@ from helm import documents, render, resource
 
 PREFIX = "EXTPROC_REJECTION_LANGFUSE__"
 SECRET = "monitor-agentgateway-extproc-rejection-debug"
-IDENTITY = "monitor-agentgateway-extproc-rejection-debug"
 
 
 def extproc(values):
@@ -40,7 +39,7 @@ class RejectionDebugTests(unittest.TestCase):
         result = extproc(values)
         pod = resource(result, "Deployment")["spec"]["template"]["spec"]
         self.assertFalse(any(item["name"].startswith(PREFIX) for item in pod["containers"][0]["env"]))
-        resource(result, "ExternalSecret", SECRET)
+        self.assertNotIn(SECRET, result.stdout)
         resource(langfuse(values), "Job", "monitor-langfuse-rejection-debug-init-job")
         resource(langfuse(values), "CronJob", "monitor-langfuse-rejection-debug-cleanup")
 
@@ -139,67 +138,25 @@ class RejectionDebugTests(unittest.TestCase):
                                     "ingress", "monitor-agentgateway-extproc"))
         self.assertFalse(any(doc["kind"] == "CronJob" for doc in documents(langfuse({}))))
 
-    def test_enabled_scopes_credentials_and_both_network_peers(self):
+    def test_retention_does_not_restore_gateway_capture_authority(self):
         values = {"rejectedRequestDebug": {"enabled": True}}
         result = extproc(values)
-        deployment = resource(result, "Deployment")
-        pod = deployment["spec"]["template"]["spec"]
+        pod = resource(result, "Deployment")["spec"]["template"]["spec"]
         env = {item["name"]: item for item in pod["containers"][0]["env"]}
-        for field, key in (("PUBLIC_KEY", "public-key"), ("SECRET_KEY", "secret-key")):
-            self.assertEqual(env[PREFIX + field]["valueFrom"], {
-                "secretKeyRef": {"name": SECRET, "key": key, "optional": True},
-            })
-            self.assertNotIn("value", env[PREFIX + field])
-        self.assertIn(SECRET, deployment["metadata"]["annotations"]["secret.reloader.stakater.com/reload"])
+        self.assertFalse(any(name.startswith(PREFIX) for name in env))
+        self.assertNotIn(SECRET, result.stdout)
         self.assertFalse(any(volume.get("emptyDir") is not None for volume in pod["volumes"]))
         self.assertFalse(any(item.startswith("EXTPROC_REJECTION_CAPTURE__") for item in env))
         self.assertFalse(pod["automountServiceAccountToken"])
-        store = resource(result, "SecretStore")["spec"]["provider"]["vault"]
-        self.assertEqual(store["auth"]["kubernetes"], {
-            "mountPath": "kubernetes", "role": IDENTITY,
-            "serviceAccountRef": {"name": IDENTITY, "audiences": ["openbao"]},
-        })
-        account = resource(result, "ServiceAccount")
-        self.assertEqual(account["metadata"]["name"], IDENTITY)
-        self.assertFalse(account["automountServiceAccountToken"])
-        secret = resource(result, "ExternalSecret")["spec"]
-        self.assertEqual(secret["secretStoreRef"], {"name": IDENTITY, "kind": "SecretStore"})
-        self.assertNotIn("dataFrom", secret)
-        self.assertEqual({(row["remoteRef"]["key"], row["remoteRef"]["property"]) for row in secret["data"]}, {
-            ("monitor-agentgateway-extproc/langfuse-debug", "publicKey"),
-            ("monitor-agentgateway-extproc/langfuse-debug", "secretKey"),
-        })
-        self.assertEqual(secret["target"]["creationPolicy"], "Owner")
-        self.assertEqual(secret["target"]["deletionPolicy"], "Delete")
-        for rendered, policy, direction, namespace, labels in (
-            (result, "monitor-agentgateway-extproc-network-policy", "egress", "monitor-langfuse",
-             {"app.kubernetes.io/name": "langfuse", "app.kubernetes.io/instance": "monitor-langfuse", "app": "web"}),
-            (langfuse(values), "monitor-langfuse-web-network-policy", "ingress", "monitor-agentgateway-extproc",
-             {"app.kubernetes.io/name": "monitor-agentgateway-extproc",
-              "app.kubernetes.io/instance": "monitor-agentgateway-extproc"}),
-        ):
-            rules = peer_rules(rendered, policy, direction, namespace)
-            self.assertEqual(len(rules), 1)
-            self.assertEqual(rules[0]["ports"], [{"port": 3000, "protocol": "TCP"}])
-            peers = rules[0]["to" if direction == "egress" else "from"]
-            self.assertEqual(len(peers), 1)
-            self.assertEqual(peers[0]["podSelector"]["matchLabels"], labels)
+        self.assertFalse(peer_rules(result, "monitor-agentgateway-extproc-network-policy",
+                                    "egress", "monitor-langfuse"))
+        self.assertFalse(peer_rules(langfuse(values), "monitor-langfuse-web-network-policy",
+                                    "ingress", "monitor-agentgateway-extproc"))
 
-    def test_rejects_ambiguous_gate_unbounded_delivery_and_wrong_destination(self):
-        for chart in ("agentgateway-extproc", "langfuse"):
+    def test_rejects_ambiguous_retention_gate(self):
+        for chart in ("langfuse",):
             for enabled in ("false", 1):
                 with self.subTest(chart=chart, enabled=enabled):
                     result = render(chart, {"rejectedRequestDebug": {"enabled": enabled}}, check=False)
                     self.assertNotEqual(result.returncode, 0)
                     self.assertIn("rejectedRequestDebug.enabled must be boolean", result.stderr)
-        for field, value in (("maxCaptureBytes", 1048577), ("maxCaptureBytes", "65536"),
-                             ("queueCapacity", 0), ("queueCapacity", 129),
-                             ("timeoutSeconds", True), ("timeoutSeconds", 0),
-                             ("timeoutSeconds", 11), ("endpoint", "https://example.com/v1/traces")):
-            with self.subTest(field=field, value=value):
-                result = render("agentgateway-extproc", {
-                    "rejectedRequestDebug": {"enabled": True},
-                    "monitorAgentgatewayExtproc": {"rejectionLangfuse": {field: value}},
-                }, check=False)
-                self.assertNotEqual(result.returncode, 0)
-                self.assertIn("monitorAgentgatewayExtproc.rejectionLangfuse", result.stderr)

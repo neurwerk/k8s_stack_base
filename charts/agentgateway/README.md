@@ -98,6 +98,11 @@ Studio reads the rendered catalog and public trust snapshots. Configuration is
 separate from observed health. Usage/cost are reported sums with unknown
 completeness until completion and original provider counters can be established.
 
+The data-plane logging filter is `info,agent_llm=error`: it suppresses the native
+malformed-response body dump and other LLM-library warnings while retaining request
+logs. This is not full error sanitization: native request errors and trace status
+descriptions can still contain parser-supplied values.
+
 ### Model trace content
 
 When model content tracing is enabled, Langfuse input contains `messages` plus

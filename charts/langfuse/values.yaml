@@ -32,11 +32,10 @@
 # ── Wrapper chart own values ─────────────────────────────────────────────────
 # Used ONLY by our custom templates (gateway, http-route, secret, OTel collector).
 # Nothing here is passed to the langfuse subchart.
-# Canonical client-wide opt-in shared with extProc via client-values.
-# Opens only the debug exporter peer; project/key provisioning is external.
+# Retain the historical debug project's cleanup until expiry/deletion is verified.
+# The gateway no longer captures requests; project/key provisioning is external.
 rejectedRequestDebug:
   enabled: false
-  captureEnabled: true
 
 monitorLangfuseWrapper:
   rejectionDebug:
