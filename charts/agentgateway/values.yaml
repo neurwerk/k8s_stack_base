@@ -33,9 +33,8 @@ infraAgentgatewayWrapper:
         langfuse.session.id: 'default(request.headers["x-session-id"], default(request.headers["x-conversation-id"], default(string(json(request.body).session_id), default(string(json(request.body).sessionId), default(string(json(request.body).conversationId), default(string(json(request.truncatedBody).session_id), default(string(json(request.truncatedBody).sessionId), default(string(json(request.truncatedBody).conversationId), ""))))))))'
 
 
-        # Content tracing must follow the selected model's policy.
-        gen_ai.prompt: 'flattenRecursive(llm.prompt)'
-        gen_ai.completion: 'flattenRecursive(llm.completion.map(c, {"role":"assistant", "content": c}))'
+        # The template supplies model input/output, including tools, under the
+        # selected model's content-tracing policy.
 
         gen_ai.usage.cost: 'has(llm.cost) ? double(llm.cost.total) : 0.0'
 

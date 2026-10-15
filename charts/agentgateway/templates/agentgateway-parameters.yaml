@@ -113,6 +113,8 @@ spec:
       {{- if .Values.infraAgentgatewayWrapper.tracing }}
     {{- $fields := deepCopy (.Values.infraAgentgatewayWrapper.tracing.fields | default dict) }}
     {{- $add := get $fields "add" | default dict }}
+    {{- $llmInput := include "infra-agentgateway.llmTraceInput" . }}
+    {{- $llmOutput := include "infra-agentgateway.llmTraceOutput" . }}
     {{- $modelContentDisabled := list }}
     {{- range $model := include "infra-agentgateway.effectiveModels" . | fromYamlArray }}
     {{-   $contentTracingEnabled := true }}
@@ -126,8 +128,8 @@ spec:
     {{-   if not $contentTracingEnabled }}{{- $mcpContentDisabled = append $mcpContentDisabled $server.name }}{{- end }}
     {{- end }}
     {{- /* Model routing records the public requested ID before virtual resolution. */}}
-    {{- $_ := set $add "gen_ai.prompt" (printf `has(metadata.agentgateway_user_model) && !(metadata.agentgateway_user_model in %s) ? flattenRecursive(llm.prompt) : null` ($modelContentDisabled | toJson)) }}
-    {{- $_ := set $add "gen_ai.completion" (printf `has(metadata.agentgateway_user_model) && !(metadata.agentgateway_user_model in %s) ? flattenRecursive(llm.completion.map(c, {"role":"assistant", "content": c})) : null` ($modelContentDisabled | toJson)) }}
+    {{- $_ := set $add "gen_ai.prompt" (printf `has(metadata.agentgateway_user_model) && !(metadata.agentgateway_user_model in %s) ? %s : null` ($modelContentDisabled | toJson) $llmInput) }}
+    {{- $_ := set $add "gen_ai.completion" (printf `has(metadata.agentgateway_user_model) && !(metadata.agentgateway_user_model in %s) ? %s : null` ($modelContentDisabled | toJson) $llmOutput) }}
     {{- /* MCP backend target names are the exact reviewed server IDs. */}}
     {{- $_ := set $add "langfuse.observation.input" (printf `has(mcp.tool.arguments) && has(mcp.tool.target) && !(mcp.tool.target in %s) ? flattenRecursive(mcp.tool.arguments) : null` ($mcpContentDisabled | toJson)) }}
     {{- $_ := set $add "langfuse.observation.output" (printf `has(mcp.tool.result) && has(mcp.tool.target) && !(mcp.tool.target in %s) ? flattenRecursive(mcp.tool.result) : null` ($mcpContentDisabled | toJson)) }}
@@ -137,7 +139,7 @@ spec:
     {{- end }}
     {{- range $field := list "gen_ai.prompt" "gen_ai.completion" }}
     {{- $legacy := get $add $field }}
-    {{- $content := ternary `flattenRecursive(llm.prompt)` `flattenRecursive(llm.completion.map(c, {"role":"assistant", "content": c}))` (eq $field "gen_ai.prompt") }}
+    {{- $content := ternary $llmInput $llmOutput (eq $field "gen_ai.prompt") }}
     {{- $_ := set $add $field (printf `has(metadata.neurwerk_admission) ? (default(extproc["neurwerk.request_context"].content_tracing_enabled, false) ? %s : null) : (%s)` $content $legacy) }}
     {{- end }}
     {{- $_ := set $add "gen_ai.usage.cost" (printf `has(metadata.neurwerk_admission) ? (has(llm.cost) ? double(llm.cost.total) : null) : (%s)` (get $add "gen_ai.usage.cost" | default "null")) }}
