@@ -112,6 +112,7 @@ local function classify(record, application)
     end
     if contains(diagnostic, "econnrefused") or contains(diagnostic, "econnreset")
         or contains(diagnostic, "connection refused") or contains(diagnostic, "connection reset")
+        or contains(diagnostic, "failed to terminate tls") or contains(diagnostic, "tls handshake")
         or contains(diagnostic, "connecterror") or contains(diagnostic, "engine_unavailable") then
         return "connection_error"
     end
@@ -128,7 +129,7 @@ local function classify(record, application)
         if contains(diagnostic, "conversion") or contains(diagnostic, "convert") then
             return "document_error"
         end
-        if contains(diagnostic, "stream") then
+        if diagnostic:match("%f[%a]stream%f[%A]") or contains(diagnostic, "streaming") then
             return "stream_error"
         end
         return "application_error"
