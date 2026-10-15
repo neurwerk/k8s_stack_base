@@ -45,6 +45,9 @@ metadata:
     app.kubernetes.io/instance: {{ .Release.Name }}
     app.kubernetes.io/part-of: infra-agentgateway
 spec:
+  logging:
+    # agent_llm WARN includes raw malformed provider bodies; request logs stay enabled.
+    level: "info,agent_llm=error"
   env:
     - name: AGENTGATEWAY_DATABASE_PASSWORD
       valueFrom:

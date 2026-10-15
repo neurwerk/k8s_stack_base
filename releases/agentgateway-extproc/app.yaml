@@ -15,10 +15,6 @@ spec:
       name: RetryOnFailure
       retryInterval: 1m
   dependsOn:
-    # Langfuse's optional debug-project hook completes before exporter adoption.
-    # Langfuse depends only on shared infrastructure, never on extProc.
-    - name: langfuse
-      namespace: monitor-langfuse
     - name: pii-engine
       namespace: monitor-pii-engine
     - name: agentgateway

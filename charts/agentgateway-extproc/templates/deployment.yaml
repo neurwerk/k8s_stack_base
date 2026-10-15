@@ -11,15 +11,7 @@
 {{- end }}
 {{- $docling := .Values.docling -}}
 {{- $imageInspection := .Values.monitorAgentgatewayExtproc.imageInspection -}}
-{{- $capture := .Values.monitorAgentgatewayExtproc.rejectionCapture -}}
-{{- $securityContext := deepCopy .Values.monitorAgentgatewayExtproc.securityContext -}}
-{{- if and $capture.enabled (not (hasKey $securityContext "fsGroup")) -}}
-{{- $_ := set $securityContext "fsGroup" 1000 -}}
-{{- end -}}
 {{- $reloadSecrets := "monitor-agentgateway-extproc-engine-client-tls" -}}
-{{- if .Values.rejectedRequestDebug.enabled -}}
-{{- $reloadSecrets = printf "%s,monitor-agentgateway-extproc-rejection-debug" $reloadSecrets -}}
-{{- end -}}
 {{- if $docling.enabled -}}
 {{- $reloadSecrets = printf "%s,monitor-agentgateway-extproc-docling-secret" $reloadSecrets -}}
 {{- end -}}
@@ -65,7 +57,7 @@ spec:
       automountServiceAccountToken: false
       terminationGracePeriodSeconds: {{ add .Values.monitorAgentgatewayExtproc.shutdownGraceSeconds 30 }}
       securityContext:
-        {{- toYaml $securityContext | nindent 8 }}
+        {{- toYaml .Values.monitorAgentgatewayExtproc.securityContext | nindent 8 }}
       containers:
         - name: extproc
           image: {{ .Values.monitorAgentgatewayExtproc.extprocImage }}
@@ -80,49 +72,9 @@ spec:
               name: http
               protocol: TCP
           env:
-            {{- if and .Values.rejectedRequestDebug.enabled .Values.rejectedRequestDebug.captureEnabled }}
-            - name: EXTPROC_REJECTION_LANGFUSE__ENABLED
-              value: "true"
-            - name: EXTPROC_REJECTION_LANGFUSE__ENDPOINT
-              value: {{ .Values.monitorAgentgatewayExtproc.rejectionLangfuse.endpoint | quote }}
-            - name: EXTPROC_REJECTION_LANGFUSE__ALLOW_HTTP
-              value: "true"
-            - name: EXTPROC_REJECTION_LANGFUSE__PUBLIC_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: monitor-agentgateway-extproc-rejection-debug
-                  key: public-key
-                  optional: true
-            - name: EXTPROC_REJECTION_LANGFUSE__SECRET_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: monitor-agentgateway-extproc-rejection-debug
-                  key: secret-key
-                  optional: true
-            - name: EXTPROC_REJECTION_LANGFUSE__MAX_CAPTURE_BYTES
-              value: {{ .Values.monitorAgentgatewayExtproc.rejectionLangfuse.maxCaptureBytes | int64 | quote }}
-            - name: EXTPROC_REJECTION_LANGFUSE__QUEUE_CAPACITY
-              value: {{ .Values.monitorAgentgatewayExtproc.rejectionLangfuse.queueCapacity | int | quote }}
-            - name: EXTPROC_REJECTION_LANGFUSE__TIMEOUT_SECONDS
-              value: {{ .Values.monitorAgentgatewayExtproc.rejectionLangfuse.timeoutSeconds | quote }}
-            {{- end }}
             {{- with .Values.monitorAgentgatewayExtproc.compatibility.controls }}
             - name: EXTPROC_COMPATIBILITY__CONTROLS
               value: {{ . | toJson | quote }}
-            {{- end }}
-            {{- if $capture.enabled }}
-            - name: EXTPROC_REJECTION_CAPTURE__ENABLED
-              value: "true"
-            - name: EXTPROC_REJECTION_CAPTURE__DIRECTORY
-              value: /var/run/extproc-diagnostics/captures
-            - name: EXTPROC_REJECTION_CAPTURE__MAX_FILE_BYTES
-              value: {{ $capture.maxFileBytes | int64 | quote }}
-            - name: EXTPROC_REJECTION_CAPTURE__MAX_TOTAL_BYTES
-              value: {{ $capture.maxTotalBytes | int64 | quote }}
-            - name: EXTPROC_REJECTION_CAPTURE__MAX_FILES
-              value: {{ $capture.maxFiles | int64 | quote }}
-            - name: EXTPROC_REJECTION_CAPTURE__RETENTION_SECONDS
-              value: {{ $capture.retentionSeconds | int64 | quote }}
             {{- end }}
             - name: EXTPROC_SHUTDOWN_GRACE_SECONDS
               value: {{ .Values.monitorAgentgatewayExtproc.shutdownGraceSeconds | quote }}
@@ -216,10 +168,6 @@ spec:
             - name: EXTPROC_GRPC_MAXIMUM_CONCURRENT_RPCS
               value: {{ .Values.monitorAgentgatewayExtproc.grpcMaximumConcurrentRpcs | quote }}
           volumeMounts:
-            {{- if $capture.enabled }}
-            - name: rejection-capture
-              mountPath: /var/run/extproc-diagnostics
-            {{- end }}
             - name: engine-tls
               mountPath: /var/run/pii-engine/tls
               readOnly: true
@@ -252,11 +200,6 @@ spec:
           resources:
             {{- toYaml $resources | nindent 12 }}
       volumes:
-        {{- if $capture.enabled }}
-        - name: rejection-capture
-          emptyDir:
-            sizeLimit: {{ add $capture.maxTotalBytes 1048576 | quote }}
-        {{- end }}
         - name: engine-tls
           secret:
             secretName: monitor-agentgateway-extproc-engine-client-tls

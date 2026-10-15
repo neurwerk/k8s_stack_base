@@ -1,9 +1,6 @@
 {{- if not (kindIs "bool" .Values.rejectedRequestDebug.enabled) -}}
 {{- fail "rejectedRequestDebug.enabled must be boolean" -}}
 {{- end }}
-{{- if not (kindIs "bool" .Values.rejectedRequestDebug.captureEnabled) -}}
-{{- fail "rejectedRequestDebug.captureEnabled must be boolean" -}}
-{{- end }}
 # =============================================================================
 # Langfuse web NetworkPolicy
 #
@@ -42,17 +39,6 @@ spec:
             matchLabels:
               app.kubernetes.io/name: langfuse-rejection-debug-cleanup
               app.kubernetes.io/instance: {{ .Release.Name }}
-    - ports:
-        - port: 3000
-          protocol: TCP
-      from:
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: monitor-agentgateway-extproc
-          podSelector:
-            matchLabels:
-              app.kubernetes.io/name: monitor-agentgateway-extproc
-              app.kubernetes.io/instance: monitor-agentgateway-extproc
     {{- end }}
     - ports:
         - port: {{ .Values.monitorLangfuseWrapper.ports.container.http }}
