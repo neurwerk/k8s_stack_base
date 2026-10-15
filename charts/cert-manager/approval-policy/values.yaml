@@ -13,6 +13,12 @@ authKeycloak:
 infraAgentgatewayWrapper:
   hostname: ""
 
+aiGateway:
+  enabled: false
+  proxy:
+    enabled: false
+    hostname: ""
+
 infraOpenbaoWrapper:
   tls:
     clusterDomain: cluster.local

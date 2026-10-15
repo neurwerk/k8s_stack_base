@@ -1,5 +1,4 @@
 {{- include "traefik.validateForwardProxy" . -}}
-{{- $proxyEnabled := and .Values.aiGateway.enabled .Values.aiGateway.proxy.enabled -}}
 # =============================================================================
 # Traefik configuration — k3s HelmChartConfig
 # =============================================================================
@@ -26,33 +25,17 @@ spec:
     # ── Ports ────────────────────────────────────────────────────────────────
     ports:
       web:
-        {{- if $proxyEnabled }}
-        # Keep implicit HTTP routers off the dedicated proxy entrypoint.
-        asDefault: true
-        {{- end }}
         port: {{ .Values.traefik.ports.web.port }}
         exposedPort: {{ .Values.traefik.ports.web.exposedPort }}
         protocol: TCP
         hostPort: {{ .Values.traefik.ports.web.exposedPort }}
       websecure:
-        {{- if $proxyEnabled }}
-        asDefault: true
-        {{- end }}
         port: {{ .Values.traefik.ports.websecure.port }}
         exposedPort: {{ .Values.traefik.ports.websecure.exposedPort }}
         protocol: TCP
         tls:
           enabled: true
         hostPort: {{ .Values.traefik.ports.websecure.exposedPort }}
-      {{- if $proxyEnabled }}
-      forward-proxy:
-        port: {{ .Values.aiGateway.proxy.port }}
-        exposedPort: {{ .Values.aiGateway.proxy.port }}
-        hostPort: {{ .Values.aiGateway.proxy.port }}
-        protocol: TCP
-        expose:
-          default: true
-      {{- end }}
 
     # ── Providers ────────────────────────────────────────────────────────────
     providers:

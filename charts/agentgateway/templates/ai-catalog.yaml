@@ -39,7 +39,7 @@
 {{- $destinations = append $destinations (get $modelDestinations $id) }}
 {{- end }}
 {{- if .Values.aiGateway.proxy.enabled }}
-{{- $endpoints = append $endpoints (dict "id" "forward-proxy" "url" (printf "https://%s:%d" .Values.aiGateway.proxy.hostname (int .Values.aiGateway.proxy.port)) "entry_mode" "forward_proxy" "caller_auth_modes" (list "proxy_basic")) }}
+{{- $endpoints = append $endpoints (dict "id" "forward-proxy" "url" (printf "https://%s:%d" .Values.aiGateway.proxy.hostname (int .Values.aiGateway.proxy.publicPort)) "entry_mode" "forward_proxy" "caller_auth_modes" (list "proxy_basic")) }}
 {{- end }}
 {{- $legacyModels := list }}
 {{- range $model := include "infra-agentgateway.effectiveModels" . | fromYamlArray }}

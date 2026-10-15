@@ -17,23 +17,23 @@ aiGateway:
     enabled: false
     hostname: ""
     port: 8443
+    publicPort: 443
 ```
 
-Both booleans must be `true` to expose the proxy. Supply one exact lowercase DNS
-hostname and an integer port from 1 to 65535. The port must differ from the
-configured `web`/`websecure` container and exposed/host ports and the K3s vendor
-admin/metrics ports (`8080`, `9100`). The Kubernetes CRD provider must be enabled.
+Both booleans must be `true` to expose the proxy. Supply an exact lowercase DNS
+hostname distinct from `infraAgentgatewayWrapper.hostname` (the API hostname).
+`publicPort` must match `traefik.ports.websecure.exposedPort`.
+The Kubernetes CRD provider must be enabled.
 
-The shared port creates the `forward-proxy` TCP entrypoint, Service port and
-host port. An `IngressRouteTCP` in `infra-agentgateway` matches only
-`HostSNI(<proxy.hostname>)` and passes TLS through to the fixed same-namespace
-Service `infra-agentgateway-forward-proxy` on that same port. The HTTP default
-entrypoints are explicitly limited to `web` and `websecure` while enabled.
+An `IngressRouteTCP` on the existing `websecure` entrypoint matches only
+`HostSNI(<proxy.hostname>)` and passes TLS through to the same-namespace Service
+`infra-agentgateway-forward-proxy` on private `proxy.port`. Other hostnames retain
+their HTTP routers. This adds no node port or TLS termination at the edge.
 
-AgentGateway owns outer TLS termination with `infra-agentgateway-tls`, employee
-authentication, destination restrictions and inspection. Traefik receives no
-inspection CA or TLS Secret through this feature. The root AgentGateway chart
-must admit the `kube-system`/`traefik` NetworkPolicy peer on the shared proxy port.
+AgentGateway owns its separate public proxy certificate, outer TLS termination,
+employee authentication, destination restrictions and inspection. Traefik receives
+no inspection CA or TLS Secret through this feature. The root AgentGateway chart
+must admit the `kube-system`/`traefik` NetworkPolicy peer on the private proxy port.
 Enable exposure only after the public inspection trust assets are published and
 the AgentGateway hostname certificate and inspected listener are ready.
 

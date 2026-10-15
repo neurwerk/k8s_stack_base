@@ -3,16 +3,11 @@
 {{- if not (and (kindIs "bool" .Values.traefik.providers.kubernetesCRD.enabled) .Values.traefik.providers.kubernetesCRD.enabled) -}}
 {{- fail "aiGateway.proxy requires traefik.providers.kubernetesCRD.enabled: true" -}}
 {{- end -}}
-{{- $port := int .Values.aiGateway.proxy.port -}}
-{{/* K3s vendor chart 40.1.4+up40.1.0 owns the private admin/metrics ports. */}}
-{{- if has $port (list 8080 9100) -}}
-{{- fail "aiGateway.proxy.port collides with a Traefik admin or metrics port (8080, 9100)" -}}
+{{- if ne (int .Values.aiGateway.proxy.publicPort) (int .Values.traefik.ports.websecure.exposedPort) -}}
+{{- fail "aiGateway.proxy.publicPort must match traefik.ports.websecure.exposedPort" -}}
 {{- end -}}
-{{- range $name := list "web" "websecure" -}}
-{{- $existing := index $.Values.traefik.ports $name -}}
-{{- if or (eq $port (int $existing.port)) (eq $port (int $existing.exposedPort)) -}}
-{{- fail (printf "aiGateway.proxy.port collides with traefik.ports.%s (container or exposed/host port)" $name) -}}
-{{- end -}}
+{{- if eq .Values.aiGateway.proxy.hostname .Values.infraAgentgatewayWrapper.hostname -}}
+{{- fail "API and proxy hostnames must differ for shared HTTPS ingress" -}}
 {{- end -}}
 {{- end -}}
 {{- end -}}
