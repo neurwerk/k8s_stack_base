@@ -45,7 +45,7 @@ data:
         trace_statements:
           - context: span
             conditions:
-              - 'resource.attributes["service.name"] == "agentgateway" and attributes["neurwerk.request_id"] != nil'
+              - 'resource.attributes["service.name"] == "infra-agentgateway-gateway" and attributes["neurwerk.request_id"] != nil'
             statements:
               {{- range $field := list "request_id" "entry_mode" "destination_kind" "destination_id" "provider_id" "binding_id" "protocol_profile" "operation_id" "provider_credential_source" "policy_revision" "requested_model" "resolved_model" "billing_classification" "token_usage_known" "cost_known" }}
               {{- $source := printf "neurwerk.%s" $field }}

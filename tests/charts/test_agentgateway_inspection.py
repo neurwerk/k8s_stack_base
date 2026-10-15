@@ -245,7 +245,8 @@ class InspectedGatewayTests(unittest.TestCase):
         self.assertEqual(transform["error_mode"], "propagate")
         group, = transform["trace_statements"]
         self.assertEqual(group["context"], "span")
-        self.assertEqual(group["conditions"], ['resource.attributes["service.name"] == "agentgateway" and attributes["neurwerk.request_id"] != nil'])
+        gateway_name = resource(self.enabled, "Gateway", "infra-agentgateway-gateway")["metadata"]["name"]
+        self.assertEqual(group["conditions"], [f'resource.attributes["service.name"] == "{gateway_name}" and attributes["neurwerk.request_id"] != nil'])
         statements = group["statements"]
         fields = {
             "request_id", "entry_mode", "destination_kind", "destination_id", "provider_id", "binding_id",
