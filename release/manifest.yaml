@@ -218,7 +218,7 @@ spec:
     charts:
     - path: charts/agentgateway
       name: infra-agentgateway
-      version: 2.0.0
+      version: 2.0.1
       appVersion: 1.6.0
       dependencyLock:
         digest: sha256:ef5fd87240e231990e45578f9deb65e6a6f947ba8a8b846cf13954882299cb3a
@@ -238,8 +238,8 @@ spec:
       appVersion: 0.8.0
     - path: charts/agentgateway-extproc
       name: agentgateway-extproc
-      version: 2.0.1
-      appVersion: 0.19.2
+      version: 2.0.3
+      appVersion: 0.19.3
     - path: charts/cert-manager/approval-policy
       name: infra-cert-manager-approval-policy
       version: 1.2.8
@@ -300,7 +300,7 @@ spec:
           sha256: da2d5c126a103b4c1b16a9dc1c168c4332a3687144e88ac070e594f81a0b6578
     - path: charts/fluent-bit
       name: monitor-fluent-bit
-      version: 1.0.10
+      version: 1.0.11
       appVersion: 3.2.8
       dependencyLock:
         digest: sha256:90275c51b97202d8b18e353f33c38e5800924b94be0b21d2adf9a62590334d17
@@ -366,7 +366,7 @@ spec:
           sha256: b344a03d0006aba69a8c20ae1ff0354ac7687bdf72c3611c4f330b59a22b7548
     - path: charts/langfuse
       name: monitor-langfuse
-      version: 2.0.9
+      version: 2.0.11
       appVersion: 4.28.1
       dependencyLock:
         digest: sha256:68156b8f74aa153f2e33eb76f6ac11e9277c1a8fe8073c3f37da8834a97292cc
@@ -885,16 +885,12 @@ spec:
       eligibility: included
       origins:
       - charts/wireguard/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.19.0@sha256:5fab3b4593505a1a5327542edd3b9922bf1e38f07d879a0c371c303b969f7db1
-      pinned: true
-      eligibility: included
-      origins:
-      - charts/langfuse/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.19.2@sha256:4f41f5d7623bb2fca62a1533f1f24c130f6376979b88bc48fcfbf86908b28628
+    - reference: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.19.3@sha256:5a4e070118f6ccdd0cc10106e8f79e4fd6bd1a324859f0f55311e51a2b381d97
       pinned: true
       eligibility: included
       origins:
       - charts/agentgateway-extproc/values.yaml
+      - charts/langfuse/values.yaml
     - reference: ghcr.io/neurwerk/k8s-stack-keycloak-api-key-bridge:0.10.0@sha256:8eea9b7ff35003429cc26f42e552d3439517756f5ac12fd6252ac7bb2fefd048
       pinned: true
       eligibility: included
