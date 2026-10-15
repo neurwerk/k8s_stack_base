@@ -15,7 +15,7 @@ class InternalGatewayEgressTests(unittest.TestCase):
                     ("postgres-operations", "infra-postgres-operations", 10260),
                     ("frontend-librechat-meilisearch", None, 7700),
                     ("frontend-librechat-valkey", None, 6379),
-                    ("infra-agentgateway-gateway", "infra-agentgateway", 80),
+                    ("infra-agentgateway-gateway", "infra-agentgateway", 8082),
                 ),
             ),
         ):

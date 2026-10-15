@@ -1,4 +1,4 @@
-{{/* One effective server list. Legacy entries retain their historical defaults. */}}
+{{/* One explicitly selected current MCP catalog. */}}
 {{- define "infra-agentgateway.effectiveMcpServers" -}}
 {{- $catalog := .Values.mcp.catalog | default dict -}}
 {{- range $field, $_ := $catalog -}}
@@ -9,10 +9,7 @@
 {{- if or (not (kindIs "map" $selected)) (not (kindIs "slice" $custom)) -}}
 {{- fail "mcp.catalog.presets must be a map and custom must be a list" -}}
 {{- end -}}
-{{- $legacy := .Values.mcp.servers | default list -}}
-{{- if and (gt (len $legacy) 0) (or (gt (len $selected) 0) (gt (len $custom) 0)) -}}
-{{- fail "choose mcp.servers or mcp.catalog, not both; migration is explicit" -}}
-{{- end -}}
+{{- if .Values.mcp.servers }}{{ fail "mcp.servers has been removed; configure mcp.catalog" }}{{ end -}}
 {{- $presets := .Files.Get "catalog/presets.yaml" | fromYaml -}}
 {{- $entries := list -}}
 {{- range $id, $selection := $selected -}}
@@ -78,7 +75,7 @@
 {{- end -}}
 {{- end -}}
 {{- if gt (len $effective) 200 -}}{{- fail "MCP catalog supports at most 200 selected entries" -}}{{- end -}}
-{{- concat $legacy $effective | toYaml -}}
+{{- $effective | toYaml -}}
 {{- end -}}
 
 {{/* Checks are explicit operator approval of read-only calls with non-secret arguments. */}}

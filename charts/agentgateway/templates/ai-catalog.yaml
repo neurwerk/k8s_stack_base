@@ -9,8 +9,7 @@
 {{- $_ := unset $profile "providers" }}{{- $_ := unset $profile "credentialHeader" }}
 {{- $profiles = append $profiles $profile }}
 {{- end }}
-{{- $profiles = append $profiles (dict "id" "legacy-model-api" "revision" "1" "operations" (list (dict "id" "create" "support" "unknown" "restoration_scope" "request" "limitations" (list "Existing company API compatibility; no new company-use grant is inferred."))) "limitations" (list "Existing JWT/API-key semantics remain on /v1.")) }}
-{{- $profiles = append $profiles (dict "id" "legacy-mcp" "revision" "1" "operations" (list (dict "id" "tools" "support" "unknown" "restoration_scope" "request" "limitations" (list "Each configured MCP integration requires its own qualification."))) "limitations" (list "Existing stateless MCP contract.")) }}
+{{- $profiles = append $profiles (dict "id" "mcp-streamable-http-v1" "revision" "1" "operations" (list (dict "id" "exchange" "support" "unknown" "restoration_scope" "request" "limitations" (list "Stateless MCP exchanges; each configured integration requires qualification."))) "limitations" (list "Stateful sessions are unsupported.")) }}
 {{- $endpoints := list }}{{- $destinations := list }}{{- $modelDestinations := dict }}
 {{- $origin := printf "https://%s" .Values.infraAgentgatewayWrapper.hostname }}
 {{- range $binding := $bindings }}
@@ -19,7 +18,7 @@
 {{- $_ := required "API catalog endpoints require infraAgentgatewayWrapper.hostname" $.Values.infraAgentgatewayWrapper.hostname }}
 {{- $id := printf "api-%s" $binding.id }}
 {{- $endpointIds = append $endpointIds $id }}
-{{- $endpoints = append $endpoints (dict "id" $id "url" (printf "%s%s/v1" $origin $binding.prefix) "entry_mode" "api" "caller_auth_modes" (list "neurwerk_bearer")) }}
+{{- $endpoints = append $endpoints (dict "id" $id "url" (printf "%s%s/v1" $origin $binding.prefix) "entry_mode" "api" "caller_auth_modes" (list "neurwerk_bearer" "oidc_bearer")) }}
 {{- end }}
 {{- if $binding.inspect }}{{ $endpointIds = append $endpointIds "forward-proxy" }}{{ end }}
 {{- $modes := list }}
@@ -41,25 +40,12 @@
 {{- if .Values.aiGateway.proxy.enabled }}
 {{- $endpoints = append $endpoints (dict "id" "forward-proxy" "url" (printf "https://%s:%d" .Values.aiGateway.proxy.hostname (int .Values.aiGateway.proxy.publicPort)) "entry_mode" "forward_proxy" "caller_auth_modes" (list "proxy_basic")) }}
 {{- end }}
-{{- $legacyModels := list }}
-{{- range $model := include "infra-agentgateway.effectiveModels" . | fromYamlArray }}
-{{/* New bindings own the canonical catalog row. Legacy compatibility continues
-on /v1, but never duplicates the canonical model or weakens its new mode grant. */}}
-{{- if not (hasKey $modelDestinations $model.name) }}{{ $legacyModels = append $legacyModels $model }}{{ end }}
-{{- end }}
-{{- if and $legacyModels .Values.externalGateway.enabled }}
-{{- $endpoints = append $endpoints (dict "id" "legacy-api" "url" (printf "%s/v1" $origin) "entry_mode" "api" "caller_auth_modes" (list "legacy")) }}
-{{- range $model := $legacyModels }}
-{{- $source := ternary "none" "company" (eq (toJson $model.local) "true") }}
-{{- $destinations = append $destinations (dict "id" $model.name "kind" "model" "display_name" $model.name "endpoint_ids" (list "legacy-api") "profile_ids" (list "legacy-model-api") "required_permissions" (list "llm:invoke" (printf "model:%s:invoke" $model.name)) "credential_modes" (list (dict "source" $source "required_permissions" (list)))) }}
-{{- end }}
-{{- end }}
 {{- if and .Values.mcp.enabled .Values.externalGateway.enabled }}
 {{- range $server := include "infra-agentgateway.effectiveMcpServers" . | fromYamlArray }}
 {{- if or (not $server.contextforge) (has $server.name $.Values.mcp.contextforgeRoutesEnabled) }}
 {{- $id := printf "mcp-%s" $server.name }}
-{{- $endpoints = append $endpoints (dict "id" $id "url" (printf "%s/mcp/%s" $origin $server.name) "entry_mode" "api" "caller_auth_modes" (list "legacy")) }}
-{{- $destinations = append $destinations (dict "id" $server.name "kind" "mcp" "display_name" ($server.displayName | default $server.name) "endpoint_ids" (list $id) "profile_ids" (list "legacy-mcp") "required_permissions" (list "llm:invoke" (printf "mcp:%s:invoke" $server.name)) "credential_modes" (list (dict "source" "none" "required_permissions" (list)))) }}
+{{- $endpoints = append $endpoints (dict "id" $id "url" (printf "%s/bindings/mcp-%s/mcp" $origin $server.name) "entry_mode" "api" "caller_auth_modes" (list "neurwerk_bearer" "oidc_bearer")) }}
+{{- $destinations = append $destinations (dict "id" $server.name "kind" "mcp" "display_name" ($server.displayName | default $server.name) "endpoint_ids" (list $id) "profile_ids" (list "mcp-streamable-http-v1") "required_permissions" (list "llm:invoke" (printf "mcp:%s:invoke" $server.name)) "credential_modes" (list (dict "source" "none" "required_permissions" (list)))) }}
 {{- end }}
 {{- end }}
 {{- end }}

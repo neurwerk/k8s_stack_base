@@ -73,7 +73,7 @@ externalGateway:
 # Native inspected entry modes. These require the coordinated v5 extProc/bridge
 # release; selecting values does not update those images or qualify a browser.
 aiGateway:
-  enabled: false
+  enabled: true
   apiPort: 8082
   # One provider/upstream binding owns its models and credentialSources. Personal
   # credentials win on that same URL; company keys require the provider grant.
@@ -94,19 +94,6 @@ aiGateway:
 
 publicCertificates:
   useProduction: false
-
-# Dedicated internal OpenAI-compatible embeddings entrypoint for LibreChat RAG.
-# The listener is never attached to the external HTTPRoute. Client values must
-# provide an internal HTTP backend and grant model:<backend.model>:invoke.
-# The backend owner must separately allow ingress; a DNS host does not provide
-# Kubernetes NetworkPolicy selectors that this chart can safely derive.
-internalRagEmbedding:
-  enabled: false
-  listenerPort: 8081
-  backend:
-    host: ""
-    port: 0
-    model: ""
 
 # ── MCP server catalog ───────────────────────────────────────────────────────
 # Client repositories opt in through config/client.yaml. Each server

@@ -12,7 +12,7 @@ spec:
     - group: gateway.networking.k8s.io
       kind: Gateway
       name: infra-agentgateway-gateway
-      sectionName: websecure
+      sectionName: api-bindings
   frontend:
     metrics:
       attributes:

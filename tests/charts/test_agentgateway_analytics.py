@@ -1,11 +1,8 @@
-"""Metadata-only usage logging and the private Studio admin connection."""
+"""Private analytics access for Studio and the gateway."""
 
-import json
 import unittest
 
-import yaml
-
-from helm import documents, env_value, render, resource
+from helm import env_value, render, resource
 
 GATEWAY_PEER = {
     "namespaceSelector": {"matchLabels": {"kubernetes.io/metadata.name": "infra-agentgateway"}},
@@ -19,243 +16,25 @@ GATEWAY_PEER = {
 
 
 class AgentGatewayAnalyticsTests(unittest.TestCase):
-    def test_metadata_logging_and_private_admin_listener(self):
-        result = render("agentgateway")
-        params = resource(result, "AgentgatewayParameters")["spec"]
-        self.assertIn(
-            {
-                "name": "AGENTGATEWAY_DATABASE_PASSWORD",
-                "valueFrom": {
-                    "secretKeyRef": {
-                        "name": "infra-agentgateway-database-secret",
-                        "key": "password",
-                    },
-                },
-            },
-            params["env"],
-        )
-        self.assertEqual(
-            params["deployment"]["metadata"]["annotations"]["secret.reloader.stakater.com/reload"],
-            "infra-agentgateway-database-secret",
-        )
-        self.assertEqual(params["service"]["spec"]["type"], "ClusterIP")
-        self.assertIn(
-            {"name": "admin", "port": 15000, "targetPort": 15000, "protocol": "TCP"},
-            params["service"]["spec"]["ports"],
-        )
-        raw = params["rawConfig"]
-        self.assertEqual(raw["frontendPolicies"]["accessLog"]["database"], {"llm": "metadata"})
-        self.assertEqual(raw["config"]["adminAddr"], "0.0.0.0:15000")
-        for source in ("has(jwt.sub)", "has(extauthz.principal_id)"):
-            self.assertIn(source, raw["config"]["standardAttributes"]["user"])
-        self.assertIn(
-            "${AGENTGATEWAY_DATABASE_PASSWORD}", raw["config"]["logging"]["database"]["url"]
-        )
-        for doc in documents(result):
-            if doc["kind"] != "Secret":
-                self.assertNotIn("lint-agentgateway-database-password", json.dumps(doc))
-            if doc["kind"] in ("Gateway", "HTTPRoute"):
-                self.assertNotIn("15000", json.dumps(doc))
-        policy = resource(result, "NetworkPolicy", "infra-agentgateway-data-plane-network-policy")[
-            "spec"
-        ]
-        self.assertEqual(policy["policyTypes"], ["Ingress"])
-        admin_rules = [
-            rule
-            for rule in policy["ingress"]
-            if any(port["port"] == 15000 for port in rule.get("ports", []))
-        ]
-        self.assertEqual(
-            admin_rules,
-            [
-                {
-                    "from": [
-                        {
-                            "namespaceSelector": {
-                                "matchLabels": {"kubernetes.io/metadata.name": "frontend-studio"}
-                            },
-                            "podSelector": {
-                                "matchLabels": {
-                                    "app.kubernetes.io/name": "studio-api",
-                                    "app.kubernetes.io/instance": "frontend-studio-api",
-                                }
-                            },
-                        }
-                    ],
-                    "ports": [{"port": 15000, "protocol": "TCP"}],
-                }
-            ],
-        )
-
-    def test_verified_identity_stays_internal(self):
-        result = render("agentgateway")
-        auth = resource(result, "AgentgatewayPolicy", "infra-agentgateway-auth-ag-policy")["spec"][
-            "traffic"
-        ]
-        http = auth["extAuth"]["conditional"][0]["policy"]["http"]
-        for field in ("contract_version", "principal_id", "permissions"):
-            self.assertEqual(
-                http["responseMetadata"][field],
-                f'json(response.headers["x-agentgateway-auth-context"]).{field}',
-            )
-        self.assertEqual(
-            http["responseMetadata"]["groups"],
-            '"groups" in json(response.headers["x-agentgateway-auth-context"]) ? json(response.headers["x-agentgateway-auth-context"]).groups : []',
-        )
-        self.assertNotIn("allowedResponseHeaders", http)
-        self.assertNotIn("json(response.body)", json.dumps(http))
-        expression = auth["authorization"]["policy"]["matchExpressions"][0]
-        for check in (
-            "type(extauthz.permissions) == list",
-            "size(extauthz.principal_id) > 0",
-            'has(extauthz.groups) && type(extauthz.groups) == list && extauthz.groups.all(g, type(g) == string && g.startsWith("/") && size(g) > 1)',
-        ):
-            self.assertIn(check, expression)
-        stripping = resource(
-            result, "AgentgatewayPolicy", "infra-agentgateway-remove-untrusted-identity-headers"
-        )["spec"]["traffic"]["transformation"]
-        for direction in ("request", "response"):
-            self.assertIn("x-agentgateway-auth-context", stripping[direction]["remove"])
-
-    def test_mcp_is_stateless_and_fails_closed_with_or_without_pii(self):
-        for pii in (False, True):
-            result = render(
-                "agentgateway",
-                {
-                    "mcp": {
-                        "enabled": True,
-                        "approvedHosts": ["mcp.lint.example"],
-                        "servers": [
-                            {
-                                "name": "example",
-                                "host": "mcp.lint.example",
-                                "port": 443,
-                                "tls": True,
-                                "piiEnabled": pii,
-                                "contentTracingEnabled": False,
-                            }
-                        ],
-                    },
-                    "authKeycloak": {
-                        "agentgatewayClientRoles": [
-                            "llm:invoke",
-                            "model:remote/example/model:invoke",
-                            "mcp:example:invoke",
-                        ]
-                    },
-                },
-            )
-            backend = yaml.safe_dump(resource(result, "AgentgatewayBackend", "mcp-example-be"))
-            for field in (
-                "sessionRouting: Stateless",
-                "failureMode: FailClosed",
-                "prefixMode: Always",
-            ):
-                self.assertIn(field, backend)
-            policy = resource(result, "AgentgatewayPolicy", "mcp-example-policy")
-            text = yaml.safe_dump(policy)
-            for field in (
-                "mcp:example:invoke",
-                "failureMode: FailClosed",
-                "responseBodyMode: FullDuplexStreamed",
-            ):
-                self.assertIn(field, text)
-            self.assertIn(f"pii_enabled: '{str(pii).lower()}'", text)
-            self.assertNotIn("mcp-session-id", text.lower())
-            metadata = policy["spec"]["traffic"]["extProc"]["metadataContext"]["neurwerk.destination_policy"]
-            self.assertNotIn("account_email", metadata)
-            self.assertNotIn("contextforge", metadata)
-
-    def test_native_contextforge_activation_uses_private_tls_and_trusted_identity(self):
-        for provider, model in (("context7", "no-authentication"), ("brave", "shared-authentication")):
-            with self.subTest(provider=provider):
-                server = {"name": "example", "contextforge": {
-                    "serverId": "0123456789abcdef0123456789abcdef",
-                    "provider": provider, "authenticationModel": model,
-                }}
-                values = {"mcp": {"enabled": False, "servers": [server]}, "authKeycloak": {
-                    "agentgatewayClientRoles": ["llm:invoke", "model:remote/example/model:invoke", "mcp:example:invoke"],
-                }}
-                dormant = render("agentgateway", values)
-                self.assertNotIn("account_email:", dormant.stdout)
-                self.assertNotIn("/servers/", dormant.stdout)
-                values["mcp"]["enabled"] = True
-                prepared = render("agentgateway", values)
-                self.assertNotIn("/servers/", prepared.stdout)
-                self.assertNotIn("account_email:", prepared.stdout)
-                values["mcp"]["contextforgeRoutesEnabled"] = ["example"]
-                active = render("agentgateway", values)
-                target = resource(active, "AgentgatewayBackend", "mcp-example-be")["spec"]["mcp"]["targets"][0]["static"]
-                self.assertEqual(target["host"], "contextforge.contextforge.svc.cluster.local")
-                self.assertEqual(target["port"], 4444)
-                self.assertEqual(target["path"], "/servers/0123456789abcdef0123456789abcdef/mcp")
-                self.assertEqual(target["policies"], {"tls": {
-                    "sni": "contextforge.contextforge.svc.cluster.local",
-                    "verifySubjectAltNames": ["contextforge.contextforge.svc.cluster.local"],
-                    "caCertificateRefs": [{"kind": "ConfigMap", "name": "infra-openbao-ca-bundle", "key": "ca.crt"}],
-                }})
-                metadata = resource(active, "AgentgatewayPolicy", "mcp-example-policy")["spec"]["traffic"]["extProc"]["metadataContext"]["neurwerk.destination_policy"]
-                self.assertEqual(metadata["contextforge"], "true")
-                self.assertIn("has(jwt.email) ? jwt.email : null", metadata["account_email"])
-                self.assertIn("extauthz.account_email", metadata["account_email"])
-                self.assertNotIn("request.headers", metadata["account_email"])
-
-    def test_native_contextforge_mapping_rejects_tool_scope_and_credential_bypasses(self):
-        native = {"serverId": "0123456789abcdef0123456789abcdef",
-                  "provider": "context7", "authenticationModel": "no-authentication"}
-        cases = [
-            ([{"name": "one", "contextforge": {**native, "serverId": value}}], "32 lowercase hex")
-            for value in ("../mcp", "0123456789ABCDEF0123456789ABCDEF", "short")
-        ]
-        cases += [
-            ([{"name": name, "contextforge": native} for name in ("one", "two")], "must be unique"),
-            ([{"name": "one", "contextforge": {**native, "authenticationModel": "individual-authentication"}}], "Base #424"),
-            ([{"name": "one", "contextforge": {**native, "gatewayId": "catalog-only"}}], "catalog-management only"),
-        ]
-        cases += [
-            ([{"name": "one", "contextforge": native, field: value}], f"cannot set {field}")
-            for field, value in (("path", "/mcp"), ("host", "other.example.test"),
-                                 ("upstreamAuth", {"header": "Authorization"}))
-        ]
-        for servers, message in cases:
-            with self.subTest(servers=servers):
-                failed = render("agentgateway", {"mcp": {"enabled": False, "servers": servers}}, check=False)
-                self.assertNotEqual(failed.returncode, 0)
-                self.assertIn(message, failed.stderr)
-
     def test_logging_does_not_depend_on_guardrails_or_tracing(self):
-        result = render(
-            "agentgateway",
-            {
-                "guardrails": {"llmPolicyEngine": {"enabled": False, "models": []}},
-                "infraAgentgatewayWrapper": {"tracing": None},
-            },
-        )
+        result = render("agentgateway", {
+            "aiGateway": {"bindings": []},
+            "guardrails": {"llmPolicyEngine": {"enabled": False, "models": []}},
+            "infraAgentgatewayWrapper": {"tracing": None},
+        })
         raw = resource(result, "AgentgatewayParameters")["spec"]["rawConfig"]
         self.assertNotIn("http", raw["frontendPolicies"])
         self.assertNotIn("tracing", raw["config"])
         self.assertIn("database", raw["config"]["logging"])
 
     def test_database_and_studio_peers(self):
-        postgres = render(
-            "postgres/operations",
-            release="postgres-operations",
-            namespace="infra-postgres-operations",
-        )
-        rules = resource(postgres, "NetworkPolicy", "postgres-operations-ingress")["spec"][
-            "ingress"
-        ]
-        self.assertEqual(
-            [rule["ports"] for rule in rules if GATEWAY_PEER in rule["from"]],
-            [[{"port": 9712, "protocol": "TCP"}]],
-        )
+        postgres = render("postgres/operations", release="postgres-operations", namespace="infra-postgres-operations")
+        rules = resource(postgres, "NetworkPolicy", "postgres-operations-ingress")["spec"]["ingress"]
+        self.assertEqual([rule["ports"] for rule in rules if GATEWAY_PEER in rule["from"]],
+                         [[{"port": 9712, "protocol": "TCP"}]])
         studio = render("studio/api", release="frontend-studio-api", namespace="frontend-studio")
-        self.assertEqual(
-            env_value(studio, "K8S_STUDIO_AGENTGATEWAY_ADMIN_URL"),
-            "http://infra-agentgateway-gateway.infra-agentgateway.svc.cluster.local:15000",
-        )
+        self.assertEqual(env_value(studio, "K8S_STUDIO_AGENTGATEWAY_ADMIN_URL"),
+                         "http://infra-agentgateway-gateway.infra-agentgateway.svc.cluster.local:15000")
         self.assertEqual(env_value(studio, "K8S_STUDIO_USAGE_TIMEZONE"), "UTC")
-        rules = resource(studio, "NetworkPolicy", "frontend-studio-api-egress-network-policy")[
-            "spec"
-        ]["egress"]
+        rules = resource(studio, "NetworkPolicy", "frontend-studio-api-egress-network-policy")["spec"]["egress"]
         self.assertIn({"to": [GATEWAY_PEER], "ports": [{"port": 15000, "protocol": "TCP"}]}, rules)

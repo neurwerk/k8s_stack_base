@@ -36,29 +36,6 @@ class NoticePreferenceBoundaryTests(unittest.TestCase):
                     self.assertEqual(langfuse[0]["podSelector"]["matchLabels"]["app.kubernetes.io/component"],
                                      "web")
 
-    def test_credential_metadata_uses_verified_key_identity_only(self):
-        models = {"guardrails": {"llmPolicyEngine": {"models": [{
-            "name": "remote/example/model", "provider": "OpenAI",
-            "model": "example-model", "baseURL": "https://provider.example.test",
-            "piiEnabled": True, "contentTracingEnabled": True,
-        }]}}}
-        rendered = render("agentgateway", models)
-        auth = resource(rendered, "AgentgatewayPolicy", "infra-agentgateway-auth-ag-policy")
-        policy = resource(rendered, "AgentgatewayPolicy", "infra-agentgateway-policy-extproc")
-        conditions = policy["spec"]["traffic"]["extProc"]["conditional"]
-        bridge = auth["spec"]["traffic"]["extAuth"]["conditional"][0]["policy"]["http"]["responseMetadata"]
-        self.assertIn("credential_id", bridge)
-        self.assertIn("credential_kind", bridge)
-        self.assertEqual(len(conditions), 3)
-        key_metadata = conditions[0]["policy"]["metadataContext"]["neurwerk.destination_policy"]
-        self.assertIn("extauthz.credential_id", conditions[0]["condition"])
-        self.assertEqual(key_metadata["credential_id"], "extauthz.credential_id")
-        jwt_metadata = conditions[1]["policy"]["metadataContext"]["neurwerk.destination_policy"]
-        self.assertNotIn("credential_id", jwt_metadata)
-        legacy = conditions[2]["policy"]["metadataContext"]["neurwerk.destination_policy"]
-        self.assertNotIn("credential_id", legacy)
-        self.assertIn("!has(jwt.sub)", conditions[2]["condition"])
-
     def test_private_listener_schema_and_lookup_wire(self):
         studio = render("studio/api", namespace="frontend-studio", release="frontend-studio-api")
         deployment = resource(studio, "Deployment", "frontend-studio-api-deployment")

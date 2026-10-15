@@ -115,37 +115,18 @@ spec:
     {{- $add := get $fields "add" | default dict }}
     {{- $llmInput := include "infra-agentgateway.llmTraceInput" . }}
     {{- $llmOutput := include "infra-agentgateway.llmTraceOutput" . }}
-    {{- $modelContentDisabled := list }}
-    {{- range $model := include "infra-agentgateway.effectiveModels" . | fromYamlArray }}
-    {{-   $contentTracingEnabled := true }}
-    {{-   if hasKey $model "contentTracingEnabled" }}{{- $contentTracingEnabled = $model.contentTracingEnabled }}{{- end }}
-    {{-   if not $contentTracingEnabled }}{{- $modelContentDisabled = append $modelContentDisabled $model.name }}{{- end }}
-    {{- end }}
-    {{- $mcpContentDisabled := list }}
-    {{- range $server := include "infra-agentgateway.effectiveMcpServers" . | fromYamlArray }}
-    {{-   $contentTracingEnabled := true }}
-    {{-   if hasKey $server "contentTracingEnabled" }}{{- $contentTracingEnabled = $server.contentTracingEnabled }}{{- end }}
-    {{-   if not $contentTracingEnabled }}{{- $mcpContentDisabled = append $mcpContentDisabled $server.name }}{{- end }}
-    {{- end }}
-    {{- /* Model routing records the public requested ID before virtual resolution. */}}
-    {{- $_ := set $add "gen_ai.prompt" (printf `has(metadata.agentgateway_user_model) && !(metadata.agentgateway_user_model in %s) ? %s : null` ($modelContentDisabled | toJson) $llmInput) }}
-    {{- $_ := set $add "gen_ai.completion" (printf `has(metadata.agentgateway_user_model) && !(metadata.agentgateway_user_model in %s) ? %s : null` ($modelContentDisabled | toJson) $llmOutput) }}
-    {{- /* MCP backend target names are the exact reviewed server IDs. */}}
-    {{- $_ := set $add "langfuse.observation.input" (printf `has(mcp.tool.arguments) && has(mcp.tool.target) && !(mcp.tool.target in %s) ? flattenRecursive(mcp.tool.arguments) : null` ($mcpContentDisabled | toJson)) }}
-    {{- $_ := set $add "langfuse.observation.output" (printf `has(mcp.tool.result) && has(mcp.tool.target) && !(mcp.tool.target in %s) ? flattenRecursive(mcp.tool.result) : null` ($mcpContentDisabled | toJson)) }}
-    {{- if .Values.aiGateway.enabled }}
     {{- range $field, $expression := include "infra-agentgateway.aiTelemetry" . | fromYaml }}
     {{- $_ := set $add $field $expression }}
     {{- end }}
     {{- range $field := list "gen_ai.prompt" "gen_ai.completion" }}
-    {{- $legacy := get $add $field }}
     {{- $content := ternary $llmInput $llmOutput (eq $field "gen_ai.prompt") }}
-    {{- $_ := set $add $field (printf `has(metadata.neurwerk_admission) ? (default(extproc["neurwerk.request_context"].content_tracing_enabled, false) ? %s : null) : (%s)` $content $legacy) }}
+    {{- $_ := set $add $field (printf `default(extproc["neurwerk.request_context"].content_tracing_enabled, false) ? %s : null` $content) }}
     {{- end }}
-    {{- $_ := set $add "gen_ai.usage.cost" (printf `has(metadata.neurwerk_admission) ? (has(llm.cost) ? double(llm.cost.total) : null) : (%s)` (get $add "gen_ai.usage.cost" | default "null")) }}
-    {{- $_ := set $add "langfuse.session.id" (printf `has(metadata.neurwerk_admission) ? metadata.neurwerk_admission.request_id : (%s)` (get $add "langfuse.session.id" | default "null")) }}
-    {{- $_ := set $add "langfuse.observation.metadata.requested_model" (printf `has(metadata.neurwerk_admission) ? default(extproc["neurwerk.request_context"].requested_model, null) : (%s)` (get $add "langfuse.observation.metadata.requested_model" | default "null")) }}
-    {{- end }}
+    {{- $_ := set $add "langfuse.observation.input" `has(mcp.tool.arguments) && default(extproc["neurwerk.request_context"].content_tracing_enabled, false) ? flattenRecursive(mcp.tool.arguments) : null` }}
+    {{- $_ := set $add "langfuse.observation.output" `has(mcp.tool.result) && default(extproc["neurwerk.request_context"].content_tracing_enabled, false) ? flattenRecursive(mcp.tool.result) : null` }}
+    {{- $_ := set $add "gen_ai.usage.cost" `has(llm.cost) ? double(llm.cost.total) : null` }}
+    {{- $_ := set $add "langfuse.session.id" `default(metadata.neurwerk_admission.request_id, null)` }}
+    {{- $_ := set $add "langfuse.observation.metadata.requested_model" `default(extproc["neurwerk.request_context"].requested_model, null)` }}
     {{- $_ := set $fields "add" $add }}
       tracing:
         otlpEndpoint: {{ .Values.infraAgentgatewayWrapper.tracing.otlpEndpoint | quote }}

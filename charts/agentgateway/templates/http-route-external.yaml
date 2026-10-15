@@ -26,21 +26,10 @@ spec:
   hostnames:
     - {{ $hostname }}
   rules:
-    {{- if .Values.aiGateway.enabled }}
     - matches:
         - path: {type: PathPrefix, value: /bindings}
       backendRefs:
         - name: infra-agentgateway-gateway
           namespace: infra-agentgateway
           port: {{ .Values.aiGateway.apiPort }}
-    {{- end }}
-    - matches:
-        # All traffic — Traefik only terminates TLS, auth/routing is at agentgateway level
-        - path:
-            type: PathPrefix
-            value: /
-      backendRefs:
-        - name: infra-agentgateway-gateway
-          namespace: infra-agentgateway
-          port: 80
 {{- end }}

@@ -74,6 +74,7 @@ authKeycloak:
   agentgatewayClientRoles:
     - llm:invoke
     - model:remote/example/model:invoke
+    - provider:openai:company-use
   smtp:
     enabled: true
     host: smtp.example.test
@@ -98,6 +99,8 @@ certManager:
     secretAccessKey: lint
 frontendLibrechat:
   hostname: librechat.lint.example
+  agentGateway:
+    primaryBinding: example
   adminPanel:
     hostname: librechat-admin.lint.example
   app:
@@ -163,6 +166,22 @@ mcp:
   enabled: false
 infraAgentgatewayWrapper:
   hostname: agentgateway.lint.example
+aiGateway:
+  enabled: true
+  bindings:
+    - id: example
+      enabled: true
+      providerId: openai
+      provider: OpenAI
+      upstreamURL: https://provider.lint.example
+      credentialSources: [company]
+      authSecret: example-provider-key
+      profiles: [openai-chat-completions-v1]
+      models:
+        - name: remote/example/model
+          upstreamModel: example-model
+          piiEnabled: true
+          contentTracingEnabled: true
 infraAgentgatewayWrapperSecrets:
   databasePassword: lint-agentgateway-database-password
 guardrails:
