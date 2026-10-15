@@ -16,17 +16,9 @@ The Base chart is the main Helm chart and the foundation of neurwerk.base. See t
 |  |  |
 | [Dify Add-on](https://github.com/neurwerk/k8s_stack_addon_dify) | Optional Dify package with API and web customizations, including single-workspace enforcement. |
 
-## System requirements
+## Documentation
 
-The following resources are required to run neurwerk.base:
-
-| Resource | Requirement |
-| --- | --- |
-| CPU | 16 vCPUs |
-| Memory | 64 GB RAM |
-| Storage | 1 TB (SSD recommended) |
-
-A CUDA-compatible GPU with at least **16 GB of VRAM** is recommended for the optional text-to-speech (TTS), speech-to-text (STT), optical character recognition (OCR), and named entity recognition for personally identifiable information (PII NER) features.
+See [Repository documentation](docs/README.md).
 
 ## Contributing and support
 
