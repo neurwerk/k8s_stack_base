@@ -8,12 +8,15 @@ metadata:
     {{- include "infra-agentgateway.aiLabels" . | nindent 4 }}
 spec:
   targetRefs:
-    - {group: gateway.networking.k8s.io, kind: Gateway, name: infra-agentgateway-gateway, sectionName: forward-proxy}
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: infra-agentgateway-gateway
+      port: {{ .Values.aiGateway.proxy.port }}
   frontend:
     connect:
       mode: Tunnel
 ---
-# Only this port is eligible for a separately reviewed L4 exposure path.
+# Traefik passes the proxy hostname's TLS through to this private port.
 apiVersion: v1
 kind: Service
 metadata:

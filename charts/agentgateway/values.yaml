@@ -84,8 +84,10 @@ aiGateway:
   proxy:
     enabled: false
     hostname: ""
+    # Private listener/Service port, separate from the advertised edge port.
     port: 8443
-    tlsSecretName: ""       # Publicly trusted TLS for the outer HTTPS proxy.
+    publicPort: 443
+    tlsSecretName: "agentgateway-proxy-tls-secrets" # Owned by the proxy Certificate.
     signerSecretName: ""    # Inspection intermediate; owned by inspection-pki.
     # Explicit Kubernetes NetworkPolicy peers for the selected L4 ingress path.
     # No public LoadBalancer or permissive ingress rule is created automatically.

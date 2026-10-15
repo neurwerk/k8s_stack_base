@@ -162,11 +162,14 @@ provider header and accidentally choose a company account instead. */}}
 {{- if not (kindIs "bool" $cfg.proxy.enabled) }}{{ fail "aiGateway.proxy.enabled must be boolean" }}{{ end -}}
 {{- if $cfg.proxy.enabled -}}
 {{- range $field, $_ := $cfg.proxy -}}
-{{- if not (has $field (list "enabled" "hostname" "port" "tlsSecretName" "signerSecretName" "ingressPeers")) }}{{ fail (printf "unknown aiGateway.proxy field %s" $field) }}{{ end -}}
+{{- if not (has $field (list "enabled" "hostname" "port" "publicPort" "tlsSecretName" "signerSecretName" "ingressPeers")) }}{{ fail (printf "unknown aiGateway.proxy field %s" $field) }}{{ end -}}
 {{- end -}}
 {{- range $field := list "hostname" "tlsSecretName" "signerSecretName" -}}
 {{- if not (regexMatch `^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$` (get $cfg.proxy $field)) }}{{ fail (printf "aiGateway.proxy.%s must be an exact DNS name" $field) }}{{ end -}}
 {{- end -}}
+{{- if or (not (regexMatch `^[1-9][0-9]*$` (toJson $cfg.proxy.publicPort))) (gt (int $cfg.proxy.publicPort) 65535) }}{{ fail "aiGateway.proxy.publicPort must be a TCP port" }}{{ end -}}
+{{- if eq $cfg.proxy.hostname $.Values.infraAgentgatewayWrapper.hostname }}{{ fail "API and proxy hostnames must differ for shared HTTPS ingress" }}{{ end -}}
+{{- if or (eq $cfg.proxy.tlsSecretName "infra-agentgateway-tls") (eq $cfg.proxy.tlsSecretName $cfg.proxy.signerSecretName) }}{{ fail "proxy TLS must use its own Secret, separate from API TLS and inspection signing" }}{{ end -}}
 {{- if empty $hosts }}{{ fail "proxy requires at least one inspected binding" }}{{ end -}}
 {{- if or (not (kindIs "slice" $cfg.proxy.ingressPeers)) (empty $cfg.proxy.ingressPeers) }}{{ fail "proxy requires explicit ingressPeers for the selected L4 path" }}{{ end -}}
 {{- range $peer := $cfg.proxy.ingressPeers -}}

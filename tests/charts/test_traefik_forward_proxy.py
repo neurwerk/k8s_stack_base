@@ -47,20 +47,11 @@ class TraefikForwardProxyTests(unittest.TestCase):
                 result = edge(values)
                 self.assertEqual(result.returncode, 0, result.stderr)
                 vendor = vendor_values(result)
-                entry = vendor["ports"]["forward-proxy"]
-                for field in ("port", "exposedPort", "hostPort"):
-                    self.assertEqual(entry[field], port)
-                self.assertEqual(entry["protocol"], "TCP")
-                self.assertTrue(entry["expose"]["default"])
-                for field in ("http", "tls", "http3", "asDefault"):
-                    self.assertNotIn(field, entry)
-                self.assertEqual(
-                    {name for name, config in vendor["ports"].items() if config.get("asDefault")},
-                    {"web", "websecure"},
-                )
+                self.assertNotIn("forward-proxy", vendor["ports"])
+                self.assertEqual(vendor, vendor_values(edge({})))
                 route = resource(result, "IngressRouteTCP")
                 self.assertEqual(route["metadata"]["namespace"], "infra-agentgateway")
-                self.assertEqual(route["spec"]["entryPoints"], ["forward-proxy"])
+                self.assertEqual(route["spec"]["entryPoints"], ["websecure"])
                 rule, = route["spec"]["routes"]
                 self.assertEqual(rule["match"], "HostSNI(`proxy.platform.test`)")
                 self.assertEqual(rule["services"], [{"name": "infra-agentgateway-forward-proxy", "port": port}])
@@ -93,20 +84,21 @@ class TraefikForwardProxyTests(unittest.TestCase):
                 self.assertNotEqual(result.returncode, 0, result.stdout)
                 self.assertIn("aiGateway", result.stderr)
 
-    def test_rejects_port_collisions_and_missing_crd_provider(self):
-        cases = [({"port": port}, {}) for port in (80, 443, 8000, 8080, 9100)]
-        cases += [
-            ({"port": 9443}, {"ports": {name: {field: 9443}}})
-            for name in ("web", "websecure") for field in ("port", "exposedPort")
+    def test_rejects_ambiguous_edge_routing_and_missing_crd_provider(self):
+        cases = [
+            ({"aiGateway": {"proxy": {"publicPort": 8443}}}, "publicPort must match"),
+            ({"infraAgentgatewayWrapper": {"hostname": "proxy.platform.test"}}, "hostnames must differ"),
         ]
-        for proxy, traefik in cases:
-            with self.subTest(proxy=proxy, traefik=traefik):
+        for override, message in cases:
+            with self.subTest(override=override):
                 values = copy.deepcopy(VALUES)
-                values["aiGateway"]["proxy"].update(proxy)
-                values["traefik"] = traefik
+                if "aiGateway" in override:
+                    values["aiGateway"]["proxy"].update(override["aiGateway"]["proxy"])
+                else:
+                    values.update(override)
                 result = edge(values)
                 self.assertNotEqual(result.returncode, 0, result.stdout)
-                self.assertIn("aiGateway.proxy.port collides", result.stderr)
+                self.assertIn(message, result.stderr)
         values = copy.deepcopy(VALUES)
         values["traefik"] = {"providers": {"kubernetesCRD": {"enabled": False}}}
         result = edge(values)

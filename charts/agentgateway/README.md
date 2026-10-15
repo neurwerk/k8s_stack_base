@@ -117,7 +117,8 @@ aiGateway:
     enabled: true
     hostname: proxy.example.test
     port: 8443
-    tlsSecretName: example-public-proxy-tls
+    publicPort: 443
+    tlsSecretName: agentgateway-proxy-tls-secrets
     signerSecretName: example-inspection-intermediate
     ingressPeers:
       - namespaceSelector:
@@ -126,13 +127,14 @@ aiGateway:
           matchLabels: {app.kubernetes.io/name: traefik}
 ```
 
-Both Secrets are in `infra-agentgateway`. The public proxy certificate and the
-inspection intermediate are distinct. The PKI owner supplies the intermediate
-and root trust publication. The native Gateway keeps inspection port 443 internal
-and exposes only the outer proxy port through a private ClusterIP Service,
-`infra-agentgateway-forward-proxy`. A separately configured L4 path must preserve
-TLS to that Service. `ingressPeers` requires explicit namespace and pod labels;
-public exposure is coordinated with the deployment owner.
+Both Secrets are in `infra-agentgateway`. The chart requests a separate public
+proxy Certificate using `publicCertificates.useProduction`; reconcile its exact
+approval profile before issuance. The API hostname and TLS Secret must be distinct.
+The PKI owner supplies the inspection intermediate and root trust publication.
+The Gateway keeps inspection port 443 internal. Traefik passes the proxy hostname's
+TLS from public `publicPort` to the private `infra-agentgateway-forward-proxy`
+Service on `port`; Studio advertises `publicPort`. The frontend CONNECT policy
+targets that private port. `ingressPeers` requires explicit namespace and pod labels.
 
 Each inspected binding owns one exact HTTPS upstream hostname on port 443 and
 one exact-SNI listener. Inner authority must match that listener (optionally

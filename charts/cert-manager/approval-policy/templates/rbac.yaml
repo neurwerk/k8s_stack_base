@@ -38,6 +38,10 @@ rules:
       - cert-manager-public-keycloak-production
       - cert-manager-public-agentgateway-staging
       - cert-manager-public-agentgateway-production
+      {{- if and .Values.aiGateway.enabled .Values.aiGateway.proxy.enabled }}
+      - cert-manager-public-agentgateway-proxy-staging
+      - cert-manager-public-agentgateway-proxy-production
+      {{- end }}
       - cert-manager-public-librechat-staging
       - cert-manager-public-librechat-production
       - cert-manager-public-librechat-admin-staging

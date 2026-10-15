@@ -389,6 +389,9 @@ spec:
   (dict "name" "cert-manager-public-langfuse" "namespace" "monitor-langfuse" "hostname" .Values.monitorLangfuseWrapper.hostname)
   (dict "name" "cert-manager-public-rook-object-gateway" "namespace" "infra-rook-ceph" "hostname" .Values.infraRookCeph.objectStore.publicHostname)
 -}}
+{{- if and .Values.aiGateway.enabled .Values.aiGateway.proxy.enabled -}}
+{{- $publicPolicies = append $publicPolicies (dict "name" "cert-manager-public-agentgateway-proxy" "namespace" "infra-agentgateway" "hostname" .Values.aiGateway.proxy.hostname) -}}
+{{- end -}}
 {{- $publicIssuers := list
   (dict "name" "staging" "issuer" "letsencrypt-staging-cluster-issuer")
   (dict "name" "production" "issuer" "letsencrypt-production-cluster-issuer")

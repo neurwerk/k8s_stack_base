@@ -10,7 +10,7 @@ metadata:
     app.kubernetes.io/part-of: kube-system
 spec:
   entryPoints:
-    - forward-proxy
+    - websecure
   routes:
     - match: {{ printf "HostSNI(`%s`)" .Values.aiGateway.proxy.hostname | quote }}
       services:
