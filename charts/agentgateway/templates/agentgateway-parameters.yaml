@@ -113,11 +113,13 @@ spec:
       {{- if .Values.infraAgentgatewayWrapper.tracing }}
     {{- $fields := deepCopy (.Values.infraAgentgatewayWrapper.tracing.fields | default dict) }}
     {{- $add := get $fields "add" | default dict }}
+    {{- $llmInput := include "infra-agentgateway.llmTraceInput" . }}
+    {{- $llmOutput := include "infra-agentgateway.llmTraceOutput" . }}
     {{- range $field, $expression := include "infra-agentgateway.aiTelemetry" . | fromYaml }}
     {{- $_ := set $add $field $expression }}
     {{- end }}
     {{- range $field := list "gen_ai.prompt" "gen_ai.completion" }}
-    {{- $content := ternary `flattenRecursive(llm.prompt)` `flattenRecursive(llm.completion.map(c, {"role":"assistant", "content": c}))` (eq $field "gen_ai.prompt") }}
+    {{- $content := ternary $llmInput $llmOutput (eq $field "gen_ai.prompt") }}
     {{- $_ := set $add $field (printf `default(extproc["neurwerk.request_context"].content_tracing_enabled, false) ? %s : null` $content) }}
     {{- end }}
     {{- $_ := set $add "langfuse.observation.input" `has(mcp.tool.arguments) && default(extproc["neurwerk.request_context"].content_tracing_enabled, false) ? flattenRecursive(mcp.tool.arguments) : null` }}

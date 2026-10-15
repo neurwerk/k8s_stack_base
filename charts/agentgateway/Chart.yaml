@@ -10,8 +10,7 @@ description: |
     - AgentGateway control plane (via OCI subchart dependency)
     - AgentGateway data plane proxy
     - Gateway (gatewayClassName: agentgateway) with cert-manager TLS
-    - HTTPRoute routing /v1/chat/completions traffic + MCP/OAuth paths
-    - Optional private LibreChat RAG embeddings listener
+    - Binding-based HTTPRoutes for model and MCP traffic
     - AgentgatewayPolicy with JWT auth (Keycloak JWKS) + CEL RBAC
     - Secret with LLM provider API keys
 type: application
