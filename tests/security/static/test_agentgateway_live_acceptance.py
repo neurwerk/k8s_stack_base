@@ -30,7 +30,7 @@ def valid_environment() -> dict[str, str]:
         "LIVE_ACCEPTANCE_CONFIRM": acceptance.CONFIRMATION,
         "LIVE_ACCEPTANCE_EXPECTED_CONTEXT": "acceptance-context",
         "LIVE_ACCEPTANCE_EXPECTED_CLIENT": "client_acceptance_test",
-        "LIVE_ACCEPTANCE_AGENTGATEWAY_URL": "https://gateway.acceptance.test",
+        "LIVE_ACCEPTANCE_AGENTGATEWAY_URL": "https://gateway.acceptance.test/bindings/acceptance/v1",
         "LIVE_ACCEPTANCE_MODEL_ID": "remote/acceptance",
         "LIVE_ACCEPTANCE_API_KEY": "live-secret-api-key",
     }
