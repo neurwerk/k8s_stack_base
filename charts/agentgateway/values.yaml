@@ -1,6 +1,17 @@
 infraAgentgatewayWrapper:
   hostname: ""                        # set in client_*/config/client.yaml
 
+  observation:
+    # Requires the coordinated Studio status schema and a published Tooling image
+    # containing agentgateway-observe. Select gateway.statusConfigMapName in Studio.
+    enabled: false
+    image: ""
+    # Exact API Service and post-DNAT destinations, supplied by the client.
+    kubernetesApiEgress: []
+    resources:
+      requests: {cpu: 25m, memory: 128Mi}
+      limits: {cpu: 250m, memory: 256Mi}
+
   alerts:
     # Application failures use the existing Alertmanager email recipient.
     enabled: true
