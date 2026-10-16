@@ -477,12 +477,12 @@ spec:
           sha256: d932c62d60743f2837c7b9a4248ef7719c3049fe11b2dd8d44bc6ede43641a0e
     - path: charts/pii-engine
       name: pii-engine
-      version: 1.1.4
-      appVersion: 0.15.0
+      version: 1.1.5
+      appVersion: 0.15.1
     - path: charts/pii-engine-model-sync
       name: pii-engine-model-sync
-      version: 1.0.11
-      appVersion: 0.15.0
+      version: 1.0.12
+      appVersion: 0.15.1
     - path: charts/postgres/addon
       name: infra-postgres-addon
       version: 0.1.2
@@ -906,7 +906,7 @@ spec:
       eligibility: included
       origins:
       - charts/opensearch/dashboards/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-pii-engine:0.15.0@sha256:11f739b425eaa00889765ab3775ed09e5d57e74bc01d67f2a9325538e95b1bf0
+    - reference: ghcr.io/neurwerk/k8s-stack-pii-engine:0.15.1@sha256:55976d152fa0944b22cd0c59c952513da6739fbe8cbf6fa5d904c6f82781321d
       pinned: true
       eligibility: included
       origins:
