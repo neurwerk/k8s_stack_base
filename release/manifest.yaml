@@ -218,7 +218,7 @@ spec:
     charts:
     - path: charts/agentgateway
       name: infra-agentgateway
-      version: 2.0.2
+      version: 2.0.3
       appVersion: 1.6.0
       dependencyLock:
         digest: sha256:ef5fd87240e231990e45578f9deb65e6a6f947ba8a8b846cf13954882299cb3a
@@ -238,8 +238,8 @@ spec:
       appVersion: 0.8.0
     - path: charts/agentgateway-extproc
       name: agentgateway-extproc
-      version: 2.0.4
-      appVersion: 0.19.4
+      version: 2.0.5
+      appVersion: 0.19.5
     - path: charts/cert-manager/approval-policy
       name: infra-cert-manager-approval-policy
       version: 1.2.8
@@ -349,8 +349,8 @@ spec:
       appVersion: 26.7.2
     - path: charts/keycloak-api-key-bridge
       name: auth-keycloak-api-key-bridge
-      version: 1.2.0
-      appVersion: 0.10.0
+      version: 1.2.1
+      appVersion: 0.10.1
     - path: charts/kube-prometheus-stack
       name: monitor-kube-prometheus-stack
       version: 1.1.0
@@ -366,7 +366,7 @@ spec:
           sha256: b344a03d0006aba69a8c20ae1ff0354ac7687bdf72c3611c4f330b59a22b7548
     - path: charts/langfuse
       name: monitor-langfuse
-      version: 2.0.13
+      version: 2.0.14
       appVersion: 4.28.1
       dependencyLock:
         digest: sha256:68156b8f74aa153f2e33eb76f6ac11e9277c1a8fe8073c3f37da8834a97292cc
@@ -513,15 +513,15 @@ spec:
       appVersion: v1.20.3
     - path: charts/studio/api
       name: studio-api
-      version: 1.6.2
-      appVersion: 0.19.3
+      version: 1.6.3
+      appVersion: 0.19.4
     - path: charts/studio/shared
       name: studio-shared
       version: 1.0.0
     - path: charts/studio/web
       name: studio
-      version: 1.0.25
-      appVersion: 0.19.3
+      version: 1.0.26
+      appVersion: 0.19.4
     - path: charts/traefik
       name: traefik
       version: 1.1.1
@@ -885,13 +885,13 @@ spec:
       eligibility: included
       origins:
       - charts/wireguard/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.19.4@sha256:0e5914503a6145685a3150e89ecf1d9e087b1a384186b2ccf939e8518450ed3f
+    - reference: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.19.5@sha256:a4f433eaffc8e0cb111c7bc32148e46b335855ddaead84608a3a1a1be66962f5
       pinned: true
       eligibility: included
       origins:
       - charts/agentgateway-extproc/values.yaml
       - charts/langfuse/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-keycloak-api-key-bridge:0.10.0@sha256:8eea9b7ff35003429cc26f42e552d3439517756f5ac12fd6252ac7bb2fefd048
+    - reference: ghcr.io/neurwerk/k8s-stack-keycloak-api-key-bridge:0.10.1@sha256:bb71dac82d3cbd7581b07b36c16ca6edd672a503db21e267ed492feece3f97cd
       pinned: true
       eligibility: included
       origins:
@@ -912,12 +912,12 @@ spec:
       origins:
       - charts/pii-engine-model-sync/values.yaml
       - charts/pii-engine/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-studio-api:0.19.3@sha256:5def31d37f3e4955106c3a047a9da54ca90def9d1520d286e980a865d85d7e52
+    - reference: ghcr.io/neurwerk/k8s-stack-studio-api:0.19.4@sha256:8c2ccb1a33dc94169ea479fb52e63610e9122c3a55f0cd0153ac0d61d6ad739b
       pinned: true
       eligibility: included
       origins:
       - charts/studio/api/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-studio-web:0.19.3@sha256:fa1024c2931ea727d8c477c672a29ef6c8b9ba2b8e664df22b2647c46ef602af
+    - reference: ghcr.io/neurwerk/k8s-stack-studio-web:0.19.4@sha256:0a4c43661979ed7665c5c83d2fe26ae00c58ebbf74231e376a34f8df5bdc039f
       pinned: true
       eligibility: included
       origins:

@@ -18,11 +18,11 @@ app.kubernetes.io/part-of: infra-agentgateway
 provider header and accidentally choose a company account instead. */}}
 {{- define "infra-agentgateway.aiCredentialAuthorization" -}}
 {{- if .local -}}
-{{- `!["authorization", "x-api-key", "x-goog-api-key"].exists(h, h in request.headers && !(h == "authorization" && has(jwt.sub) && !("x-neurwerk-authorization" in request.headers)))` -}}
+{{- `!["authorization", "x-api-key", "x-goog-api-key", "api-key"].exists(h, h in request.headers && !(h == "authorization" && has(jwt.sub) && !("x-neurwerk-authorization" in request.headers)))` -}}
 {{- else -}}
 {{- $company := "true" -}}
 {{- if has "company" .credentialSources }}{{ $company = printf `%q in (has(jwt.sub) ? jwt.resource_access.agentgateway.roles : extauthz.permissions)` (printf "provider:%s:company-use" .providerId) }}{{ end -}}
-{{- printf `(["authorization", "x-api-key", "x-goog-api-key"].all(h, h == %q || !(h in request.headers) || (h == "authorization" && has(jwt.sub) && !("x-neurwerk-authorization" in request.headers)))) && ((has(jwt.sub) && !("x-neurwerk-authorization" in request.headers)) ? (%t && (%s) && !["x-api-key", "x-goog-api-key"].exists(h, h in request.headers)) : (%q in request.headers ? %t : (%s)))` .credentialHeader (has "company" .credentialSources) $company .credentialHeader (has "caller_supplied" .credentialSources) $company -}}
+{{- printf `(["authorization", "x-api-key", "x-goog-api-key", "api-key"].all(h, h == %q || !(h in request.headers) || (h == "authorization" && has(jwt.sub) && !("x-neurwerk-authorization" in request.headers)))) && ((has(jwt.sub) && !("x-neurwerk-authorization" in request.headers)) ? (%t && (%s) && !["x-api-key", "x-goog-api-key", "api-key"].exists(h, h in request.headers)) : (%q in request.headers ? %t : (%s)))` .credentialHeader (has "company" .credentialSources) $company .credentialHeader (has "caller_supplied" .credentialSources) $company -}}
 {{- end -}}
 {{- end -}}
 
