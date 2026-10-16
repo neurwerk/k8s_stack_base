@@ -1,7 +1,7 @@
 # IMAGE SOURCE: owned service
 # The image is built by the pii_engine repository and pinned here.
 monitorPiiEngine:
-  image: ghcr.io/neurwerk/k8s-stack-pii-engine:0.15.0@sha256:11f739b425eaa00889765ab3775ed09e5d57e74bc01d67f2a9325538e95b1bf0
+  image: ghcr.io/neurwerk/k8s-stack-pii-engine:0.15.1@sha256:55976d152fa0944b22cd0c59c952513da6739fbe8cbf6fa5d904c6f82781321d
   # Local retains the existing baseline / verified transformer selection.
   analyzerBackend: local # local | remote-gliner | remote-kserve
   # null preserves legacy automatic baseline / transformer bundle selection.
