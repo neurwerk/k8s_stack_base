@@ -132,7 +132,7 @@ class InspectedGatewayTests(unittest.TestCase):
             auth = traffic["extAuth"]["conditional"][0]["policy"]["http"]
             self.assertEqual(auth["path"], json.dumps(path))
             self.assertEqual(auth["allowedRequestHeaders"], ["content-type"])
-            self.assertEqual(list(auth["addRequestHeaders"]), [header])
+            self.assertEqual(set(auth["addRequestHeaders"]), {header, "x-request-id"})
             self.assertIn(f'size({source}.raw()["{header}"]) == 1', auth["addRequestHeaders"][header])
             for expression in traffic["authorization"]["policy"]["matchExpressions"]:
                 self.assertNotIn("source.connectHeaders", expression)

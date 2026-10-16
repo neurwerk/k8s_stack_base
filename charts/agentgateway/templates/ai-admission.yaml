@@ -90,8 +90,10 @@ spec:
               # Employee identity comes only from the dedicated header.
               allowedRequestHeaders: [content-type]
               addRequestHeaders:
+                x-request-id: 'uuid()'
                 {{ $credential }}: {{ printf `%q in %s && size(%s.raw()[%q]) == 1 ? %s[%q] : ""` $credential $headers $headers $credential $headers $credential | squote }}
               responseMetadata:
+                request_id: 'response.headers["x-request-id"]'
                 {{- range $field := list "contract_version" "principal_id" "permissions" "credential_id" "credential_kind" "account_email" }}
                 {{ $field }}: {{ printf `json(response.headers["x-agentgateway-auth-context"]).%s` $field | squote }}
                 {{- end }}
@@ -137,9 +139,9 @@ spec:
           policy:
             request:
               metadata:
-                # Generated once after authentication, before the route extProc.
+                # Reuse the bridge call's gateway-generated ID; JWT calls generate one here.
                 neurwerk_admission: >-
-                  {"request_id": uuid(), "principal_id": has(jwt.sub) ? jwt.sub : extauthz.principal_id,
+                  {"request_id": has(jwt.sub) ? uuid() : extauthz.request_id, "principal_id": has(jwt.sub) ? jwt.sub : extauthz.principal_id,
                   "credential_context_version": has(jwt.sub) ? null : "1", "credential_id": has(jwt.sub) ? null : extauthz.credential_id,
                   "credential_kind": has(jwt.sub) ? null : extauthz.credential_kind,
                   "permissions": has(jwt.sub) ? jwt.resource_access.agentgateway.roles : extauthz.permissions,
@@ -148,6 +150,8 @@ spec:
                   "protocol_profile": {{ $operation.profile | toJson }}, "operation_id": {{ $operation.id | toJson }},
                   "provider_credential_source": ({{ include "infra-agentgateway.aiCredentialSource" $binding }}),
                   "policy_revision": {{ $revision | toJson }}}
+              set:
+                x-request-id: 'metadata.neurwerk_admission.request_id'
               remove:
                 - x-neurwerk-authorization
                 - proxy-authorization
@@ -167,6 +171,8 @@ spec:
                 {{- end }}
                 {{- end }}
             response:
+              set:
+                x-request-id: 'metadata.neurwerk_admission.request_id'
               remove: [authorization, proxy-authorization, x-neurwerk-authorization, x-api-key, x-goog-api-key, set-cookie, x-agentgateway-auth-context]
         {{- end }}
         {{- end }}
