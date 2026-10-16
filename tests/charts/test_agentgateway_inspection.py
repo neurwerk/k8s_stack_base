@@ -259,11 +259,13 @@ class InspectedGatewayTests(unittest.TestCase):
             "request_id", "entry_mode", "destination_kind", "destination_id", "provider_id", "binding_id",
             "protocol_profile", "operation_id", "provider_credential_source", "policy_revision",
             "requested_model", "resolved_model", "billing_classification", "token_usage_known", "cost_known",
+            "dispatch_binding_id", "dispatch_destination_id", "request_text_inspection",
+            "target_credential_mode", "dispatch_attempted", "request_outcome",
         }
         prefix = "langfuse.observation.metadata.neurwerk."
         targets = set(re.findall(r'set\(attributes\["([^\"]+)"\]', "\n".join(statements)))
         self.assertEqual(targets, {prefix + field for field in fields})
-        self.assertEqual(len(statements), 32)
+        self.assertEqual(len(statements), 45)
         for field in fields:
             key = f"neurwerk.{field}"
             self.assertEqual(database[key], stdout[key])
@@ -271,7 +273,7 @@ class InspectedGatewayTests(unittest.TestCase):
             target = prefix + field
             self.assertIn(f'delete_key(attributes, "{target}")', statements)
             setters = [statement for statement in statements if statement.startswith(f'set(attributes["{target}"]')]
-            if field in {"token_usage_known", "cost_known"}:
+            if field in {"token_usage_known", "cost_known", "dispatch_attempted"}:
                 self.assertEqual(setters, [f'set(attributes["{target}"], {value}) where attributes["{key}"] == {value} or attributes["{key}"] == "{value}"'
                                            for value in ["true", "false"]])
             else:
