@@ -5,6 +5,7 @@ import re
 import unittest
 
 import yaml
+from celpy import CELEvalError, Environment, celtypes, json_to_cel
 
 from helm import documents, render, resource
 
@@ -102,6 +103,166 @@ def binding_values():
             },
         },
     }
+
+
+class ApprovedOidcTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        values = binding_values()
+        values["mcp"] = {"enabled": True, "contextforgeRoutesEnabled": ["context7"],
+                         "catalog": {"presets": {"context7": {"enabled": True}}}}
+        values["authKeycloak"]["agentgatewayClientRoles"].append("mcp:context7:invoke")
+        values["aiGateway"]["approvedOidcClients"] = [
+            {"clientId": "addon-one", "bindings": ["openai", "mcp-context7"]},
+            {"clientId": "addon-two", "bindings": ["local"]},
+        ]
+        cls.values = values
+        cls.rendered = render("agentgateway", values)
+        traffic = resource(cls.rendered, "AgentgatewayPolicy", "ai-admission-api-bindings")["spec"]["traffic"]
+        cls.expression = traffic["authorization"]["policy"]["matchExpressions"][0]
+        cls.roles = ["llm:invoke", "model:example-chat:invoke", "model:local-chat:invoke",
+                     "provider:openai:company-use", "mcp:context7:invoke"]
+
+    def evaluate(self, expression, context):
+        env = Environment()
+        # AgentGateway's raw() preserves repeated header values; model that
+        # extension while evaluating the actual rendered CEL without rewriting it.
+        program = env.program(env.compile(expression), functions={
+            "raw": lambda headers: celtypes.MapType({
+                key: celtypes.ListType([value]) for key, value in headers.items()
+            }),
+        })
+        try:
+            return bool(program.evaluate({key: json_to_cel(value) for key, value in context.items()}))
+        except CELEvalError:
+            return False
+
+    def admitted(self, client="addon-one", path="/bindings/openai/v1/chat/completions",
+                 audience="agentgateway", roles=None, **claims):
+        jwt = {"sub": "test-user", "azp": client, "aud": audience,
+               "resource_access": {"agentgateway": {"roles": self.roles if roles is None else roles}}}
+        jwt.update(claims)
+        return self.evaluate(self.expression, {
+            "jwt": jwt, "extauthz": {},
+            "request": {"path": path, "method": "POST", "headers": {"authorization": "Bearer synthetic"}},
+        })
+
+    def test_two_addons_are_scoped_to_exact_bindings(self):
+        self.assertTrue(self.admitted())
+        self.assertTrue(self.admitted(audience=["other", "agentgateway"]))
+        self.assertTrue(self.admitted(client="addon-two", path="/bindings/local/v1/chat/completions"))
+        self.assertTrue(self.admitted(path="/bindings/mcp-context7/mcp"))
+        for client, path in [
+            ("addon-one", "/bindings/local/v1/chat/completions"),
+            ("addon-two", "/bindings/openai/v1/chat/completions"),
+            ("addon-two", "/bindings/mcp-context7/mcp"),
+            ("addon-one", "/bindings/openai/v1/chat/completions/extra"),
+            ("addon-one", "/v1/chat/completions"),
+        ]:
+            with self.subTest(client=client, path=path):
+                self.assertFalse(self.admitted(client=client, path=path))
+
+    def test_client_audience_and_permissions_fail_closed(self):
+        for claims in [{"client": "unapproved"}, {"client": ""}, {"azp": None},
+                       {"audience": "librechat"}, {"audience": ["librechat"]},
+                       {"audience": None}, {"audience": 7}, {"sub": ""},
+                       {"roles": []}, {"roles": "llm:invoke"},
+                       {"roles": [r for r in self.roles if r != "llm:invoke"]},
+                       {"roles": [r for r in self.roles if r != "provider:openai:company-use"]},
+                       {"resource_access": {}},
+                       {"path": "/bindings/mcp-context7/mcp", "roles": ["llm:invoke"]}]:
+            with self.subTest(claims=claims):
+                self.assertFalse(self.admitted(**claims))
+
+    def test_builtin_and_managed_key_access_remains_independent(self):
+        self.assertTrue(self.admitted(client="agentgateway", audience="librechat"))
+        self.assertFalse(self.admitted(client="librechat"))
+        self.assertTrue(self.admitted(client="studio", path="/bindings/mcp-context7/mcp",
+                                      realm_access={"roles": ["studio-user"]}))
+        self.assertFalse(self.admitted(client="studio", realm_access={"roles": ["studio-user"]}))
+        self.assertFalse(self.admitted(client="studio", path="/bindings/mcp-context7/mcp"))
+        self.assertTrue(self.evaluate(self.expression, {
+            "jwt": {}, "extauthz": {"contract_version": 1, "principal_id": "service-user",
+                "credential_id": "key-id", "credential_kind": "managed", "permissions": self.roles},
+            "request": {"path": "/bindings/openai/v1/chat/completions", "method": "POST",
+                        "headers": {"x-neurwerk-authorization": "Bearer synthetic"}},
+        }))
+
+    def test_invalid_approvals_are_rejected_at_render(self):
+        for approval in [
+            {"clientId": "studio", "bindings": ["openai"]},
+            {"clientId": "agentgateway", "bindings": ["openai"]},
+            {"clientId": "addon-one", "bindings": ["unknown"]},
+            {"clientId": "addon-one", "bindings": ["google"]},
+            {"clientId": "addon-one", "bindings": ["mcp-unknown"]},
+            {"clientId": "addon-one", "bindings": []},
+            {"clientId": "addon-one", "bindings": ["openai"], "permissions": ["llm:invoke"]},
+        ]:
+            with self.subTest(approval=approval):
+                values = binding_values()
+                values["aiGateway"]["approvedOidcClients"] = [approval]
+                self.assertNotEqual(render("agentgateway", values, check=False).returncode, 0)
+
+    def test_librechat_compatibility_default_and_replacement(self):
+        for mode in ["omitted", "null", "narrow", "revoked"]:
+            with self.subTest(mode=mode):
+                values = binding_values()
+                values["mcp"] = self.values["mcp"]
+                values["authKeycloak"]["agentgatewayClientRoles"].append("mcp:context7:invoke")
+                if mode == "null":
+                    values["aiGateway"]["approvedOidcClients"] = None
+                elif mode == "narrow":
+                    values["aiGateway"]["approvedOidcClients"] = [
+                        {"clientId": "librechat", "bindings": ["openai"]},
+                    ]
+                elif mode == "revoked":
+                    values["aiGateway"]["approvedOidcClients"] = []
+                rendered = render("agentgateway", values)
+                traffic = resource(rendered, "AgentgatewayPolicy", "ai-admission-api-bindings")["spec"]["traffic"]
+                self.expression = traffic["authorization"]["policy"]["matchExpressions"][0]
+                legacy = mode in ["omitted", "null"]
+                for audience in ["agentgateway", ["agentgateway"], "librechat", ["librechat"]]:
+                    self.assertEqual(self.admitted(client="librechat", audience=audience),
+                                     legacy or (mode == "narrow" and "agentgateway" in audience))
+                for path in ["/bindings/local/v1/chat/completions", "/bindings/mcp-context7/mcp"]:
+                    self.assertEqual(self.admitted(client="librechat", path=path), legacy)
+                self.assertFalse(self.admitted(client="librechat", path="/v1/chat/completions"))
+                self.assertFalse(self.admitted(client="librechat", path="/bindings/openai/v1/chat/completions/extra"))
+                self.assertFalse(self.admitted(client="addon-one"))
+                self.assertTrue(self.admitted(client="agentgateway"))
+                self.assertTrue(self.admitted(client="studio", path="/bindings/mcp-context7/mcp",
+                                              realm_access={"roles": ["studio-user"]}))
+                self.assertFalse(self.admitted(client="studio", path="/bindings/mcp-context7/mcp"))
+                self.assertFalse(self.admitted(client="studio", realm_access={"roles": ["studio-user"]}))
+
+    def test_approval_does_not_replace_destination_permissions(self):
+        model = next(doc for doc in documents(self.rendered)
+                     if doc["kind"] == "AgentgatewayModel"
+                     and doc["spec"].get("policies", {}).get("auth", {}).get("secretRef", {}).get("name") == "example-openai-key")
+        expression = model["spec"]["policies"]["authorization"]["policy"]["matchExpressions"][0]
+        revision = re.search(r'policy_revision == "([a-f0-9]+)"', expression).group(1)
+        for roles, expected in [(self.roles, True),
+                                ([r for r in self.roles if r != "model:example-chat:invoke"], False),
+                                ([r for r in self.roles if r != "provider:openai:company-use"], False)]:
+            admission = {"binding_id": "openai", "provider_credential_source": "company",
+                         "policy_revision": revision, "permissions": roles}
+            context = {**admission, "resolved_model": "provider-chat", "destination_id": "example-chat",
+                       "dispatch_destination_id": "example-chat", "dispatch_binding_id": "openai",
+                       "requested_model": "example-chat", "content_tracing_enabled": False,
+                       "pii_policy": {"enabled": True}}
+            with self.subTest(roles=roles):
+                self.assertEqual(self.evaluate(expression, {
+                    "metadata": {"neurwerk_admission": admission},
+                    "extproc": {"neurwerk.request_context": context},
+                }), expected)
+        mcp = resource(self.rendered, "AgentgatewayPolicy", "mcp-context7-policy")
+        expression = mcp["spec"]["traffic"]["authorization"]["policy"]["matchExpressions"][0]
+        for binding, roles, expected in [("mcp-context7", self.roles, True),
+                                         ("mcp-context7", ["llm:invoke"], False),
+                                         ("openai", self.roles, False)]:
+            self.assertEqual(self.evaluate(expression, {"metadata": {"neurwerk_admission": {
+                "binding_id": binding, "destination_kind": "mcp", "permissions": roles,
+            }}}), expected)
 
 
 class InspectedGatewayTests(unittest.TestCase):

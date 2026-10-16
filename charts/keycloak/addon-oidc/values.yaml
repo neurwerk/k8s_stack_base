@@ -1,0 +1,35 @@
+# Enable only with explicit addon settings and client approval.
+enabled: false
+k8sTools:
+  image: ghcr.io/neurwerk/k8s-stack-tooling:0.10.0@sha256:73ff19270ea51f75513b981fa371a132f4879cef9a5b1cc29d8f1b7c59e2ca41
+authKeycloak:
+  realm: ""
+  adminUser: ""
+authentication:
+  clientId: ""
+  redirectUris: []
+  webOrigins: []
+  realmRoles: []
+  roleClaim: addon_roles
+  audiences: []
+  refreshTokenRotation: true
+  mode: login-only
+  userTokenForwarding: false
+  gatewayPermissions: []
+# Supply exclusively from trusted client configuration, never addon defaults.
+# Scope permits claims for roles users already have; it never assigns user roles.
+clientApproval:
+  clientId: ""
+  realmRoles: []
+  audiences: []
+  gatewayPermissions: []
+clientSecret:
+  name: ""
+  key: clientSecret
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 200m
+    memory: 256Mi

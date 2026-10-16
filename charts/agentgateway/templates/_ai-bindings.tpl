@@ -33,7 +33,7 @@ provider header and accidentally choose a company account instead. */}}
 {{- if ne $cfg.enabled true }}{{ fail "aiGateway.enabled must be true; the unbound gateway has been removed" }}{{ end -}}
 {{- if $cfg.enabled -}}
 {{- range $key, $_ := $cfg -}}
-{{- if not (has $key (list "enabled" "apiPort" "bindings" "proxy")) }}{{ fail (printf "unknown aiGateway field %s" $key) }}{{ end -}}
+{{- if not (has $key (list "enabled" "apiPort" "bindings" "proxy" "approvedOidcClients")) }}{{ fail (printf "unknown aiGateway field %s" $key) }}{{ end -}}
 {{- end -}}
 
 {{- if and $cfg.bindings (not $.Values.guardrails.llmPolicyEngine.enabled) }}{{ fail "model bindings require guardrails.llmPolicyEngine.enabled" }}{{ end -}}
@@ -215,5 +215,5 @@ provider header and accidentally choose a company account instead. */}}
 {{- end -}}
 
 {{- define "infra-agentgateway.aiRevision" -}}
-{{- dict "bindings" (include "infra-agentgateway.aiBindings" . | fromJsonArray) "profiles" (.Files.Get "catalog/ai-profiles.yaml" | fromYaml) "models" (include "infra-agentgateway.effectiveModels" . | fromYamlArray) "mcp" (include "infra-agentgateway.effectiveMcpServers" . | fromYamlArray) | toJson | sha256sum -}}
+{{- dict "bindings" (include "infra-agentgateway.aiBindings" . | fromJsonArray) "approvedOidcClients" .Values.aiGateway.approvedOidcClients "profiles" (.Files.Get "catalog/ai-profiles.yaml" | fromYaml) "models" (include "infra-agentgateway.effectiveModels" . | fromYamlArray) "mcp" (include "infra-agentgateway.effectiveMcpServers" . | fromYamlArray) | toJson | sha256sum -}}
 {{- end -}}
