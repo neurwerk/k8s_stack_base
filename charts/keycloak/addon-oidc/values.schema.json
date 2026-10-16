@@ -1,0 +1,54 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["enabled", "k8sTools", "authKeycloak", "authentication", "clientApproval", "clientSecret"],
+  "properties": {
+    "enabled": {"type": "boolean"},
+    "k8sTools": {
+      "type": "object", "required": ["image"],
+      "properties": {"image": {"type": "string"}}
+    },
+    "authKeycloak": {
+      "type": "object", "required": ["realm", "adminUser"],
+      "properties": {"realm": {"type": "string"}, "adminUser": {"type": "string"}}
+    },
+    "authentication": {
+      "type": "object", "additionalProperties": false,
+      "required": ["clientId", "redirectUris", "webOrigins", "realmRoles", "roleClaim", "audiences", "refreshTokenRotation", "mode", "userTokenForwarding", "gatewayPermissions"],
+      "properties": {
+        "clientId": {"type": "string", "pattern": "^([a-z][a-z0-9-]*)?$"},
+        "redirectUris": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^https://[^/@?#\\s*\\\\]+[^#\\s*\\\\]*$"}},
+        "webOrigins": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^https://[^/@?#\\s*\\\\]+$"}},
+        "realmRoles": {"$ref": "#/definitions/realmRoles"},
+        "roleClaim": {"type": "string", "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)?$"},
+        "audiences": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-z][a-z0-9-]*$"}},
+        "refreshTokenRotation": {"type": "boolean"},
+        "mode": {"enum": ["login-only", "login+gateway"]},
+        "userTokenForwarding": {"type": "boolean"},
+        "gatewayPermissions": {"$ref": "#/definitions/gatewayPermissions"}
+      }
+    },
+    "clientApproval": {
+      "type": "object", "additionalProperties": false,
+      "required": ["clientId", "realmRoles", "audiences", "gatewayPermissions"],
+      "properties": {
+        "clientId": {"type": "string", "pattern": "^([a-z][a-z0-9-]*)?$"},
+        "realmRoles": {"$ref": "#/definitions/realmRoles"},
+        "audiences": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-z][a-z0-9-]*$"}},
+        "gatewayPermissions": {"$ref": "#/definitions/gatewayPermissions"}
+      }
+    },
+    "resources": {"type": "object", "required": ["requests", "limits"], "properties": {"requests": {"type": "object"}, "limits": {"type": "object"}}},
+    "clientSecret": {
+      "type": "object", "additionalProperties": false, "required": ["name", "key"],
+      "properties": {
+        "name": {"type": "string", "pattern": "^([a-z0-9]([-a-z0-9.]*[a-z0-9])?)?$"},
+        "key": {"type": "string", "pattern": "^[a-zA-Z0-9._-]+$"}
+      }
+    }
+  },
+  "definitions": {
+    "realmRoles": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-z][a-z0-9:-]*$"}},
+    "gatewayPermissions": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-z][A-Za-z0-9:._/-]{0,255}$"}}
+  }
+}

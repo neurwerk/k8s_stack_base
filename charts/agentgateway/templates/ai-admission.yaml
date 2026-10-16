@@ -18,6 +18,7 @@
 {{- end }}
 {{- end }}
 {{- $listeners = prepend $listeners (dict "name" "api-bindings" "mode" "api" "bindings" $apiBindings) }}
+{{- $approvedOidc := include "infra-agentgateway.approvedOidcAuthorization" (dict "root" . "bindings" $apiBindings) }}
 {{- range $listener := $listeners }}
 {{- $proxy := eq $listener.mode "forward_proxy" }}
 {{- $credential := ternary "proxy-authorization" "x-neurwerk-authorization" $proxy }}
@@ -40,7 +41,9 @@
 {{- $matches = append $matches (printf `(request.path in %s && request.method in %s && (%s) && (%s))` ($paths | toJson) ($methods | toJson) $permissions (include "infra-agentgateway.aiCredentialAuthorization" $binding)) }}
 {{- end }}
 {{- $allowed := join " || " $matches | default "false" }}
-{{- if gt (len $allowed) 14000 }}{{ fail "binding operation allowlist exceeds native authorization expression bounds" }}{{ end }}
+{{- $allowlistSize := len $allowed }}
+{{- if not $proxy }}{{ $allowlistSize = add $allowlistSize (len $approvedOidc) }}{{ end }}
+{{- if gt $allowlistSize 14000 }}{{ fail "binding operation allowlist exceeds native authorization expression bounds" }}{{ end }}
 ---
 apiVersion: agentgateway.dev/v1alpha1
 kind: AgentgatewayPolicy
@@ -103,8 +106,8 @@ spec:
         matchExpressions:
           - >-
             ((has(jwt.sub) && type(jwt.sub) == string && size(jwt.sub) > 0 &&
-            has(jwt.azp) && (jwt.azp in ["librechat", "agentgateway"] ||
-            (jwt.azp == {{ $.Values.authKeycloak.studioClientId | default "studio" | toJson }} && request.path in {{ $mcpPaths | toJson }} && has(jwt.realm_access.roles) && "studio-user" in jwt.realm_access.roles)) &&
+            has(jwt.azp) && (jwt.azp == "agentgateway" ||
+            (jwt.azp == {{ $.Values.authKeycloak.studioClientId | default "studio" | toJson }} && request.path in {{ $mcpPaths | toJson }} && has(jwt.realm_access.roles) && "studio-user" in jwt.realm_access.roles){{ if not $proxy }} || {{ $approvedOidc }}{{ end }}) &&
             has(jwt.resource_access.agentgateway.roles) && type(jwt.resource_access.agentgateway.roles) == list &&
             "llm:invoke" in jwt.resource_access.agentgateway.roles) ||
             (!has(jwt.sub) && extauthz.contract_version == 1 && type(extauthz.principal_id) == string && size(extauthz.principal_id) > 0 &&

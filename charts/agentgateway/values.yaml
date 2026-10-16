@@ -80,6 +80,12 @@ aiGateway:
   # One source of routing, admission policy and Studio catalog data.
   # See README.md for the binding schema and actual /bindings/<id>/v1 API URLs.
   bindings: []
+  # Trusted-admin approval of user OIDC clients, scoped to exact enabled API
+  # binding IDs (including mcp-<server>). This grants no user permissions.
+  # null preserves LibreChat on all effective API bindings with global JWT
+  # audiences. An explicit list REPLACES that default; [] revokes product access.
+  # Explicit entries (including LibreChat) require the agentgateway audience.
+  approvedOidcClients: null # [{clientId: librechat, bindings: [example-api]}]
   proxy:
     enabled: false
     hostname: ""
