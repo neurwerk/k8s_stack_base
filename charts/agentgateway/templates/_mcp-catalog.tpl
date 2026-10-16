@@ -126,9 +126,11 @@
 {{- $oauth := $registration.oauth -}}
 {{- if not (kindIs "map" $oauth) -}}{{- fail "MCP oauth must be a non-secret map" -}}{{- end -}}
 {{- range $field, $_ := $oauth -}}
-{{- if not (has $field (list "authorization_url" "token_url" "client_id" "redirect_uri" "scopes" "client_secret_ref" "pkce")) -}}{{- fail "unsupported MCP oauth field; plaintext secrets are forbidden" -}}{{- end -}}
+{{- if not (has $field (list "authorization_url" "token_url" "client_id" "redirect_uri" "resource" "scopes" "client_secret_ref" "pkce")) -}}{{- fail "unsupported MCP oauth field; plaintext secrets are forbidden" -}}{{- end -}}
 {{- end -}}
-{{- range $field := list "authorization_url" "token_url" "redirect_uri" -}}
+{{- $urlFields := list "authorization_url" "token_url" "redirect_uri" -}}
+{{- if hasKey $oauth "resource" -}}{{- $urlFields = append $urlFields "resource" -}}{{- end -}}
+{{- range $field := $urlFields -}}
 {{- $url := get $oauth $field -}}
 {{- if or (not (kindIs "string" $url)) (not (regexMatch `^https://[a-zA-Z0-9.-]+(:[0-9]+)?(/[a-zA-Z0-9_./-]*)?$` (toString $url))) (regexMatch `(^|/)\.\.?(/|$)` (toString $url)) -}}{{- fail "MCP oauth endpoints must be approved HTTPS URLs without credentials, query or fragment" -}}{{- end -}}
 {{- end -}}

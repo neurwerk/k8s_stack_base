@@ -129,9 +129,13 @@ class SetupPublicationTests(unittest.TestCase):
         self.assertEqual(sum(call.args[0] == "PUT" for call in kube.request.call_args_list), 1)
 
     def test_studio_initialization_is_empty_and_rerun_preserves_saved_native_state(self):
-        spec = definition() | {"studio_managed": True, "oauth": None, "authentication_model": "shared-authentication"}
+        spec = definition() | {"studio_managed": True}
+        spec["oauth"].update({"token_url": "https://oauth.example.com/token", "client_id": "example-app",
+            "redirect_uri": "https://studio.example.com/oauth/callback", "scopes": ["read"],
+            "resource": "https://resource.example.com", "pkce": True,
+            "client_secret_ref": {"name": "contextforge-oauth-apps", "key": "example"}})
         owner, service, team = "admin@example.com", "studio@example.com", "team"
-        marker = "neurwerk-contextforge/example/example/shared-authentication/studio-v1"
+        marker = "neurwerk-contextforge/example/example/individual-authentication/studio-v1"
         gateways, servers, tools, mutations = [], [], [], []
 
         def request(actor, method, path, body=None):
@@ -139,9 +143,11 @@ class SetupPublicationTests(unittest.TestCase):
                 mutations.append((actor, method, path, body))
             if method == "POST" and path == "/gateways":
                 self.assertEqual(actor, owner)
+                self.assertEqual(body["oauth_config"]["resource"], "https://resource.example.com")
                 gateways.append({"id": "a" * 32, "name": body["name"], "description": body["description"],
                     "url": body["url"], "transport": body["transport"], "teamId": team,
                     "ownerEmail": owner, "createdBy": owner, "visibility": "public",
+                    "authType": body["auth_type"], "oauthConfig": copy.deepcopy(body["oauth_config"]),
                     "enabled": True, "status": "pending", "gatewayMode": "cache", "reachable": False})
                 return gateways[0]
             if method == "POST" and path == "/servers":
@@ -167,7 +173,9 @@ class SetupPublicationTests(unittest.TestCase):
 
         api = Mock(request=lambda *args: request(owner, *args))
         service_api = Mock(request=lambda *args: request(service, *args))
-        result = registrations.reconcile_one(api, spec, team, owner, studio=(service_api, service))
+        with patch.object(registrations.Path, "read_text", return_value="synthetic-app-secret") as credential:
+            result = registrations.reconcile_one(api, spec, team, owner, studio=(service_api, service))
+        credential.assert_called_once_with()
         self.assertEqual([call[2] for call in mutations], ["/gateways", "/servers"])
         self.assertEqual(servers[0]["associatedToolIds"], [])
         self.assertEqual(servers[0]["description"], marker + "/" + gateways[0]["id"])
@@ -179,13 +187,19 @@ class SetupPublicationTests(unittest.TestCase):
         servers[0]["associatedToolIds"] = [tools[0]["id"]]
         servers[0]["enabled"] = False
         saved = copy.deepcopy(servers)
+        saved_gateways = copy.deepcopy(gateways)
         mutations.clear()
-        rerun = list(registrations.reconcile(api, [spec], team, owner, {spec["id"]: result}, (service_api, service)))
+        with patch.object(registrations.Path, "read_text", side_effect=AssertionError("Existing OAuth credentials must not be read")) as credential:
+            rerun = list(registrations.reconcile(api, [spec], team, owner, {spec["id"]: result}, (service_api, service)))
+        credential.assert_not_called()
         self.assertNotEqual(rerun[0]["state"], "error")
         self.assertEqual(servers, saved)
+        self.assertEqual(gateways, saved_gateways)
         self.assertEqual(mutations, [])
-        # Neither a foreign server nor an old gateway is silently adopted/reset.
-        for row, field, value in ((servers[0], "ownerEmail", owner), (gateways[0], "description", marker.removesuffix("/studio-v1"))):
+        # Neither ownership nor a changed native OAuth audience is silently repaired.
+        for row, field, value in ((servers[0], "ownerEmail", owner),
+                (gateways[0], "description", marker.removesuffix("/studio-v1")),
+                (gateways[0]["oauthConfig"], "resource", "https://other.example.com")):
             before = row[field]
             row[field] = value
             with self.assertRaises(registrations.SetupError):
