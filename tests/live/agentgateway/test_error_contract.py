@@ -6,6 +6,7 @@ servers are disposable loopback fixtures; the bridge is a synthetic HTTP peer.
 """
 
 import asyncio
+import copy
 import hashlib
 import http.client
 import json
@@ -53,6 +54,12 @@ def configuration(rendered, gateway_port, auth_port, provider_port, processor_po
     auth = admission["extAuth"]["conditional"][0]
     http = auth["policy"]["http"]
     processing = resource(rendered, "AgentgatewayPolicy", "ai-openai-api-processing")["spec"]["traffic"]["extProc"]
+    transformations = copy.deepcopy(admission["transformation"]["conditional"])
+    # Kubernetes headers are name/value lists; native configuration uses maps.
+    for branch in transformations:
+        for direction in ("request", "response"):
+            headers = branch["policy"][direction]["set"]
+            branch["policy"][direction]["set"] = {header["name"]: header["value"] for header in headers}
     # Translate Kubernetes attachment/transport fields; execute the rendered CEL verbatim.
     return {
         "config": {"adminAddr": "off", "statsAddr": "off", "readinessAddr": "off", "workerThreads": "1"},
@@ -69,7 +76,7 @@ def configuration(rendered, gateway_port, auth_port, provider_port, processor_po
                                          for expression in admission["authorization"]["policy"]["matchExpressions"]]},
             "transformations": {"conditional": [
                 {"condition": branch["condition"], **branch["policy"]}
-                for branch in admission["transformation"]["conditional"]
+                for branch in transformations
             ]},
         }},
         "routes": [{
