@@ -7,9 +7,12 @@ all of these environment variables are present and valid:
 * LIVE_ACCEPTANCE_CONFIRM=I_CONFIRM_LIVE_AGENTGATEWAY_ACCEPTANCE
 * LIVE_ACCEPTANCE_EXPECTED_CONTEXT=<exact kubectl context>
 * LIVE_ACCEPTANCE_EXPECTED_CLIENT=<exact stack identity data.client>
-* LIVE_ACCEPTANCE_AGENTGATEWAY_URL=https://<agentgateway-host>
+* LIVE_ACCEPTANCE_AGENTGATEWAY_URL=https://<agentgateway-host>/bindings/<binding-id>/v1
 * LIVE_ACCEPTANCE_MODEL_ID=<public AgentGateway model ID>
 * LIVE_ACCEPTANCE_API_KEY=<API key; environment only, never printed>
+
+The URL selects an openai-chat-completions-v1 binding. The Neurwerk key uses
+X-Neurwerk-Authorization; the gateway owns company upstream credentials.
 
 Invoke from the base repository with ``make live-acceptance``. The command reads
 only the current kubectl context, the non-secret
@@ -44,6 +47,7 @@ KUBECTL_TIMEOUT_SECONDS = 8
 HTTP_TIMEOUT_SECONDS = 75
 MAX_RESPONSE_BYTES = 1_048_576
 PRESIDIO_CODES = frozenset({"P00", "P01", "P02", "P03"})
+BINDING_BASE_PATH_RE = re.compile(r"/bindings/[a-z0-9](?:[-a-z0-9]{0,30}[a-z0-9])?/v1/?")
 MODEL_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]{0,127}$")
 API_KEY_RE = re.compile(r"^[\x21-\x7e]{1,4096}$")
 HOSTNAME_RE = re.compile(
@@ -123,12 +127,12 @@ def load_config(environ: Mapping[str, str]) -> Config:
         or parsed.password is not None
         or parsed.query
         or parsed.fragment
-        or parsed.path not in {"", "/"}
+        or not BINDING_BASE_PATH_RE.fullmatch(parsed.path)
         or port is not None and not 1 <= port <= 65535
     ):
         raise AcceptanceError(
-            "LIVE_ACCEPTANCE_AGENTGATEWAY_URL must be an HTTPS origin without "
-            "credentials, path, query, or fragment"
+            "LIVE_ACCEPTANCE_AGENTGATEWAY_URL must be an HTTPS binding base URL "
+            "ending in /bindings/<binding-id>/v1 without credentials, query, or fragment"
         )
     if not MODEL_ID_RE.fullmatch(model_id):
         raise AcceptanceError("LIVE_ACCEPTANCE_MODEL_ID has an invalid format")
@@ -284,7 +288,7 @@ def _request(config: Config, payload: dict, *, api_key: str, spoof: bool = False
     body = json.dumps(payload, separators=(",", ":")).encode("utf-8")
     headers = {
         "Accept": "text/event-stream" if payload.get("stream") else "application/json",
-        "Authorization": f"Bearer {api_key}",
+        "X-Neurwerk-Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
         "User-Agent": "neurwerk-live-acceptance/1",
     }
@@ -300,7 +304,7 @@ def _request(config: Config, payload: dict, *, api_key: str, spoof: bool = False
             }
         )
     request = urllib.request.Request(
-        f"{config.base_url}/v1/chat/completions",
+        f"{config.base_url}/chat/completions",
         data=body,
         headers=headers,
         method="POST",
