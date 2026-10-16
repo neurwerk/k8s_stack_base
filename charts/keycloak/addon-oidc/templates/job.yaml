@@ -1,0 +1,75 @@
+{{- if .Values.enabled }}
+{{- include "addon-oidc.validate" . }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}-oidc
+  namespace: auth-keycloak
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-weight: "-3"
+    helm.sh/hook-delete-policy: before-hook-creation
+spec:
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 86400
+  activeDeadlineSeconds: 600
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: addon-oidc
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/component: configuration
+    spec:
+      automountServiceAccountToken: false
+      restartPolicy: OnFailure
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: configure
+          image: {{ .Values.k8sTools.image | quote }}
+          command: ["upsert-scoped-oidc-client"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          env:
+            - name: KC_INTERNAL_URL
+              value: http://auth-keycloak-keycloak-service.auth-keycloak.svc.cluster.local
+            - name: KC_ADMIN_USER
+              value: {{ required "authKeycloak.adminUser is required" .Values.authKeycloak.adminUser | quote }}
+            - name: KC_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: auth-keycloak-secret
+                  key: adminPassword
+            - name: KC_REALM
+              value: {{ required "authKeycloak.realm is required" .Values.authKeycloak.realm | quote }}
+            - name: KC_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ required "clientSecret.name is required" .Values.clientSecret.name | quote }}
+                  key: {{ .Values.clientSecret.key | quote }}
+            - name: KC_CLIENT_ID
+              value: {{ .Values.authentication.clientId | quote }}
+            - name: KC_REDIRECT_URIS
+              value: {{ .Values.authentication.redirectUris | toJson | quote }}
+            - name: KC_WEB_ORIGINS
+              value: {{ .Values.authentication.webOrigins | toJson | quote }}
+            - name: KC_REALM_ROLE_SCOPE
+              value: {{ .Values.authentication.realmRoles | toJson | quote }}
+            - name: KC_ROLE_CLAIM
+              value: {{ .Values.authentication.roleClaim | quote }}
+            - name: KC_CLIENT_AUDIENCES
+              value: {{ .Values.authentication.audiences | toJson | quote }}
+            - name: KC_GATEWAY_ROLE_SCOPE
+              value: {{ include "addon-oidc.gatewayScope" . | quote }}
+            - name: KC_REFRESH_TOKEN_ROTATION_ENABLED
+              value: {{ .Values.authentication.refreshTokenRotation | toString | quote }}
+{{- end }}
