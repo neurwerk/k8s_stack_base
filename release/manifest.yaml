@@ -238,8 +238,8 @@ spec:
       appVersion: 0.8.0
     - path: charts/agentgateway-extproc
       name: agentgateway-extproc
-      version: 2.0.7
-      appVersion: 0.19.7
+      version: 2.0.8
+      appVersion: 0.19.8
     - path: charts/cert-manager/approval-policy
       name: infra-cert-manager-approval-policy
       version: 1.2.8
@@ -366,7 +366,7 @@ spec:
           sha256: b344a03d0006aba69a8c20ae1ff0354ac7687bdf72c3611c4f330b59a22b7548
     - path: charts/langfuse
       name: monitor-langfuse
-      version: 2.0.16
+      version: 2.0.17
       appVersion: 4.28.1
       dependencyLock:
         digest: sha256:68156b8f74aa153f2e33eb76f6ac11e9277c1a8fe8073c3f37da8834a97292cc
@@ -885,7 +885,7 @@ spec:
       eligibility: included
       origins:
       - charts/wireguard/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.19.7@sha256:ff800848508b7097ff9c03db2ac227bf76f0853161743e7d27e72f160c5caded
+    - reference: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.19.8@sha256:21ef04d27ce0554ab591ba07d7623d64c68fdb337e3b46363bce99ac1a46db08
       pinned: true
       eligibility: included
       origins:
