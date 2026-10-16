@@ -148,6 +148,12 @@ class AccountingTest(unittest.TestCase):
                                 self.assertEqual(stdout[case].get(key), row["attributes"].get(key))
                             if case != "historical":
                                 self.assertEqual(row["attributes"]["neurwerk.billing_classification"], "unknown")
+                                self.assertEqual(row["attributes"]["neurwerk.request_text_inspection"], "unknown")
+                                self.assertEqual(row["attributes"]["neurwerk.target_credential_mode"], "unknown")
+                                self.assertIs(row["attributes"]["neurwerk.dispatch_attempted"], True)
+                                self.assertEqual(row["attributes"]["neurwerk.request_outcome"],
+                                                 "unknown" if statuses[case] == 200 else
+                                                 "http_error" if case == "provider-error" else "gateway_error", case)
                         # Preserve reported zero and nonzero values even while completeness is unknown.
                         self.assertEqual(rows["full"]["usage"]["totalTokens"], 5)
                         self.assertAlmostEqual(rows["full"]["cost"], 0.000007)

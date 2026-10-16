@@ -44,7 +44,7 @@ CLUSTER_RESOURCES = [
 ]
 ADDON_SOURCE_RESOURCE = "addon-source.yaml"
 PRODUCT_ADDON_SOURCE = re.compile(r"^addon-[a-z][a-z0-9-]*-source\.yaml$")
-ADDON_GIT_URL = re.compile(r"^ssh://git@github\.com/neurwerk/[a-zA-Z0-9_-]+\.git$")
+ADDON_GIT_URL = re.compile(r"^(?:ssh://git@github\.com|https://github\.com)/neurwerk/[a-zA-Z0-9_-]+\.git$")
 DNS_LABEL = re.compile(r"^[a-z][a-z0-9-]{0,62}$")
 FLUX_RESOURCES = ["gotk-components.yaml", "gotk-sync.yaml"]
 FLUX_LOG_LEVEL_LINE = re.compile(r"(?m)^([ \t]*- --log-level=)(?:debug|info|error)([ \t]*)$")
@@ -260,12 +260,13 @@ def parse_kustomization(
     return addons
 
 
-def parse_product_addon_source(content: str, *, origin: str) -> tuple[str, str]:
-    """New product sources must be immutable and use separate SSH credentials."""
+def parse_product_addon_source(content: str, *, origin: str) -> tuple[str, str | None]:
+    """Require immutable sources; private SSH sources use separate credentials."""
     try:
         document = yaml.safe_load(content)
         metadata, spec = document["metadata"], document["spec"]
-        secret = spec["secretRef"]["name"]
+        private = str(spec.get("url", "")).startswith("ssh://")
+        secret = spec["secretRef"]["name"] if private else None
         name = metadata["name"]
         if (
             not isinstance(document, dict)
@@ -282,7 +283,7 @@ def parse_product_addon_source(content: str, *, origin: str) -> tuple[str, str]:
             or not isinstance(name, str)
             or not DNS_LABEL.fullmatch(name)
             or not isinstance(spec, dict)
-            or set(spec) != {"interval", "url", "ref", "secretRef"}
+            or set(spec) != ({"interval", "url", "ref", "secretRef"} if private else {"interval", "url", "ref"})
             or not isinstance(spec["interval"], str)
             or not isinstance(spec["url"], str)
             or not ADDON_GIT_URL.fullmatch(spec["url"])
@@ -290,11 +291,13 @@ def parse_product_addon_source(content: str, *, origin: str) -> tuple[str, str]:
             or set(spec["ref"]) != {"commit"}
             or not isinstance(spec["ref"]["commit"], str)
             or not COMMIT_SHA_PATTERN.fullmatch(spec["ref"]["commit"])
-            or not isinstance(spec["secretRef"], dict)
-            or set(spec["secretRef"]) != {"name"}
-            or not isinstance(secret, str)
-            or not DNS_LABEL.fullmatch(secret)
-            or secret in {"flux-system", "k8s-stack-release-trust", "k8s-stack-alpha-trust"}
+            or (private and (
+                not isinstance(spec["secretRef"], dict)
+                or set(spec["secretRef"]) != {"name"}
+                or not isinstance(secret, str)
+                or not DNS_LABEL.fullmatch(secret)
+                or secret in {"flux-system", "k8s-stack-release-trust", "k8s-stack-alpha-trust"}
+            ))
         ):
             raise CompatibilityError(f"{origin} must use an exact commit and separate credentials")
     except (TypeError, KeyError, ValueError, RecursionError, yaml.YAMLError) as error:
@@ -365,10 +368,11 @@ def read_control_plane_contract(
             revision_reader(root, revision, CLUSTER_KUSTOMIZATION_PATH.parent / filename),
             origin="product add-on source",
         )
-        if name in seen_names or secret in seen_secrets:
+        if name in seen_names or (secret is not None and secret in seen_secrets):
             raise CompatibilityError("product add-on sources must have unique identities and credentials")
         seen_names.add(name)
-        seen_secrets.add(secret)
+        if secret is not None:
+            seen_secrets.add(secret)
     sync = parse_flux_sync(
         revision_reader(root, revision, FLUX_SYNC_PATH), origin="Flux bootstrap sync"
     )

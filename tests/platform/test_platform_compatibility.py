@@ -447,6 +447,16 @@ class CompatibilityTests(unittest.TestCase):
         self.files[HEAD][second] = yaml.safe_dump(annotated)
         self.assertFalse(self.check(new=source(), classify_only=True).changed)
 
+        public = addon("addon-beta", "beta-key")
+        public["spec"]["url"] = "https://github.com/neurwerk/example-product.git"
+        del public["spec"]["secretRef"]
+        self.files[HEAD][second] = yaml.safe_dump(public)
+        self.assertFalse(self.check(new=source(), classify_only=True).changed)
+        public["spec"]["ref"] = {"branch": "main"}
+        self.files[HEAD][second] = yaml.safe_dump(public)
+        with self.assertRaises(gate.CompatibilityError):
+            self.check(classify_only=True)
+
         for label, invalid in (
             ("branch", addon("addon-beta", "beta-key", "main")),
             ("shared key", addon("addon-beta", "alpha-key")),
