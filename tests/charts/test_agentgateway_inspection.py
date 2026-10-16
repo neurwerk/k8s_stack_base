@@ -119,11 +119,19 @@ class InspectedGatewayTests(unittest.TestCase):
         self.assertNotEqual(render("agentgateway", {"aiGateway": {"enabled": False}}, check=False).returncode, 0)
 
     def test_identity_is_separate_from_provider_credentials(self):
+        values = binding_values()
+        values["mcp"] = {"enabled": True, "contextforgeRoutesEnabled": ["context7"],
+                         "catalog": {"presets": {"context7": {"enabled": True}}}}
+        values["authKeycloak"]["agentgatewayClientRoles"].append("mcp:context7:invoke")
+        rendered = render("agentgateway", values)
         for listener, header, source, path in [
             ("api-bindings", "x-neurwerk-authorization", "request.headers", "/validate/neurwerk"),
             ("inspect-openai", "proxy-authorization", "source.connectHeaders", "/validate/proxy"),
+            ("inspect-anthropic", "proxy-authorization", "source.connectHeaders", "/validate/proxy"),
+            ("inspect-google", "proxy-authorization", "source.connectHeaders", "/validate/proxy"),
+            ("inspect-openrouter", "proxy-authorization", "source.connectHeaders", "/validate/proxy"),
         ]:
-            traffic = resource(self.enabled, "AgentgatewayPolicy", f"ai-admission-{listener}")["spec"]["traffic"]
+            traffic = resource(rendered, "AgentgatewayPolicy", f"ai-admission-{listener}")["spec"]["traffic"]
             if listener == "api-bindings":
                 self.assertIn("x-neurwerk-authorization", traffic["jwtAuthentication"]["location"]["expression"])
                 self.assertIn('size(request.headers.raw()["authorization"]) == 1', traffic["jwtAuthentication"]["location"]["expression"])
@@ -137,6 +145,10 @@ class InspectedGatewayTests(unittest.TestCase):
             for expression in traffic["authorization"]["policy"]["matchExpressions"]:
                 self.assertNotIn("source.connectHeaders", expression)
             for conditional in traffic["transformation"]["conditional"]:
+                for direction in ("request", "response"):
+                    self.assertEqual(conditional["policy"][direction]["set"], [
+                        {"name": "x-request-id", "value": "metadata.neurwerk_admission.request_id"},
+                    ])
                 request = conditional["policy"]["request"]
                 context = request["metadata"]["neurwerk_admission"]
                 self.assertEqual(context.count("uuid()"), 1)

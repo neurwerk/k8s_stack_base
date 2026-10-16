@@ -151,7 +151,8 @@ spec:
                   "provider_credential_source": ({{ include "infra-agentgateway.aiCredentialSource" $binding }}),
                   "policy_revision": {{ $revision | toJson }}}
               set:
-                x-request-id: 'metadata.neurwerk_admission.request_id'
+                - name: x-request-id
+                  value: 'metadata.neurwerk_admission.request_id'
               remove:
                 - x-neurwerk-authorization
                 - proxy-authorization
@@ -172,7 +173,8 @@ spec:
                 {{- end }}
             response:
               set:
-                x-request-id: 'metadata.neurwerk_admission.request_id'
+                - name: x-request-id
+                  value: 'metadata.neurwerk_admission.request_id'
               remove: [authorization, proxy-authorization, x-neurwerk-authorization, x-api-key, x-goog-api-key, set-cookie, x-agentgateway-auth-context]
         {{- end }}
         {{- end }}
