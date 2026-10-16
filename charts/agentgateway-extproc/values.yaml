@@ -18,7 +18,7 @@ monitorAgentgatewayExtproc:
     # Covers dependency failures and response failures after headers were sent.
     enabled: true
 
-  extprocImage: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.19.8@sha256:21ef04d27ce0554ab591ba07d7623d64c68fdb337e3b46363bce99ac1a46db08
+  extprocImage: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.19.9@sha256:708cfafcd44e657d1ed7ed8c27774b638c47364374fcda399cd200a073efe8ba
 
   # Docling requires exactly two fixed replicas (no HPA while enabled).
   replicas: 2
