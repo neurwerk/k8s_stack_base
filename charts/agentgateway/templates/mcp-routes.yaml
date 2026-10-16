@@ -66,6 +66,8 @@ spec:
         port: {{ $.Values.guardrails.llmPolicyEngine.extProcPort | default 9000 }}
       failureMode: FailClosed
       metadataContext:
+        agentgateway.dev.grpc_initial_metadata:
+          x-request-id: 'metadata.neurwerk_admission.request_id'
         neurwerk.destination_policy:
           contract_version: '5'
           request_context: 'metadata.neurwerk_admission'
