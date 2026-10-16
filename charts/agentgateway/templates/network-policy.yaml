@@ -16,6 +16,17 @@ spec:
   policyTypes:
     - Ingress
   ingress:
+    {{- if .Values.infraAgentgatewayWrapper.observation.enabled }}
+    - from:
+        - podSelector:
+            matchLabels: {app.kubernetes.io/name: agentgateway-observation}
+      ports:
+        - {protocol: TCP, port: 15000}
+        - {protocol: TCP, port: 15021}
+        {{- if .Values.aiGateway.proxy.enabled }}
+        - {protocol: TCP, port: {{ .Values.aiGateway.proxy.port }}}
+        {{- end }}
+    {{- end }}
     - from:
         # Public HTTPS traffic is terminated by Traefik before it reaches the
         # private ClusterIP data-plane Service.

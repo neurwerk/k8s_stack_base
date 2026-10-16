@@ -1,0 +1,192 @@
+{{- $observation := .Values.infraAgentgatewayWrapper.observation }}
+{{- if not (kindIs "bool" $observation.enabled) }}{{ fail "observation.enabled must be boolean" }}{{ end }}
+{{- if $observation.enabled }}
+{{- $image := required "observation.image requires a published agentgateway-observe image" $observation.image }}
+{{- if empty $observation.kubernetesApiEgress }}{{ fail "observation requires exact kubernetesApiEgress destinations" }}{{ end }}
+{{- $bindings := include "infra-agentgateway.aiBindings" . | fromJsonArray }}
+{{- $endpoints := list }}{{- $inspected := list }}{{- $proxy := dict }}
+{{- range $binding := $bindings }}
+{{- $modelTargets := dict }}
+{{- range $model := $binding.models }}
+{{- $name := printf "ai-%s-%s" $binding.id (sha256sum $model.name | trunc 12) }}
+{{- $targets := list }}
+{{- if $binding.localReroute }}{{ $targets = append $targets (printf "%s-local-reroute" $name) }}{{ end }}
+{{- range $source := $binding.credentialSources }}
+{{- $targets = append $targets (printf "%s-%s" $name (ternary "personal" $source (eq $source "caller_supplied"))) }}
+{{- end }}
+{{- $_ := set $modelTargets $model.name $targets }}
+{{- if eq $binding.provider "Gemini" }}{{ $_ := set $modelTargets $model.upstreamModel $targets }}{{ end }}
+{{- end }}
+{{- if $binding.api }}
+{{- $route := dict "name" (printf "ai-%s-api" $binding.id) "path" $binding.prefix "models" $modelTargets }}
+{{- $endpoints = append $endpoints (dict "id" (printf "api-%s" $binding.id) "listeners" (list (dict "name" "api-bindings" "port" $.Values.aiGateway.apiPort "routes" (list $route)))) }}
+{{- end }}
+{{- if $binding.inspect }}
+{{- $listener := printf "inspect-%s" $binding.id }}
+{{- $route := dict "name" (printf "ai-%s-proxy" $binding.id) "path" "/" "models" $modelTargets }}
+{{- $inspected = append $inspected (dict "name" $listener "port" 443 "hostname" $binding.host "routes" (list $route)) }}
+{{- if empty $proxy }}
+{{- $proxy = dict "hostname" $.Values.aiGateway.proxy.hostname "port" $.Values.aiGateway.proxy.port "listener" $listener "inspection_hostname" $binding.host }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- if .Values.aiGateway.proxy.enabled }}
+{{- $endpoints = append $endpoints (dict "id" "forward-proxy" "listeners" $inspected) }}
+{{- end }}
+{{- if and .Values.mcp.enabled .Values.externalGateway.enabled }}
+{{- range $server := include "infra-agentgateway.effectiveMcpServers" . | fromYamlArray }}
+{{- if or (not $server.contextforge) (has $server.name $.Values.mcp.contextforgeRoutesEnabled) }}
+{{- $route := dict "name" (include "infra-agentgateway.mcpResourceName" (dict "id" $server.name "component" "route")) "path" (printf "/bindings/mcp-%s/mcp" $server.name) "mcp_backend" (include "infra-agentgateway.mcpResourceName" (dict "id" $server.name "component" "be")) }}
+{{- $endpoints = append $endpoints (dict "id" (printf "mcp-%s" $server.name) "listeners" (list (dict "name" "api-bindings" "port" $.Values.aiGateway.apiPort "routes" (list $route)))) }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- $inventory := dict "policy_revision" (include "infra-agentgateway.aiRevision" .) "endpoints" $endpoints }}
+{{- if $proxy }}{{ $_ := set $inventory "proxy" $proxy }}{{ end }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: agentgateway-observation-config-map
+  namespace: infra-agentgateway
+data:
+  observation.json: {{ $inventory | toJson | quote }}
+---
+# Helm owns this empty object; the command patches only its expiring status key.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: agentgateway-status-config-map
+  namespace: frontend-studio
+  labels: {app.kubernetes.io/name: agentgateway-observation}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: agentgateway-observation
+  namespace: infra-agentgateway
+automountServiceAccountToken: true
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: agentgateway-observation
+  namespace: infra-agentgateway
+rules:
+  - apiGroups: [""]
+    resources: [configmaps]
+    verbs: [get]
+    resourceNames: [agentgateway-observation-config-map]
+  - apiGroups: [""]
+    resources: [services]
+    verbs: [get]
+    resourceNames: [infra-agentgateway-gateway{{ if .Values.aiGateway.proxy.enabled }}, infra-agentgateway-forward-proxy{{ end }}]
+  - apiGroups: [""]
+    resources: [pods]
+    verbs: [get]
+  - apiGroups: [discovery.k8s.io]
+    resources: [endpointslices]
+    verbs: [list]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: agentgateway-observation
+  namespace: infra-agentgateway
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: agentgateway-observation}
+subjects: [{kind: ServiceAccount, name: agentgateway-observation, namespace: infra-agentgateway}]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: agentgateway-observation
+  namespace: frontend-studio
+rules:
+  - apiGroups: [""]
+    resources: [configmaps]
+    verbs: [get]
+    resourceNames: [agentgateway-catalog-config-map, agentgateway-status-config-map{{ if .Values.aiGateway.proxy.enabled }}, agentgateway-inspection-trust-config-map{{ end }}]
+  - apiGroups: [""]
+    resources: [configmaps]
+    verbs: [patch]
+    resourceNames: [agentgateway-status-config-map]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: agentgateway-observation
+  namespace: frontend-studio
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: agentgateway-observation}
+subjects: [{kind: ServiceAccount, name: agentgateway-observation, namespace: infra-agentgateway}]
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: agentgateway-observation
+  namespace: infra-agentgateway
+spec:
+  schedule: "* * * * *"
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 30
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 90
+      ttlSecondsAfterFinished: 600
+      template:
+        metadata:
+          labels: {app.kubernetes.io/name: agentgateway-observation}
+        spec:
+          serviceAccountName: agentgateway-observation
+          automountServiceAccountToken: true
+          restartPolicy: Never
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            seccompProfile: {type: RuntimeDefault}
+          containers:
+            - name: observation
+              image: {{ $image | quote }}
+              imagePullPolicy: IfNotPresent
+              command: [agentgateway-observe]
+              env: [{name: PYTHONDONTWRITEBYTECODE, value: "1"}]
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities: {drop: [ALL]}
+              resources:
+                {{- toYaml $observation.resources | nindent 16 }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: agentgateway-observation
+  namespace: infra-agentgateway
+spec:
+  podSelector:
+    matchLabels: {app.kubernetes.io/name: agentgateway-observation}
+  policyTypes: [Ingress, Egress]
+  ingress: []
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: kube-system}
+      ports: [{protocol: UDP, port: 53}, {protocol: TCP, port: 53}]
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: infra-agentgateway-gateway
+              gateway.networking.k8s.io/gateway-name: infra-agentgateway-gateway
+      ports:
+        - {protocol: TCP, port: 15000}
+        - {protocol: TCP, port: 15021}
+        {{- if .Values.aiGateway.proxy.enabled }}
+        - {protocol: TCP, port: {{ .Values.aiGateway.proxy.port }}}
+        {{- end }}
+    {{- range $observation.kubernetesApiEgress }}
+    - to: [{ipBlock: {cidr: {{ .cidr | quote }}}}]
+      ports: [{protocol: TCP, port: {{ .port }}}]
+    {{- end }}
+{{- end }}

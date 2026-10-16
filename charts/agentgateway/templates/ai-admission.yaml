@@ -137,6 +137,8 @@ spec:
           policy:
             request:
               metadata:
+                # Read back only from this attached runtime policy by the bounded observer.
+                neurwerk_policy_revision: {{ $revision | toJson | squote }}
                 # Generated once after authentication, before the route extProc.
                 neurwerk_admission: >-
                   {"request_id": uuid(), "principal_id": has(jwt.sub) ? jwt.sub : extauthz.principal_id,
