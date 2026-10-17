@@ -238,8 +238,8 @@ spec:
       appVersion: 0.8.0
     - path: charts/agentgateway-extproc
       name: agentgateway-extproc
-      version: 2.0.9
-      appVersion: 0.19.9
+      version: 2.0.10
+      appVersion: 0.19.11
     - path: charts/cert-manager/approval-policy
       name: infra-cert-manager-approval-policy
       version: 1.2.8
@@ -370,7 +370,7 @@ spec:
           sha256: b344a03d0006aba69a8c20ae1ff0354ac7687bdf72c3611c4f330b59a22b7548
     - path: charts/langfuse
       name: monitor-langfuse
-      version: 2.0.18
+      version: 2.0.19
       appVersion: 4.28.1
       dependencyLock:
         digest: sha256:68156b8f74aa153f2e33eb76f6ac11e9277c1a8fe8073c3f37da8834a97292cc
@@ -481,12 +481,12 @@ spec:
           sha256: d932c62d60743f2837c7b9a4248ef7719c3049fe11b2dd8d44bc6ede43641a0e
     - path: charts/pii-engine
       name: pii-engine
-      version: 1.1.6
-      appVersion: 0.15.2
+      version: 1.1.7
+      appVersion: 0.15.3
     - path: charts/pii-engine-model-sync
       name: pii-engine-model-sync
-      version: 1.0.13
-      appVersion: 0.15.2
+      version: 1.0.14
+      appVersion: 0.15.3
     - path: charts/postgres/addon
       name: infra-postgres-addon
       version: 0.1.2
@@ -889,7 +889,7 @@ spec:
       eligibility: included
       origins:
       - charts/wireguard/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.19.9@sha256:708cfafcd44e657d1ed7ed8c27774b638c47364374fcda399cd200a073efe8ba
+    - reference: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.19.11@sha256:b44e762d7a85bb440edbe20bbcfd75c6ed3c7b5bed4ec16805a26ba35663cb6e
       pinned: true
       eligibility: included
       origins:
@@ -910,7 +910,7 @@ spec:
       eligibility: included
       origins:
       - charts/opensearch/dashboards/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-pii-engine:0.15.2@sha256:dde5e1a5507df2f3526b1afc5c7403d52b3c4d724f0806f060d886074311cbc8
+    - reference: ghcr.io/neurwerk/k8s-stack-pii-engine:0.15.3@sha256:9e707c9df85a2d12ef1976c8d6411af3d3901c9165c478e9967c4835426752e5
       pinned: true
       eligibility: included
       origins:

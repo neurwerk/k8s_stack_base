@@ -145,6 +145,8 @@ spec:
               value: {{ $maxStudioEvaluationResponseBytes | quote }}
             - name: PII_ENGINE_MAX_TEXT_LEAVES
               value: {{ .Values.monitorPiiEngine.capacity.maxTextLeaves | quote }}
+            - name: PII_ENGINE_MAX_REASONING_FINGERPRINTS
+              value: {{ .Values.reasoning.maxFingerprints | quote }}
             - name: PII_ENGINE_MAX_TEXT_CHARACTERS
               value: {{ .Values.monitorPiiEngine.capacity.maxTextCharacters | quote }}
             - name: PII_ENGINE_MAX_NESTING_DEPTH

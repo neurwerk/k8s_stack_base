@@ -1,7 +1,10 @@
 # IMAGE SOURCE: owned service
 # The image is built by the pii_engine repository and pinned here.
+reasoning:
+  maxFingerprints: 4096
+
 monitorPiiEngine:
-  image: ghcr.io/neurwerk/k8s-stack-pii-engine:0.15.2@sha256:dde5e1a5507df2f3526b1afc5c7403d52b3c4d724f0806f060d886074311cbc8
+  image: ghcr.io/neurwerk/k8s-stack-pii-engine:0.15.3@sha256:9e707c9df85a2d12ef1976c8d6411af3d3901c9165c478e9967c4835426752e5
   # Local retains the existing baseline / verified transformer selection.
   analyzerBackend: local # local | remote-gliner | remote-kserve
   # null preserves legacy automatic baseline / transformer bundle selection.
