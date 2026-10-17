@@ -15,7 +15,7 @@ from helm import ROOT, documents, render, resource
 
 CHART = "keycloak/addon-oidc"
 # Synthetic, test-only digest. This is NOT publication evidence or a deployment pin.
-TEST_ONLY_UNPUBLISHED_IMAGE = "ghcr.io/neurwerk/k8s-stack-tooling:0.10.0@sha256:" + "0" * 64
+TEST_ONLY_UNPUBLISHED_IMAGE = "ghcr.io/neurwerk/k8s-stack-tooling:0.11.1@sha256:" + "0" * 64
 
 
 def configuration(client="example-addon"):
@@ -227,7 +227,7 @@ class AddonOidcTests(unittest.TestCase):
         values["k8sTools"] = old["k8sTools"]
         result = render(CHART, values, namespace="auth-keycloak", value_files=(), check=False)
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("tooling >=0.10.0", result.stderr)
+        self.assertIn("tooling >=0.11.1", result.stderr)
 
     def test_login_and_two_gateway_addons_require_only_configuration(self):
         for client in ("example-addon", "second-addon"):

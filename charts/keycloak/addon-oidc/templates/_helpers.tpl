@@ -32,7 +32,7 @@
 {{- $image := .Values.k8sTools.image -}}
 {{- if not (regexMatch "^ghcr.io/neurwerk/k8s-stack-tooling:[0-9]+\\.[0-9]+\\.[0-9]+@sha256:[a-f0-9]{64}$" $image) }}{{ fail "enable only with an explicitly published immutable tooling image" }}{{ end -}}
 {{- $version := index (splitList "@" (trimPrefix "ghcr.io/neurwerk/k8s-stack-tooling:" $image)) 0 -}}
-{{- if not (semverCompare ">=0.10.0" $version) }}{{ fail "addon-oidc requires tooling >=0.10.0" }}{{ end -}}
+{{- if not (semverCompare ">=0.11.1" $version) }}{{ fail "addon-oidc requires tooling >=0.11.1" }}{{ end -}}
 {{- end -}}
 
 {{- define "addon-oidc.gatewayScope" -}}

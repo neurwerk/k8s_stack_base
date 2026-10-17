@@ -310,8 +310,8 @@ spec:
       version: 0.1.3
     - path: charts/keycloak/addon-oidc
       name: addon-oidc
-      version: 0.1.0
-      appVersion: 0.10.0
+      version: 0.1.1
+      appVersion: 0.11.1
     - path: charts/keycloak/oidc/agentgateway
       name: agentgateway
       version: 1.2.0
@@ -426,7 +426,7 @@ spec:
       appVersion: '18.6'
     - path: charts/postgres/documentdb-addon
       name: documentdb-addon
-      version: 1.0.0
+      version: 1.0.1
       appVersion: pg18-0.116.0
     - path: charts/postgres/operations
       name: infra-postgres-operations
@@ -784,15 +784,11 @@ spec:
       eligibility: included
       origins:
       - charts/studio/web/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-tooling:0.10.0@sha256:73ff19270ea51f75513b981fa371a132f4879cef9a5b1cc29d8f1b7c59e2ca41
+    - reference: ghcr.io/neurwerk/k8s-stack-tooling:0.11.1@sha256:8268cdc0af8b5abffa4d7082fae063cf5801d8af28d3e1bb8b5d8262ad67de00
       pinned: true
       eligibility: included
       origins:
       - charts/keycloak/addon-oidc/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-tooling:0.11.0@sha256:b2f38490153bbd20f8ec1a3fef0b520cb7e587c50563e6e87e82baef8711e97c
-      pinned: true
-      eligibility: included
-      origins:
       - charts/postgres/documentdb-addon/values.yaml
     - reference: ghcr.io/neurwerk/k8s-stack-tooling:0.7.4@sha256:6f6a72a2b16f6bd93771c60190f5e0dba552790c283ea99ad4005cbf94e6894e
       pinned: true
