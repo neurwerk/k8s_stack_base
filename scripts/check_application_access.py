@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import re
 import sys
 from pathlib import Path
 from typing import Any
@@ -14,15 +15,9 @@ import yaml
 # Human browser/native-client dependencies only, not backend service traffic.
 BROWSER_DEPENDENCIES = {
     "keycloak": (),
-    "librechat": ("keycloak",),
-    "librechat-admin": ("librechat", "keycloak"),
-    "librechat-files": (),
     "studio": ("keycloak",),
     "langfuse": (),
     "agentgateway": (),
-}
-OPTIONAL_BROWSER_DEPENDENCIES = {
-    "librechat": {"files": "librechat-files"},
 }
 LEVELS = ("internal", "public", "restricted")
 
@@ -91,8 +86,35 @@ def validate_plan(plan: Any) -> tuple[list[str], list[str]]:
     Inputs are never mutated. Endpoint presence is explicit plan selection only.
     """
     plan = _mapping(
-        plan, "plan", ("access", "certificates", "canonicalEndpointRouting", "endpoints")
+        plan, "plan", ("access", "certificates", "canonicalEndpointRouting", "endpoints"),
+        ("addonDependencies",),
     )
+    browser_dependencies = dict(BROWSER_DEPENDENCIES)
+    optional_dependencies = {}
+    addons = plan.get("addonDependencies", {})
+    if type(addons) is not dict:
+        raise PlanError("addonDependencies: expected a mapping")
+    for name, specification in addons.items():
+        if type(name) is not str or not re.fullmatch(r"[a-z][a-z0-9-]{0,62}", name):
+            raise PlanError("addonDependencies: invalid endpoint name")
+        if name in BROWSER_DEPENDENCIES:
+            raise PlanError("addonDependencies: cannot override a platform endpoint")
+        specification = _mapping(specification, "addonDependencies", ("required",), ("optional",))
+        required = specification["required"]
+        optional = specification.get("optional", {})
+        if type(required) is not list or any(type(item) is not str for item in required):
+            raise PlanError("addonDependencies.required: expected a list of endpoint names")
+        if type(optional) is not dict or any(
+            type(feature) is not str or not re.fullmatch(r"[a-z][a-z0-9-]{0,62}", feature)
+            or type(target) is not str for feature, target in optional.items()
+        ):
+            raise PlanError("addonDependencies.optional: expected feature-to-endpoint mappings")
+        browser_dependencies[name] = tuple(required)
+        optional_dependencies[name] = optional
+    for name, dependencies in browser_dependencies.items():
+        for target in (*dependencies, *optional_dependencies.get(name, {}).values()):
+            if target not in browser_dependencies:
+                raise PlanError("addonDependencies: dependency endpoint is undeclared")
     access = _mapping(plan["access"], "access", ("boundary", "default"))
     boundary = _choice(access["boundary"], "access.boundary", ("internet", "client-network"))
     default = _choice(access["default"], "access.default", LEVELS)
@@ -100,7 +122,7 @@ def validate_plan(plan: Any) -> tuple[list[str], list[str]]:
     _choice(certificates["profile"], "certificates.profile", ("public-production",))
     routing = _mapping(plan["canonicalEndpointRouting"], "canonicalEndpointRouting", ("mode",))
     _choice(routing["mode"], "canonicalEndpointRouting.mode", ("internal-traefik", "public-dns"))
-    endpoints = _mapping(plan["endpoints"], "endpoints", (), tuple(BROWSER_DEPENDENCIES))
+    endpoints = _mapping(plan["endpoints"], "endpoints", (), tuple(browser_dependencies))
     if boundary == "client-network" and default == "public":
         raise PlanError("access.default: public is forbidden under client-network, even with overrides")
 
@@ -110,7 +132,7 @@ def validate_plan(plan: Any) -> tuple[list[str], list[str]]:
     warnings = []
     for name, endpoint in endpoints.items():
         path = f"endpoints.{name}"
-        features = OPTIONAL_BROWSER_DEPENDENCIES.get(name, {})
+        features = optional_dependencies.get(name, {})
         endpoint = _mapping(
             endpoint, path, ("features",) if features else (), ("level", "devices")
         )
@@ -132,7 +154,7 @@ def validate_plan(plan: Any) -> tuple[list[str], list[str]]:
                 warnings.append(f"{path}: DENY-ALL; no admitted devices")
         elif "devices" in endpoint:
             raise PlanError(f"{path}.devices: allowed only for a restricted endpoint")
-        dependencies[name] = list(BROWSER_DEPENDENCIES[name])
+        dependencies[name] = list(browser_dependencies[name])
         if features:
             selected = _mapping(endpoint["features"], f"{path}.features", tuple(features))
             for feature, target in features.items():

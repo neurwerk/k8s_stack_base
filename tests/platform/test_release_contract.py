@@ -82,7 +82,7 @@ class ReleaseContractTest(unittest.TestCase):
 
     def test_compact_notes_preserve_only_selected_authored_body(self) -> None:
         body = (
-            "- Fix LibreChat MCP authentication with internal routing.\n"
+            "- Fix addon MCP authentication with internal routing.\n"
             "- Preserve required network access in public-DNS mode."
         )
         with tempfile.TemporaryDirectory() as directory:

@@ -1,5 +1,5 @@
 # Canonical platform defaults; client-wide overrides must be projected to all
-# consumers. Bytes here, MiB only at the LibreChat configuration boundary.
+# consumers. Limits use bytes; consumers convert units at their configuration boundary.
 documentAttachments:
   fileBytes: 20971520
   totalBytes: 41943040

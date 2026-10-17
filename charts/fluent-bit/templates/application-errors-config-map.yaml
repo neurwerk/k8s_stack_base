@@ -9,4 +9,10 @@ metadata:
     app.kubernetes.io/part-of: monitor-fluent-bit
 data:
   application-errors.lua: |
+    local addon_applications = {
+    {{- range $namespace, $application := .Values.monitorFluentBit.applicationAlerts.addonApplications }}
+    {{- if or (not (regexMatch `^[a-z][a-z0-9-]{0,62}$` $namespace)) (not (regexMatch `^[a-z][a-z0-9-]{0,62}$` $application)) }}{{ fail "applicationAlerts.addonApplications requires exact namespace and application identifiers" }}{{ end }}
+      [{{ $namespace | quote }}] = {{ $application | quote }},
+    {{- end }}
+    }
     {{- .Files.Get "files/application-errors.lua" | nindent 4 }}

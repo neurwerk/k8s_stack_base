@@ -1,6 +1,5 @@
 -- Only fixed application and failure categories leave the log pipeline as labels.
 local applications = {
-    ["frontend-librechat"] = "librechat",
     ["infra-agentgateway"] = "agentgateway",
     ["monitor-agentgateway-extproc"] = "agentgateway-extproc",
     ["monitor-pii-engine"] = "pii-engine",
@@ -10,6 +9,11 @@ local applications = {
     ["infra-postgres-auth"] = "postgres-auth",
     ["infra-postgres-operations"] = "postgres-operations",
 }
+for namespace, application in pairs(addon_applications or {}) do
+    if applications[namespace] == nil then
+        applications[namespace] = application
+    end
+end
 local last_seen = {}
 
 local function text(value)
@@ -78,14 +82,12 @@ local function classify(record, application)
         return nil
     end
 
-    -- These are caller outcomes, not application failures. The short memory wait
-    -- merely lets chat proceed while the background task continues.
+    -- These are caller outcomes, not application failures.
     if (status and status >= 400 and status < 500 and status ~= 408)
         or contains(diagnostic, "request blocked by policy")
         or contains(diagnostic, "request blocked by data policy")
         or contains(diagnostic, "reason=engine_invalid_request")
-        or contains(diagnostic, "reason=engine_request_too_large")
-        or contains(diagnostic, "[agentclient] memory processing timed out") then
+        or contains(diagnostic, "reason=engine_request_too_large") then
         return nil
     end
 

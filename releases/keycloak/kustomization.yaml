@@ -5,7 +5,6 @@ resources:
   - server.yaml
   - oidc-agentgateway.yaml
   - oidc-keycloak-api-key-bridge.yaml
-  - oidc-librechat.yaml
   - oidc-studio.yaml
   - realm-initial-admin.yaml
   - realm-roles.yaml

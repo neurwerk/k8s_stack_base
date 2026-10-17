@@ -25,8 +25,26 @@
           "additionalProperties": false,
           "properties": {
             "studio": {"$ref": "#/definitions/product"},
-            "librechat": {"$ref": "#/definitions/product"},
             "langfuse": {"$ref": "#/definitions/product"}
+          }
+        },
+        "addons": {
+          "type": "object",
+          "propertyNames": {
+            "pattern": "^[a-z][a-z0-9-]{0,31}$",
+            "not": {"enum": ["global", "studio", "langfuse", "keycloak", "agentgateway"]}
+          },
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["enabled", "hosts"],
+            "properties": {
+              "enabled": {"type": "boolean"},
+              "hosts": {
+                "type": "array", "minItems": 1, "uniqueItems": true,
+                "items": {"type": "string"}
+              }
+            }
           }
         }
       },

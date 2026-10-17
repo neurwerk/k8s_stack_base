@@ -1,8 +1,8 @@
 # AgentGateway
 
 One binding catalog supplies API routes, inspected-proxy routes and Studio views.
-The clean-cutover configuration requires the matching extProc, bridge, Studio and
-LibreChat changes. The unbound `/v1` API and old MCP routes are removed.
+The clean-cutover configuration requires matching extProc, bridge, Studio and
+API consumer changes. The unbound `/v1` API and old MCP routes are removed.
 
 ## Model API
 

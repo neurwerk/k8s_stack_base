@@ -23,6 +23,8 @@ authKeycloak:
     ssl: true
     starttls: false
   activeDirectory:
+    # Explicit runtime-supported addon groups approved for directory mapping.
+    addonGroupTargets: []
     enabled: false
     # Explicit plaintext opt-in; only ldap://host:389, never a TLS fallback.
     allowInsecureLdap: false
@@ -41,7 +43,6 @@ authKeycloak:
     egressCidrs: []
   # Keycloak administrator-issued action link lifespan in seconds.
   adminActionTokenLifespan: 1800
-  librechatClientId: librechat
   agentgatewayClientId: agentgateway
   database:
     host: postgres-auth.infra-postgres-auth.svc.cluster.local

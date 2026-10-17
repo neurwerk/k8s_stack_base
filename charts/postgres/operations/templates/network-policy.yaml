@@ -61,41 +61,25 @@ spec:
             matchLabels:
               app.kubernetes.io/name: langfuse-retention-provisioning
               app.kubernetes.io/instance: monitor-langfuse
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: frontend-librechat
-          podSelector:
-            matchLabels:
-              app.kubernetes.io/name: frontend-librechat-rag-api
-              app.kubernetes.io/instance: frontend-librechat-rag-api
         - podSelector:
             matchLabels:
               app.kubernetes.io/name: postgres-operations-provisioning
         - podSelector:
             matchLabels:
               app.kubernetes.io/name: postgres-addon-provisioning
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: documentdb-addon-provisioning
       ports:
         - port: {{ .Values.postgresOperations.containerPorts.postgresql }}
           protocol: TCP
     - from:
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: frontend-librechat
-          podSelector:
-            matchLabels:
-              app.kubernetes.io/name: frontend-librechat
-              app.kubernetes.io/instance: frontend-librechat
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: frontend-librechat
-          podSelector:
-            matchLabels:
-              app.kubernetes.io/name: frontend-librechat
-              app.kubernetes.io/instance: frontend-librechat-permissions
-              app.kubernetes.io/component: permissions
+        {{- with .Values.postgresOperations.documentdbIngressPeers }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
         - podSelector:
             matchLabels:
-              app.kubernetes.io/name: postgres-operations-provisioning
+              app.kubernetes.io/name: documentdb-addon-provisioning
       ports:
         - port: {{ .Values.postgresOperations.containerPorts.documentdb }}
           protocol: TCP

@@ -1,5 +1,7 @@
 infraAgentgatewayWrapper:
   hostname: ""                        # set in client_*/config/client.yaml
+  # Client-approved in-cluster callers of the API listener (NetworkPolicy peers).
+  addonIngressPeers: []
 
   alerts:
     # Application failures use the existing Alertmanager email recipient.
@@ -65,7 +67,6 @@ infraAgentgatewayWrapper:
   jwtAuth:
     allowedAudiences:
       - "agentgateway"
-      - "librechat"
 
 externalGateway:
   enabled: false
@@ -85,10 +86,9 @@ aiGateway:
   bindings: []
   # Trusted-admin approval of user OIDC clients, scoped to exact enabled API
   # binding IDs (including mcp-<server>). This grants no user permissions.
-  # null preserves LibreChat on all effective API bindings with global JWT
-  # audiences. An explicit list REPLACES that default; [] revokes product access.
-  # Explicit entries (including LibreChat) require the agentgateway audience.
-  approvedOidcClients: null # [{clientId: librechat, bindings: [example-api]}]
+  # Empty, omitted, or null approvals deny product access. Approved clients
+  # require the agentgateway audience as well as the user's own permissions.
+  approvedOidcClients: [] # [{clientId: example-addon, bindings: [example-api]}]
   proxy:
     enabled: false
     hostname: ""

@@ -4,6 +4,8 @@ monitorFluentBit:
   applicationAlerts:
     # Email routing is owned by kube-prometheus-stack; this enables the log rules.
     enabled: true
+    # Client-approved namespace-to-application labels for selected addons.
+    addonApplications: {}
 
 # --- Subchart dependency: fluent-bit ---
 fluent-bit:

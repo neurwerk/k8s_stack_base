@@ -157,16 +157,6 @@ packages:
     - name: openbao-stack-setup
       version: 0.2.27
       source: https://github.com/neurwerk/k8s_stack_tooling/commit/550a2f3b52e7baa53ab8a01a59a417c539663235
-  - path: releases/librechat/rag
-    status: excluded
-    reason: Deployment readiness and effective client rendering are not complete.
-    chartPrefixes:
-    - charts/librechat/rag-api
-  - path: releases/librechat/code-interpreter
-    status: excluded
-    reason: First-party versioned runtime images have not been published.
-    chartPrefixes:
-    - charts/librechat/code-interpreter
 prerequisites:
 - name: flux
   version: 2.9.4
@@ -175,8 +165,8 @@ prerequisites:
   version: 0.0.5
   source: oci://ghcr.io/clickhouse/clickhouse-operator-helm
 - name: openbao-stack-setup
-  version: 0.2.28
-  source: https://github.com/neurwerk/k8s_stack_tooling/commit/e0146e229ee61839b37785dfa3f509768b2276fd
+  version: 0.4.2
+  source: https://github.com/neurwerk/k8s_stack_tooling/commit/b5d0d7afe541f2138a3d628f74a5b3aaf1176cdc
 - name: gateway-api-experimental
   version: 1.6.0
   source: https://github.com/kubernetes-sigs/gateway-api/releases/tag/v1.6.0
@@ -200,8 +190,8 @@ exceptions:
   owner: platform
   expires: 2026-11-27
   reason: DocumentDB 0.116.0 requires readWriteAnyDatabase plus clusterAdmin for a secondary write user
-    and does not support database-scoped readWrite. LibreChat is the gateway's only application consumer;
-    another Mongo-compatible consumer requires a separate instance. Native user creation also requires
+    and does not support database-scoped readWrite. Only one document-store product may use this instance;
+    another Mongo-compatible product requires a separate instance. Native user creation also requires
     narrowly scoped, temporary PostgreSQL CREATEROLE and documentdb_admin_role delegation capabilities.
 - artifact: charts/postgres/operations:privilege-escalation-container
   owner: platform

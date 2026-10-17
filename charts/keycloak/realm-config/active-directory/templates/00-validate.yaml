@@ -67,7 +67,11 @@
     {{- $_ := set $seenGroups $groupName true -}}
   {{- end -}}
 
-  {{- $targets := list "api-key-admins" "keycloak-admins" "langfuse-admins" "librechat-admins" "librechat-users" "opensearch-admins" "pii-admins" "platform-admins" "studio-users" "llm-all-users" "mcp-all-users" -}}
+  {{- $targets := list "api-key-admins" "keycloak-admins" "langfuse-admins" "opensearch-admins" "pii-admins" "platform-admins" "studio-users" "llm-all-users" "mcp-all-users" -}}
+  {{- if not (kindIs "slice" $ad.addonGroupTargets) }}{{ fail "activeDirectory.addonGroupTargets must be a list" }}{{ end -}}
+  {{- range $ad.addonGroupTargets -}}
+  {{- if or (not (kindIs "string" .)) (not (regexMatch `^/access/neurwerk-[a-z][a-z0-9-]{0,40}$` .)) }}{{ fail "addonGroupTargets must contain exact access group paths" }}{{ end -}}
+  {{- end -}}
   {{- $seenTargets := dict -}}
   {{- range $mapping := $ad.groupMappings -}}
     {{- if not (kindIs "map" $mapping) -}}
@@ -92,7 +96,7 @@
     {{- if not (kindIs "string" $target) -}}
       {{- fail "authKeycloak.activeDirectory.groupMappings targetParent must be a canonical /access/neurwerk- group path" -}}
     {{- end -}}
-    {{- if or (not (hasPrefix "/access/neurwerk-" $target)) (not (has (trimPrefix "/access/neurwerk-" $target) $targets)) -}}
+    {{- if not (or (and (hasPrefix "/access/neurwerk-" $target) (has (trimPrefix "/access/neurwerk-" $target) $targets)) (has $target $ad.addonGroupTargets)) -}}
       {{- fail "authKeycloak.activeDirectory.groupMappings targetParent must be a canonical /access/neurwerk- group path" -}}
     {{- end -}}
     {{- if hasKey $seenTargets $target -}}

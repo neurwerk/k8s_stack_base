@@ -93,7 +93,6 @@ class CatalogOwnershipTests(unittest.TestCase):
             ("keycloak/oidc-agentgateway.yaml", "keycloak"),
             ("keycloak/realm-roles.yaml", "keycloak"),
             ("keycloak-api-key-bridge/app.yaml", "keycloak-api-key-bridge"),
-            ("librechat/core/shared.yaml", "librechat"),
         ):
             with self.subTest(release=path):
                 release = yaml.safe_load((ROOT / "releases" / path).read_text())
@@ -119,7 +118,3 @@ class CatalogOwnershipTests(unittest.TestCase):
                             self.assertGreater(index, names.index("agentgateway-product-values"))
                         else:
                             self.assertLess(index, client_index)
-                if product == "librechat":
-                    model_index = names.index("librechat-agentgateway-model-values")
-                    self.assertLess(client_index, model_index)
-                    self.assertLess(model_index, names.index("librechat-product-values"))

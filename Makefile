@@ -103,7 +103,7 @@ rendered-check: deps-verify
 			printf "  $(RED)✗$(RESET) %s — render failed\n" "$$dir"; \
 			errors=$$((errors + 1)); \
 		elif ! grep -Eq '^kind:[[:space:]]+' "$$tmpfile"; then \
-			if [ "$$dir" = "charts/keycloak/addon-oidc" ]; then \
+			if [ "$$dir" = "charts/keycloak/addon-oidc" ] || [ "$$dir" = "charts/postgres/documentdb-addon" ]; then \
 				printf "  $(GREEN)✓$(RESET) %s — opt-in chart disabled; enabled resources checked by chart-check\n" "$$dir"; \
 				continue; \
 			fi; \

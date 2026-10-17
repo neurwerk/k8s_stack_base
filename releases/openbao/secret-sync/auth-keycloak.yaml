@@ -103,10 +103,6 @@ spec:
       remoteRef:
         key: auth-keycloak/internal
         property: bridgeOidcClientSecret
-    - secretKey: librechatOidcClientSecret
-      remoteRef:
-        key: auth-keycloak/internal
-        property: librechatOidcClientSecret
 ---
 apiVersion: external-secrets.io/v1
 kind: ExternalSecret

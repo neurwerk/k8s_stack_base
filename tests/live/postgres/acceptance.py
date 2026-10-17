@@ -42,9 +42,7 @@ class Config:
 class Passwords:
     admin: str
     agentgateway: str
-    documentdb: str
     langfuse: str
-    librechat_rag: str
 
 
 def _required(environ: Mapping[str, str], name: str) -> str:
@@ -114,7 +112,7 @@ def generate_passwords() -> Passwords:
         return f"Aa1!{secrets.token_urlsafe(24)}"
 
     return Passwords(
-        password(), password(), password(), password(), password()
+        password(), password(), password()
     )
 
 
@@ -131,9 +129,7 @@ def values_json(config: Config, passwords: Passwords) -> str:
             "postgresOperationsSecrets": {
                 "adminPassword": passwords.admin,
                 "agentgatewayPassword": passwords.agentgateway,
-                "documentdbPassword": passwords.documentdb,
                 "langfusePassword": passwords.langfuse,
-                "librechatRagPassword": passwords.librechat_rag,
             },
         }
     )
