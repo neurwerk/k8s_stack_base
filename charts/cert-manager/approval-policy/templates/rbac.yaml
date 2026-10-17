@@ -42,10 +42,6 @@ rules:
       - cert-manager-public-agentgateway-proxy-staging
       - cert-manager-public-agentgateway-proxy-production
       {{- end }}
-      - cert-manager-public-librechat-staging
-      - cert-manager-public-librechat-production
-      - cert-manager-public-librechat-admin-staging
-      - cert-manager-public-librechat-admin-production
       - cert-manager-public-studio-staging
       - cert-manager-public-studio-production
       - cert-manager-public-langfuse-staging

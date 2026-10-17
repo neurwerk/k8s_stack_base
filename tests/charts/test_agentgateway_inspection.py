@@ -165,7 +165,7 @@ class ApprovedOidcTests(unittest.TestCase):
 
     def test_client_audience_and_permissions_fail_closed(self):
         for claims in [{"client": "unapproved"}, {"client": ""}, {"azp": None},
-                       {"audience": "librechat"}, {"audience": ["librechat"]},
+                       {"audience": "addon-browser"}, {"audience": ["addon-browser"]},
                        {"audience": None}, {"audience": 7}, {"sub": ""},
                        {"roles": []}, {"roles": "llm:invoke"},
                        {"roles": [r for r in self.roles if r != "llm:invoke"]},
@@ -176,8 +176,8 @@ class ApprovedOidcTests(unittest.TestCase):
                 self.assertFalse(self.admitted(**claims))
 
     def test_builtin_and_managed_key_access_remains_independent(self):
-        self.assertTrue(self.admitted(client="agentgateway", audience="librechat"))
-        self.assertFalse(self.admitted(client="librechat"))
+        self.assertTrue(self.admitted(client="agentgateway"))
+        self.assertFalse(self.admitted(client="addon-browser"))
         self.assertTrue(self.admitted(client="studio", path="/bindings/mcp-context7/mcp",
                                       realm_access={"roles": ["studio-user"]}))
         self.assertFalse(self.admitted(client="studio", realm_access={"roles": ["studio-user"]}))
@@ -204,7 +204,7 @@ class ApprovedOidcTests(unittest.TestCase):
                 values["aiGateway"]["approvedOidcClients"] = [approval]
                 self.assertNotEqual(render("agentgateway", values, check=False).returncode, 0)
 
-    def test_librechat_compatibility_default_and_replacement(self):
+    def test_addon_access_requires_explicit_binding_approval(self):
         for mode in ["omitted", "null", "narrow", "revoked"]:
             with self.subTest(mode=mode):
                 values = binding_values()
@@ -214,21 +214,20 @@ class ApprovedOidcTests(unittest.TestCase):
                     values["aiGateway"]["approvedOidcClients"] = None
                 elif mode == "narrow":
                     values["aiGateway"]["approvedOidcClients"] = [
-                        {"clientId": "librechat", "bindings": ["openai"]},
+                        {"clientId": "addon-browser", "bindings": ["openai"]},
                     ]
                 elif mode == "revoked":
                     values["aiGateway"]["approvedOidcClients"] = []
                 rendered = render("agentgateway", values)
                 traffic = resource(rendered, "AgentgatewayPolicy", "ai-admission-api-bindings")["spec"]["traffic"]
                 self.expression = traffic["authorization"]["policy"]["matchExpressions"][0]
-                legacy = mode in ["omitted", "null"]
-                for audience in ["agentgateway", ["agentgateway"], "librechat", ["librechat"]]:
-                    self.assertEqual(self.admitted(client="librechat", audience=audience),
-                                     legacy or (mode == "narrow" and "agentgateway" in audience))
+                for audience in ["agentgateway", ["agentgateway"], "addon-browser", ["addon-browser"]]:
+                    self.assertEqual(self.admitted(client="addon-browser", audience=audience),
+                                     mode == "narrow" and "agentgateway" in audience)
                 for path in ["/bindings/local/v1/chat/completions", "/bindings/mcp-context7/mcp"]:
-                    self.assertEqual(self.admitted(client="librechat", path=path), legacy)
-                self.assertFalse(self.admitted(client="librechat", path="/v1/chat/completions"))
-                self.assertFalse(self.admitted(client="librechat", path="/bindings/openai/v1/chat/completions/extra"))
+                    self.assertFalse(self.admitted(client="addon-browser", path=path))
+                self.assertFalse(self.admitted(client="addon-browser", path="/v1/chat/completions"))
+                self.assertFalse(self.admitted(client="addon-browser", path="/bindings/openai/v1/chat/completions/extra"))
                 self.assertFalse(self.admitted(client="addon-one"))
                 self.assertTrue(self.admitted(client="agentgateway"))
                 self.assertTrue(self.admitted(client="studio", path="/bindings/mcp-context7/mcp",

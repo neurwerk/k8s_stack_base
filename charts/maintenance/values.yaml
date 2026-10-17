@@ -3,14 +3,13 @@ maintenance:
   enabled: false
   image: ghcr.io/neurwerk/k8s-stack-tooling:0.7.4@sha256:6f6a72a2b16f6bd93771c60190f5e0dba552790c283ea99ad4005cbf94e6894e
   # Approval scopes, not activation state. Only the operator creates runtime copies.
-  # LibreChat covers both its canonical application and Admin Panel hostnames.
   products:
     studio:
       enabled: false
-    librechat:
-      enabled: false
     langfuse:
       enabled: false
+  # Client-approved addon scopes: {example-addon: {enabled: true, hosts: [...]}}.
+  addons: {}
   resources:
     requests:
       cpu: 10m
@@ -26,10 +25,6 @@ authKeycloak:
     logoFormat: png
 frontendStudio:
   studio:
-    hostname: ""
-frontendLibrechat:
-  hostname: ""
-  adminPanel:
     hostname: ""
 monitorLangfuseWrapper:
   hostname: ""

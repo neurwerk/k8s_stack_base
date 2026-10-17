@@ -25,12 +25,9 @@ spec:
           podSelector:
             matchLabels:
               app.kubernetes.io/name: traefik
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: frontend-librechat
-          podSelector:
-            matchLabels:
-              app.kubernetes.io/name: frontend-librechat
+        {{- with .Values.infraAgentgatewayWrapper.addonIngressPeers }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
         - namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: frontend-studio

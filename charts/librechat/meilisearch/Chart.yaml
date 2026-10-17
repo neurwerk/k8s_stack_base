@@ -1,6 +1,0 @@
-apiVersion: v2
-name: frontend-librechat-meilisearch
-description: Persistent Meilisearch index for LibreChat
-type: application
-version: 1.0.2
-appVersion: "v1.35.1"

@@ -20,7 +20,7 @@ class KeycloakStandardAccessTests(unittest.TestCase):
         groups = json.loads(env_value(rendered, "KC_ACCESS_GROUPS"))
         role_names = (
             "keycloak-admin,api-key-admin,opensearch-admin,langfuse-admin,pii-admin,mcp-admin,gateway-admin,"
-            "platform-admin,studio-user,librechat-user,librechat-admin"
+            "platform-admin,studio-user"
         )
         expected = {
             f"/access/neurwerk-{role}s": {"realmRoles": [role]}
@@ -32,17 +32,15 @@ class KeycloakStandardAccessTests(unittest.TestCase):
         self.assertEqual(groups, expected)
         self.assertEqual(env_value(rendered, "KC_REALM_ROLES"), role_names)
         self.assertEqual(json.loads(env_value(rendered, "KC_REALM_ROLE_COMPOSITES")), {
-            "librechat-admin": ["librechat-user"],
             "platform-admin": [
                 "keycloak-admin", "api-key-admin", "opensearch-admin",
-                "langfuse-admin", "pii-admin", "mcp-admin", "gateway-admin", "studio-user", "librechat-admin",
+                "langfuse-admin", "pii-admin", "mcp-admin", "gateway-admin", "studio-user",
             ],
         })
         self.assertEqual(json.loads(env_value(rendered, "KC_REALM_ROLE_COMPOSITE_OWNERSHIP")), {
-            "librechat-admin": ["librechat-user"],
             "platform-admin": [
                 "keycloak-admin", "api-key-admin", "opensearch-admin",
-                "langfuse-admin", "pii-admin", "mcp-admin", "gateway-admin", "studio-user", "librechat-admin",
+                "langfuse-admin", "pii-admin", "mcp-admin", "gateway-admin", "studio-user",
             ],
         })
         self.assertEqual(env_value(rendered, "KC_PARENT_ROLE"), "keycloak-admin")
@@ -60,7 +58,7 @@ class KeycloakStandardAccessTests(unittest.TestCase):
         baseline = render(CHART)
         composites = json.loads(env_value(baseline, "KC_REALM_ROLE_COMPOSITES"))
         defaults = composites["platform-admin"]
-        for exclusions in (["studio-user", "librechat-admin"], ["gateway-admin"], defaults, []):
+        for exclusions in (["studio-user", "langfuse-admin"], ["gateway-admin"], defaults, []):
             with self.subTest(exclusions=exclusions):
                 rendered = render(CHART, {"authKeycloak": {"platformAdminRoleExclusions": exclusions}})
                 self.assertEqual(
@@ -88,15 +86,15 @@ class KeycloakStandardAccessTests(unittest.TestCase):
     def test_invalid_platform_admin_exclusions_fail_closed(self) -> None:
         for value, message in [
             *[(value, "must be a list") for value in (
-                "", "librechat-admin", {}, {"librechat-admin": True}, False, True, 1, None,
+                "", "langfuse-admin", {}, {"langfuse-admin": True}, False, True, 1, None,
             )],
             *[(value, "entries must be strings") for value in (
                 [None], [False], [1], [{}], [[]],
             )],
-            (["librechat-admin", "librechat-admin"], "duplicate role"),
+            (["langfuse-admin", "langfuse-admin"], "duplicate role"),
             *[([role], "unknown direct application grant") for role in (
                 "", "unknown-admin", "platform-admin", "dify-admin", "dify-user",
-                "librechat-user", "/access/neurwerk-platform-admins",
+                "addon-user", "/access/neurwerk-platform-admins",
                 "llm:invoke", "model:example:invoke", "mcp:example:invoke",
             )],
         ]:
@@ -118,7 +116,7 @@ class KeycloakStandardAccessTests(unittest.TestCase):
         values = {
             "openrouterCatalog": selected,
             "authKeycloak": {
-                "platformAdminRoleExclusions": ["librechat-admin"],
+                "platformAdminRoleExclusions": ["langfuse-admin"],
                 "agentgatewayClientRoles": ["llm:invoke", mcp, application, provider],
                 "agentgatewayAccessGroups": {
                     LLM: ["llm:invoke", model, model, provider],
@@ -139,7 +137,7 @@ class KeycloakStandardAccessTests(unittest.TestCase):
         self.assertEqual(groups.pop(APPLICATION), {
             "realmRoles": [], "clientRoles": {"agentgateway": ["llm:invoke", application, provider]},
         })
-        self.assertEqual(len(groups), 11)
+        self.assertEqual(len(groups), 9)
         self.assertTrue(all(
             group["clientRoles"] == {"agentgateway": []} for group in groups.values()
         ))

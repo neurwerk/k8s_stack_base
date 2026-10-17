@@ -4,6 +4,8 @@ authKeycloak:
   adminUser: admin
   realm: ""
   activeDirectory:
+    # Explicit runtime-supported addon groups approved for directory mapping.
+    addonGroupTargets: []
     enabled: false
     # Explicit plaintext opt-in; only ldap://host:389, never a TLS fallback.
     allowInsecureLdap: false

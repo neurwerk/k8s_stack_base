@@ -19,16 +19,15 @@ and [successful publication run](https://github.com/neurwerk/k8s_stack_tooling/a
 Explicit adoption and runtime acceptance remain required.
 
 `maintenance.products.<product>.enabled` is an approval scope, not runtime
-activation. All three supported products default to `false`; enabled maintenance requires at least
-one selection. No arbitrary hostname list or additional product is accepted.
+activation. Builtin products default to `false`; enabled maintenance requires at least
+one selection. Clients approve addon scopes with `maintenance.addons.<name>: {enabled: true, hosts: [...]}`.
 
 | Product | Canonical Hostname Values |
 | --- | --- |
 | `studio` | `frontendStudio.studio.hostname` |
-| `librechat` | `frontendLibrechat.hostname`, `frontendLibrechat.adminPanel.hostname` |
 | `langfuse` | `monitorLangfuseWrapper.hostname` |
 
-Both LibreChat hostnames are required when selected. Selected hosts must be
+Selected hosts must be
 nonempty, exact lowercase DNS hostnames with an alphabetic first character in the
 final label (not IP addresses), unique across all selected products,
 and not placeholders. Keycloak, model and storage scopes are not supported;

@@ -4,8 +4,6 @@ resources:
   - contextforge
   - keycloak-api-key-bridge.yaml
   - keycloak.yaml
-  - librechat.yaml
-  - librechat-code-interpreter.yaml
   - studio.yaml
   - agentgateway.yaml
   - cert-manager.yaml

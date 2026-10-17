@@ -7,8 +7,6 @@
 #    Check: kubectl get gateway -n auth-keycloak auth-keycloak-gateway -o jsonpath='{.spec.listeners[0].hostname}'
 authKeycloak:
   hostname: "place.holder"
-  librechatRedirectUri: "https://place.holder/*"
-  librechatWebOrigin: "https://place.holder"
   agentgatewayRedirectUri: "https://place.holder/*"
   agentgatewayWebOrigin: "https://place.holder"
   keycloakApiKeyBridgeRedirectUri: "https://place.holder/*"
@@ -18,11 +16,6 @@ authKeycloak:
 
 infraAgentgatewayWrapper:
   hostname: "place.holder"
-
-frontendLibrechat:
-  hostname: "place.holder"
-  adminPanel:
-    hostname: "place.holder"
 
 monitorLangfuseWrapper:
   hostname: "place.holder"

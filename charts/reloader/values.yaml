@@ -21,7 +21,6 @@ reloader:
     namespaces:
       - auth-keycloak
       - auth-keycloak-api-key-bridge
-      - frontend-librechat
       - frontend-studio
       - infra-postgres-auth
       - infra-postgres-operations
@@ -56,7 +55,6 @@ infraReloader:
   watchedNamespaces:
     - auth-keycloak
     - auth-keycloak-api-key-bridge
-    - frontend-librechat
     - frontend-studio
     - infra-postgres-auth
     - infra-postgres-operations

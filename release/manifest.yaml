@@ -163,16 +163,6 @@ spec:
       - name: openbao-stack-setup
         version: 0.2.27
         source: https://github.com/neurwerk/k8s_stack_tooling/commit/550a2f3b52e7baa53ab8a01a59a417c539663235
-    - path: releases/librechat/rag
-      status: excluded
-      reason: Deployment readiness and effective client rendering are not complete.
-      chartPrefixes:
-      - charts/librechat/rag-api
-    - path: releases/librechat/code-interpreter
-      status: excluded
-      reason: First-party versioned runtime images have not been published.
-      chartPrefixes:
-      - charts/librechat/code-interpreter
   prerequisites:
   - name: flux
     version: 2.9.4
@@ -181,8 +171,8 @@ spec:
     version: 0.0.5
     source: oci://ghcr.io/clickhouse/clickhouse-operator-helm
   - name: openbao-stack-setup
-    version: 0.2.28
-    source: https://github.com/neurwerk/k8s_stack_tooling/commit/e0146e229ee61839b37785dfa3f509768b2276fd
+    version: 0.4.2
+    source: https://github.com/neurwerk/k8s_stack_tooling/commit/b5d0d7afe541f2138a3d628f74a5b3aaf1176cdc
   - name: gateway-api-experimental
     version: 1.6.0
     source: https://github.com/kubernetes-sigs/gateway-api/releases/tag/v1.6.0
@@ -206,8 +196,8 @@ spec:
     owner: platform
     expires: 2026-11-27
     reason: DocumentDB 0.116.0 requires readWriteAnyDatabase plus clusterAdmin for a secondary write user
-      and does not support database-scoped readWrite. LibreChat is the gateway's only application consumer;
-      another Mongo-compatible consumer requires a separate instance. Native user creation also requires
+      and does not support database-scoped readWrite. Only one document-store product may use this instance;
+      another Mongo-compatible product requires a separate instance. Native user creation also requires
       narrowly scoped, temporary PostgreSQL CREATEROLE and documentdb_admin_role delegation capabilities.
   - artifact: charts/postgres/operations:privilege-escalation-container
     owner: platform
@@ -218,7 +208,7 @@ spec:
     charts:
     - path: charts/agentgateway
       name: infra-agentgateway
-      version: 2.1.0
+      version: 2.1.1
       appVersion: 1.6.0
       dependencyLock:
         digest: sha256:ef5fd87240e231990e45578f9deb65e6a6f947ba8a8b846cf13954882299cb3a
@@ -242,7 +232,7 @@ spec:
       appVersion: 0.19.12
     - path: charts/cert-manager/approval-policy
       name: infra-cert-manager-approval-policy
-      version: 1.2.8
+      version: 1.2.9
     - path: charts/cert-manager/approver-policy
       name: infra-cert-manager-approver-policy
       version: 1.0.0
@@ -300,7 +290,7 @@ spec:
           sha256: da2d5c126a103b4c1b16a9dc1c168c4332a3687144e88ac070e594f81a0b6578
     - path: charts/fluent-bit
       name: monitor-fluent-bit
-      version: 1.0.11
+      version: 1.0.12
       appVersion: 3.2.8
       dependencyLock:
         digest: sha256:90275c51b97202d8b18e353f33c38e5800924b94be0b21d2adf9a62590334d17
@@ -330,26 +320,22 @@ spec:
       name: keycloak-api-key-bridge
       version: 1.0.7
       appVersion: '1.0'
-    - path: charts/keycloak/oidc/librechat
-      name: librechat
-      version: 2.0.0
-      appVersion: '1.0'
     - path: charts/keycloak/oidc/studio
       name: studio
       version: 1.0.8
       appVersion: '1.0'
     - path: charts/keycloak/realm-config/active-directory
       name: keycloak-active-directory
-      version: 1.1.7
+      version: 1.1.8
     - path: charts/keycloak/realm-config/initial-admin
       name: keycloak-oidc-configurations-initial-admin
       version: 1.1.6
     - path: charts/keycloak/realm-config/realm-roles
       name: keycloak-oidc-configurations-realm-roles
-      version: 2.4.0
+      version: 2.4.1
     - path: charts/keycloak/server
       name: keycloak
-      version: 1.1.8
+      version: 1.1.9
       appVersion: 26.7.2
     - path: charts/keycloak-api-key-bridge
       name: auth-keycloak-api-key-bridge
@@ -357,7 +343,7 @@ spec:
       appVersion: 0.10.1
     - path: charts/kube-prometheus-stack
       name: monitor-kube-prometheus-stack
-      version: 1.1.0
+      version: 1.1.1
       appVersion: 0.82.2
       dependencyLock:
         digest: sha256:52ccce9875b52ce65fb7e2e05455cc672e2ddac98d7c5b2d94ff99ec174af431
@@ -381,65 +367,9 @@ spec:
         archives:
         - path: charts/langfuse/charts/langfuse-2.1.0.tgz
           sha256: 66cea2e1b6fa9f215e5f09b0b378ea1ed755ebe5881c68caa4ceba66774d7258
-    - path: charts/librechat/admin-panel
-      name: librechat-admin-panel
-      version: 1.0.1
-      appVersion: 1.0.0
-    - path: charts/librechat/app
-      name: frontend-librechat
-      version: 1.2.5
-      appVersion: v0.8.8
-    - path: charts/librechat/code-interpreter/api
-      name: librechat-code-interpreter-api
-      version: 1.0.0
-      appVersion: fea707467600f3802d65596a6875c7822f25cfd8
-    - path: charts/librechat/code-interpreter/egress-gateway
-      name: librechat-code-interpreter-egress-gateway
-      version: 1.0.0
-      appVersion: fea707467600f3802d65596a6875c7822f25cfd8
-    - path: charts/librechat/code-interpreter/file-server
-      name: librechat-code-interpreter-file-server
-      version: 1.0.0
-      appVersion: fea707467600f3802d65596a6875c7822f25cfd8
-    - path: charts/librechat/code-interpreter/package-init
-      name: librechat-code-interpreter-package-init
-      version: 1.0.0
-      appVersion: fea707467600f3802d65596a6875c7822f25cfd8
-    - path: charts/librechat/code-interpreter/shared
-      name: librechat-code-interpreter-shared
-      version: 1.0.0
-      appVersion: fea707467600f3802d65596a6875c7822f25cfd8
-    - path: charts/librechat/code-interpreter/tool-call-server
-      name: librechat-code-interpreter-tool-call-server
-      version: 1.0.0
-      appVersion: fea707467600f3802d65596a6875c7822f25cfd8
-    - path: charts/librechat/code-interpreter/valkey
-      name: librechat-code-interpreter-valkey
-      version: 1.0.0
-      appVersion: 9.1.1
-    - path: charts/librechat/code-interpreter/worker
-      name: librechat-code-interpreter-worker
-      version: 1.0.0
-      appVersion: fea707467600f3802d65596a6875c7822f25cfd8
-    - path: charts/librechat/meilisearch
-      name: frontend-librechat-meilisearch
-      version: 1.0.2
-      appVersion: v1.35.1
-    - path: charts/librechat/rag-api
-      name: frontend-librechat-rag-api
-      version: 1.0.0
-      appVersion: v0.9.0
-    - path: charts/librechat/shared
-      name: frontend-librechat-shared
-      version: 2.0.1
-      appVersion: v0.8.8
-    - path: charts/librechat/valkey
-      name: frontend-librechat-valkey
-      version: 1.0.0
-      appVersion: 9.1.1
     - path: charts/maintenance
       name: maintenance
-      version: 0.1.7
+      version: 0.2.0
     - path: charts/openbao
       name: infra-openbao
       version: 1.0.1
@@ -494,13 +424,17 @@ spec:
       name: infra-postgres-auth
       version: 1.0.0
       appVersion: '18.6'
+    - path: charts/postgres/documentdb-addon
+      name: documentdb-addon
+      version: 1.0.0
+      appVersion: pg18-0.116.0
     - path: charts/postgres/operations
       name: infra-postgres-operations
-      version: 1.2.12
+      version: 1.3.0
       appVersion: pg18-0.116.0
     - path: charts/reloader
       name: infra-reloader
-      version: 1.0.1
+      version: 1.0.2
       appVersion: 1.4.21
       dependencyLock:
         digest: sha256:8c52e34407bf2a9b16f138cc98a015ded77e35c1f64d6cca5b02064809dac593
@@ -623,10 +557,6 @@ spec:
       namespace: auth-keycloak
       name: keycloak-keycloak-api-key-bridge-oidc
       chart: ./charts/keycloak/oidc/keycloak-api-key-bridge
-    - path: releases/keycloak/oidc-librechat.yaml
-      namespace: auth-keycloak
-      name: keycloak-librechat-oidc
-      chart: ./charts/keycloak/oidc/librechat
     - path: releases/keycloak/oidc-studio.yaml
       namespace: auth-keycloak
       name: keycloak-studio-oidc
@@ -655,62 +585,6 @@ spec:
       namespace: monitor-langfuse
       name: langfuse
       chart: ./charts/langfuse
-    - path: releases/librechat/code-interpreter/api.yaml
-      namespace: librechat-code-interpreter
-      name: librechat-code-interpreter-api
-      chart: ./charts/librechat/code-interpreter/api
-    - path: releases/librechat/code-interpreter/egress-gateway.yaml
-      namespace: librechat-code-interpreter
-      name: librechat-code-interpreter-egress-gateway
-      chart: ./charts/librechat/code-interpreter/egress-gateway
-    - path: releases/librechat/code-interpreter/file-server.yaml
-      namespace: librechat-code-interpreter
-      name: librechat-code-interpreter-file-server
-      chart: ./charts/librechat/code-interpreter/file-server
-    - path: releases/librechat/code-interpreter/package-init.yaml
-      namespace: librechat-code-interpreter
-      name: librechat-code-interpreter-package-init
-      chart: ./charts/librechat/code-interpreter/package-init
-    - path: releases/librechat/code-interpreter/shared.yaml
-      namespace: librechat-code-interpreter
-      name: librechat-code-interpreter-shared
-      chart: ./charts/librechat/code-interpreter/shared
-    - path: releases/librechat/code-interpreter/tool-call-server.yaml
-      namespace: librechat-code-interpreter
-      name: librechat-code-interpreter-tool-call-server
-      chart: ./charts/librechat/code-interpreter/tool-call-server
-    - path: releases/librechat/code-interpreter/valkey.yaml
-      namespace: librechat-code-interpreter
-      name: librechat-code-interpreter-valkey
-      chart: ./charts/librechat/code-interpreter/valkey
-    - path: releases/librechat/code-interpreter/worker.yaml
-      namespace: librechat-code-interpreter
-      name: librechat-code-interpreter-worker
-      chart: ./charts/librechat/code-interpreter/worker
-    - path: releases/librechat/core/admin-panel.yaml
-      namespace: frontend-librechat
-      name: frontend-librechat-admin-panel
-      chart: ./charts/librechat/admin-panel
-    - path: releases/librechat/core/app.yaml
-      namespace: frontend-librechat
-      name: librechat
-      chart: ./charts/librechat/app
-    - path: releases/librechat/core/meilisearch.yaml
-      namespace: frontend-librechat
-      name: frontend-librechat-meilisearch
-      chart: ./charts/librechat/meilisearch
-    - path: releases/librechat/core/shared.yaml
-      namespace: frontend-librechat
-      name: frontend-librechat-shared
-      chart: ./charts/librechat/shared
-    - path: releases/librechat/core/valkey.yaml
-      namespace: frontend-librechat
-      name: frontend-librechat-valkey
-      chart: ./charts/librechat/valkey
-    - path: releases/librechat/rag/rag-api.yaml
-      namespace: frontend-librechat
-      name: frontend-librechat-rag-api
-      chart: ./charts/librechat/rag-api
     - path: releases/maintenance/maintenance.yaml
       namespace: maintenance
       name: maintenance
@@ -796,11 +670,6 @@ spec:
       eligibility: included
       origins:
       - charts/langfuse/values.yaml
-    - reference: docker.io/getmeili/meilisearch:v1.35.1
-      pinned: true
-      eligibility: included
-      origins:
-      - charts/librechat/meilisearch/values.yaml
     - reference: docker.io/langfuse/langfuse-worker:4.28.1
       pinned: true
       eligibility: included
@@ -850,14 +719,7 @@ spec:
       pinned: true
       eligibility: included
       origins:
-      - charts/librechat/code-interpreter/valkey/values.yaml
-      - charts/librechat/valkey/values.yaml
       - charts/pii-engine/values.yaml
-    - reference: ghcr.io/clickhouse/librechat-admin-panel:1.0.0
-      pinned: true
-      eligibility: included
-      origins:
-      - charts/librechat/admin-panel/values.yaml
     - reference: ghcr.io/docling-project/docling-serve-cpu:v1.33.0@sha256:546cf392145a0a578f23e4250663a37a5fb727fe6b57fd163e301584ad8bc18c
       pinned: true
       eligibility: included
@@ -868,6 +730,7 @@ spec:
       eligibility: included
       origins:
       - charts/postgres/addon/values.yaml
+      - charts/postgres/documentdb-addon/values.yaml
       - charts/postgres/operations/values.yaml
     - reference: ghcr.io/external-secrets/external-secrets:v2.9.0
       pinned: true
@@ -879,11 +742,6 @@ spec:
       eligibility: included
       origins:
       - charts/contextforge/values.yaml
-    - reference: ghcr.io/librechat-ai/librechat:v0.8.8@sha256:5b706bcee1ca154a1e2987303aaeca0eb27f97919cccee4bb604226c2f8abf61
-      pinned: true
-      eligibility: included
-      origins:
-      - charts/librechat/app/values.yaml
     - reference: ghcr.io/linuxserver/wireguard:1.0.20260223-r0-ls122@sha256:dca67384e3e9a5bcc288461fa983e6fcb0e248e5a2d8e5b3e5d3f753bfac3e35
       pinned: true
       eligibility: included
@@ -931,6 +789,11 @@ spec:
       eligibility: included
       origins:
       - charts/keycloak/addon-oidc/values.yaml
+    - reference: ghcr.io/neurwerk/k8s-stack-tooling:0.11.0@sha256:b2f38490153bbd20f8ec1a3fef0b520cb7e587c50563e6e87e82baef8711e97c
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/postgres/documentdb-addon/values.yaml
     - reference: ghcr.io/neurwerk/k8s-stack-tooling:0.7.4@sha256:6f6a72a2b16f6bd93771c60190f5e0dba552790c283ea99ad4005cbf94e6894e
       pinned: true
       eligibility: included
@@ -938,7 +801,6 @@ spec:
       - charts/keycloak/addon-access/values.yaml
       - charts/keycloak/oidc/agentgateway/values.yaml
       - charts/keycloak/oidc/keycloak-api-key-bridge/values.yaml
-      - charts/keycloak/oidc/librechat/values.yaml
       - charts/keycloak/oidc/studio/values.yaml
       - charts/keycloak/realm-config/active-directory/values.yaml
       - charts/keycloak/realm-config/initial-admin/values.yaml
@@ -952,41 +814,6 @@ spec:
       eligibility: included
       origins:
       - charts/agentgateway/inspection-trust/values.yaml
-    - reference: ghcr.io/neurwerk/librechat-code-interpreter-api:fea707467600f3802d65596a6875c7822f25cfd8
-      pinned: true
-      eligibility: excluded
-      origins:
-      - charts/librechat/code-interpreter/api/values.yaml
-    - reference: ghcr.io/neurwerk/librechat-code-interpreter-egress-gateway:fea707467600f3802d65596a6875c7822f25cfd8
-      pinned: true
-      eligibility: excluded
-      origins:
-      - charts/librechat/code-interpreter/egress-gateway/values.yaml
-    - reference: ghcr.io/neurwerk/librechat-code-interpreter-file-server:fea707467600f3802d65596a6875c7822f25cfd8
-      pinned: true
-      eligibility: excluded
-      origins:
-      - charts/librechat/code-interpreter/file-server/values.yaml
-    - reference: ghcr.io/neurwerk/librechat-code-interpreter-package-init:fea707467600f3802d65596a6875c7822f25cfd8
-      pinned: true
-      eligibility: excluded
-      origins:
-      - charts/librechat/code-interpreter/package-init/values.yaml
-    - reference: ghcr.io/neurwerk/librechat-code-interpreter-sandbox-runner:fea707467600f3802d65596a6875c7822f25cfd8
-      pinned: true
-      eligibility: excluded
-      origins:
-      - charts/librechat/code-interpreter/worker/values.yaml
-    - reference: ghcr.io/neurwerk/librechat-code-interpreter-tool-call-server:fea707467600f3802d65596a6875c7822f25cfd8
-      pinned: true
-      eligibility: excluded
-      origins:
-      - charts/librechat/code-interpreter/tool-call-server/values.yaml
-    - reference: ghcr.io/neurwerk/librechat-code-interpreter-worker:fea707467600f3802d65596a6875c7822f25cfd8
-      pinned: true
-      eligibility: excluded
-      origins:
-      - charts/librechat/code-interpreter/worker/values.yaml
     - reference: ghcr.io/stakater/reloader:v1.4.21
       pinned: true
       eligibility: included
@@ -1112,16 +939,6 @@ spec:
       eligibility: included
       origins:
       - charts/rook-ceph/values.yaml
-    - reference: registry.librechat.ai/danny-avila/librechat-rag-api-dev-lite:v0.9.0
-      pinned: true
-      eligibility: excluded
-      origins:
-      - charts/librechat/rag-api/values.yaml
-    - reference: registry.librechat.ai/danny-avila/librechat-rag-api-dev:v0.9.0
-      pinned: true
-      eligibility: excluded
-      origins:
-      - charts/librechat/rag-api/values.yaml
     toolchain:
       helm: 4.2.4
       kustomize: 5.8.1

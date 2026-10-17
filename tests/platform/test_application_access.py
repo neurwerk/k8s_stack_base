@@ -27,6 +27,11 @@ def plan(endpoints: dict | None = None, boundary: str = "internet") -> dict:
         "access": {"boundary": boundary, "default": "internal"},
         "certificates": {"profile": "public-production"},
         "canonicalEndpointRouting": {"mode": "internal-traefik"},
+        "addonDependencies": {
+            "example-app": {"required": ["keycloak"], "optional": {"files": "example-files"}},
+            "example-files": {"required": []},
+            "example-admin": {"required": ["example-app", "keycloak"]},
+        },
         "endpoints": endpoints if endpoints is not None else {},
     }
 
@@ -62,7 +67,7 @@ class ApplicationAccessTest(unittest.TestCase):
             value = plan()
             value["access"]["default"] = level
             self.assertEqual(access.validate_plan(value), ([], []))
-        for name in ("keycloak", "librechat-files", "langfuse", "agentgateway"):
+        for name in ("keycloak", "example-files", "langfuse", "agentgateway"):
             self.assertEqual(access.validate_plan(plan({name: {}})), ([], []))
         value = plan({"studio": {}})
         self.assertIn("studio -> keycloak: required endpoint is missing", access.validate_plan(value)[0][0])
@@ -130,34 +135,34 @@ class ApplicationAccessTest(unittest.TestCase):
 
     def test_mandatory_dependencies_and_admin_chain(self) -> None:
         for name, target in (
-            ("librechat", "keycloak"), ("studio", "keycloak"),
-            ("librechat-admin", "librechat"), ("librechat-admin", "keycloak"),
+            ("example-app", "keycloak"), ("studio", "keycloak"),
+            ("example-admin", "example-app"), ("example-admin", "keycloak"),
         ):
             with self.subTest(name=name, target=target):
-                endpoints = {"keycloak": {}, "librechat": {"features": {"files": False}}, name: {}}
-                if name == "librechat":
+                endpoints = {"keycloak": {}, "example-app": {"features": {"files": False}}, name: {}}
+                if name == "example-app":
                     endpoints[name] = {"features": {"files": False}}
                 del endpoints[target]
                 errors, _ = access.validate_plan(plan(endpoints))
                 self.assertTrue(any(f"{name} -> {target}: required endpoint is missing" in e for e in errors))
         value = plan({
-            "librechat-admin": endpoint("restricted"),
-            "librechat": {**endpoint("restricted"), "features": {"files": True}},
+            "example-admin": endpoint("restricted"),
+            "example-app": {**endpoint("restricted"), "features": {"files": True}},
             "keycloak": endpoint("restricted"),
-            "librechat-files": endpoint("restricted", ("device-b",)),
+            "example-files": endpoint("restricted", ("device-b",)),
         })
         errors, _ = access.validate_plan(value)
         self.assertEqual(len(errors), 1)
-        self.assertIn("librechat -> librechat-files:", errors[0])
+        self.assertIn("example-app -> example-files:", errors[0])
 
     def test_optional_workflows_missing_and_inaccessible_dependencies(self) -> None:
         for name, feature, target in (
-            ("librechat", "files", "librechat-files"),
+            ("example-app", "files", "example-files"),
         ):
             for enabled in (False, True):
                 with self.subTest(name=name, enabled=enabled):
                     endpoints = {name: {"level": "public", "features": {feature: enabled}}}
-                    if name == "librechat":
+                    if name == "example-app":
                         endpoints["keycloak"] = endpoint("public")
                     value = plan(endpoints)
                     errors, _ = access.validate_plan(value)
@@ -193,7 +198,7 @@ class ApplicationAccessTest(unittest.TestCase):
         ]
         for devices in (None, "device-a", [True], [1], [{}], [""], [" "], [" device-a"], ["device-a"] * 2):
             cases.append((("endpoints", "studio"), {"level": "restricted", "devices": devices}))
-        for name, feature in (("librechat", "files"),):
+        for name, feature in (("example-app", "files"),):
             for features in (None, {}, [], {feature: "false"}, {feature: 0}, {feature: None},
                              {feature: False, "unknown": True}):
                 cases.append((("endpoints", name), {"features": features}))
@@ -211,6 +216,8 @@ class ApplicationAccessTest(unittest.TestCase):
             with self.subTest(value=value), self.assertRaises(access.PlanError):
                 access.validate_plan(value)
         for field in plan():
+            if field == "addonDependencies":
+                continue
             value = plan()
             del value[field]
             with self.subTest(missing=field), self.assertRaises(access.PlanError):

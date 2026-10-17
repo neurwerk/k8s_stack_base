@@ -13,9 +13,8 @@
 {{- $_ := set $pathsById .id $paths -}}
 {{- end -}}
 {{- $clients := $root.Values.aiGateway.approvedOidcClients -}}
-{{- $legacy := eq (kindOf $clients) "invalid" -}}
-{{- if $legacy -}}
-{{- $clients = list (dict "clientId" "librechat" "bindings" (keys $pathsById | sortAlpha)) -}}
+{{- if eq (kindOf $clients) "invalid" -}}
+{{- $clients = list -}}
 {{- end -}}
 {{- if not (kindIs "slice" $clients) }}{{ fail "aiGateway.approvedOidcClients must be null or a list" }}{{ end -}}
 {{- $seen := dict -}}
@@ -33,8 +32,6 @@
 {{- $matches = append $matches (printf `(jwt.azp == %s && request.path in %s)` ($client.clientId | toJson) ($paths | toJson)) -}}
 {{- end -}}
 {{- $expression := printf `(has(jwt.aud) && ((type(jwt.aud) == string && jwt.aud == "agentgateway") || (type(jwt.aud) == list && "agentgateway" in jwt.aud)) && (%s))` (join " || " $matches | default "false") -}}
-{{/* Only the null compatibility default retains the provider's legacy audiences. */}}
-{{- if $legacy }}{{ $expression = join " || " $matches | default "false" }}{{ end -}}
 {{- if gt (len $expression) 8000 }}{{ fail "approvedOidcClients exceeds native authorization expression bounds" }}{{ end -}}
 {{- $expression -}}
 {{- end -}}

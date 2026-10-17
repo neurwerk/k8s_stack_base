@@ -9,6 +9,10 @@ upgrade path.
 
 ## [Unreleased]
 
+- Make optional application ownership addon-selected, with generic DocumentDB provisioning and explicit network, monitoring and maintenance settings.
+- Default browser-client gateway access to denied unless the client approves exact bindings and the required audience.
+- Require setup CLI `0.4.2`; installations changing application ownership need a coordinated stop/remove/start crossover before reconciliation.
+
 ## [0.3.26] - 2026-10-09
 
 - Adopt verified Studio `0.17.1` API/Web images for administrator-owned MCP setup, shared-key management, tool selection, Publish and Disable, including the native Refresh response fix.
@@ -28,7 +32,6 @@ upgrade path.
 
 ## [0.3.24] - 2026-10-07
 
-- Upgrade LibreChat to the digest-pinned upstream `v0.8.8` image and add opt-in cost estimates using the client's AgentGateway pricing catalog and model context windows.
 - Install ContextForge by default with private TLS and encrypted database-backed OAuth storage; Vault OAuth support awaits upstream changes. Context7, Brave and GitHub presets remain disabled until explicitly selected.
 - Require `openbao-stack-setup` `0.2.26` and ready ContextForge runtime/database Secrets before adoption; existing standalone ContextForge stages need a single-owner handoff to the default Base stages without deleting the database or encryption keys.
 - Adopt Studio `0.16.1`, extProc `0.16.2` and API-key bridge `0.8.2` for native MCP identity, personal connections, approved-tool catalog and connection checks.
@@ -45,7 +48,7 @@ upgrade path.
 - Remove legacy Dify charts, releases, and namespace from Base. Clients using Dify need a separately reviewed retirement or add-on handoff before adoption; the new add-on is not selected automatically.
 - Move Active Directory federation to an optional Keycloak stage. Existing installations need a planned single-owner handoff before changing the platform source.
 - Add unselected shared PostgreSQL and Keycloak interfaces for independent add-ons, without enabling an add-on by default.
-- Improve LibreChat recovery after Valkey restarts, K3s metrics, logging, and shared-service stability.
+- Improve K3s metrics, logging, and shared-service stability.
 - Add private inspection controls and update pinned inspection images.
 - Pin verified Tooling 0.7.4 across its Base chart consumers.
 
@@ -59,7 +62,6 @@ upgrade path.
 
 - Lower routine service, storage, gateway, and collector log volume while retaining warnings and errors; pin extProc 0.14.1.
 - Disable unused ClickHouse diagnostic tables without changing application traces or Prometheus metrics.
-- Preserve Meilisearch storage across chart upgrades.
 - Allow an optional add-on source and configurable Flux log levels in client compatibility checks.
 
 ## [0.3.19] - 2026-09-30
@@ -95,13 +97,11 @@ Before enabling image inspection, install the exact Tooling prerequisites from t
 ## [0.3.16] - 2026-09-24
 
 - Adopt extProc `0.12.0` for typed attachment policy v4 and local unchecked image normalization.
-- Adopt extProc `0.11.4` for short image-policy errors in LibreChat, preserving successful response tables and structured API reports.
+- Adopt extProc `0.11.4` for short image-policy errors, preserving successful response tables and structured API reports.
 - Fix stalled log ingestion from conflicting application JSON types; preserve raw-log search and initialize collector metrics before the first error.
 
 ## [0.3.15] - 2026-09-23
 
-- Upgrade LibreChat to `v0.8.8-rc4` and add client-configurable speech-input
-  defaults for automatic transcription, silence detection, and sending.
 - Adopt Studio `0.10.0` and link application-error emails to bounded Studio log
   searches for faster diagnosis.
 - Preserve Docling error-level logs while continuing to suppress lower-level
@@ -199,8 +199,6 @@ their meaning. See [policy-aware image forwarding](https://github.com/neurwerk/k
   separate controls decide whether extracted text or checked images are forwarded.
 - Face policies can block, send text only, or route to an approved local model;
   text PII checks remain separate, and failed required checks stop processing.
-- Optional saved chat memories, user controls and an automatic memory agent;
-  optional local speech-to-text and separate text-to-speech.
 - Clearer photo errors, bounded processing, temporary-result cleanup and stronger
   storage readiness checks.
 - Verified runtime pins: Tooling `0.7.0`, extProc `0.10.1`, PII Engine `0.10.0-cpu`
@@ -223,14 +221,6 @@ their meaning. See [policy-aware image forwarding](https://github.com/neurwerk/k
    use `stack-setup secret set active-directory` only for missing/changed bind
    credentials. CA trust is required for LDAPS, not plain LDAP; use one group list.
    Mapping changes briefly disable federation and stay disabled on failure.
-5. For **authenticated voice**, stage its selected values and secret delivery,
-   reconcile OpenBao permissions, then provision missing keys with
-   `stack-setup secret set librechat-stt` and/or
-   `stack-setup secret set librechat-tts` before startup.
-   Disabled features need no feature-specific credential setup.
-6. Enable memory with `frontendLibrechat.memory.enabled`; automatic updates also
-   need `agent.enabled: true` and an `agent.model` from the effective model catalog
-   in that memory block. Verify Flux, applications, storage and logs after adoption.
 
 Exact setup commands and the normal custody procedure are in the
 [OpenBao runbook](https://github.com/neurwerk/documentation/blob/main/dev/operations/openbao.md);
@@ -242,10 +232,7 @@ for feature activation details. Publication does not activate these features.
 
 - Plain LDAP sends passwords without TLS. A private vision reader sees original
   content before PII checks; passthrough requires PII/face protection off.
-- Split-line/table-cell PII reconstruction is unsupported. LibreChat can skip
-  Office uploads for Claude-named models; use PDF/text instead.
-- LibreChat RAG and Code Interpreter remain excluded. The existing LibreChat
-  image exception expires on `2026-09-30`.
+- Split-line/table-cell PII reconstruction is unsupported.
 - The existing partial-stream completion limitation (#108) remains accepted for
   interactive chat, not unattended actions.
 
@@ -270,8 +257,7 @@ for feature activation details. Publication does not activate these features.
   checks do not enforce network restrictions.
 - Make release notes and migration sections optional; the manifest defines compatibility.
 - Add staged Forgejo hosting, a one-device WireGuard pilot, and maintenance pages
-  using Tooling `0.6.2`. These packages remain excluded from stable use, as do
-  LibreChat RAG and Code Interpreter.
+  using Tooling `0.6.2`. These packages remain excluded from stable use.
 
 ### Upgrade Notes
 
@@ -283,8 +269,6 @@ Model bundles are unchanged; this release updates the CPU image, not CUDA.
 
 - An interrupted streamed answer can still look complete (#108). This is accepted
   for interactive chat, not unattended actions.
-- The temporary LibreChat image exception expires on `2026-09-30`; replace the
-  image with an approved release before then.
 
 ## [0.3.6] - 2026-09-14
 
@@ -308,8 +292,6 @@ Model bundles are unchanged; this release updates the CPU image, not CUDA.
 
 - An interrupted answer can still look complete (#108). This remains accepted
   for interactive chat; reassess before unattended actions.
-- The existing LibreChat image exception still expires `2026-09-30`.
-  This release does not upgrade LibreChat or enable Brave by default.
 
 ## [0.3.5] - 2026-09-10
 
@@ -320,15 +302,6 @@ Model bundles are unchanged; this release updates the CPU image, not CUDA.
 
 - Support verified TLS for static MCP servers (`tls: true`, explicit upstream port).
 - Update Studio to `0.8.0`: daily model usage, Tokens/USD charts, and self-profile landing.
-- Enable LibreChat agents and provision role permissions using the reviewed upstream image.
-
-### Upgrade Notes
-
-- Reconcile operations PostgreSQL before LibreChat's permission hook. Upgrades
-  reapply USER/ADMIN agent and marketplace use; only ADMIN may create/share agents.
-  Keep `interface.agents` and `interface.marketplace` overrides omitted.
-- Verify the hook, application readiness, and existing data. The LibreChat image
-  exception still expires `2026-09-30`. See [migration](release/migrations/v0.3.4.md).
 
 ## [0.3.3] - 2026-09-09
 
@@ -356,7 +329,6 @@ Model bundles are unchanged; this release updates the CPU image, not CUDA.
 
 ## [0.3.2] - 2026-09-08
 
-- Fix LibreChat MCP authentication with internal routing.
 - Preserve required network access in public-DNS mode.
 
 ## [0.3.1] - 2026-09-07
@@ -372,12 +344,12 @@ Model bundles are unchanged; this release updates the CPU image, not CUDA.
 
 ### Fixed
 
-- Route canonical public endpoint traffic from Dify, LibreChat, and the Keycloak
+- Route canonical public endpoint traffic from applications and the Keycloak
   initial-administrator email Job through selected Traefik Pods on TCP `443` by
   default, while preserving explicit `public-dns` behavior for clients whose
   canonical endpoints resolve publicly.
 - Include routing PR #70 and Studio pin PR #74 through
-  `d839c17743dea6ce88c0e83da9a204d4edcecf8a`. Dify API, LibreChat app, and Keycloak
+  `d839c17743dea6ce88c0e83da9a204d4edcecf8a`. Application and Keycloak
   initial-admin charts advance from `1.0.1` to `1.0.2`.
 - Pin Studio API and Web images and application versions to `0.7.1`, fixing
   valid nullable `stream_options` responses being rejected with HTTP 502
@@ -409,9 +381,6 @@ This version jump avoids conflicts with versions from the removed historical rep
 - Move concrete OpenRouter model selection and complete model pricing to
   client-owned ConfigMaps while retaining platform rendering, authorization,
   Dify wiring, limits, and fail-closed validation.
-- Generate one LibreChat model-selection contract for grouped model rows,
-  endpoint validation, direct-model grouping, and an optional client-owned hard
-  default.
 - Pin AgentGateway extProc 0.1.3 so PII-disabled full-duplex responses preserve
   provider response bytes.
 - Replace future stable-source allowlists with an explicit supported or
@@ -434,14 +403,9 @@ This version jump avoids conflicts with versions from the removed historical rep
 - Update Agentgateway to 1.5.0, including its controller, data plane, Helm
   dependency, and out-of-band CRD prerequisite. The release requires JWT issuer
   and configured audience claims and normalizes cached-token usage accounting.
-- Enable LibreChat agent tools with MCP and place custom endpoint reasoning
-  options under the configuration block consumed by LibreChat.
 - Send the initial Keycloak administrator's required-action email only after
   the public HTTPS issuer is ready, with a configurable 30-minute link lifetime.
 - Update the Kubernetes initialization Tooling image to `0.1.1`.
-- Update the reviewed LibreChat development snapshot to source commit
-  `cdfe54c3498818b21b33fb609fee02f2742b37ea` and its exact multi-architecture
-  image digest.
 - Pin PII Engine 0.1.1 and Agentgateway extProc 0.1.2 images, including support
   for standard streamed usage request and response shapes.
 
@@ -468,7 +432,7 @@ This version jump avoids conflicts with versions from the removed historical rep
 - Establish the aggregate platform package with immutable application and image
   pins, signed-tag trust, and complete-history provenance.
 - Include the namespace, infrastructure, and application packages by default.
-- Record optional LibreChat packages and reviewed exceptions explicitly.
+- Record optional packages and reviewed exceptions explicitly.
 
 ### Compatibility
 

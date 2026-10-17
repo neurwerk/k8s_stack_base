@@ -6,18 +6,26 @@ certificates:
   profile: public-production
 canonicalEndpointRouting:
   mode: internal-traefik
+addonDependencies:
+  example-app:
+    required: [keycloak]
+    optional: {files: example-files}
+  example-files:
+    required: []
+  example-admin:
+    required: [example-app, keycloak]
 endpoints:
   keycloak:
     level: restricted
     devices: [device-a, device-b]
-  librechat:
+  example-app:
     level: restricted
     devices: [device-a]
     features:
       files: true
-  librechat-files:
+  example-files:
     level: restricted
     devices: [device-a]
-  librechat-admin:
+  example-admin:
     level: restricted
     devices: [device-a]

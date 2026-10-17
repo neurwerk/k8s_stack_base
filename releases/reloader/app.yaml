@@ -28,3 +28,7 @@ spec:
       name: docling-reloader-values
       valuesKey: values.yaml
       optional: true
+    - kind: ConfigMap
+      name: reloader-product-values
+      valuesKey: values.yaml
+      optional: true

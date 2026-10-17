@@ -28,15 +28,15 @@ for _, payload in ipairs({{
         log = '{{"original":"retained for search"}}',
         stream = "stderr",
         application = payload,
-        kubernetes = {{namespace_name = "frontend-librechat", pod_name = "test-pod"}},
+        kubernetes = {{namespace_name = "infra-postgres-auth", pod_name = "test-pod"}},
     }}
     application_error("kube.test", timestamp, record)
     assert(record._stack_error_kind == "connection_error")
-    assert(record._stack_error_namespace == "frontend-librechat")
+    assert(record._stack_error_namespace == "infra-postgres-auth")
     local code, output_time, output = opensearch_record("kube.test", timestamp, record)
     assert(code == 2 and output_time == timestamp)
     assert(output.log == record.log and output.stream == "stderr")
-    assert(output.kubernetes.namespace_name == "frontend-librechat")
+    assert(output.kubernetes.namespace_name == "infra-postgres-auth")
     assert(output.kubernetes.pod_name == "test-pod")
     assert(output.stack_log.level == "ERROR")
     assert(output.stack_log.failure_type == "connection_error")

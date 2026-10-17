@@ -1,0 +1,13 @@
+addon:
+  enabled: false
+  user: ""
+  database: ""
+  passwordSecret: ""
+  toolingImage: ghcr.io/neurwerk/k8s-stack-tooling:0.11.0@sha256:b2f38490153bbd20f8ec1a3fef0b520cb7e587c50563e6e87e82baef8711e97c
+  image: ghcr.io/documentdb/documentdb/documentdb-local:pg18-0.116.0
+  host: postgres-operations.infra-postgres-operations.svc.cluster.local
+  postgresPort: 5432
+  documentdbPort: 10260
+  resources:
+    requests: {cpu: 50m, memory: 128Mi}
+    limits: {cpu: 500m, memory: 512Mi}

@@ -26,62 +26,6 @@ authKeycloakApiKeyBridge:
       cpu: 300m
       memory: 256Mi
 
-frontendLibrechat:
-  oidc:
-    startupGate:
-      resources:
-        requests:
-          cpu: 10m
-          memory: 32Mi
-        limits:
-          cpu: 100m
-          memory: 128Mi
-  adminPanel:
-    replicas: 1
-    resources:
-      requests:
-        cpu: 50m
-        memory: 128Mi
-      limits:
-        cpu: 500m
-        memory: 512Mi
-  app:
-    replicas: 1
-    resources:
-      requests:
-        cpu: 250m
-        memory: 512Mi
-      limits:
-        cpu: 1000m
-        memory: 1Gi
-  meilisearch:
-    replicas: 1
-    resources:
-      requests:
-        cpu: 50m
-        memory: 64Mi
-      limits:
-        cpu: 200m
-        memory: 256Mi
-  ragApi:
-    replicas: 1
-    resources:
-      requests:
-        cpu: 250m
-        memory: 512Mi
-      limits:
-        cpu: 1000m
-        memory: 2Gi
-  valkey:
-    replicas: 1
-    resources:
-      requests:
-        cpu: 50m
-        memory: 64Mi
-      limits:
-        cpu: 200m
-        memory: 128Mi
-
 authKeycloak:
   keycloak:
     resources:

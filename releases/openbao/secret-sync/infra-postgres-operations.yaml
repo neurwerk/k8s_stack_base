@@ -65,18 +65,12 @@ spec:
           postgresOperationsSecrets:
             adminPassword: {{ .adminPassword | quote }}
             agentgatewayPassword: {{ .agentgatewayPassword | quote }}
-            documentdbPassword: {{ .documentdbPassword | quote }}
             langfusePassword: {{ .langfusePassword | quote }}
-            librechatRagPassword: {{ .librechatRagPassword | quote }}
   data:
     - secretKey: adminPassword
       remoteRef:
         key: infra-postgres-operations/internal
         property: adminPassword
-    - secretKey: documentdbPassword
-      remoteRef:
-        key: infra-postgres-operations/internal
-        property: documentdbPassword
     - secretKey: agentgatewayPassword
       remoteRef:
         key: infra-postgres-operations/internal
@@ -85,7 +79,3 @@ spec:
       remoteRef:
         key: infra-postgres-operations/internal
         property: langfusePassword
-    - secretKey: librechatRagPassword
-      remoteRef:
-        key: infra-postgres-operations/internal
-        property: librechatRagPassword

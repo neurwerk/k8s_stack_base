@@ -28,11 +28,6 @@ infraRookCeph:
     publicHostname: ""
 
 
-frontendLibrechat:
-  hostname: ""
-  adminPanel:
-    hostname: ""
-
 frontendStudio:
   studio:
     hostname: ""

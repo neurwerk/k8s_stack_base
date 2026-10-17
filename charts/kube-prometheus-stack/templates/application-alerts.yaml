@@ -1,7 +1,7 @@
 {{- $alerts := .Values.monitorKubePrometheusStack.alerting.applications }}
 {{- if $alerts.enabled }}
 {{- $namespaces := list }}
-{{- range $alerts.namespaces }}
+{{- range concat $alerts.namespaces $alerts.additionalNamespaces | uniq }}
 {{- $namespaces = append $namespaces (regexQuoteMeta .) }}
 {{- end }}
 {{- $selector := required "application alert namespaces must not be empty" (join "|" $namespaces) }}

@@ -13,7 +13,10 @@ VALUES = {
         "enabled": True,
         "image": IMAGE,
         "products": {
-            name: {"enabled": True} for name in ("studio", "librechat", "langfuse")
+            name: {"enabled": True} for name in ("studio", "langfuse")
+        },
+        "addons": {
+            "example-addon": {"enabled": True, "hosts": ["chat.platform.test", "chat-admin.platform.test"]},
         },
     },
     "authKeycloak": {
@@ -22,10 +25,6 @@ VALUES = {
         "branding": {"logoConfigMapName": "company-branding", "logoFormat": "png"},
     },
     "frontendStudio": {"studio": {"hostname": "studio.platform.test"}},
-    "frontendLibrechat": {
-        "hostname": "chat.platform.test",
-        "adminPanel": {"hostname": "chat-admin.platform.test"},
-    },
     "monitorLangfuseWrapper": {"hostname": "langfuse.platform.test"},
     "infraAgentgatewayWrapper": {"hostname": "models.platform.test"},
     "infraRookCeph": {"objectStore": {"publicHostname": "storage.platform.test"}},
@@ -118,6 +117,7 @@ class MaintenanceTests(unittest.TestCase):
         values = copy.deepcopy(VALUES)
         del values["maintenance"]["image"]
         values["maintenance"]["products"] = {"studio": {"enabled": True}}
+        values["maintenance"]["addons"] = {}
         values["maintenance"]["resources"] = {
             "requests": {"cpu": "20m", "memory": "80Mi"}, "limits": {"cpu": "200m", "memory": "160Mi"},
         }
@@ -149,6 +149,8 @@ class MaintenanceTests(unittest.TestCase):
         for path, value in cases:
             with self.subTest(path=path, value=value):
                 values = copy.deepcopy(VALUES)
+                if path == "maintenance.products":
+                    values["maintenance"]["addons"] = {}
                 parent = values
                 parts = path.split(".")
                 for part in parts[:-1]:

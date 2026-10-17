@@ -8,5 +8,4 @@ resources:
   - ../keycloak
   - ../keycloak-api-key-bridge
   - ../langfuse
-  - ../librechat/core
   - ../studio

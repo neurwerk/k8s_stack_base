@@ -7,7 +7,7 @@
 #
 # AgentGateway validates JWTs using JWKS (public keys) — no client secret
 # injection needed. The OIDC Job only creates the client in Keycloak so the
-# azp policy check (jwt.azp in ["librechat", "agentgateway"]) can match it.
+# gateway's builtin azp policy can match it.
 #
 # Hostnames and URLs are defined in client_*/config/client.yaml.
 # This file only defines non-hostname defaults.

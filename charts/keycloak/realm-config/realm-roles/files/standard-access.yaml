@@ -1,7 +1,5 @@
-realmRoles: keycloak-admin,api-key-admin,opensearch-admin,langfuse-admin,pii-admin,mcp-admin,gateway-admin,platform-admin,studio-user,librechat-user,librechat-admin
+realmRoles: keycloak-admin,api-key-admin,opensearch-admin,langfuse-admin,pii-admin,mcp-admin,gateway-admin,platform-admin,studio-user
 realmRoleComposites:
-  librechat-admin:
-    - librechat-user
   platform-admin:
     - keycloak-admin
     - api-key-admin
@@ -11,7 +9,6 @@ realmRoleComposites:
     - mcp-admin
     - gateway-admin
     - studio-user
-    - librechat-admin
 accessGroups:
   /access/neurwerk-api-key-admins:
     realmRoles: [api-key-admin]
@@ -19,10 +16,6 @@ accessGroups:
     realmRoles: [keycloak-admin]
   /access/neurwerk-langfuse-admins:
     realmRoles: [langfuse-admin]
-  /access/neurwerk-librechat-admins:
-    realmRoles: [librechat-admin]
-  /access/neurwerk-librechat-users:
-    realmRoles: [librechat-user]
   /access/neurwerk-opensearch-admins:
     realmRoles: [opensearch-admin]
   /access/neurwerk-pii-admins:
