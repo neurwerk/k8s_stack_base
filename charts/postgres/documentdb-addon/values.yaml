@@ -3,7 +3,7 @@ addon:
   user: ""
   database: ""
   passwordSecret: ""
-  toolingImage: ghcr.io/neurwerk/k8s-stack-tooling:0.11.0@sha256:b2f38490153bbd20f8ec1a3fef0b520cb7e587c50563e6e87e82baef8711e97c
+  toolingImage: ghcr.io/neurwerk/k8s-stack-tooling:0.11.1@sha256:8268cdc0af8b5abffa4d7082fae063cf5801d8af28d3e1bb8b5d8262ad67de00
   image: ghcr.io/documentdb/documentdb/documentdb-local:pg18-0.116.0
   host: postgres-operations.infra-postgres-operations.svc.cluster.local
   postgresPort: 5432

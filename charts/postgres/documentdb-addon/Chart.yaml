@@ -2,5 +2,5 @@ apiVersion: v2
 name: documentdb-addon
 description: Provision the selected document-store product on shared DocumentDB
 type: application
-version: 1.0.0
+version: 1.0.1
 appVersion: "pg18-0.116.0"
