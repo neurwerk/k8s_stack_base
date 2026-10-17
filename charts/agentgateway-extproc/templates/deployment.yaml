@@ -157,6 +157,8 @@ spec:
             {{- end }}
             - name: EXTPROC_LOG_LEVEL
               value: {{ .Values.monitorAgentgatewayExtproc.logging.level | quote }}
+            - name: ERROR_LOG_LEVEL
+              value: {{ .Values.monitorAgentgatewayExtproc.logging.errorLevel | quote }}
             - name: EXTPROC_MAX_REQUEST_BYTES
               value: {{ if $docling.enabled }}"67108864"{{ else }}{{ .Values.monitorAgentgatewayExtproc.maxRequestBytes | quote }}{{ end }}
             - name: EXTPROC_MAX_REASONING_FINGERPRINTS
