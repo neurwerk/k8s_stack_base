@@ -38,7 +38,7 @@ def post(port, path, body, headers=None):
 
 
 class AccountingTest(unittest.TestCase):
-    def test_reported_sums_are_not_completeness_evidence(self):
+    def test_known_native_reported_accounting(self):
         binary = Path(os.environ.get("AGENTGATEWAY_BIN", ""))
         self.assertTrue(binary.is_file() and os.access(binary, os.X_OK), "SETUP: supply AGENTGATEWAY_BIN; see README.md")
         self.assertEqual(hashlib.sha256(binary.read_bytes()).hexdigest(), SHA256)
@@ -142,9 +142,11 @@ class AccountingTest(unittest.TestCase):
                         stdout = {row["fixture.case"]: row for line in log_path.read_text().splitlines()
                                   if line.startswith("{") and "\"fixture.case\"" in line for row in [json.loads(line)]}
                         for case, row in rows.items():
+                            usage_known = all(row["usage"][field] is not None for field in ["inputTokens", "outputTokens", "totalTokens"])
                             for field in ["token_usage_known", "cost_known"]:
                                 key = f"neurwerk.{field}"
-                                self.assertIs(row["attributes"].get(key), None if case == "historical" else False, case)
+                                expected = usage_known and (field == "token_usage_known" or case != "unpriced")
+                                self.assertIs(row["attributes"].get(key), None if case == "historical" else expected, case)
                                 self.assertEqual(stdout[case].get(key), row["attributes"].get(key))
                             if case != "historical":
                                 self.assertEqual(row["attributes"]["neurwerk.billing_classification"], "unknown")
@@ -154,7 +156,15 @@ class AccountingTest(unittest.TestCase):
                                 self.assertEqual(row["attributes"]["neurwerk.request_outcome"],
                                                  "unknown" if statuses[case] == 200 else
                                                  "http_error" if case == "provider-error" else "gateway_error", case)
-                        # Preserve reported zero and nonzero values even while completeness is unknown.
+                        # Known means native reported accounting, not raw completeness or delivery.
+                        for case in ["full", "zero", "free"]:
+                            self.assertIs(rows[case]["attributes"]["neurwerk.token_usage_known"], True)
+                            self.assertIs(rows[case]["attributes"]["neurwerk.cost_known"], True)
+                        for case in ["missing", "provider-error", "interrupted"]:
+                            self.assertIs(rows[case]["attributes"]["neurwerk.token_usage_known"], False)
+                            self.assertIs(rows[case]["attributes"]["neurwerk.cost_known"], False)
+                        self.assertIs(rows["unpriced"]["attributes"]["neurwerk.token_usage_known"], True)
+                        self.assertIs(rows["unpriced"]["attributes"]["neurwerk.cost_known"], False)
                         self.assertEqual(rows["full"]["usage"]["totalTokens"], 5)
                         self.assertAlmostEqual(rows["full"]["cost"], 0.000007)
                         self.assertEqual(rows["zero"]["usage"]["totalTokens"], 0)

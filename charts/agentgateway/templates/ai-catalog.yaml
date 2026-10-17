@@ -6,6 +6,7 @@
 {{- range $id := keys $profileMap | sortAlpha }}
 {{- $profile := deepCopy (get $profileMap $id) }}
 {{- $_ := unset $profile "path" }}{{- $_ := set $profile "id" $id }}
+{{- $_ := unset $profile "proxyPath" }}
 {{- $_ := unset $profile "providers" }}{{- $_ := unset $profile "credentialHeader" }}
 {{- $profiles = append $profiles $profile }}
 {{- end }}

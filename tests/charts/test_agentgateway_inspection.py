@@ -1,5 +1,6 @@
 """Opt-in v5 routing, identity isolation and effective catalog contracts."""
 
+import copy
 import json
 import re
 import unittest
@@ -263,6 +264,134 @@ class ApprovedOidcTests(unittest.TestCase):
             self.assertEqual(self.evaluate(expression, {"metadata": {"neurwerk_admission": {
                 "binding_id": binding, "destination_kind": "mcp", "permissions": roles,
             }}}), expected)
+
+
+class EndpointRoutingTests(unittest.TestCase):
+    evaluate = ApprovedOidcTests.evaluate
+
+    @classmethod
+    def setUpClass(cls):
+        cls.values = binding_values()
+        binding = cls.values["aiGateway"]["bindings"][0]
+        binding.update(apiPath="/openai/codex", upstreamURL="https://chatgpt.com/backend-api/codex",
+                       credentialSources=["caller_supplied"], profiles=["openai-codex-responses-v1"])
+        binding.pop("authSecret")
+        cls.rendered = render("agentgateway", cls.values)
+
+    def test_exact_custom_path_admission_and_trusted_context(self):
+        for listener, path, prefix in [
+            ("api-bindings", "/openai/codex/v1/responses", "/openai/codex"),
+            ("inspect-openai", "/backend-api/codex/responses", None),
+        ]:
+            traffic = resource(self.rendered, "AgentgatewayPolicy", f"ai-admission-{listener}")["spec"]["traffic"]
+            context = {"jwt": {}, "extauthz": {
+                "contract_version": 1, "request_id": "test-request", "principal_id": "test-user",
+                "credential_id": "test-key", "credential_kind": "personal", "permissions": ["llm:invoke"],
+            }, "request": {"path": path, "host": "chatgpt.com", "method": "POST", "headers": {
+                "authorization": "Bearer provider-synthetic", "x-neurwerk-authorization": "Bearer platform-synthetic",
+            }}}
+            expression = traffic["authorization"]["policy"]["matchExpressions"][0]
+            self.assertTrue(self.evaluate(expression, context))
+            selected = [entry for entry in traffic["transformation"]["conditional"]
+                        if self.evaluate(entry["condition"], context)]
+            self.assertEqual(len(selected), 1)
+            env = Environment()
+            metadata = selected[0]["policy"]["request"]["metadata"]["neurwerk_admission"]
+            admitted = env.program(env.compile(metadata)).evaluate(
+                {key: json_to_cel(value) for key, value in context.items()})
+            self.assertEqual(admitted["binding_id"], "openai")
+            self.assertEqual(admitted["protocol_profile"], "openai-codex-responses-v1")
+            if prefix:
+                self.assertEqual(admitted["api_path_prefix"], prefix)
+                self.assertEqual(path.removeprefix(str(admitted["api_path_prefix"])), "/v1/responses")
+            else:
+                self.assertNotIn("api_path_prefix", admitted)
+            for wrong in ["/v1/responses", "/bindings/openai/v1/responses", path + "/extra",
+                          path.replace("/responses", "//responses"), "/openai/api/v1/responses"]:
+                with self.subTest(listener=listener, path=wrong):
+                    context["request"]["path"] = wrong
+                    self.assertFalse(self.evaluate(expression, context))
+
+    def test_codex_api_prefix_survives_until_native_routing(self):
+        for mode, incoming, expected in [
+            ("api", "/openai/codex/v1/responses", "/openai/codex/v1/responses"),
+            ("proxy", "/backend-api/codex/responses", "/v1/responses"),
+        ]:
+            policy = resource(self.rendered, "AgentgatewayPolicy", f"ai-openai-{mode}-processing")["spec"]["traffic"]
+            self.assertEqual(policy["phase"], "PostRouting")
+            path = incoming
+            for header in policy.get("transformation", {}).get("request", {}).get("set", []):
+                if header["name"] == ":path":
+                    env = Environment()
+                    path = str(env.program(env.compile(header["value"])).evaluate({}))
+            self.assertEqual(path, expected)
+            route = resource(self.rendered, "HTTPRoute", f"ai-openai-{mode}")["spec"]["rules"][0]
+            prefix = route["matches"][0]["path"]["value"].rstrip("/")
+            self.assertEqual(path.removeprefix(prefix), "/v1/responses")
+
+    def test_malformed_and_overlapping_prefixes_fail_render(self):
+        for prefix in ["", "/openai/api/", "/openai/api/v1", "/openai/../api",
+                       "/openai//api", "/bindings/mcp-example", "/openai/api?x=1", 3]:
+            with self.subTest(prefix=prefix):
+                values = copy.deepcopy(self.values)
+                values["aiGateway"]["bindings"][0]["apiPath"] = prefix
+                self.assertNotEqual(render("agentgateway", values, check=False).returncode, 0)
+        for prefix in ["/openai/codex", "/openai", "/openai/codex/nested"]:
+            with self.subTest(overlap=prefix):
+                values = copy.deepcopy(self.values)
+                values["aiGateway"]["bindings"][1]["apiPath"] = prefix
+                self.assertNotEqual(render("agentgateway", values, check=False).returncode, 0)
+
+    def test_external_route_reaches_custom_legacy_and_mcp_mounts(self):
+        for legacy, mcp in [(False, False), (True, False), (False, True), (True, True)]:
+            with self.subTest(legacy=legacy, mcp=mcp):
+                values = copy.deepcopy(self.values)
+                for binding in values["aiGateway"]["bindings"]:
+                    if binding.get("api", True) and binding["id"] != "openai" and not legacy:
+                        binding["apiPath"] = f"/{binding['id']}/api"
+                if mcp:
+                    values["mcp"] = {"enabled": True, "contextforgeRoutesEnabled": ["context7"],
+                                     "catalog": {"presets": {"context7": {"enabled": True}}}}
+                    values["authKeycloak"]["agentgatewayClientRoles"].append("mcp:context7:invoke")
+                rendered = render("agentgateway", values)
+                external = resource(rendered, "HTTPRoute", "infra-agentgateway-external-httproute")["spec"]
+                matches = [match["path"] for rule in external["rules"] for match in rule["matches"]]
+                prefixes = [match["value"] for match in matches]
+                self.assertTrue(all(match["type"] == "PathPrefix" for match in matches))
+                self.assertEqual(len(prefixes), len(set(prefixes)))
+                self.assertNotIn("/", prefixes)
+                self.assertEqual("/bindings" in prefixes, legacy or mcp)
+                for left in prefixes:
+                    self.assertFalse(any(right != left and right.startswith(left + "/") for right in prefixes))
+                for binding in values["aiGateway"]["bindings"]:
+                    if not binding.get("api", True):
+                        continue
+                    internal = resource(rendered, "HTTPRoute", f"ai-{binding['id']}-api")["spec"]
+                    prefix = internal["rules"][0]["matches"][0]["path"]["value"]
+                    operation = {"openai-codex-responses-v1": "/v1/responses",
+                                 "anthropic-messages-v1": "/v1/messages"}.get(
+                                     binding["profiles"][0], "/v1/chat/completions")
+                    path = prefix + operation
+                    self.assertEqual(sum(path.startswith(edge + "/") for edge in prefixes), 1)
+                if mcp:
+                    self.assertEqual(sum("/bindings/mcp-context7/mcp".startswith(edge + "/")
+                                         for edge in prefixes), 1)
+
+    def test_included_billing_requires_fixed_caller_supplied_codex(self):
+        values = copy.deepcopy(self.values)
+        values["aiGateway"]["bindings"][0]["billingMode"] = "included"
+        render("agentgateway", values)
+        for override in [
+            {"billingMode": "free"}, {"billingMode": None},
+            {"profiles": ["openai-responses-v1"]},
+            {"upstreamURL": "https://chatgpt.com/backend-api/other"},
+            {"credentialSources": ["company"], "authSecret": "example-openai-key"},
+            {"credentialSources": ["caller_supplied", "company"], "authSecret": "example-openai-key"},
+        ]:
+            with self.subTest(override=override):
+                invalid = copy.deepcopy(values)
+                invalid["aiGateway"]["bindings"][0].update(override)
+                self.assertNotEqual(render("agentgateway", invalid, check=False).returncode, 0)
 
 
 class InspectedGatewayTests(unittest.TestCase):

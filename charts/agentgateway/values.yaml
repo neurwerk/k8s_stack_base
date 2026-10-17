@@ -78,7 +78,10 @@ aiGateway:
   # One provider/upstream binding owns its models and credentialSources. Personal
   # credentials win on that same URL; company keys require the provider grant.
   # One source of routing, admission policy and Studio catalog data.
-  # See README.md for the binding schema and actual /bindings/<id>/v1 API URLs.
+  # Optional binding apiPath (e.g. /openai/api) excludes /v1 and defaults to
+  # /bindings/<id>. Internal binding IDs and canonical model IDs stay unchanged.
+  # Optional billingMode: included is Codex-only, for an explicitly included plan.
+  # Omit it when billing is unknown; OAuth alone does not imply zero cost.
   bindings: []
   # Trusted-admin approval of user OIDC clients, scoped to exact enabled API
   # binding IDs (including mcp-<server>). This grants no user permissions.

@@ -10,22 +10,29 @@
 {{- range $field := list "request_text_inspection" "target_credential_mode" "billing_classification" -}}
 {{- $_ := set $fields (printf "neurwerk.%s" $field) (printf `has(metadata.neurwerk_admission) && extproc != null && "neurwerk.request_context" in extproc && has(extproc["neurwerk.request_context"].%s) ? extproc["neurwerk.request_context"].%s : "unknown"` $field $field) -}}
 {{- end -}}
+{{- $includedBindings := list -}}
+{{- if .Values.aiGateway.enabled -}}
+{{- range $binding := include "infra-agentgateway.aiBindings" . | fromJsonArray -}}
+{{- if and (eq ($binding.billingMode | default "") "included") (has "openai-codex-responses-v1" $binding.profiles) -}}
+{{- $includedBindings = append $includedBindings $binding.id -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- if $includedBindings -}}
+{{- $existing := get $fields "neurwerk.billing_classification" -}}
+{{- $_ := set $fields "neurwerk.billing_classification" (printf `has(metadata.neurwerk_admission) && metadata.neurwerk_admission.provider_credential_source == "caller_supplied" && extproc != null && "neurwerk.request_context" in extproc && has(extproc["neurwerk.request_context"].dispatch_binding_id) && extproc["neurwerk.request_context"].dispatch_binding_id in %s ? "subscription" : (%s)` ($includedBindings | toJson) $existing) -}}
+{{- end -}}
 {{/* A selected target is not proof of an outbound attempt. Missing timing is unknown,
 including immediate extProc rejections. HTTP 200 does not prove final stream success. */}}
 {{- $_ := set $fields "neurwerk.dispatch_attempted" `has(metadata.neurwerk_admission) && has(proxy.upstreamDuration) ? true : null` -}}
 {{- $_ := set $fields "neurwerk.request_outcome" `!has(metadata.neurwerk_admission) ? "unknown" : has(proxy.error) ? "gateway_error" : default(response.code >= 400 && response.code <= 599, false) ? "http_error" : "unknown"` -}}
-{{/* Native 1.6.0 loses evidence needed for complete v5 accounting:
-- Chat/Gemini parsers fill absent counters with zero; cost also coalesces usage.
-- CEL exposes neither SSE completion nor Responses in-band status/error.
-- Even buffered Messages retains HTTP 200, counters and cost when a later
-  full-duplex extProc response-body rejection/abort terminates the response.
-  That failure is not reliably exposed in proxy.error or late dynamic metadata.
-No current profile proves successful final validation here. Preserve native
-reported sums, including zero, independently; never promote them to known totals.
-Historical/legacy requests keep absent flags. Revisit only with qualified native
-raw-usage, completion and applicable-pricing evidence; no response-body capture. */}}
-{{- range $field := list "token_usage_known" "cost_known" -}}
-{{- $_ := set $fields (printf "neurwerk.%s" $field) `has(metadata.neurwerk_admission) ? false : null` -}}
-{{- end -}}
+{{/* Known native reported accounting, independent of final delivery success.
+Native 1.6.0 may default missing Chat/Gemini counters to zero: these flags do
+not prove raw counter completeness or stream completion. A catalog cost alone
+is insufficient because native pricing also coalesces absent usage to zero.
+Historical/legacy requests keep absent flags. */}}
+{{- $usageKnown := `has(llm.inputTokens) && has(llm.outputTokens) && has(llm.totalTokens)` -}}
+{{- $_ := set $fields "neurwerk.token_usage_known" (printf `has(metadata.neurwerk_admission) ? (%s) : null` $usageKnown) -}}
+{{- $_ := set $fields "neurwerk.cost_known" (printf `has(metadata.neurwerk_admission) ? (%s && has(llm.cost) && has(llm.costRates)) : null` $usageKnown) -}}
 {{- $fields | toYaml -}}
 {{- end -}}

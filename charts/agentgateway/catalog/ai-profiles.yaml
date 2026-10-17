@@ -21,6 +21,18 @@ openai-responses-v1:
       restoration_scope: request
       limitations: ["JSON and SSE only; persistent history and WebSocket operations are unqualified."]
   limitations: ["Browser proxy challenges are unsupported.", "Restoration mappings are request-local; opaque continuation is unsupported."]
+openai-codex-responses-v1:
+  providers: [OpenAI]
+  credentialHeader: authorization
+  revision: "1"
+  path: /v1/responses
+  proxyPath: /backend-api/codex/responses
+  operations:
+    - id: create
+      support: unknown
+      restoration_scope: request
+      limitations: ["HTTP JSON and SSE with encrypted reasoning replay; WebSocket upgrades and previous_response_id server-side continuation are unsupported."]
+  limitations: ["Caller-supplied provider credentials only.", "Restoration mappings are request-local; no website route or uninspected fallback."]
 anthropic-messages-v1:
   providers: [Anthropic]
   credentialHeader: x-api-key
