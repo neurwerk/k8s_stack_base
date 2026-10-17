@@ -2,5 +2,5 @@ apiVersion: v2
 name: addon-oidc
 description: Scoped addon browser authentication with client-owned approval
 type: application
-version: 0.1.0
-appVersion: "0.10.0"
+version: 0.1.1
+appVersion: "0.11.1"
