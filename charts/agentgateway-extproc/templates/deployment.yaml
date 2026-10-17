@@ -159,6 +159,8 @@ spec:
               value: {{ .Values.monitorAgentgatewayExtproc.logging.level | quote }}
             - name: EXTPROC_MAX_REQUEST_BYTES
               value: {{ if $docling.enabled }}"67108864"{{ else }}{{ .Values.monitorAgentgatewayExtproc.maxRequestBytes | quote }}{{ end }}
+            - name: EXTPROC_MAX_REASONING_FINGERPRINTS
+              value: {{ .Values.reasoning.maxFingerprints | quote }}
             - name: EXTPROC_MAX_RESPONSE_BYTES
               value: {{ .Values.monitorAgentgatewayExtproc.maxResponseBytes | quote }}
             - name: EXTPROC_MAX_TRANSFORMED_REQUEST_BYTES

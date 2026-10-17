@@ -13,12 +13,15 @@
 # =============================================================================
 
 # ── extProc gRPC service ──────────────────────────────────────────────────────
+reasoning:
+  maxFingerprints: 4096
+
 monitorAgentgatewayExtproc:
   alerts:
     # Covers dependency failures and response failures after headers were sent.
     enabled: true
 
-  extprocImage: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.19.9@sha256:708cfafcd44e657d1ed7ed8c27774b638c47364374fcda399cd200a073efe8ba
+  extprocImage: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.19.11@sha256:b44e762d7a85bb440edbe20bbcfd75c6ed3c7b5bed4ec16805a26ba35663cb6e
 
   # Docling requires exactly two fixed replicas (no HPA while enabled).
   replicas: 2
