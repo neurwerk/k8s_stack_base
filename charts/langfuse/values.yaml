@@ -40,7 +40,7 @@ rejectedRequestDebug:
 monitorLangfuseWrapper:
   rejectionDebug:
     # Same published retention-capable image as the extProc runtime.
-    cleanupImage: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.19.11@sha256:b44e762d7a85bb440edbe20bbcfd75c6ed3c7b5bed4ec16805a26ba35663cb6e
+    cleanupImage: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.19.12@sha256:d509650184dbaa35eeae409a193b947ad44a5e43e3a6e89678b7d138bfd71de9
     cleanupResources:
       requests: {cpu: 50m, memory: 64Mi}
       limits: {cpu: 250m, memory: 128Mi}

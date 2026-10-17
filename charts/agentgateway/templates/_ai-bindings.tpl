@@ -44,7 +44,7 @@ provider header and accidentally choose a company account instead. */}}
 {{- $ports = append $ports (int $port) -}}
 {{- end -}}
 {{- if or (not (kindIs "slice" $cfg.bindings)) (gt (len $cfg.bindings) 8) }}{{ fail "aiGateway.bindings must be a list of at most 8 bindings" }}{{ end -}}
-{{- $ids := dict -}}{{- $hosts := dict -}}{{- $destinations := dict -}}
+{{- $ids := dict -}}{{- $hosts := dict -}}{{- $destinations := dict -}}{{- $prefixes := list -}}
 {{- $roles := include "infra-agentgateway.effectiveRoles" . | fromYamlArray -}}
 {{- $profiles := .Files.Get "catalog/ai-profiles.yaml" | fromYaml -}}
 {{- $upstreams := dict -}}
@@ -53,7 +53,7 @@ provider header and accidentally choose a company account instead. */}}
 {{- range $entry := $cfg.bindings -}}
 {{- if not (kindIs "map" $entry) }}{{ fail "aiGateway bindings must be maps" }}{{ end -}}
 {{- range $key, $_ := $entry -}}
-{{- if not (has $key (list "id" "enabled" "providerId" "provider" "upstreamURL" "local" "credentialSources" "authSecret" "api" "inspect" "profiles" "models" "catalogModels" "localReroute" "attachments")) }}{{ fail (printf "unsupported aiGateway binding field %s; use one provider/upstream binding with credentialSources" $key) }}{{ end -}}
+{{- if not (has $key (list "id" "enabled" "providerId" "provider" "upstreamURL" "local" "credentialSources" "authSecret" "api" "apiPath" "billingMode" "inspect" "profiles" "models" "catalogModels" "localReroute" "attachments")) }}{{ fail (printf "unsupported aiGateway binding field %s; use one provider/upstream binding with credentialSources" $key) }}{{ end -}}
 {{- end -}}
 {{- if not (kindIs "bool" $entry.enabled) }}{{ fail "aiGateway bindings require explicit boolean enabled" }}{{ end -}}
 {{- $id := $entry.id | default "" -}}
@@ -100,6 +100,13 @@ provider header and accidentally choose a company account instead. */}}
 {{- range $profile := $binding.profiles -}}
 {{- if or (not (hasKey $profiles $profile)) (not (has $binding.provider ((get $profiles $profile).providers | default list))) }}{{ fail "binding profile/provider combination has no admitted native path mapping" }}{{ end -}}
 {{- $_ := set $binding "credentialHeader" (get $profiles $profile).credentialHeader -}}
+{{- end -}}
+{{- if hasKey $binding "billingMode" -}}
+{{- if or (ne (toJson $binding.billingMode) `"included"`) (not (has "openai-codex-responses-v1" $binding.profiles)) }}{{ fail "binding billingMode accepts only included on a Codex binding" }}{{ end -}}
+{{- end -}}
+{{- if has "openai-codex-responses-v1" $binding.profiles -}}
+{{- if or (ne (len $binding.profiles) 1) (ne (toJson $sources) `["caller_supplied"]`) }}{{ fail "Codex bindings require only openai-codex-responses-v1 and credentialSources: [caller_supplied]" }}{{ end -}}
+{{- if ne $url "https://chatgpt.com/backend-api/codex" }}{{ fail "Codex bindings require upstreamURL: https://chatgpt.com/backend-api/codex" }}{{ end -}}
 {{- end -}}
 {{- $selectedModels := $binding.models | default list -}}
 {{- range $id := $binding.catalogModels | default list -}}
@@ -152,7 +159,18 @@ provider header and accidentally choose a company account instead. */}}
 {{- $_ := unset $attachment "image_reroutes" -}}
 {{- $_ := set $binding "models" $models -}}{{- $_ := set $binding "modelBindings" $modelBindings -}}
 {{- $_ := set $binding "attachmentPolicy" $attachment -}}{{- $_ := set $binding "host" $host -}}
-{{- $_ := set $binding "prefix" (printf "/bindings/%s" $id) -}}
+{{- $prefix := printf "/bindings/%s" $id -}}
+{{- if hasKey $binding "apiPath" -}}
+{{- if or (not (kindIs "string" $binding.apiPath)) (not (regexMatch `^(/[a-z0-9][a-z0-9-]*)+$` $binding.apiPath)) (gt (len $binding.apiPath) 128) (hasSuffix "/v1" $binding.apiPath) (hasPrefix "/bindings" $binding.apiPath) }}{{ fail "binding apiPath must be a bounded absolute lowercase path without /v1, trailing slash or reserved /bindings prefix" }}{{ end -}}
+{{- $prefix = $binding.apiPath -}}
+{{- end -}}
+{{- if $binding.api -}}
+{{- range $existing := $prefixes -}}
+{{- if or (eq $prefix $existing) (hasPrefix (printf "%s/" $existing) $prefix) (hasPrefix (printf "%s/" $prefix) $existing) }}{{ fail "binding API paths must not overlap" }}{{ end -}}
+{{- end -}}
+{{- $prefixes = append $prefixes $prefix -}}
+{{- end -}}
+{{- $_ := set $binding "prefix" $prefix -}}
 {{- $operations := list -}}
 {{- range $profileId := $binding.profiles -}}
 {{- $profile := get $profiles $profileId -}}
@@ -165,7 +183,7 @@ provider header and accidentally choose a company account instead. */}}
 {{- else -}}
 {{- $paths = list $profile.path -}}
 {{- end -}}
-{{- $operations = append $operations (dict "profile" $profileId "id" $operation.id "paths" $paths) -}}
+{{- $operations = append $operations (dict "profile" $profileId "id" $operation.id "paths" $paths "proxyPaths" (ternary (list ($profile.proxyPath | default "")) $paths (hasKey $profile "proxyPath"))) -}}
 {{- end -}}
 {{- end -}}
 {{- $_ := set $binding "operations" $operations -}}

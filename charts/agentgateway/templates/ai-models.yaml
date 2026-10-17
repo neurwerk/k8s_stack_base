@@ -73,6 +73,15 @@ spec:
         responseHeaderMode: Send
         responseBodyMode: FullDuplexStreamed
         allowModeOverride: false
+    {{- if and (eq $entry.name "proxy") (has "openai-codex-responses-v1" $binding.profiles) }}
+    # Route extProc sees the admitted native path before transformation; model
+    # serving then recognizes Responses and applies the fixed upstream baseURL.
+    transformation:
+      request:
+        set:
+          - name: ':path'
+            value: '"/v1/responses"'
+    {{- end }}
 {{- end }}
 {{- range $model := $binding.models }}
 {{- $name := printf "ai-%s-%s" $binding.id (sha256sum $model.name | trunc 12) }}
@@ -127,9 +136,14 @@ spec:
     - {group: gateway.networking.k8s.io, kind: HTTPRoute, name: ai-{{ $binding.id }}-{{ $entry.name }}, sectionName: models}
     {{- end }}
   visibility: Internal
-  provider: {{ $binding.provider }}
+  {{- $includedCodex := and (eq ($binding.billingMode | default "") "included") (has "openai-codex-responses-v1" $binding.profiles) (eq $source "caller_supplied") }}
+  provider: {{ ternary "Custom" $binding.provider $includedCodex }}
   baseURL: {{ $binding.upstreamURL | quote }}
-  {{- if eq $binding.provider "Custom" }}
+  {{- if $includedCodex }}
+  custom:
+    providerOverride: codex
+    formats: [{type: Responses}]
+  {{- else if eq $binding.provider "Custom" }}
   custom:
     formats: [{type: Completions}]
   {{- end }}

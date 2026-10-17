@@ -27,7 +27,7 @@
 {{- range $binding := $listener.bindings }}
 {{- $paths := list }}
 {{- range $operation := $binding.operations }}
-{{- range $path := $operation.paths }}
+{{- range $path := ternary ($operation.proxyPaths | default $operation.paths) $operation.paths $proxy }}
 {{- if not $proxy }}{{ $path = printf "%s%s" $binding.prefix $path }}{{ end }}
 {{- $paths = append $paths $path }}
 {{- end }}
@@ -129,7 +129,7 @@ spec:
         {{- range $binding := $listener.bindings }}
         {{- range $operation := $binding.operations }}
         {{- $paths := list }}
-        {{- range $path := $operation.paths }}
+        {{- range $path := ternary ($operation.proxyPaths | default $operation.paths) $operation.paths $proxy }}
         {{- if not $proxy }}{{ $path = printf "%s%s" $binding.prefix $path }}{{ end }}
         {{- $paths = append $paths $path }}
         {{- end }}
@@ -150,6 +150,9 @@ spec:
                   "permissions": has(jwt.sub) ? jwt.resource_access.agentgateway.roles : extauthz.permissions,
                   "entry_mode": {{ $listener.mode | toJson }}, "destination_kind": {{ $binding.kind | default "model" | toJson }},
                   "provider_id": {{ $binding.providerId | toJson }}, "binding_id": {{ $binding.id | toJson }},
+                  {{- if and (not $proxy) (hasKey $binding "apiPath") }}
+                  "api_path_prefix": {{ $binding.prefix | toJson }},
+                  {{- end }}
                   "protocol_profile": {{ $operation.profile | toJson }}, "operation_id": {{ $operation.id | toJson }},
                   "provider_credential_source": ({{ include "infra-agentgateway.aiCredentialSource" $binding }}),
                   "policy_revision": {{ $revision | toJson }}}

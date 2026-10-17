@@ -5,6 +5,24 @@
     "aiGateway": {
       "type": "object",
       "properties": {
+        "bindings": {
+          "type": "array",
+          "maxItems": 8,
+          "items": {
+            "type": "object",
+            "properties": {
+              "billingMode": {
+                "type": "string",
+                "enum": ["included"]
+              },
+              "apiPath": {
+                "type": "string",
+                "maxLength": 128,
+                "pattern": "^(/[a-z0-9][a-z0-9-]*)+$"
+              }
+            }
+          }
+        },
         "approvedOidcClients": {
           "type": ["array", "null"],
           "maxItems": 32,

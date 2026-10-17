@@ -176,7 +176,7 @@ data:
         {{- range $endpoint := $modelCatalog.endpoints }}
         - name: {{ $endpoint.name }}
           apiKey: unused
-          baseURL: {{ printf "%s/bindings/%s/v1" $.Values.frontendLibrechat.agentGateway.origin $endpoint.id | quote }}
+          baseURL: {{ printf "%s%s/v1" $.Values.frontendLibrechat.agentGateway.origin $endpoint.apiPath | quote }}
           {{- if $.Values.frontendLibrechat.costs.enabled }}
           tokenConfig:
             {{- $costTokenConfig | toYaml | nindent 12 }}

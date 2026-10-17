@@ -47,7 +47,7 @@ KUBECTL_TIMEOUT_SECONDS = 8
 HTTP_TIMEOUT_SECONDS = 75
 MAX_RESPONSE_BYTES = 1_048_576
 PRESIDIO_CODES = frozenset({"P00", "P01", "P02", "P03"})
-BINDING_BASE_PATH_RE = re.compile(r"/bindings/[a-z0-9](?:[-a-z0-9]{0,30}[a-z0-9])?/v1/?")
+BINDING_BASE_PATH_RE = re.compile(r"(?:/[a-z0-9][a-z0-9-]*)+/v1/?")
 MODEL_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]{0,127}$")
 API_KEY_RE = re.compile(r"^[\x21-\x7e]{1,4096}$")
 HOSTNAME_RE = re.compile(
@@ -132,7 +132,7 @@ def load_config(environ: Mapping[str, str]) -> Config:
     ):
         raise AcceptanceError(
             "LIVE_ACCEPTANCE_AGENTGATEWAY_URL must be an HTTPS binding base URL "
-            "ending in /bindings/<binding-id>/v1 without credentials, query, or fragment"
+            "ending in <configured-api-path>/v1 without credentials, query, or fragment"
         )
     if not MODEL_ID_RE.fullmatch(model_id):
         raise AcceptanceError("LIVE_ACCEPTANCE_MODEL_ID has an invalid format")
