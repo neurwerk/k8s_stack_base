@@ -1,7 +1,7 @@
 # Enable only with explicit addon settings and client approval.
 enabled: false
 k8sTools:
-  image: ghcr.io/neurwerk/k8s-stack-tooling:0.11.1@sha256:8268cdc0af8b5abffa4d7082fae063cf5801d8af28d3e1bb8b5d8262ad67de00
+  image: ghcr.io/neurwerk/k8s-stack-tooling:0.11.2@sha256:754eada6dba835ec2c5466cc11f62ff3e2920a133798ce28809cf7407a66689f
 authKeycloak:
   realm: ""
   adminUser: ""
