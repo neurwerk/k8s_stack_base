@@ -9,12 +9,14 @@ upgrade path.
 
 ## [Unreleased]
 
+## [0.3.27] - 2026-10-18
+
 - Add binding-based AI Gateway routes, inspected proxy trust, personal-provider and Codex subscription access, with explicit user permissions and no fallback to company billing.
 - Adopt Studio `0.19.7`, extProc `0.19.14`, PII Engine `0.15.3`, API-key bridge `0.10.1` and Tooling `0.11.2`, including current fixes for gateway activity, request IDs, reasoning histories, Responses buffering and error diagnostics.
 - Move LibreChat into an independently selected add-on; share generic database and OIDC provisioning while making network access, monitoring and maintenance explicit.
 - Require standalone setup CLI `0.4.3` at the manifest's exact revision, and explicit gateway bindings and browser-client approvals before application activation.
 - Retire gateway rejected-request capture while retaining cleanup of existing debug data; support separate process logging and expanded client error diagnostics.
-- Follow [the upgrade steps](docs/operations/upgrade-0.3.27.md), including the coordinated LibreChat ownership crossover, before reconciliation.
+- Follow [the upgrade steps](https://github.com/neurwerk/k8s_stack_base/blob/v0.3.27/docs/operations/upgrade-0.3.27.md), including the coordinated LibreChat ownership crossover, before reconciliation.
 
 ## [0.3.26] - 2026-10-09
 

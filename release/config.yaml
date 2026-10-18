@@ -1,6 +1,6 @@
-version: 0.3.26
-releaseDate: '2026-10-09'
-summary: Studio-owned MCP setup and bounded PII NER caching
+version: 0.3.27
+releaseDate: '2026-10-18'
+summary: Binding-based gateway access and independent LibreChat deployment
 trust:
   signerIdentity: platform-release
   algorithm: ssh-ed25519
@@ -45,8 +45,8 @@ packages:
   - path: releases/agentgateway/inspection-trust
     status: included
     reason: Optional public-root snapshot publication after inspection PKI using verified Tooling 0.11.2;
-      disabled by default. Initial publication precedes Studio trust readiness; subsequent promotion
-      requires every serving Studio replica to load the staged version.
+      disabled by default. Initial publication precedes Studio trust readiness; subsequent promotion requires
+      every serving Studio replica to load the staged version.
     chartPrefixes:
     - charts/agentgateway/inspection-trust
     prerequisites:
@@ -199,14 +199,53 @@ exceptions:
   reason: The reviewed upstream DocumentDB local image requires passwordless sudo to prepare runtime directories
     before dropping back to UID 1000.
 provenance:
-  previousTag: v0.3.25
-  includedThrough: 17bb0a05c319074ef6a72791973151f303acea64
+  previousTag: v0.3.26
+  includedThrough: 2eb1ff537d6e94443fde27bbf5d9676d5bfd9ef4
   commits:
-  - debd4c17800c9503ee2137c420af3759bad12900
-  - 25d20b22ee107ddbce7402f71305faad06015e15
-  - ca9eafe070c35a22258acd9e8c270044b6b49c63
-  - 6bde600ce1e79417f311a2250ac9271c432f447b
-  - 8359247347d2e91a624e0083be19399d7e4aafeb
-  - 6494f91f8f0a5c61a7ca5435f45fb81a38f31f8a
-  - 17bb0a05c319074ef6a72791973151f303acea64
-  compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.25...17bb0a05c319074ef6a72791973151f303acea64
+  - f064f03e9ae6d34b56f64a9eb2eb2799acd6cedf
+  - bbb8bb146b9c19643dd333adc177f53b3f97642a
+  - 7fa8fe5a0c2f2a98fd2286b6d68f619e1d646d5f
+  - bc13353bb4b0b9a8db60e7877899e594f7f3a5f0
+  - de18e620c662e05903051000a96a5485e9b8389a
+  - 47f65cb0c2776a26ecf5c02f1be6f5734015d683
+  - f3316fa98395e614ab2aa31f933445ad6667ede1
+  - 4854f57bb4ec03865d025b1f105856ed81af3f7d
+  - 8dff0f84b496d149c24c881bcb68e09b9c7db913
+  - a0b73501128ea0b9184193db26f8e82887eaa23b
+  - 64c98e1a1855c4ec371e044426fff03dd34afdc7
+  - 2d7aca0f894830b6b279493be8261eb637c8a73a
+  - 97abedd11b1e0721801d316ae2f48910f6e45737
+  - a03ffb525061f4dc92ce533407f43966de2e244f
+  - 62a8d4ec644c53f1a2516a5e973bdcae07dc5613
+  - cf04e21b0adc9cfe64f04227cf7da77156be9296
+  - bb80281c88016ca6eae5ca75db36704f80de1788
+  - 13b2b6bdac3dadb85c2d371beb552dfbbfa1d94b
+  - 256c0fefc4c4b2f5960a248d7ea4504cc151a7aa
+  - fa651dda56d845def78b38d698a34a062e8213a7
+  - e51390d89ac75060f235a6c9cbe53e33c90bf1f6
+  - a3db91bded82f40f5d504e8fc9244f379ac0d803
+  - a9042ea06ec0bdb9c4c5b03d0eafcb1f56494a85
+  - fc7fbf6aeea3bc420ddf561e0c390136dc574479
+  - eb2810f2c1d3662e19922d6653dcd91a6bdf3725
+  - 5f8d761d415a4b682903bda61465be710a3fe83d
+  - 19dfb4a4a51655c1c5088a83627f2b271f7778ee
+  - 9c898edfc81c53943da976a14b290caffa671e43
+  - d100bd6de20945ab1b3951315347b44ace2d6d28
+  - df53c7a04165eb3e45dd8fe9ec108edfef2008e4
+  - 930a4f833724118560c516debbc002c6bf1f5c08
+  - 164a752ebc82bbd21aa157f31f99dbd2c62802ac
+  - 4b8038daa5692711710449e367967b8d375f5023
+  - 2c9d074b43668d10faa7a3f7c283190f67712793
+  - a9606f3f45cf491fae3798295d6081159202d385
+  - ddbaef2be20c5387a83d202baa5aba883de5a062
+  - 581add352ce96b593858d06cb17fa40a928f9736
+  - 32b2d2e884490be339992a2a3c7b451aa54706e9
+  - 7e3a821b3896f489c62859099f5218ca198cf30b
+  - 2e40b4f2ead5ea7cf7cc652c86af7726528eb241
+  - 277f1af321172679787de00e43077830cb47828f
+  - edec665d7829d07856f99f4fed0bbfea6ab8cdd2
+  - e3b149bbf983500b8201597e9c0978841afa8e9a
+  - 97dc8a086fed2a53ae34d51e0823cb6498500934
+  - 227a69a82acdafbc986da1975362db699ba0627f
+  - 2eb1ff537d6e94443fde27bbf5d9676d5bfd9ef4
+  compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.26...2eb1ff537d6e94443fde27bbf5d9676d5bfd9ef4
