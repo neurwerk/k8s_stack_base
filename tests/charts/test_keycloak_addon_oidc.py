@@ -51,7 +51,7 @@ class AddonOidcTests(unittest.TestCase):
         values = configuration("custom-studio")
         values["authKeycloak"] = {"studioClientId": "custom-studio"}
         self.assertIn("reserved authentication client ID", self.scope(values, check=False).stderr)
-        for client in ("forgejo", "dify", "example-addon"):
+        for client in ("sample", "second-app", "example-addon"):
             with self.subTest(client=client):
                 self.scope(configuration(client))
 

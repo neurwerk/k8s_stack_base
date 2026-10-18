@@ -9,11 +9,11 @@ from helm import documents, env_value, render, resource
 CHART = "keycloak/addon-access"
 ADDON = {
     "enabled": True,
-    "name": "forgejo",
-    "realmRoles": ["forgejo-user", "forgejo-admin"],
-    "realmRoleComposites": {"forgejo-admin": ["forgejo-user"]},
-    "accessGroups": {"/access/neurwerk-forgejo-admins": {"realmRoles": ["forgejo-admin"]}},
-    "platformAdminRole": "forgejo-admin",
+    "name": "sample",
+    "realmRoles": ["sample-addon-user", "sample-addon-admin"],
+    "realmRoleComposites": {"sample-addon-admin": ["sample-addon-user"]},
+    "accessGroups": {"/access/neurwerk-sample-addon-admins": {"realmRoles": ["sample-addon-admin"]}},
+    "platformAdminRole": "sample-addon-admin",
     "platformAdminGrant": True,
 }
 VALUES = {"authKeycloak": {"realm": "example"}, "addonAccess": ADDON}
@@ -25,18 +25,18 @@ class KeycloakAddonAccessTests(unittest.TestCase):
 
     def test_selected_addon_scopes_roles_groups_and_egress(self):
         result = render(CHART, VALUES, value_files=())
-        job = resource(result, "Job", "auth-keycloak-forgejo-access-job")
-        egress = resource(result, "NetworkPolicy", "auth-keycloak-forgejo-access-egress")
+        job = resource(result, "Job", "auth-keycloak-sample-access-job")
+        egress = resource(result, "NetworkPolicy", "auth-keycloak-sample-access-egress")
         self.assertEqual(egress["spec"]["podSelector"]["matchLabels"], {
             "app": job["spec"]["template"]["metadata"]["labels"]["app"],
         })
         self.assertEqual(egress["metadata"]["namespace"], "auth-keycloak")
         self.assertEqual(json.loads(env_value(result, "KC_REALM_ROLE_COMPOSITES")), {
-            "forgejo-admin": ["forgejo-user"], "platform-admin": ["forgejo-admin"],
+            "sample-addon-admin": ["sample-addon-user"], "platform-admin": ["sample-addon-admin"],
         })
         self.assertEqual(json.loads(env_value(result, "KC_REALM_ROLE_COMPOSITE_OWNERSHIP")), {
-            "forgejo-admin": ["forgejo-user", "forgejo-admin"],
-            "platform-admin": ["forgejo-admin"],
+            "sample-addon-admin": ["sample-addon-user", "sample-addon-admin"],
+            "platform-admin": ["sample-addon-admin"],
         })
         self.assertEqual(json.loads(env_value(result, "KC_ACCESS_GROUPS")), ADDON["accessGroups"])
         without_grant = render(CHART, {**VALUES, "addonAccess": {
@@ -46,10 +46,10 @@ class KeycloakAddonAccessTests(unittest.TestCase):
 
     def test_rejects_old_image_and_foreign_ownership(self):
         for change in (
-            {"realmRoles": ["forgejo-admin", "studio-user"]},
+            {"realmRoles": ["sample-addon-admin", "studio-user"]},
             {"platformAdminRole": "keycloak-admin"},
-            {"accessGroups": {"/access/neurwerk-platform-admins": {"realmRoles": ["forgejo-admin"]}}},
-            {"realmRoleComposites": {"forgejo-admin": ["studio-user"]}},
+            {"accessGroups": {"/access/neurwerk-platform-admins": {"realmRoles": ["sample-addon-admin"]}}},
+            {"realmRoleComposites": {"sample-addon-admin": ["studio-user"]}},
         ):
             with self.subTest(change=change):
                 result = render(CHART, {**VALUES, "addonAccess": {**ADDON, **change}},

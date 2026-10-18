@@ -94,10 +94,11 @@ class BridgePostgresTests(unittest.TestCase):
         self.assertIn("Existing API key bridge database lacks the provisioner marker", script)
         self.assertIn("CREATE DATABASE api_key_bridge OWNER api_key_bridge", script)
         self.assertIn("verify_isolation api_key_bridge", script)
-        self.assertNotIn("DIFY_PASSWORD", script)
-        self.assertNotIn("CREATE DATABASE dify ", script)
         env = job["spec"]["template"]["spec"]["containers"][0]["env"]
-        self.assertNotIn("DIFY_PASSWORD", [item["name"] for item in env])
+        self.assertEqual({item["name"] for item in env if "PASSWORD" in item["name"]}, {
+            "PGPASSWORD", "AGENTGATEWAY_PASSWORD", "LANGFUSE_PASSWORD",
+            "STUDIO_PASSWORD", "API_KEY_BRIDGE_PASSWORD",
+        })
         self.assertEqual(next(e for e in env if e["name"] == "API_KEY_BRIDGE_PASSWORD")["valueFrom"]["secretKeyRef"]["name"],
                          "api-key-bridge-postgres-values")
         ingress = resource(enabled, "NetworkPolicy", "postgres-operations-ingress")
