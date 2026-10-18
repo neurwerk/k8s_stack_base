@@ -222,9 +222,11 @@ class AddonOidcTests(unittest.TestCase):
         result = render(CHART, values, namespace="auth-keycloak", value_files=(), check=False)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("published immutable tooling image", result.stderr)
-        # This is an existing real pin, deliberately too old for the new contract.
-        old = yaml.safe_load((ROOT / "charts/keycloak/addon-access/values.yaml").read_text())
-        values["k8sTools"] = old["k8sTools"]
+        # Published historical pin, deliberately below the supported minimum.
+        values["k8sTools"] = {
+            "image": "ghcr.io/neurwerk/k8s-stack-tooling:0.7.4@sha256:"
+            "6f6a72a2b16f6bd93771c60190f5e0dba552790c283ea99ad4005cbf94e6894e"
+        }
         result = render(CHART, values, namespace="auth-keycloak", value_files=(), check=False)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("tooling >=0.11.1", result.stderr)

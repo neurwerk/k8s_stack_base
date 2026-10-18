@@ -39,7 +39,7 @@ spec:
         version: 0.25.1
         source: oci://quay.io/jetstack/charts/cert-manager-approver-policy
       - name: cert-manager-approval-policy
-        version: 1.2.7
+        version: 1.2.9
         source: releases/cert-manager/approval-policy.yaml
       - name: trust-manager
         version: 0.24.0
@@ -49,7 +49,7 @@ spec:
         source: oci://ghcr.io/prometheus-community/charts/kube-prometheus-stack
     - path: releases/agentgateway/inspection-trust
       status: included
-      reason: Optional public-root snapshot publication after inspection PKI using verified Tooling 0.8.0;
+      reason: Optional public-root snapshot publication after inspection PKI using verified Tooling 0.11.2;
         disabled by default. Initial publication precedes Studio trust readiness; subsequent promotion
         requires every serving Studio replica to load the staged version.
       chartPrefixes:
@@ -59,8 +59,8 @@ spec:
         version: 0.1.1
         source: releases/agentgateway/inspection-pki
       - name: k8s-stack-tooling
-        version: 0.8.0
-        source: https://github.com/neurwerk/k8s_stack_tooling/releases/tag/v0.8.0
+        version: 0.11.2
+        source: https://github.com/neurwerk/k8s_stack_tooling/releases/tag/v0.11.2
     - path: releases/keycloak/active-directory
       status: included
       reason: Optional Active Directory federation; existing installations require a reviewed single-owner
@@ -77,8 +77,8 @@ spec:
         version: 0.2.0
         source: https://github.com/neurwerk/k8s_stack_tooling/commit/50b0c29c60482033bc0ceac58ca5a68733e5b075
       - name: openbao-stack-setup
-        version: 0.2.22
-        source: https://github.com/neurwerk/k8s_stack_tooling/commit/50b0c29c60482033bc0ceac58ca5a68733e5b075
+        version: 0.4.3
+        source: https://github.com/neurwerk/k8s_stack_tooling/commit/fee1854a8d55d1b9ded5dda221e4fb854ef66c56
     - path: releases/docling/secret-sync/internal
       status: included
       reason: Optional CPU API-key delivery; provision operator credentials before startup, without an
@@ -86,8 +86,8 @@ spec:
       chartPrefixes: []
       prerequisites:
       - name: openbao-stack-setup
-        version: 0.2.22
-        source: https://github.com/neurwerk/k8s_stack_tooling/commit/50b0c29c60482033bc0ceac58ca5a68733e5b075
+        version: 0.4.3
+        source: https://github.com/neurwerk/k8s_stack_tooling/commit/fee1854a8d55d1b9ded5dda221e4fb854ef66c56
     - path: releases/docling/secret-sync
       status: included
       reason: Optional remote-mode credential delivery; provision the API key and inference token before
@@ -95,8 +95,8 @@ spec:
       chartPrefixes: []
       prerequisites:
       - name: openbao-stack-setup
-        version: 0.2.22
-        source: https://github.com/neurwerk/k8s_stack_tooling/commit/50b0c29c60482033bc0ceac58ca5a68733e5b075
+        version: 0.4.3
+        source: https://github.com/neurwerk/k8s_stack_tooling/commit/fee1854a8d55d1b9ded5dda221e4fb854ef66c56
     - path: releases/docling/reloader
       status: included
       reason: Optional Docling namespace watch and rotation RBAC; compose only after its namespace exists.
@@ -113,8 +113,8 @@ spec:
       - charts/docling
       prerequisites:
       - name: openbao-stack-setup
-        version: 0.2.22
-        source: https://github.com/neurwerk/k8s_stack_tooling/commit/50b0c29c60482033bc0ceac58ca5a68733e5b075
+        version: 0.4.3
+        source: https://github.com/neurwerk/k8s_stack_tooling/commit/fee1854a8d55d1b9ded5dda221e4fb854ef66c56
     - path: releases/namespaces/maintenance
       status: included
       reason: Operator-tested optional maintenance; enable only when selected by the client.
@@ -135,16 +135,16 @@ spec:
       - charts/wireguard
       prerequisites:
       - name: openbao-stack-setup
-        version: 0.2.13
-        source: https://github.com/neurwerk/k8s_stack_tooling/commit/0c0d5b35fc9e68b70e0cb48f3741e1888f7a287b
+        version: 0.4.3
+        source: https://github.com/neurwerk/k8s_stack_tooling/commit/fee1854a8d55d1b9ded5dda221e4fb854ef66c56
     - path: releases/wireguard/secret-sync
       status: included
       reason: Optional server-key delivery; provision the selected OpenBao catalog before startup.
       chartPrefixes: []
       prerequisites:
       - name: openbao-stack-setup
-        version: 0.2.13
-        source: https://github.com/neurwerk/k8s_stack_tooling/commit/0c0d5b35fc9e68b70e0cb48f3741e1888f7a287b
+        version: 0.4.3
+        source: https://github.com/neurwerk/k8s_stack_tooling/commit/fee1854a8d55d1b9ded5dda221e4fb854ef66c56
     - path: releases/contextforge/secret-sync
       status: excluded
       reason: Vault OAuth backend awaits upstream support; use the default database credential package
@@ -152,8 +152,8 @@ spec:
       chartPrefixes: []
       prerequisites:
       - name: openbao-stack-setup
-        version: 0.2.27
-        source: https://github.com/neurwerk/k8s_stack_tooling/commit/550a2f3b52e7baa53ab8a01a59a417c539663235
+        version: 0.4.3
+        source: https://github.com/neurwerk/k8s_stack_tooling/commit/fee1854a8d55d1b9ded5dda221e4fb854ef66c56
     - path: releases/contextforge/oauth-apps
       status: included
       reason: Provider application credential delivery is selected only with approved registrations; all
@@ -161,8 +161,8 @@ spec:
       chartPrefixes: []
       prerequisites:
       - name: openbao-stack-setup
-        version: 0.2.27
-        source: https://github.com/neurwerk/k8s_stack_tooling/commit/550a2f3b52e7baa53ab8a01a59a417c539663235
+        version: 0.4.3
+        source: https://github.com/neurwerk/k8s_stack_tooling/commit/fee1854a8d55d1b9ded5dda221e4fb854ef66c56
   prerequisites:
   - name: flux
     version: 2.9.4
@@ -171,8 +171,8 @@ spec:
     version: 0.0.5
     source: oci://ghcr.io/clickhouse/clickhouse-operator-helm
   - name: openbao-stack-setup
-    version: 0.4.2
-    source: https://github.com/neurwerk/k8s_stack_tooling/commit/b5d0d7afe541f2138a3d628f74a5b3aaf1176cdc
+    version: 0.4.3
+    source: https://github.com/neurwerk/k8s_stack_tooling/commit/fee1854a8d55d1b9ded5dda221e4fb854ef66c56
   - name: gateway-api-experimental
     version: 1.6.0
     source: https://github.com/kubernetes-sigs/gateway-api/releases/tag/v1.6.0
@@ -224,8 +224,8 @@ spec:
       version: 0.1.1
     - path: charts/agentgateway/inspection-trust
       name: agentgateway-inspection-trust
-      version: 0.1.0
-      appVersion: 0.8.0
+      version: 0.1.1
+      appVersion: 0.11.2
     - path: charts/agentgateway-extproc
       name: agentgateway-extproc
       version: 2.0.13
@@ -307,35 +307,35 @@ spec:
       appVersion: '1.0'
     - path: charts/keycloak/addon-access
       name: keycloak-addon-access
-      version: 0.1.3
+      version: 0.1.4
     - path: charts/keycloak/addon-oidc
       name: addon-oidc
-      version: 0.1.1
-      appVersion: 0.11.1
+      version: 0.1.2
+      appVersion: 0.11.2
     - path: charts/keycloak/oidc/agentgateway
       name: agentgateway
-      version: 1.2.0
+      version: 1.2.1
       appVersion: '1.0'
     - path: charts/keycloak/oidc/keycloak-api-key-bridge
       name: keycloak-api-key-bridge
-      version: 1.0.7
+      version: 1.0.8
       appVersion: '1.0'
     - path: charts/keycloak/oidc/studio
       name: studio
-      version: 1.0.8
+      version: 1.0.9
       appVersion: '1.0'
     - path: charts/keycloak/realm-config/active-directory
       name: keycloak-active-directory
-      version: 1.1.8
+      version: 1.1.9
     - path: charts/keycloak/realm-config/initial-admin
       name: keycloak-oidc-configurations-initial-admin
-      version: 1.1.6
+      version: 1.1.7
     - path: charts/keycloak/realm-config/realm-roles
       name: keycloak-oidc-configurations-realm-roles
-      version: 2.4.1
+      version: 2.4.2
     - path: charts/keycloak/server
       name: keycloak
-      version: 1.1.9
+      version: 1.1.10
       appVersion: 26.7.2
     - path: charts/keycloak-api-key-bridge
       name: auth-keycloak-api-key-bridge
@@ -369,7 +369,7 @@ spec:
           sha256: 66cea2e1b6fa9f215e5f09b0b378ea1ed755ebe5881c68caa4ceba66774d7258
     - path: charts/maintenance
       name: maintenance
-      version: 0.2.0
+      version: 0.2.1
     - path: charts/openbao
       name: infra-openbao
       version: 1.0.1
@@ -385,7 +385,7 @@ spec:
           sha256: 646d932f597632a7328bd300994e66c2cabaa1b6763372cbabb559cd84ff3f2f
     - path: charts/opensearch/app
       name: monitor-opensearch
-      version: 1.2.3
+      version: 1.2.4
       appVersion: 3.8.0
       dependencyLock:
         digest: sha256:9c8dd301b564083b467cb09c7cf52f57674aaf46b3ef479f62ebd61e49fc52f3
@@ -398,7 +398,7 @@ spec:
           sha256: cad6c77d04ec2389be6f61b5422ce61e7264eb7145e42b4c78dbc00e9d7dbe4d
     - path: charts/opensearch/dashboards
       name: monitor-opensearch-dashboards
-      version: 1.2.7
+      version: 1.2.8
       appVersion: 3.8.0
       dependencyLock:
         digest: sha256:c658a0cd2ccc77db042f6be25fbef4effe147bbbb40e86db6b2ce5b8579cceb4
@@ -426,7 +426,7 @@ spec:
       appVersion: '18.6'
     - path: charts/postgres/documentdb-addon
       name: documentdb-addon
-      version: 1.0.1
+      version: 1.0.2
       appVersion: pg18-0.116.0
     - path: charts/postgres/operations
       name: infra-postgres-operations
@@ -451,15 +451,15 @@ spec:
       appVersion: v1.20.3
     - path: charts/studio/api
       name: studio-api
-      version: 1.6.5
-      appVersion: 0.19.6
+      version: 1.6.6
+      appVersion: 0.19.7
     - path: charts/studio/shared
       name: studio-shared
       version: 1.0.0
     - path: charts/studio/web
       name: studio
-      version: 1.0.28
-      appVersion: 0.19.6
+      version: 1.0.29
+      appVersion: 0.19.7
     - path: charts/traefik
       name: traefik
       version: 1.1.1
@@ -774,27 +774,23 @@ spec:
       origins:
       - charts/pii-engine-model-sync/values.yaml
       - charts/pii-engine/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-studio-api:0.19.6@sha256:29dcb7881c8785f49169fc6164add6680db169571e9efdde30e796c3e13094a3
+    - reference: ghcr.io/neurwerk/k8s-stack-studio-api:0.19.7@sha256:d424273a15e8fad6e010f9d49ea4fc83f31be9d6a60df7eff94b633f739fa3df
       pinned: true
       eligibility: included
       origins:
       - charts/studio/api/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-studio-web:0.19.6@sha256:d426003c87d882975e511a220879269f69ecbcee79678f20257e81513af25741
+    - reference: ghcr.io/neurwerk/k8s-stack-studio-web:0.19.7@sha256:6fca2f49e75f27809166a5dc919b4bf227af15684e27688dfd159b5bdb11d5d4
       pinned: true
       eligibility: included
       origins:
       - charts/studio/web/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-tooling:0.11.1@sha256:8268cdc0af8b5abffa4d7082fae063cf5801d8af28d3e1bb8b5d8262ad67de00
+    - reference: ghcr.io/neurwerk/k8s-stack-tooling:0.11.2@sha256:754eada6dba835ec2c5466cc11f62ff3e2920a133798ce28809cf7407a66689f
       pinned: true
       eligibility: included
       origins:
-      - charts/keycloak/addon-oidc/values.yaml
-      - charts/postgres/documentdb-addon/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-tooling:0.7.4@sha256:6f6a72a2b16f6bd93771c60190f5e0dba552790c283ea99ad4005cbf94e6894e
-      pinned: true
-      eligibility: included
-      origins:
+      - charts/agentgateway/inspection-trust/values.yaml
       - charts/keycloak/addon-access/values.yaml
+      - charts/keycloak/addon-oidc/values.yaml
       - charts/keycloak/oidc/agentgateway/values.yaml
       - charts/keycloak/oidc/keycloak-api-key-bridge/values.yaml
       - charts/keycloak/oidc/studio/values.yaml
@@ -805,11 +801,7 @@ spec:
       - charts/maintenance/values.yaml
       - charts/opensearch/app/values.yaml
       - charts/opensearch/dashboards/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-tooling:0.8.0@sha256:49000b15faeda690c0613f3fec9e6f08b114ca2b7acb7f25523e81d916fd35a9
-      pinned: true
-      eligibility: included
-      origins:
-      - charts/agentgateway/inspection-trust/values.yaml
+      - charts/postgres/documentdb-addon/values.yaml
     - reference: ghcr.io/stakater/reloader:v1.4.21
       pinned: true
       eligibility: included
