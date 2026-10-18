@@ -451,15 +451,15 @@ spec:
       appVersion: v1.20.3
     - path: charts/studio/api
       name: studio-api
-      version: 1.6.4
-      appVersion: 0.19.5
+      version: 1.6.5
+      appVersion: 0.19.6
     - path: charts/studio/shared
       name: studio-shared
       version: 1.0.0
     - path: charts/studio/web
       name: studio
-      version: 1.0.27
-      appVersion: 0.19.5
+      version: 1.0.28
+      appVersion: 0.19.6
     - path: charts/traefik
       name: traefik
       version: 1.1.1
@@ -774,12 +774,12 @@ spec:
       origins:
       - charts/pii-engine-model-sync/values.yaml
       - charts/pii-engine/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-studio-api:0.19.5@sha256:412d36df47b2ad694a4d4a1a7b1423d42fc71500795b9362fdb286342479af0c
+    - reference: ghcr.io/neurwerk/k8s-stack-studio-api:0.19.6@sha256:29dcb7881c8785f49169fc6164add6680db169571e9efdde30e796c3e13094a3
       pinned: true
       eligibility: included
       origins:
       - charts/studio/api/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-studio-web:0.19.5@sha256:db186adc10dfa185701985f69c4e06c1d8d7f3c8b35b24396f1080562f539ac2
+    - reference: ghcr.io/neurwerk/k8s-stack-studio-web:0.19.6@sha256:d426003c87d882975e511a220879269f69ecbcee79678f20257e81513af25741
       pinned: true
       eligibility: included
       origins:

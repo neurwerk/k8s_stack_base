@@ -18,7 +18,7 @@ mcp:
     enabled: false
 
 frontendStudio:
-  apiImage: "ghcr.io/neurwerk/k8s-stack-studio-api:0.19.5@sha256:412d36df47b2ad694a4d4a1a7b1423d42fc71500795b9362fdb286342479af0c"
+  apiImage: "ghcr.io/neurwerk/k8s-stack-studio-api:0.19.6@sha256:29dcb7881c8785f49169fc6164add6680db169571e9efdde30e796c3e13094a3"
   api:
     replicas: 1
     # Python and Uvicorn application logs; warnings and errors remain visible.
