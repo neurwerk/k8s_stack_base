@@ -93,7 +93,7 @@ class KeycloakStandardAccessTests(unittest.TestCase):
             )],
             (["langfuse-admin", "langfuse-admin"], "duplicate role"),
             *[([role], "unknown direct application grant") for role in (
-                "", "unknown-admin", "platform-admin", "dify-admin", "dify-user",
+                "", "unknown-admin", "platform-admin", "sample-addon-admin", "sample-addon-user",
                 "addon-user", "/access/neurwerk-platform-admins",
                 "llm:invoke", "model:example:invoke", "mcp:example:invoke",
             )],

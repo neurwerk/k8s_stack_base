@@ -5,7 +5,7 @@
 {{- if and $addonName (not (regexMatch `^[a-z][a-z0-9_]{0,62}$` $addonName)) -}}
 {{- fail "postgresOperationsAddon.name must be a simple PostgreSQL identifier" -}}
 {{- end -}}
-{{- if has $addonName (list "postgres" "template0" "template1" "operations_admin" "documentdb" "agentgateway" "dify" "dify_plugin" "dify_vector" "langfuse" "postgres_langfuse" "postgres_langfuse_v4" "studio" "api_key_bridge") -}}
+{{- if has $addonName (list "postgres" "template0" "template1" "operations_admin" "documentdb" "agentgateway" "langfuse" "postgres_langfuse" "postgres_langfuse_v4" "studio" "api_key_bridge") -}}
 {{- fail "postgresOperationsAddon.name conflicts with a Base-owned role or database" -}}
 {{- end -}}
 {{- if not (kindIs "bool" .Values.postgresOperationsAddon.adoptExisting) -}}
@@ -256,17 +256,6 @@ spec:
               SQL
 
               {{- if .Values.studio.enabled }}
-              verify_studio_isolation() {
-                user=$1
-                password=$2
-                if PGPASSWORD="$password" PGUSER="$user" PGDATABASE=studio \
-                  psql --tuples-only --command='SELECT 1' >/dev/null 2>&1; then
-                  echo "$user unexpectedly connected to Studio database" >&2
-                  exit 1
-                fi
-              }
-              verify_studio_isolation agentgateway "$AGENTGATEWAY_PASSWORD"
-              verify_studio_isolation langfuse "$LANGFUSE_PASSWORD"
               PGPASSWORD="$STUDIO_PASSWORD" PGUSER=studio PGDATABASE=studio \
                 psql --set=ON_ERROR_STOP=1 --command='BEGIN; CREATE TABLE public.__studio_provisioning_verification (id integer); INSERT INTO public.__studio_provisioning_verification VALUES (1); ROLLBACK;' >/dev/null
               {{- end }}
@@ -277,45 +266,46 @@ spec:
                 psql --tuples-only --command='SELECT current_user' | grep -qx '[[:space:]]*langfuse'
               PGPASSWORD="$LANGFUSE_PASSWORD" PGUSER=langfuse PGDATABASE=postgres_langfuse_v4 \
                 psql --tuples-only --command='SELECT current_user' | grep -qx '[[:space:]]*langfuse'
+              databases=$(psql -X --set=ON_ERROR_STOP=1 --no-align --tuples-only \
+                --command='SELECT datname FROM pg_database WHERE datallowconn ORDER BY datname')
               verify_isolation() {
                 user=$1
                 password=$2
                 shift 2
-                for database in "$@"; do
+                while IFS= read -r database; do
+                  allowed=false
+                  for authorized_database in "$@"; do
+                    if [ "$database" = "$authorized_database" ]; then
+                      allowed=true
+                      break
+                    fi
+                  done
+                  if [ "$allowed" = true ]; then
+                    continue
+                  fi
                   if PGPASSWORD="$password" PGUSER="$user" PGDATABASE="$database" \
                     psql --tuples-only --command='SELECT 1' >/dev/null 2>&1; then
                     echo "$user unexpectedly connected to PostgreSQL database $database" >&2
                     exit 1
                   fi
-                done
+                done <<DATABASES
+              $databases
+              DATABASES
               }
-              verify_isolation agentgateway "$AGENTGATEWAY_PASSWORD" dify dify_plugin dify_vector postgres_langfuse
-              verify_isolation langfuse "$LANGFUSE_PASSWORD" agentgateway dify dify_plugin dify_vector
-              verify_isolation agentgateway "$AGENTGATEWAY_PASSWORD" postgres_langfuse_v4
+              verify_isolation agentgateway "$AGENTGATEWAY_PASSWORD" agentgateway
+              verify_isolation langfuse "$LANGFUSE_PASSWORD" postgres_langfuse postgres_langfuse_v4
               {{- if .Values.apiKeyBridge.enabled }}
               PGPASSWORD="$API_KEY_BRIDGE_PASSWORD" PGUSER=api_key_bridge PGDATABASE=api_key_bridge \
                 psql --set=ON_ERROR_STOP=1 --command='BEGIN; CREATE TABLE public.__bridge_provisioning_verification (id integer); ROLLBACK;' >/dev/null
-              verify_isolation api_key_bridge "$API_KEY_BRIDGE_PASSWORD" postgres template1 agentgateway dify dify_plugin dify_vector postgres_langfuse
-              verify_isolation api_key_bridge "$API_KEY_BRIDGE_PASSWORD" postgres_langfuse_v4
-              verify_isolation agentgateway "$AGENTGATEWAY_PASSWORD" api_key_bridge
-              verify_isolation langfuse "$LANGFUSE_PASSWORD" api_key_bridge
-              {{- if .Values.studio.enabled }}
-              verify_isolation studio "$STUDIO_PASSWORD" api_key_bridge
-              verify_isolation api_key_bridge "$API_KEY_BRIDGE_PASSWORD" studio
-              {{- end }}
+              verify_isolation api_key_bridge "$API_KEY_BRIDGE_PASSWORD" api_key_bridge
               {{- end }}
               {{- if .Values.studio.enabled }}
-              verify_isolation studio "$STUDIO_PASSWORD" postgres template1 agentgateway dify dify_plugin dify_vector postgres_langfuse
-              verify_isolation studio "$STUDIO_PASSWORD" postgres_langfuse_v4
+              verify_isolation studio "$STUDIO_PASSWORD" studio
               {{- end }}
               {{- if $addonName }}
               PGPASSWORD="$ADDON_DATABASE_PASSWORD" PGUSER="$ADDON_DATABASE_NAME" PGDATABASE="$ADDON_DATABASE_NAME" \
                 psql --set=ON_ERROR_STOP=1 --command='BEGIN; CREATE TABLE public.__addon_provisioning_verification (id integer); ROLLBACK;' >/dev/null
-              verify_isolation "$ADDON_DATABASE_NAME" "$ADDON_DATABASE_PASSWORD" postgres template1 agentgateway dify dify_plugin dify_vector postgres_langfuse postgres_langfuse_v4 studio api_key_bridge
-              verify_isolation agentgateway "$AGENTGATEWAY_PASSWORD" "$ADDON_DATABASE_NAME"
-              verify_isolation langfuse "$LANGFUSE_PASSWORD" "$ADDON_DATABASE_NAME"
-              verify_isolation studio "$STUDIO_PASSWORD" "$ADDON_DATABASE_NAME"
-              verify_isolation api_key_bridge "$API_KEY_BRIDGE_PASSWORD" "$ADDON_DATABASE_NAME"
+              verify_isolation "$ADDON_DATABASE_NAME" "$ADDON_DATABASE_PASSWORD" "$ADDON_DATABASE_NAME"
               psql --set=ON_ERROR_STOP=1 --command="DO \$verify\$ BEGIN IF has_database_privilege('operations_admin', '$ADDON_DATABASE_NAME', 'CONNECT') THEN RAISE EXCEPTION 'Shared database administrator unexpectedly has addon access'; END IF; END \$verify\$;"
               {{- end }}
               echo "Operations PostgreSQL provisioning verified."

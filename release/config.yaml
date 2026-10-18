@@ -125,7 +125,7 @@ packages:
     chartPrefixes: []
   - path: releases/wireguard
     status: included
-    reason: Operator-tested one-device Forgejo HTTPS gateway; disabled by default.
+    reason: Operator-tested one-device HTTPS gateway; disabled by default.
     chartPrefixes:
     - charts/wireguard
     prerequisites:
