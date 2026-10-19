@@ -5,5 +5,5 @@ description: |
   Called by AgentGateway via extProc traffic policy.
   No Gateway/HTTPRoute — internal-only.
 type: application
-version: 2.0.14
-appVersion: "0.19.15"
+version: 2.0.15
+appVersion: "0.19.16"
