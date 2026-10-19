@@ -152,9 +152,13 @@ fluent-bit:
           Logstash_Format     On
           Logstash_Prefix     fluent-bit
           Logstash_DateFormat %Y.%m.%d
+          # Bound response memory while allowing full bulk acknowledgements.
+          Buffer_Size         2M
           Retry_Limit         False
           Suppress_Type_Name  On
           Generate_ID         On
+          # Replays replace the same generated ID, avoiding mixed 201/409 retries.
+          Write_Operation     index
 
       [OUTPUT]
           Name                prometheus_exporter
