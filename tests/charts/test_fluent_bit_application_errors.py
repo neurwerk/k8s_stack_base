@@ -13,6 +13,42 @@ CLASSIFIER = ROOT / "charts/fluent-bit/files/application-errors.lua"
 
 
 class FluentBitApplicationErrorTests(unittest.TestCase):
+    def test_native_severity_and_existing_application_prefixes(self) -> None:
+        fixture = f"""
+dofile({json.dumps(str(CLASSIFIER))})
+local timestamp = {{sec = os.time(), nsec = 123}}
+for _, case in ipairs({{
+    {{"[2026/01/02 03:04:05] [ warn] [engine] retry scheduled", "WARNING"}},
+    {{"[2026/01/02 03:04:05] [error] [output] delivery failed", "ERROR"}},
+    {{"[2026/01/02 03:04:05] [ info] [engine] started", "INFO"}},
+    {{"[2026/01/02 03:04:05] [debug] [engine] processing", "DEBUG"}},
+    {{"[2026/01/02 03:04:05] [trace] [engine] processing", "TRACE"}},
+    {{"[2026/01/02 03:04] [error] malformed timestamp", "UNKNOWN"}},
+    {{"response: [2026/01/02 03:04:05] [error] embedded prefix", "UNKNOWN"}},
+    {{"[response] error detail", "UNKNOWN"}},
+    {{"[2026/01/02 03:04:05] [errors] not a severity", "UNKNOWN"}},
+    {{"[2026/01/02 03:04:05] [error]suffix not a severity field", "UNKNOWN"}},
+    {{"2026-01-02T03:04:05.123Z ERROR application failed", "ERROR"}},
+    {{"2026-01-02 03:04:05 UTC [42] WARNING application retry", "WARNING"}},
+    {{"[ERROR] application failed", "ERROR"}},
+    {{"INFO: application started", "INFO"}},
+}}) do
+    local record = {{log = case[1]}}
+    local code, output_time, output = application_error("kube.test", timestamp, record)
+    assert(output.stack_log.level == case[2], case[1] .. ": " .. output.stack_log.level)
+    assert(code == 2 and output_time == timestamp and output.log == case[1])
+end
+for _, field in ipairs({{"level", "levelname", "severity"}}) do
+    local record = {{message = "[2026/01/02 03:04:05] [error] [engine] failed"}}
+    record[field] = "info"
+    application_error("kube.test", timestamp, record)
+    assert(record.stack_log.level == "INFO")
+end
+"""
+        subprocess.run(
+            ["lua", "-"], input=fixture, text=True, check=True, capture_output=True
+        )
+
     def test_mixed_json_types_do_not_escape_into_shared_index(self) -> None:
         fixture = f"""
 dofile({json.dumps(str(CLASSIFIER))})

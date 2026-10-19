@@ -41,6 +41,11 @@ local function log_level(record)
         end
     end
     local prefix = text(record.message or record.msg or record.log):gsub("^%s+", "")
+    local native_level = prefix:match(
+        "^%[%d%d%d%d/%d%d/%d%d %d%d:%d%d:%d%d%] +%[ *(%a+) *%] ")
+    if levels[native_level] then
+        return levels[native_level]
+    end
     prefix = prefix:gsub("^%d%d%d%d%-%d%d%-%d%d[t ]%d%d:%d%d:%d%d[^%s]*%s+", "")
     prefix = prefix:gsub("^utc%s+", ""):gsub("^%[%d+%]%s*", "")
     local value = prefix:match("^%[(%a+)%]") or prefix:match("^(%a+)[%s:]")
