@@ -11,7 +11,9 @@ upgrade path.
 
 ## [0.3.28] - 2026-10-20
 
-
+- Make Fluent Bit bulk retries idempotent with bounded responses, and recognize native severity prefixes.
+- Adopt verified Studio `0.19.8` API and Web images.
+- Adopt verified extProc `0.19.16` for stable timestamps in local Ollama chat streams, including the Langfuse cleanup image pin.
 
 ## [0.3.27] - 2026-10-18
 
