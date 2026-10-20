@@ -126,7 +126,7 @@ spec:
               value: {{ .Values.authKeycloakApiKeyBridge.config.max_keys_per_user | quote }}
             - name: KEYCLOAK_API_KEY_BRIDGE_LOG_LEVEL
               value: {{ .Values.authKeycloakApiKeyBridge.config.log_level | quote }}
-            - name: KEYCLOAK_API_KEY_BRIDGE_DISCOVERY_OIDC_CLIENTS
+            - name: KEYCLOAK_API_KEY_BRIDGE_GATEWAY_CALLER_OIDC_CLIENTS
               value: {{ $discoveryClients | uniq | toJson | quote }}
             {{- if $registrations }}
             - name: KEYCLOAK_API_KEY_BRIDGE_MANAGED_REGISTRATIONS

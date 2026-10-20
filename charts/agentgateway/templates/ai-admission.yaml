@@ -20,14 +20,7 @@
 {{- $listeners = prepend $listeners (dict "name" "api-bindings" "mode" "api" "bindings" $apiBindings) }}
 {{- $approvedOidc := include "infra-agentgateway.approvedOidcAuthorization" (dict "root" . "bindings" $apiBindings) }}
 {{- $discovery := .Values.aiGateway.localModelDiscovery | default dict }}
-{{- $discoveryPaths := list "/local/api/v1/models" }}
-{{- if $discovery.enabled }}
-{{- range $binding := $apiBindings }}
-{{- if eq $binding.id $discovery.bindingId }}
-{{- range $model := $binding.models }}{{ $discoveryPaths = append $discoveryPaths (printf "/local/api/v1/models/%s" $model.name) }}{{ end }}
-{{- end }}
-{{- end }}
-{{- end }}
+{{- $discoveryPath := `request.path == "/local/api/v1/models" || (request.path.startsWith("/local/api/v1/models/") && request.path != "/local/api/v1/models/")` }}
 {{- range $listener := $listeners }}
 {{- $proxy := eq $listener.mode "forward_proxy" }}
 {{- $credential := ternary "proxy-authorization" "x-neurwerk-authorization" $proxy }}
@@ -51,7 +44,7 @@
 {{- end }}
 {{- $allowed := join " || " $matches | default "false" }}
 {{- if and (not $proxy) $discovery.enabled }}
-{{- $allowed = printf `%s || (request.method == "GET" && request.path in %s && !["authorization", "x-api-key", "x-goog-api-key", "api-key"].exists(h, h in request.headers && !(h == "authorization" && has(jwt.sub) && !("x-neurwerk-authorization" in request.headers))))` $allowed ($discoveryPaths | toJson) }}
+{{- $allowed = printf `%s || (request.method == "GET" && (%s) && !["authorization", "x-api-key", "x-goog-api-key", "api-key"].exists(h, h in request.headers && !(h == "authorization" && has(jwt.sub) && !("x-neurwerk-authorization" in request.headers))))` $allowed $discoveryPath }}
 {{- end }}
 {{- $allowlistSize := len $allowed }}
 {{- if not $proxy }}{{ $allowlistSize = add $allowlistSize (len $approvedOidc) }}{{ end }}
@@ -140,7 +133,7 @@ spec:
       conditional:
         {{- if and (not $proxy) $discovery.enabled }}
         {{- range $variant := list "oidc" "dedicated" }}
-        - condition: {{ printf `request.method == "GET" && request.path in %s && %s(has(jwt.sub) && !("x-neurwerk-authorization" in request.headers))` ($discoveryPaths | toJson) (ternary "" "!" (eq $variant "oidc")) | squote }}
+        - condition: {{ printf `request.method == "GET" && (%s) && %s(has(jwt.sub) && !("x-neurwerk-authorization" in request.headers))` $discoveryPath (ternary "" "!" (eq $variant "oidc")) | squote }}
           policy:
             request:
               metadata:

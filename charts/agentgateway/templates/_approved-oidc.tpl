@@ -1,7 +1,6 @@
 {{/* Trusted chart configuration approves clients, never token permissions. */}}
 {{- define "infra-agentgateway.approvedOidcAuthorization" -}}
 {{- $root := .root -}}
-{{- $bindings := .bindings -}}
 {{- $pathsById := dict -}}
 {{- range .bindings -}}
 {{- $prefix := .prefix -}}
@@ -33,13 +32,7 @@
 {{- $discovery := $root.Values.aiGateway.localModelDiscovery | default dict -}}
 {{- $extra := "false" -}}
 {{- if and $discovery.enabled (has $discovery.bindingId $client.bindings) -}}
-{{- $discoveryPaths := list "/local/api/v1/models" -}}
-{{- range $binding := $bindings -}}
-{{- if eq $binding.id $discovery.bindingId -}}
-{{- range $model := $binding.models }}{{ $discoveryPaths = append $discoveryPaths (printf "/local/api/v1/models/%s" $model.name) }}{{ end -}}
-{{- end -}}
-{{- end -}}
-{{- $extra = printf `request.method == "GET" && request.path in %s` ($discoveryPaths | toJson) -}}
+{{- $extra = `request.method == "GET" && (request.path == "/local/api/v1/models" || (request.path.startsWith("/local/api/v1/models/") && request.path != "/local/api/v1/models/"))` -}}
 {{- end -}}
 {{- $matches = append $matches (printf `(jwt.azp == %s && (request.path in %s || (%s)))` ($client.clientId | toJson) ($paths | toJson) $extra) -}}
 {{- end -}}
