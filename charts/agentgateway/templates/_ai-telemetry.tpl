@@ -1,10 +1,14 @@
 {{- define "infra-agentgateway.aiTelemetry" -}}
 {{- $fields := dict -}}
 {{- range $field := list "request_id" "entry_mode" "destination_kind" "provider_id" "binding_id" "protocol_profile" "operation_id" "provider_credential_source" "policy_revision" "credential_id" "credential_kind" -}}
-{{- $_ := set $fields (printf "neurwerk.%s" $field) (printf "has(metadata.neurwerk_admission) ? metadata.neurwerk_admission.%s : null" $field) -}}
+{{- $_ := set $fields (printf "neurwerk.%s" $field) (printf "has(metadata.neurwerk_admission) && has(metadata.neurwerk_admission.%s) ? metadata.neurwerk_admission.%s : null" $field $field) -}}
 {{- end -}}
+{{- range $field := list "request_id" "entry_mode" "policy_revision" "credential_id" "credential_kind" -}}
+{{- $_ := set $fields (printf "neurwerk.%s" $field) (printf "has(metadata.neurwerk_identity) && has(metadata.neurwerk_identity.%s) ? metadata.neurwerk_identity.%s : has(metadata.neurwerk_admission) && has(metadata.neurwerk_admission.%s) ? metadata.neurwerk_admission.%s : null" $field $field $field $field) -}}
+{{- end -}}
+{{- $_ := set $fields "neurwerk.matched_route" `has(proxy.route.name) ? proxy.route.name : null` -}}
 {{- range $field := list "destination_id" "requested_model" "resolved_model" "dispatch_binding_id" "dispatch_destination_id" -}}
-{{- $_ := set $fields (printf "neurwerk.%s" $field) (printf `has(metadata.neurwerk_admission) ? default(extproc["neurwerk.request_context"].%s, null) : null` $field) -}}
+{{- $_ := set $fields (printf "neurwerk.%s" $field) (printf `has(metadata.neurwerk_admission) && extproc != null && "neurwerk.request_context" in extproc && has(extproc["neurwerk.request_context"].%s) ? extproc["neurwerk.request_context"].%s : null` $field $field) -}}
 {{- end -}}
 {{/* default() cannot catch a field access on absent extProc metadata in native 1.6. */}}
 {{- range $field := list "request_text_inspection" "target_credential_mode" "billing_classification" -}}

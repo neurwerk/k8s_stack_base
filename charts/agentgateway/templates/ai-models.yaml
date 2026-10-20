@@ -2,12 +2,12 @@
 {{- $revision := include "infra-agentgateway.aiRevision" . }}
 {{- range $binding := include "infra-agentgateway.aiBindings" . | fromJsonArray }}
 {{- $entries := list }}
-{{- if $binding.api }}{{ $entries = append $entries (dict "name" "api" "listener" "api-bindings" "prefix" $binding.prefix) }}{{ end }}
-{{- if $binding.inspect }}{{ $entries = append $entries (dict "name" "proxy" "listener" (printf "inspect-%s" $binding.id) "prefix" "/") }}{{ end }}
+{{- if $binding.api }}{{ $entries = append $entries (dict "name" "api" "mode" "api" "listener" "api-bindings" "prefix" $binding.prefix) }}{{ end }}
+{{- if $binding.inspect }}{{ $entries = append $entries (dict "name" "proxy" "mode" "forward_proxy" "listener" (printf "inspect-%s" $binding.id) "prefix" "/") }}{{ end }}
 {{- $pii := dict }}
 {{- range $model := $binding.models }}{{ $_ := set $pii $model.name $model.piiEnabled }}{{ end }}
 {{- $inner := merge (dict "contract_version" "4.1" "destination_kind" "model" "models" $pii) $binding.attachmentPolicy }}
-{{- $innerExpression := printf `%s.merge({"principal_id": metadata.neurwerk_admission.principal_id, "credential_context_version": metadata.neurwerk_admission.credential_context_version, "credential_id": metadata.neurwerk_admission.credential_id, "credential_kind": metadata.neurwerk_admission.credential_kind})` ($inner | toJson) }}
+{{- $innerExpression := printf `%s.merge({"principal_id": metadata.neurwerk_identity.principal_id, "credential_context_version": metadata.neurwerk_identity.credential_context_version, "credential_id": metadata.neurwerk_identity.credential_id, "credential_kind": metadata.neurwerk_identity.credential_kind})` ($inner | toJson) }}
 {{- if gt (len $innerExpression) 16384 }}{{ fail "v5 destination_policy exceeds native metadata limit" }}{{ end }}
 {{- range $entry := $entries }}
 ---
@@ -44,6 +44,12 @@ spec:
     - {group: gateway.networking.k8s.io, kind: HTTPRoute, name: ai-{{ $binding.id }}-{{ $entry.name }}, sectionName: models}
   traffic:
     phase: PostRouting
+    authorization:
+      action: Allow
+      policy:
+        matchExpressions:
+          - >-
+            {{- include "infra-agentgateway.routeAuthorization" (dict "root" $ "binding" $binding "entry" $entry) | nindent 12 }}
     # Disable retries explicitly, including inherited Gateway retry settings.
     # Accounting currently observes one upstream attempt.
     retry:
@@ -51,37 +57,51 @@ spec:
       precondition: 'false'
       codes: []
     extProc:
-      backendRef:
-        group: ""
-        kind: Service
-        name: monitor-agentgateway-extproc-service
-        namespace: monitor-agentgateway-extproc
-        port: {{ $.Values.guardrails.llmPolicyEngine.extProcPort }}
-      failureMode: FailClosed
-      metadataContext:
-        agentgateway.dev.grpc_initial_metadata:
-          x-request-id: 'metadata.neurwerk_admission.request_id'
-        neurwerk.destination_policy:
-          contract_version: '5'
-          request_context: 'metadata.neurwerk_admission'
-          destination_policy: {{ $innerExpression | squote }}
-          model_bindings: {{ $binding.modelBindings | toJson | squote }}
-          reroute_targets: {{ $binding.rerouteTargets | toJson | squote }}
-      processingOptions:
-        requestHeaderMode: Send
-        requestBodyMode: Buffered
-        responseHeaderMode: Send
-        responseBodyMode: FullDuplexStreamed
-        allowModeOverride: false
-    {{- if and (eq $entry.name "proxy") (has "openai-codex-responses-v1" $binding.profiles) }}
-    # Route extProc sees the admitted native path before transformation; model
-    # serving then recognizes Responses and applies the fixed upstream baseURL.
+      conditional:
+        {{- range $operation := $binding.operations }}
+        {{- $context := dict "binding" $binding "entry" $entry "operation" $operation }}
+        - condition: {{ include "infra-agentgateway.routeOperationCondition" $context | squote }}
+          policy:
+            backendRef:
+              group: ""
+              kind: Service
+              name: monitor-agentgateway-extproc-service
+              namespace: monitor-agentgateway-extproc
+              port: {{ $.Values.guardrails.llmPolicyEngine.extProcPort }}
+            failureMode: FailClosed
+            metadataContext:
+              agentgateway.dev.grpc_initial_metadata:
+                x-request-id: 'metadata.neurwerk_identity.request_id'
+              neurwerk.destination_policy:
+                contract_version: '5'
+                request_context: >-
+                  {{- include "infra-agentgateway.routeAdmissionContext" $context | nindent 18 }}
+                destination_policy: {{ $innerExpression | squote }}
+                model_bindings: {{ $binding.modelBindings | toJson | squote }}
+                reroute_targets: {{ $binding.rerouteTargets | toJson | squote }}
+            processingOptions:
+              requestHeaderMode: Send
+              requestBodyMode: Buffered
+              responseHeaderMode: Send
+              responseBodyMode: FullDuplexStreamed
+              allowModeOverride: false
+        {{- end }}
     transformation:
-      request:
-        set:
-          - name: ':path'
-            value: '"/v1/responses"'
-    {{- end }}
+      conditional:
+        {{- range $operation := $binding.operations }}
+        {{- $context := dict "binding" $binding "entry" $entry "operation" $operation }}
+        - condition: {{ include "infra-agentgateway.routeOperationCondition" $context | squote }}
+          policy:
+            request:
+              metadata:
+                neurwerk_admission: >-
+                  {{- include "infra-agentgateway.routeAdmissionContext" $context | nindent 18 }}
+              {{- if and (eq $entry.name "proxy") (eq $operation.profile "openai-codex-responses-v1") }}
+              set:
+                - name: ':path'
+                  value: '"/v1/responses"'
+              {{- end }}
+        {{- end }}
 {{- end }}
 {{- range $model := $binding.models }}
 {{- $name := printf "ai-%s-%s" $binding.id (sha256sum $model.name | trunc 12) }}

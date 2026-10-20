@@ -6,7 +6,10 @@
 {{- $backendName := include "infra-agentgateway.mcpResourceName" (dict "id" $serverName "component" "be") }}
 {{- $policyName := include "infra-agentgateway.mcpResourceName" (dict "id" $serverName "component" "policy") }}
 {{- $permission := printf "mcp:%s:invoke" .name }}
-{{- $authorization := printf `%q in metadata.neurwerk_admission.permissions && metadata.neurwerk_admission.binding_id == %q && metadata.neurwerk_admission.destination_kind == "mcp"` $permission (printf "mcp-%s" .name) }}
+{{- $binding := dict "id" (printf "mcp-%s" .name) "prefix" (printf "/bindings/mcp-%s" .name) "kind" "mcp" "providerId" nil "local" true "credentialSources" (list "none") "requiredPermission" $permission "operations" (list (dict "profile" "mcp-streamable-http-v1" "id" "exchange" "paths" (list "/mcp"))) }}
+{{- $entry := dict "mode" "api" }}
+{{- $context := dict "binding" $binding "entry" $entry "operation" (first $binding.operations) }}
+{{- $authorization := include "infra-agentgateway.routeAuthorization" (dict "root" $ "binding" $binding "entry" $entry) }}
 {{- $piiEnabled := true }}
 {{- if hasKey . "piiEnabled" }}{{- $piiEnabled = .piiEnabled }}{{- end }}
 ---
@@ -33,8 +36,8 @@ spec:
           group: agentgateway.dev
           kind: AgentgatewayBackend
 ---
-# Gateway authentication supplies JWT/extAuth state and this route policy adds
-# only the focused destination permission. AgentGateway's MCP parser and the
+# Gateway authentication freezes identity; this route owns destination admission.
+# AgentGateway's MCP parser and the
 # fail-closed route extProc own protocol validation; piiEnabled controls analysis.
 apiVersion: agentgateway.dev/v1alpha1
 kind: AgentgatewayPolicy
@@ -67,23 +70,29 @@ spec:
       failureMode: FailClosed
       metadataContext:
         agentgateway.dev.grpc_initial_metadata:
-          x-request-id: 'metadata.neurwerk_admission.request_id'
+          x-request-id: 'metadata.neurwerk_identity.request_id'
         neurwerk.destination_policy:
           contract_version: '5'
-          request_context: 'metadata.neurwerk_admission'
+          request_context: >-
+            {{- include "infra-agentgateway.routeAdmissionContext" $context | nindent 12 }}
           model_bindings: '{}'
           destination_policy: >-
             {"contract_version": 1, "destination_kind": "mcp",
-            "principal_id": metadata.neurwerk_admission.principal_id,
+            "principal_id": metadata.neurwerk_identity.principal_id,
             "destination_id": {{ .name | toJson }}, "pii_enabled": {{ $piiEnabled }},
             "content_tracing_enabled": {{ .contentTracingEnabled | default false }}
             {{- if .contextforge }}, "contextforge": true,
-            "account_email": has(jwt.sub) ? (has(jwt.email) ? jwt.email : null) : extauthz.account_email
+            "account_email": metadata.neurwerk_identity.account_email
             {{- end }}}
       processingOptions:
         requestBodyMode: Buffered
         responseBodyMode: FullDuplexStreamed
         allowModeOverride: true
+    transformation:
+      request:
+        metadata:
+          neurwerk_admission: >-
+            {{- include "infra-agentgateway.routeAdmissionContext" $context | nindent 12 }}
 {{- end }}
 {{- end }}
 {{- end }}

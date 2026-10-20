@@ -137,18 +137,11 @@ spec:
           policy:
             request:
               metadata:
-                neurwerk_admission: >-
-                  {"request_id": has(jwt.sub) ? uuid() : extauthz.request_id,
-                  "principal_id": has(jwt.sub) ? jwt.sub : extauthz.principal_id,
-                  "credential_id": has(jwt.sub) ? null : extauthz.credential_id,
-                  "credential_kind": has(jwt.sub) ? null : extauthz.credential_kind,
-                  "permissions": has(jwt.sub) ? jwt.resource_access.agentgateway.roles : extauthz.permissions,
-                  "entry_mode": "api", "destination_kind": "model_discovery",
-                  "binding_id": {{ $discovery.bindingId | toJson }},
-                  "policy_revision": {{ $revision | toJson }}}
+                neurwerk_identity: >-
+                  {{- include "infra-agentgateway.sharedIdentity" (dict "mode" $listener.mode "revision" $revision) | nindent 18 }}
               set:
                 - name: x-request-id
-                  value: 'metadata.neurwerk_admission.request_id'
+                  value: 'metadata.neurwerk_identity.request_id'
               remove:
                 {{- if eq $variant "dedicated" }}
                 - authorization
@@ -171,43 +164,25 @@ spec:
             response:
               set:
                 - name: x-request-id
-                  value: 'metadata.neurwerk_admission.request_id'
+                  value: 'metadata.neurwerk_identity.request_id'
               remove: [authorization, proxy-authorization, x-neurwerk-authorization, x-api-key, x-goog-api-key, set-cookie, x-agentgateway-auth-context]
         {{- end }}
-        {{- end }}
-        {{- range $binding := $listener.bindings }}
-        {{- range $operation := $binding.operations }}
-        {{- $paths := list }}
-        {{- range $path := ternary ($operation.proxyPaths | default $operation.paths) $operation.paths $proxy }}
-        {{- if not $proxy }}{{ $path = printf "%s%s" $binding.prefix $path }}{{ end }}
-        {{- $paths = append $paths $path }}
         {{- end }}
         {{- $variants := list "dedicated" }}
         {{- if not $proxy }}{{ $variants = list "oidc" "dedicated" }}{{ end }}
         {{- range $variant := $variants }}
-        {{- $condition := printf `request.path in %s` ($paths | toJson) }}
+        {{- $condition := "true" }}
+        {{- if and (not $proxy) $discovery.enabled }}{{ $condition = printf `!(request.method == "GET" && (%s))` $discoveryPath }}{{ end }}
         {{- if not $proxy }}{{ $condition = printf `%s && %s(has(jwt.sub) && !("x-neurwerk-authorization" in request.headers))` $condition (ternary "" "!" (eq $variant "oidc")) }}{{ end }}
         - condition: {{ $condition | squote }}
           policy:
             request:
               metadata:
-                # Reuse the bridge call's gateway-generated ID; JWT calls generate one here.
-                neurwerk_admission: >-
-                  {"request_id": has(jwt.sub) ? uuid() : extauthz.request_id, "principal_id": has(jwt.sub) ? jwt.sub : extauthz.principal_id,
-                  "credential_context_version": has(jwt.sub) ? null : "1", "credential_id": has(jwt.sub) ? null : extauthz.credential_id,
-                  "credential_kind": has(jwt.sub) ? null : extauthz.credential_kind,
-                  "permissions": has(jwt.sub) ? jwt.resource_access.agentgateway.roles : extauthz.permissions,
-                  "entry_mode": {{ $listener.mode | toJson }}, "destination_kind": {{ $binding.kind | default "model" | toJson }},
-                  "provider_id": {{ $binding.providerId | toJson }}, "binding_id": {{ $binding.id | toJson }},
-                  {{- if and (not $proxy) (hasKey $binding "apiPath") }}
-                  "api_path_prefix": {{ $binding.prefix | toJson }},
-                  {{- end }}
-                  "protocol_profile": {{ $operation.profile | toJson }}, "operation_id": {{ $operation.id | toJson }},
-                  "provider_credential_source": ({{ include "infra-agentgateway.aiCredentialSource" $binding }}),
-                  "policy_revision": {{ $revision | toJson }}}
+                neurwerk_identity: >-
+                  {{- include "infra-agentgateway.sharedIdentity" (dict "mode" $listener.mode "revision" $revision) | nindent 18 }}
               set:
                 - name: x-request-id
-                  value: 'metadata.neurwerk_admission.request_id'
+                  value: 'metadata.neurwerk_identity.request_id'
               remove:
                 - x-neurwerk-authorization
                 - proxy-authorization
@@ -221,19 +196,30 @@ spec:
                 - x-contextforge-account-email
                 - x-remote-allowed
                 - x-route-class
-                {{- range $header := list "authorization" "x-api-key" "x-goog-api-key" }}
-                {{- if or $binding.local (eq $variant "oidc") (ne $header $binding.credentialHeader) }}
-                - {{ $header }}
-                {{- end }}
+                {{- if eq $variant "oidc" }}
+                - authorization
                 {{- end }}
             response:
               set:
                 - name: x-request-id
-                  value: 'metadata.neurwerk_admission.request_id'
+                  value: 'metadata.neurwerk_identity.request_id'
               remove: [authorization, proxy-authorization, x-neurwerk-authorization, x-api-key, x-goog-api-key, set-cookie, x-agentgateway-auth-context]
         {{- end }}
-        {{- end }}
-        {{- end }}
     {{- end }}
+---
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayPolicy
+metadata:
+  name: ai-route-default-deny-{{ $listener.name }}
+  namespace: infra-agentgateway
+spec:
+  targetRefs:
+    - {group: gateway.networking.k8s.io, kind: Gateway, name: infra-agentgateway-gateway, sectionName: {{ $listener.name }}}
+  traffic:
+    phase: PostRouting
+    authorization:
+      action: Allow
+      policy:
+        matchExpressions: ['false']
 {{- end }}
 {{- end }}
