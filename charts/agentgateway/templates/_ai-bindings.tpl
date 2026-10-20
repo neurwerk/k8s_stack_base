@@ -193,6 +193,7 @@ provider header and accidentally choose a company account instead. */}}
 {{- end -}}
 {{- $discovery := $cfg.localModelDiscovery | default dict -}}
 {{- if $discovery.enabled -}}
+{{- if ne $discovery.bindingId "local" }}{{ fail "aiGateway.localModelDiscovery.bindingId must be local when enabled (Studio requires api-local)" }}{{ end -}}
 {{- $found := false -}}
 {{- range $binding := $effective -}}
 {{- if eq $binding.id $discovery.bindingId -}}
