@@ -208,7 +208,7 @@ spec:
     charts:
     - path: charts/agentgateway
       name: infra-agentgateway
-      version: 2.1.1
+      version: 2.1.2
       appVersion: 1.6.0
       dependencyLock:
         digest: sha256:ef5fd87240e231990e45578f9deb65e6a6f947ba8a8b846cf13954882299cb3a
@@ -339,8 +339,8 @@ spec:
       appVersion: 26.7.2
     - path: charts/keycloak-api-key-bridge
       name: auth-keycloak-api-key-bridge
-      version: 1.2.1
-      appVersion: 0.10.1
+      version: 1.2.3
+      appVersion: 0.10.2
     - path: charts/kube-prometheus-stack
       name: monitor-kube-prometheus-stack
       version: 1.1.1
@@ -451,15 +451,15 @@ spec:
       appVersion: v1.20.3
     - path: charts/studio/api
       name: studio-api
-      version: 1.6.7
-      appVersion: 0.19.8
+      version: 1.6.9
+      appVersion: 0.19.9
     - path: charts/studio/shared
       name: studio-shared
       version: 1.0.0
     - path: charts/studio/web
       name: studio
-      version: 1.0.30
-      appVersion: 0.19.8
+      version: 1.0.31
+      appVersion: 0.19.9
     - path: charts/traefik
       name: traefik
       version: 1.1.1
@@ -753,7 +753,7 @@ spec:
       origins:
       - charts/agentgateway-extproc/values.yaml
       - charts/langfuse/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-keycloak-api-key-bridge:0.10.1@sha256:bb71dac82d3cbd7581b07b36c16ca6edd672a503db21e267ed492feece3f97cd
+    - reference: ghcr.io/neurwerk/k8s-stack-keycloak-api-key-bridge:0.10.2@sha256:f53d18a1953c0e4def736b062637227d2d34e574e01ccfec88d717e3d329dd80
       pinned: true
       eligibility: included
       origins:
@@ -774,12 +774,12 @@ spec:
       origins:
       - charts/pii-engine-model-sync/values.yaml
       - charts/pii-engine/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-studio-api:0.19.8@sha256:e94ee0820bd21d08e54f8ecb5bdf3aa0643825231c20dc3ee7d6cb929816b6a1
+    - reference: ghcr.io/neurwerk/k8s-stack-studio-api:0.19.9@sha256:6b84e2adad0d86bd9ad00ff8bc42c952042b978566d545f12e2e95ae696b635b
       pinned: true
       eligibility: included
       origins:
       - charts/studio/api/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-studio-web:0.19.8@sha256:d27f09ecb3201ceb8e5e12f6d0c18538588aef8b5f3977a07dea5f65aa3a0860
+    - reference: ghcr.io/neurwerk/k8s-stack-studio-web:0.19.9@sha256:4daae4c3e124cc4606bcf133b6eed46a334d8f1a2621559cfc2e7f6bd962be6e
       pinned: true
       eligibility: included
       origins:
