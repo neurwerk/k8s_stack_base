@@ -11,6 +11,10 @@
 {{- $profiles = append $profiles $profile }}
 {{- end }}
 {{- $profiles = append $profiles (dict "id" "mcp-streamable-http-v1" "revision" "1" "operations" (list (dict "id" "exchange" "support" "unknown" "restoration_scope" "request" "limitations" (list "Stateless MCP exchanges; each configured integration requires qualification."))) "limitations" (list "Stateful sessions are unsupported.")) }}
+{{- $discovery := .Values.aiGateway.localModelDiscovery | default dict }}
+{{- if $discovery.enabled }}
+{{- $profiles = append $profiles (dict "id" "local-model-discovery-v1" "revision" "1" "operations" (list (dict "id" "list" "support" "unknown" "restoration_scope" "none" "limitations" (list "GET /v1/models only.")) (dict "id" "retrieve" "support" "unknown" "restoration_scope" "none" "limitations" (list "GET /v1/models/{model} only."))) "limitations" (list "Local models only; discovery does not grant invocation.")) }}
+{{- end }}
 {{- $endpoints := list }}{{- $destinations := list }}{{- $modelDestinations := dict }}
 {{- $origin := printf "https://%s" .Values.infraAgentgatewayWrapper.hostname }}
 {{- range $binding := $bindings }}
@@ -30,7 +34,9 @@
 {{- end }}
 {{- range $model := $binding.models }}
 {{/* Canonical destination IDs match the resolved context and accounting. */}}
-{{- $destination := dict "id" $model.name "kind" "model" "display_name" $model.displayName "endpoint_ids" $endpointIds "profile_ids" $binding.profiles "required_permissions" (get $binding.modelBindings $model.name).required_permissions "credential_modes" $modes }}
+{{- $profileIds := $binding.profiles }}
+{{- if and $discovery.enabled (eq $binding.id $discovery.bindingId) }}{{ $profileIds = append $profileIds "local-model-discovery-v1" }}{{ end }}
+{{- $destination := dict "id" $model.name "kind" "model" "display_name" $model.displayName "endpoint_ids" $endpointIds "profile_ids" $profileIds "required_permissions" (get $binding.modelBindings $model.name).required_permissions "credential_modes" $modes }}
 {{- if $binding.providerId }}{{ $_ := set $destination "provider_id" $binding.providerId }}{{ end }}
 {{- $_ := set $modelDestinations $model.name $destination }}
 {{- end }}

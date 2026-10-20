@@ -17,6 +17,13 @@ authKeycloak:
   realm: ""
   agentgatewayClientRoles: []
 
+# Shared client values also supply the Gateway's opt-in discovery approvals.
+aiGateway:
+  approvedOidcClients: []
+  localModelDiscovery:
+    enabled: false
+    bindingId: ""
+
 # Platform-owned OpenRouter entries derive the complete role catalog.
 openrouterCatalog:
   enabled: true
