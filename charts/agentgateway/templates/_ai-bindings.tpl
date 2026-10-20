@@ -33,7 +33,7 @@ provider header and accidentally choose a company account instead. */}}
 {{- if ne $cfg.enabled true }}{{ fail "aiGateway.enabled must be true; the unbound gateway has been removed" }}{{ end -}}
 {{- if $cfg.enabled -}}
 {{- range $key, $_ := $cfg -}}
-{{- if not (has $key (list "enabled" "apiPort" "bindings" "proxy" "approvedOidcClients")) }}{{ fail (printf "unknown aiGateway field %s" $key) }}{{ end -}}
+{{- if not (has $key (list "enabled" "apiPort" "bindings" "proxy" "approvedOidcClients" "localModelDiscovery")) }}{{ fail (printf "unknown aiGateway field %s" $key) }}{{ end -}}
 {{- end -}}
 
 {{- if and $cfg.bindings (not $.Values.guardrails.llmPolicyEngine.enabled) }}{{ fail "model bindings require guardrails.llmPolicyEngine.enabled" }}{{ end -}}
@@ -191,6 +191,18 @@ provider header and accidentally choose a company account instead. */}}
 {{- $effective = append $effective $binding -}}
 {{- end -}}
 {{- end -}}
+{{- $discovery := $cfg.localModelDiscovery | default dict -}}
+{{- if $discovery.enabled -}}
+{{- if ne $discovery.bindingId "local" }}{{ fail "aiGateway.localModelDiscovery.bindingId must be local when enabled (Studio requires api-local)" }}{{ end -}}
+{{- $found := false -}}
+{{- range $binding := $effective -}}
+{{- if eq $binding.id $discovery.bindingId -}}
+{{- if or (not $binding.local) (not $binding.api) (ne $binding.prefix "/local/api") }}{{ fail "localModelDiscovery requires an enabled local API binding at /local/api" }}{{ end -}}
+{{- $found = true -}}
+{{- end -}}
+{{- end -}}
+{{- if not $found }}{{ fail "localModelDiscovery.bindingId must select an enabled local API binding" }}{{ end -}}
+{{- end -}}
 {{- $localTargets := dict -}}
 {{- range $binding := $effective -}}
 {{- if $binding.local -}}
@@ -233,5 +245,7 @@ provider header and accidentally choose a company account instead. */}}
 {{- end -}}
 
 {{- define "infra-agentgateway.aiRevision" -}}
-{{- dict "bindings" (include "infra-agentgateway.aiBindings" . | fromJsonArray) "approvedOidcClients" .Values.aiGateway.approvedOidcClients "profiles" (.Files.Get "catalog/ai-profiles.yaml" | fromYaml) "models" (include "infra-agentgateway.effectiveModels" . | fromYamlArray) "mcp" (include "infra-agentgateway.effectiveMcpServers" . | fromYamlArray) | toJson | sha256sum -}}
+{{- $revision := dict "bindings" (include "infra-agentgateway.aiBindings" . | fromJsonArray) "approvedOidcClients" .Values.aiGateway.approvedOidcClients "profiles" (.Files.Get "catalog/ai-profiles.yaml" | fromYaml) "models" (include "infra-agentgateway.effectiveModels" . | fromYamlArray) "mcp" (include "infra-agentgateway.effectiveMcpServers" . | fromYamlArray) -}}
+{{- if .Values.aiGateway.localModelDiscovery.enabled }}{{ $_ := set $revision "localModelDiscovery" .Values.aiGateway.localModelDiscovery }}{{ end -}}
+{{- $revision | toJson | sha256sum -}}
 {{- end -}}

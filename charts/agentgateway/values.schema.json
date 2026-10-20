@@ -44,6 +44,15 @@
               }
             }
           }
+        },
+        "localModelDiscovery": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["enabled", "bindingId"],
+          "properties": {
+            "enabled": {"type": "boolean"},
+            "bindingId": {"type": "string", "maxLength": 32}
+          }
         }
       }
     }

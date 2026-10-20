@@ -89,6 +89,11 @@ aiGateway:
   # Empty, omitted, or null approvals deny product access. Approved clients
   # require the agentgateway audience as well as the user's own permissions.
   approvedOidcClients: [] # [{clientId: example-addon, bindings: [example-api]}]
+  # Opt-in discovery for the single local API binding at /local/api.
+  # Requires coordinated Studio and Bridge images with discovery handlers.
+  localModelDiscovery:
+    enabled: false
+    bindingId: ""
   proxy:
     enabled: false
     hostname: ""

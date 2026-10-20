@@ -6,6 +6,13 @@
 {{- end }}
 {{- $registrations := .Values.authKeycloakApiKeyBridge.managedRegistrations | default list }}
 {{- $managedFiles := list }}
+{{- $discovery := .Values.aiGateway.localModelDiscovery | default dict }}
+{{- $discoveryClients := list "agentgateway" }}
+{{- if $discovery.enabled }}
+{{- range .Values.aiGateway.approvedOidcClients | default list }}
+{{- if has $discovery.bindingId .bindings }}{{ $discoveryClients = append $discoveryClients .clientId }}{{ end }}
+{{- end }}
+{{- end }}
 {{- range $index, $registration := $registrations }}
 {{- range $field := list "grantConfigMap" "grantKey" "verifierSecret" "verifierKey" }}
 {{- if not (get $registration $field) }}{{- fail (printf "managedRegistrations[%d].%s is required" $index $field) }}{{- end }}
@@ -119,6 +126,8 @@ spec:
               value: {{ .Values.authKeycloakApiKeyBridge.config.max_keys_per_user | quote }}
             - name: KEYCLOAK_API_KEY_BRIDGE_LOG_LEVEL
               value: {{ .Values.authKeycloakApiKeyBridge.config.log_level | quote }}
+            - name: KEYCLOAK_API_KEY_BRIDGE_GATEWAY_CALLER_OIDC_CLIENTS
+              value: {{ $discoveryClients | uniq | toJson | quote }}
             {{- if $registrations }}
             - name: KEYCLOAK_API_KEY_BRIDGE_MANAGED_REGISTRATIONS
               value: {{ $managedFiles | toJson | quote }}

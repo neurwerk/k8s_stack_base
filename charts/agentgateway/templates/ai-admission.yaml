@@ -19,6 +19,8 @@
 {{- end }}
 {{- $listeners = prepend $listeners (dict "name" "api-bindings" "mode" "api" "bindings" $apiBindings) }}
 {{- $approvedOidc := include "infra-agentgateway.approvedOidcAuthorization" (dict "root" . "bindings" $apiBindings) }}
+{{- $discovery := .Values.aiGateway.localModelDiscovery | default dict }}
+{{- $discoveryPath := `request.path == "/local/api/v1/models" || (request.path.startsWith("/local/api/v1/models/") && request.path != "/local/api/v1/models/")` }}
 {{- range $listener := $listeners }}
 {{- $proxy := eq $listener.mode "forward_proxy" }}
 {{- $credential := ternary "proxy-authorization" "x-neurwerk-authorization" $proxy }}
@@ -41,6 +43,9 @@
 {{- $matches = append $matches (printf `(request.path in %s && request.method in %s && (%s) && (%s))` ($paths | toJson) ($methods | toJson) $permissions (include "infra-agentgateway.aiCredentialAuthorization" $binding)) }}
 {{- end }}
 {{- $allowed := join " || " $matches | default "false" }}
+{{- if and (not $proxy) $discovery.enabled }}
+{{- $allowed = printf `%s || (request.method == "GET" && (%s) && !["authorization", "x-api-key", "x-goog-api-key", "api-key"].exists(h, h in request.headers && !(h == "authorization" && has(jwt.sub) && !("x-neurwerk-authorization" in request.headers))))` $allowed $discoveryPath }}
+{{- end }}
 {{- $allowlistSize := len $allowed }}
 {{- if not $proxy }}{{ $allowlistSize = add $allowlistSize (len $approvedOidc) }}{{ end }}
 {{- if gt $allowlistSize 14000 }}{{ fail "binding operation allowlist exceeds native authorization expression bounds" }}{{ end }}
@@ -126,6 +131,50 @@ spec:
     {{- if $listener.bindings }}
     transformation:
       conditional:
+        {{- if and (not $proxy) $discovery.enabled }}
+        {{- range $variant := list "oidc" "dedicated" }}
+        - condition: {{ printf `request.method == "GET" && (%s) && %s(has(jwt.sub) && !("x-neurwerk-authorization" in request.headers))` $discoveryPath (ternary "" "!" (eq $variant "oidc")) | squote }}
+          policy:
+            request:
+              metadata:
+                neurwerk_admission: >-
+                  {"request_id": has(jwt.sub) ? uuid() : extauthz.request_id,
+                  "principal_id": has(jwt.sub) ? jwt.sub : extauthz.principal_id,
+                  "credential_id": has(jwt.sub) ? null : extauthz.credential_id,
+                  "credential_kind": has(jwt.sub) ? null : extauthz.credential_kind,
+                  "permissions": has(jwt.sub) ? jwt.resource_access.agentgateway.roles : extauthz.permissions,
+                  "entry_mode": "api", "destination_kind": "model_discovery",
+                  "binding_id": {{ $discovery.bindingId | toJson }},
+                  "policy_revision": {{ $revision | toJson }}}
+              set:
+                - name: x-request-id
+                  value: 'metadata.neurwerk_admission.request_id'
+              remove:
+                {{- if eq $variant "dedicated" }}
+                - authorization
+                {{- else }}
+                - x-neurwerk-authorization
+                {{- end }}
+                - proxy-authorization
+                - cookie
+                - x-user-id
+                - x-auth-user
+                - x-auth-app
+                - x-auth-permissions
+                - x-agentgateway-permissions
+                - x-agentgateway-auth-context
+                - x-contextforge-account-email
+                - x-remote-allowed
+                - x-route-class
+                - x-api-key
+                - x-goog-api-key
+            response:
+              set:
+                - name: x-request-id
+                  value: 'metadata.neurwerk_admission.request_id'
+              remove: [authorization, proxy-authorization, x-neurwerk-authorization, x-api-key, x-goog-api-key, set-cookie, x-agentgateway-auth-context]
+        {{- end }}
+        {{- end }}
         {{- range $binding := $listener.bindings }}
         {{- range $operation := $binding.operations }}
         {{- $paths := list }}
