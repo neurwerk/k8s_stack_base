@@ -9,6 +9,10 @@ upgrade path.
 
 ## [Unreleased]
 
+## [0.3.28] - 2026-10-20
+
+
+
 ## [0.3.27] - 2026-10-18
 
 - Add binding-based AI Gateway routes, inspected proxy trust, personal-provider and Codex subscription access, with explicit user permissions and no fallback to company billing.
