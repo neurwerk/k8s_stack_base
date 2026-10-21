@@ -177,6 +177,7 @@ class GroupedGatewayTests(unittest.TestCase):
     def test_discovery_scope_and_bridge_inputs(self):
         values = binding_values()
         values["self-hosted-api-providers"][0]["routes"]["api"]["path"] = "/local/api"
+        values["external-api-providers"][1]["enabled"] = False
         values["aiGateway"]["approvedOidcClients"] = [
             {"clientId": "addon-one", "bindings": ["openai"]},
             {"clientId": "addon-two", "bindings": ["local"]},
@@ -195,12 +196,13 @@ class GroupedGatewayTests(unittest.TestCase):
             self.assertIn('metadata.neurwerk_identity.method == "GET"', expression)
             self.assertNotIn("model:model/", expression)
         bridge = render("keycloak-api-key-bridge", values)
-        mapping = json.loads(env_value(bridge, "KEYCLOAK_API_KEY_BRIDGE_GATEWAY_CALLER_OIDC_BINDINGS"))
-        enabled = json.loads(env_value(bridge, "KEYCLOAK_API_KEY_BRIDGE_GATEWAY_DISCOVERY_BINDINGS"))
-        self.assertEqual(mapping["openai"], ["agentgateway", "addon-one"])
-        self.assertEqual(mapping["local"], ["agentgateway", "addon-two"])
-        self.assertNotIn("google", enabled)
-        self.assertEqual(set(enabled), set(mapping))
+        mapping = json.loads(env_value(bridge, "KEYCLOAK_API_KEY_BRIDGE_GATEWAY_CALLER_OIDC_CLIENTS_BY_BINDING"))
+        self.assertEqual(mapping, {"openai": ["addon-one"], "local": ["addon-two"], "openrouter": []})
+        env = resource(bridge, "Deployment", "auth-keycloak-api-key-bridge-deployment")["spec"]["template"]["spec"]["containers"][0]["env"]
+        self.assertFalse(any(item["name"] in {
+            "KEYCLOAK_API_KEY_BRIDGE_GATEWAY_CALLER_OIDC_BINDINGS",
+            "KEYCLOAK_API_KEY_BRIDGE_GATEWAY_DISCOVERY_BINDINGS",
+        } for item in env))
 
     def test_capacity_and_constant_shared_policy(self):
         shared = None

@@ -6,18 +6,16 @@
 {{- end }}
 {{- $registrations := .Values.authKeycloakApiKeyBridge.managedRegistrations | default list }}
 {{- $managedFiles := list }}
-{{- $discoveryBindings := list }}
 {{- $oidcBindings := dict }}
 {{- range $group := list "self-hosted-api-providers" "external-api-providers" }}
 {{- range index $.Values $group | default list }}
 {{- if and .enabled .routes.api.enabled }}
 {{- $id := .id }}
 {{- if hasKey $oidcBindings $id }}{{ fail "discovery binding IDs must be unique" }}{{ end }}
-{{- $clients := list "agentgateway" }}
+{{- $clients := list }}
 {{- range $.Values.aiGateway.approvedOidcClients | default list }}
 {{- if has $id .bindings }}{{ $clients = append $clients .clientId }}{{ end }}
 {{- end }}
-{{- $discoveryBindings = append $discoveryBindings $id }}
 {{- $_ := set $oidcBindings $id ($clients | uniq) }}
 {{- end }}
 {{- end }}
@@ -135,10 +133,8 @@ spec:
               value: {{ .Values.authKeycloakApiKeyBridge.config.max_keys_per_user | quote }}
             - name: KEYCLOAK_API_KEY_BRIDGE_LOG_LEVEL
               value: {{ .Values.authKeycloakApiKeyBridge.config.log_level | quote }}
-            - name: KEYCLOAK_API_KEY_BRIDGE_GATEWAY_CALLER_OIDC_BINDINGS
+            - name: KEYCLOAK_API_KEY_BRIDGE_GATEWAY_CALLER_OIDC_CLIENTS_BY_BINDING
               value: {{ $oidcBindings | toJson | quote }}
-            - name: KEYCLOAK_API_KEY_BRIDGE_GATEWAY_DISCOVERY_BINDINGS
-              value: {{ $discoveryBindings | toJson | quote }}
             {{- if $registrations }}
             - name: KEYCLOAK_API_KEY_BRIDGE_MANAGED_REGISTRATIONS
               value: {{ $managedFiles | toJson | quote }}
