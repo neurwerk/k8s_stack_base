@@ -116,6 +116,7 @@ langfuse:
       tag: "4.28.1"
     features:
       signUpDisabled: true
+      telemetryEnabled: false
 
     # Headless initialization — creates org, project, user, API keys on startup.
     # Non-secret identity metadata comes from the chart-owned init ConfigMap;
