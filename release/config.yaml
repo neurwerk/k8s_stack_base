@@ -1,6 +1,6 @@
 version: 0.3.29
 releaseDate: '2026-10-21'
-summary: Grouped gateway providers and coordinated verified image updates
+summary: Grouped gateway providers, Studio developer endpoints and browser CORS
 trust:
   signerIdentity: platform-release
   algorithm: ssh-ed25519
@@ -200,7 +200,7 @@ exceptions:
     before dropping back to UID 1000.
 provenance:
   previousTag: v0.3.28
-  includedThrough: 55cef49ff31af93ff5f6a4656089d44425fa8d95
+  includedThrough: 8c65ae175ac572b80b3858eff6ece00b06256f8e
   commits:
   - 76a3d9fc9636e05ee66179b598a25c3beaa2832a
   - 466c33e1979d5ef9b3ba672c0615900c31a537a3
@@ -217,4 +217,9 @@ provenance:
   - 51c860c0f70ed76f9748f02cbafb02de9e3a0cbc
   - 1d45b077a9ec5f889df5ad2afc314e7cce1e4d06
   - 55cef49ff31af93ff5f6a4656089d44425fa8d95
-  compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.28...55cef49ff31af93ff5f6a4656089d44425fa8d95
+  - 7f56723162eaaead9ac2aee06d8345940bb438e0
+  - 03572493dda0cf120b3e7f8ba9a44a2b6c18070d
+  - 4fc014dba9e6087efa6b740ae774f7653fb530b9
+  - 8f6465eef4a30fd58442deaee44feef2a6f9b6e7
+  - 8c65ae175ac572b80b3858eff6ece00b06256f8e
+  compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.28...8c65ae175ac572b80b3858eff6ece00b06256f8e

@@ -9,6 +9,12 @@ upgrade path.
 
 ## [Unreleased]
 
+## [0.3.29] - 2026-10-21
+
+- Group gateway bindings by provider category, with admitted API and MCP operations for Studio's developer reference.
+- Allow browser requests from the exact configured Studio HTTPS origin on external gateway routes without relaxing gateway authentication.
+- Adopt verified Studio `0.20.1` API and Web images for interactive developer endpoints, forward-proxy certificate setup, Users sorting and Usage improvements.
+
 ## [0.3.28] - 2026-10-20
 
 - Make Fluent Bit bulk retries idempotent with bounded responses, and recognize native severity prefixes.
