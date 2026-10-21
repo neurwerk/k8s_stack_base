@@ -2,7 +2,7 @@
 
 ## API connection
 
-Use the full base URL in the client. Send platform identity in `X-Neurwerk-Authorization: Bearer <token-or-key>`, separately from provider credentials.
+Use the full base URL from Studio or the effective binding configuration. The examples below require the corresponding `apiPath` settings; they are not automatic provider routes. Send platform identity in `X-Neurwerk-Authorization: Bearer <token-or-key>`, separately from provider credentials.
 
 | API base URL | Service | Provider credential modes |
 | --- | --- | --- |
@@ -11,8 +11,6 @@ Use the full base URL in the client. Send platform identity in `X-Neurwerk-Autho
 | `https://ai-api.example.com/openrouter/api/v1` | OpenRouter API | Configured company key or caller-supplied API key |
 | `https://ai-api.example.com/deepseek/api/v1` | DeepSeek API | Configured company key or caller-supplied API key |
 | `https://ai-api.example.com/local/api/v1` | Local models | No provider credential |
-
-`https://ai-api.example.com/github/copilot/v1` is reserved for future work, not implemented.
 
 Company requests omit provider credentials; caller-supplied credentials use the provider's approved header. Available modes depend on the binding configuration. Supported company/local OIDC clients can use `Authorization: Bearer <token>`; company use requires the provider company-use permission. Codex login is handled by the client: users sign in there rather than copying OAuth tokens. The gateway API endpoint does not redirect to a browser login.
 
@@ -38,3 +36,5 @@ Codex billing classification is unknown unless explicitly configured. Set `billi
 Content recording follows each model's `contentTracingEnabled` setting. Usage and cost availability describe native reported accounting, independently of final delivery status; missing usage or pricing remains unknown. Native parsers can default individual missing counters, so a reported total is not proof that every original provider counter was present.
 
 Set each binding's `apiPath` to the table's URL path without `/v1`, retaining existing binding names and canonical model IDs. Omitting `apiPath` retains `/bindings/<id>/v1`. A custom prefix replaces that binding's API mount and is included as optional trusted `request_context.api_path_prefix` in API mode only. Deploy compatible extProc support before selecting custom prefixes or the Codex profile. Update consumers together; the catalog publishes the configured prefix and consumers must use it. A new Codex binding needs distinct canonical model IDs when its upstream model also appears on the existing OpenAI binding.
+
+`apiPath` must use lowercase path segments containing letters, digits, or hyphens, start each segment with a letter or digit, and be at most 128 characters. It must not end with `/v1` or a slash, begin with the reserved `/bindings` prefix, or overlap another enabled API binding's prefix. These rules are enforced by the [binding template](../charts/agentgateway/templates/_ai-bindings.tpl); the [external route](../charts/agentgateway/templates/http-route-external.yaml) exposes the selected prefixes.
