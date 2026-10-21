@@ -22,20 +22,23 @@ authKeycloak:
 aiGateway:
   enabled: true
   apiPort: 8082
-  bindings:
-    - id: example-api
-      enabled: true
-      providerId: example
-      provider: OpenAI
-      upstreamURL: https://provider.example.test/v1
-      credentialSources: [caller_supplied, company]
-      authSecret: example-provider-key
-      profiles: [openai-chat-completions-v1]
-      models:
-        - name: example-chat
-          upstreamModel: provider-model
-          piiEnabled: true
-          contentTracingEnabled: false
+external-api-providers:
+  - id: example-api
+    enabled: true
+    providerId: example
+    provider: OpenAI
+    upstreamURL: https://provider.example.test/v1
+    credentialSources: [caller_supplied, company]
+    authSecret: example-provider-key
+    routes:
+      api: {enabled: true}
+      inspected: {enabled: false}
+    profiles: [openai-chat-completions-v1]
+    models:
+      - name: example-chat
+        upstreamModel: provider-model
+        piiEnabled: true
+        contentTracingEnabled: false
 ```
 
 The base URL is `https://gateway.example.test/bindings/example-api/v1`.
@@ -49,18 +52,18 @@ requires `provider:<providerId>:company-use`. Selection does not grant permissio
 
 - `models` declares models directly; `catalogModels` selects canonical catalog IDs.
 - `attachments` sets binding defaults; model settings can override them.
-- `local: true` requires `credentialSources: [none]` and an approved local target.
+- Credential-free providers use `self-hosted-api-providers`, `credentialSources: [none]` and an approved local target.
 - `localReroute` selects an explicit local model for company requests. Its invocation
   permission is also required. Personal credentials cannot follow that transition.
 - Unknown bindings, operations and ambiguous model aliases are rejected.
 
 See [`values.yaml`](values.yaml), [`catalog/ai-profiles.yaml`](catalog/ai-profiles.yaml)
 and [`templates/_ai-bindings.tpl`](templates/_ai-bindings.tpl) for accepted settings
-and limits. API requests require their exact `/bindings/<id>` prefix.
+and limits. API requests use `routes.api.path`, defaulting to `/bindings/<id>`.
 
 ## Inspected proxy
 
-Set `inspect: true` on an HTTPS binding, then configure:
+Set `routes.inspected.enabled: true` on an HTTPS provider in `self-hosted-api-providers`, `external-api-providers` or `external-subscription-providers`, then configure:
 
 ```yaml
 aiGateway:
@@ -119,11 +122,11 @@ content-tracing gate applies to all of this content; MCP tracing is unchanged.
 
 ## MCP
 
-Select `mcp.catalog.presets` or `mcp.catalog.custom`. Current MCP URLs are
-`/bindings/mcp-<server-id>/mcp`; callers need `llm:invoke` and `mcp:<id>:invoke`.
+Select `mcp-servers.catalog.presets` or `mcp-servers.catalog.custom`. Current MCP URLs are
+`/mcp/<canonical-server-id>`; callers need `llm:invoke` and `mcp:<id>:invoke`.
 Only stateless exchanges are supported.
 
-Use `mcp.studioSetup.enabled` consistently across AgentGateway, ContextForge,
+Use `mcp-servers.studioSetup.enabled` consistently across AgentGateway, ContextForge,
 Studio and OpenBao. Context7 has an optional shared header key, Brave requires a
 shared upstream key, and GitHub uses each user's OAuth connection. Secrets stay
 in OpenBao/ESO; catalog and Helm inputs contain only non-secret references.
