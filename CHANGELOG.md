@@ -13,7 +13,10 @@ upgrade path.
 
 - Group gateway bindings by provider category, with admitted API and MCP operations for Studio's developer reference.
 - Allow browser requests from the exact configured Studio HTTPS origin on external gateway routes without relaxing gateway authentication.
-- Adopt verified Studio `0.20.1` API and Web images for interactive developer endpoints, forward-proxy certificate setup, Users sorting and Usage improvements.
+- Adopt verified Studio `0.20.3` API/Web, extProc `0.19.17`, API-key bridge `0.10.3` and Tooling `0.12.0` images, including the Langfuse cleanup image.
+- Move public MCP endpoints to `/mcp/<server-id>` without old-path aliases; coordinate external clients and the matching LibreChat `0.1.6` add-on revision.
+- Disable optional Langfuse product telemetry by default without disabling application traces.
+- Before reconciliation, follow the [upgrade checklist](https://github.com/neurwerk/k8s_stack_base/blob/v0.3.29/docs/releases/upgrade-0.3.29.md) for grouped-only configuration, ordered MCP metadata migration and retained Valkey storage.
 
 ## [0.3.28] - 2026-10-20
 
