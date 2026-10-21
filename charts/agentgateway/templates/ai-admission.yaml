@@ -10,8 +10,7 @@
 {{- if (index .Values "mcp-servers").enabled }}
 {{- range $server := include "infra-agentgateway.effectiveMcpServers" . | fromYamlArray }}
 {{- if or (not $server.contextforge) (has $server.name (index $.Values "mcp-servers").contextforgeRoutesEnabled) }}
-{{- $prefix := printf "/bindings/mcp-%s" $server.name }}
-{{- $apiBindings = append $apiBindings (dict "id" (printf "mcp-%s" $server.name) "prefix" $prefix "kind" "mcp" "providerId" nil "local" true "credentialSources" (list "none") "credentialHeader" "" "requiredPermission" (printf "mcp:%s:invoke" $server.name) "operations" (list (dict "profile" "mcp-streamable-http-v1" "id" "exchange" "paths" (list "/mcp")))) }}
+{{- $apiBindings = append $apiBindings (dict "id" (printf "mcp-%s" $server.name) "prefix" "/mcp" "kind" "mcp" "providerId" nil "local" true "credentialSources" (list "none") "credentialHeader" "" "requiredPermission" (printf "mcp:%s:invoke" $server.name) "operations" (list (dict "profile" "mcp-streamable-http-v1" "id" "exchange" "paths" (list (printf "/%s" $server.name))))) }}
 {{- end }}
 {{- end }}
 {{- end }}
