@@ -40,6 +40,34 @@ def catalog(result):
 class GroupedGatewayTests(unittest.TestCase):
     evaluate = inspection.ApprovedOidcTests.evaluate
 
+    def test_studio_cors_is_exact_and_attached_to_every_external_route(self):
+        values = capacity_values(65)
+        values["frontendStudio"] = {"studio": {"hostname": "studio.example.test"}}
+        rendered = render("agentgateway", values)
+        middleware = resource(rendered, "Middleware", "infra-agentgateway-studio-cors")
+        headers = middleware["spec"]["headers"]
+        self.assertEqual(headers["accessControlAllowOriginList"], ["https://studio.example.test"])
+        self.assertIs(headers["accessControlAllowCredentials"], False)
+        self.assertEqual(headers["accessControlAllowMethods"], ["GET", "POST", "DELETE", "OPTIONS"])
+        self.assertIn("X-Neurwerk-Authorization", headers["accessControlAllowHeaders"])
+        self.assertIn("Mcp-Protocol-Version", headers["accessControlAllowHeaders"])
+        self.assertNotIn("*", headers["accessControlAllowHeaders"])
+        route = resource(rendered, "HTTPRoute", "infra-agentgateway-external-httproute")
+        self.assertGreater(len(route["spec"]["rules"]), 1)
+        for rule in route["spec"]["rules"]:
+            self.assertEqual(rule["filters"], [{"type": "ExtensionRef", "extensionRef": {
+                "group": "traefik.io", "kind": "Middleware", "name": "infra-agentgateway-studio-cors",
+            }}])
+            self.assertEqual(rule["backendRefs"][0]["name"], "infra-agentgateway-gateway")
+        for hostname in ("place.holder", ""):
+            values["frontendStudio"]["studio"]["hostname"] = hostname
+            without_cors = render("agentgateway", values)
+            self.assertFalse(any(doc["kind"] == "Middleware" and doc["metadata"]["name"] == "infra-agentgateway-studio-cors"
+                                 for doc in documents(without_cors)))
+            self.assertTrue(all("filters" not in rule for rule in resource(
+                without_cors, "HTTPRoute", "infra-agentgateway-external-httproute"
+            )["spec"]["rules"]))
+
     def test_legacy_inputs_are_rejected_even_when_empty(self):
         for key, value in [("bindings", []), ("localModelDiscovery", {})]:
             values = binding_values()
