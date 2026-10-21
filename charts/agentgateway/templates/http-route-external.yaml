@@ -15,6 +15,35 @@
 {{- end }}
 {{- end }}
 {{- if $prefixes }}
+{{- $studio := index .Values "frontendStudio" | default dict }}
+{{- $studioConfig := index $studio "studio" | default dict }}
+{{- $studioHostname := index $studioConfig "hostname" | default "" }}
+{{- $studioCors := and $studioHostname (ne $studioHostname "place.holder") }}
+{{- if $studioCors }}
+{{- if not (regexMatch `^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$` $studioHostname) }}{{ fail "frontendStudio.studio.hostname must be an exact DNS name for gateway CORS" }}{{ end }}
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: infra-agentgateway-studio-cors
+  namespace: infra-agentgateway
+spec:
+  headers:
+    accessControlAllowOriginList: [{{ printf "https://%s" $studioHostname | quote }}]
+    accessControlAllowMethods: [GET, POST, DELETE, OPTIONS]
+    accessControlAllowHeaders:
+      - X-Neurwerk-Authorization
+      - Content-Type
+      - Authorization
+      - X-Api-Key
+      - Anthropic-Version
+      - Mcp-Protocol-Version
+      - Mcp-Session-Id
+      - Last-Event-Id
+    accessControlAllowCredentials: false
+    accessControlMaxAge: 600
+    addVaryHeader: true
+---
+{{- end }}
 # =============================================================================
 # AgentGateway External HTTPRoute (on Traefik Gateway)
 #
@@ -45,6 +74,14 @@ spec:
         {{- range $prefix := $chunk }}
         - path: {type: PathPrefix, value: {{ $prefix | quote }}}
         {{- end }}
+      {{- if $studioCors }}
+      filters:
+        - type: ExtensionRef
+          extensionRef:
+            group: traefik.io
+            kind: Middleware
+            name: infra-agentgateway-studio-cors
+      {{- end }}
       backendRefs:
         - name: infra-agentgateway-gateway
           namespace: infra-agentgateway
