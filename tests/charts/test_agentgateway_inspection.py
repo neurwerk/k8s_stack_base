@@ -151,20 +151,20 @@ class ApprovedOidcTests(unittest.TestCase):
             return False
 
     def admitted(self, client="addon-one", path="/bindings/openai/v1/chat/completions",
-                 audience="agentgateway", roles=None, **claims):
+                 audience="agentgateway", roles=None, method="POST", **claims):
         jwt = {"sub": "test-user", "azp": client, "aud": audience,
                "resource_access": {"agentgateway": {"roles": self.roles if roles is None else roles}}}
         jwt.update(claims)
         context = {
             "jwt": jwt, "extauthz": {},
-            "request": {"path": path, "method": "POST", "headers": {"authorization": "Bearer synthetic"}},
+            "request": {"path": path, "method": method, "headers": {"authorization": "Bearer synthetic"}},
         }
         if not self.evaluate(self.expression, context):
             return False
         policies = {
             "/bindings/openai/": "ai-openai-api-processing",
             "/bindings/local/": "ai-local-api-processing",
-            "/bindings/mcp-context7/": "mcp-context7-policy",
+            "/mcp/": "mcp-context7-policy",
         }
         name = next((name for prefix, name in policies.items() if path.startswith(prefix)), None)
         if name is None:
@@ -175,7 +175,7 @@ class ApprovedOidcTests(unittest.TestCase):
             "contract_version": 1, "entry_mode": "api", "principal_id": jwt["sub"],
             "permissions": jwt["resource_access"]["agentgateway"]["roles"],
             "policy_revision": re.search(r'policy_revision == "([a-f0-9]+)"', expression).group(1),
-            "path": path, "method": "POST", "standard_oidc": True, "provider_headers": [],
+            "path": path, "method": method, "standard_oidc": True, "provider_headers": [],
         }}
         return self.evaluate(expression, context)
 
@@ -183,11 +183,16 @@ class ApprovedOidcTests(unittest.TestCase):
         self.assertTrue(self.admitted())
         self.assertTrue(self.admitted(audience=["other", "agentgateway"]))
         self.assertTrue(self.admitted(client="addon-two", path="/bindings/local/v1/chat/completions"))
-        self.assertTrue(self.admitted(path="/bindings/mcp-context7/mcp"))
+        for method in ["POST", "GET", "DELETE"]:
+            self.assertTrue(self.admitted(path="/mcp/context7", method=method))
         for client, path in [
             ("addon-one", "/bindings/local/v1/chat/completions"),
             ("addon-two", "/bindings/openai/v1/chat/completions"),
-            ("addon-two", "/bindings/mcp-context7/mcp"),
+            ("addon-two", "/mcp/context7"),
+            ("addon-one", "/bindings/mcp-context7/mcp"),
+            ("addon-one", "/mcp/context7/"),
+            ("addon-one", "/mcp/context7/extra"),
+            ("addon-one", "/mcp/unknown"),
             ("addon-one", "/bindings/openai/v1/chat/completions/extra"),
             ("addon-one", "/v1/chat/completions"),
         ]:
@@ -202,17 +207,17 @@ class ApprovedOidcTests(unittest.TestCase):
                        {"roles": [r for r in self.roles if r != "llm:invoke"]},
                        {"roles": [r for r in self.roles if r != "provider:openai:company-use"]},
                        {"resource_access": {}},
-                       {"path": "/bindings/mcp-context7/mcp", "roles": ["llm:invoke"]}]:
+                       {"path": "/mcp/context7", "roles": ["llm:invoke"]}]:
             with self.subTest(claims=claims):
                 self.assertFalse(self.admitted(**claims))
 
     def test_builtin_and_managed_key_access_remains_independent(self):
         self.assertTrue(self.admitted(client="agentgateway"))
         self.assertFalse(self.admitted(client="addon-browser"))
-        self.assertTrue(self.admitted(client="studio", path="/bindings/mcp-context7/mcp",
+        self.assertTrue(self.admitted(client="studio", path="/mcp/context7",
                                       realm_access={"roles": ["studio-user"]}))
         self.assertFalse(self.admitted(client="studio", realm_access={"roles": ["studio-user"]}))
-        self.assertFalse(self.admitted(client="studio", path="/bindings/mcp-context7/mcp"))
+        self.assertFalse(self.admitted(client="studio", path="/mcp/context7"))
         self.assertTrue(self.evaluate(self.expression, {
             "jwt": {}, "extauthz": {"contract_version": 1, "principal_id": "service-user",
                 "credential_id": "key-id", "credential_kind": "managed", "permissions": self.roles},
@@ -256,15 +261,15 @@ class ApprovedOidcTests(unittest.TestCase):
                 for audience in ["agentgateway", ["agentgateway"], "addon-browser", ["addon-browser"]]:
                     self.assertEqual(self.admitted(client="addon-browser", audience=audience),
                                      mode == "narrow" and "agentgateway" in audience)
-                for path in ["/bindings/local/v1/chat/completions", "/bindings/mcp-context7/mcp"]:
+                for path in ["/bindings/local/v1/chat/completions", "/mcp/context7"]:
                     self.assertFalse(self.admitted(client="addon-browser", path=path))
                 self.assertFalse(self.admitted(client="addon-browser", path="/v1/chat/completions"))
                 self.assertFalse(self.admitted(client="addon-browser", path="/bindings/openai/v1/chat/completions/extra"))
                 self.assertFalse(self.admitted(client="addon-one"))
                 self.assertTrue(self.admitted(client="agentgateway"))
-                self.assertTrue(self.admitted(client="studio", path="/bindings/mcp-context7/mcp",
+                self.assertTrue(self.admitted(client="studio", path="/mcp/context7",
                                               realm_access={"roles": ["studio-user"]}))
-                self.assertFalse(self.admitted(client="studio", path="/bindings/mcp-context7/mcp"))
+                self.assertFalse(self.admitted(client="studio", path="/mcp/context7"))
                 self.assertFalse(self.admitted(client="studio", realm_access={"roles": ["studio-user"]}))
 
     def test_approval_does_not_replace_destination_permissions(self):
@@ -289,13 +294,14 @@ class ApprovedOidcTests(unittest.TestCase):
                 }), expected)
         mcp = resource(self.rendered, "AgentgatewayPolicy", "mcp-context7-policy")
         expression = mcp["spec"]["traffic"]["authorization"]["policy"]["matchExpressions"][0]
-        for binding, roles, expected in [("mcp-context7", self.roles, True),
-                                         ("mcp-context7", ["llm:invoke"], False),
-                                         ("openai", self.roles, False)]:
+        for path, roles, expected in [("/mcp/context7", self.roles, True),
+                                      ("/mcp/context7", ["llm:invoke"], False),
+                                      ("/bindings/mcp-context7/mcp", self.roles, False),
+                                      ("/mcp/openai", self.roles, False)]:
             self.assertEqual(self.evaluate(expression, {"jwt": {}, "metadata": {"neurwerk_identity": {
                 "contract_version": 1, "policy_revision": revision, "entry_mode": "api",
                 "principal_id": "test-user", "permissions": roles, "provider_headers": [],
-                "path": f"/bindings/{binding}/mcp", "method": "POST",
+                "path": path, "method": "POST",
             }}}), expected)
 
 
@@ -401,9 +407,13 @@ class EndpointRoutingTests(unittest.TestCase):
                     if binding["routes"]["api"]["enabled"] and binding["id"] != "openai" and not legacy:
                         binding["routes"]["api"]["path"] = f"/{binding['id']}/api"
                 if mcp:
-                    values["mcp-servers"] = {"enabled": True, "contextforgeRoutesEnabled": ["context7"],
-                                     "catalog": {"presets": {"context7": {"enabled": True}}}}
-                    values["authKeycloak"]["agentgatewayClientRoles"].append("mcp:context7:invoke")
+                    servers = ["brave", "context7", "github"]
+                    values["mcp-servers"] = {"enabled": True, "contextforgeRoutesEnabled": servers,
+                                     "catalog": {"presets": {name: {"enabled": True} for name in servers}}}
+                    values["mcp-servers"]["catalog"]["presets"]["github"]["registration"] = {"oauth": {
+                        "client_id": "example-app", "redirect_uri": "https://studio.example.com/oauth/callback"}}
+                    values["authKeycloak"]["agentgatewayClientRoles"].extend(
+                        f"mcp:{name}:invoke" for name in servers)
                 rendered = render("agentgateway", values)
                 external = resource(rendered, "HTTPRoute", "infra-agentgateway-external-httproute")["spec"]
                 matches = [match["path"] for rule in external["rules"] for match in rule["matches"]]
@@ -411,7 +421,8 @@ class EndpointRoutingTests(unittest.TestCase):
                 self.assertTrue(all(match["type"] == "PathPrefix" for match in matches))
                 self.assertEqual(len(prefixes), len(set(prefixes)))
                 self.assertNotIn("/", prefixes)
-                self.assertEqual("/bindings" in prefixes, legacy or mcp)
+                self.assertEqual("/bindings" in prefixes, legacy)
+                self.assertEqual("/mcp" in prefixes, mcp)
                 for left in prefixes:
                     self.assertFalse(any(right != left and right.startswith(left + "/") for right in prefixes))
                 for binding in configured_providers(values):
@@ -425,8 +436,37 @@ class EndpointRoutingTests(unittest.TestCase):
                     path = prefix + operation
                     self.assertEqual(sum(path.startswith(edge + "/") for edge in prefixes), 1)
                 if mcp:
-                    self.assertEqual(sum("/bindings/mcp-context7/mcp".startswith(edge + "/")
-                                         for edge in prefixes), 1)
+                    catalog = json.loads(resource(rendered, "ConfigMap", "agentgateway-catalog-config-map")["data"]["catalog.json"])
+                    for name in servers:
+                        path = f"/mcp/{name}"
+                        route = resource(rendered, "HTTPRoute", f"mcp-{name}-route")["spec"]
+                        self.assertEqual(route["rules"][0]["matches"], [{"path": {"type": "Exact", "value": path}}])
+                        self.assertEqual(sum(path.startswith(edge + "/") for edge in prefixes), 1)
+                        owner = next(entry for entry in catalog["mcp-servers"] if entry["id"] == f"mcp-{name}")
+                        endpoint = owner["routes"][0]
+                        self.assertEqual(endpoint["url"], f"https://agentgateway.lint.example{path}")
+                        self.assertEqual(endpoint["caller_auth_modes"], ["neurwerk_bearer", "oidc_bearer"])
+                        policy = resource(rendered, "AgentgatewayPolicy", f"mcp-{name}-policy")["spec"]["traffic"]
+                        expression = policy["authorization"]["policy"]["matchExpressions"][0]
+                        identity = {"contract_version": 1, "entry_mode": "api", "principal_id": "test-user",
+                                    "permissions": ["llm:invoke", f"mcp:{name}:invoke"], "provider_headers": [],
+                                    "policy_revision": catalog["policy_revision"]}
+                        for method in ["POST", "GET", "DELETE"]:
+                            for candidate, expected in [(path, True), (f"/bindings/mcp-{name}/mcp", False),
+                                                        (path + "/", False), (path + "/extra", False)]:
+                                identity.update(path=candidate, method=method)
+                                self.assertEqual(self.evaluate(expression, {
+                                    "jwt": {}, "metadata": {"neurwerk_identity": identity},
+                                }), expected)
+                            identity.update(path=path, permissions=["llm:invoke"])
+                            self.assertFalse(self.evaluate(expression, {
+                                "jwt": {}, "metadata": {"neurwerk_identity": identity},
+                            }))
+                            identity["permissions"] = [f"mcp:{name}:invoke"]
+                            self.assertFalse(self.evaluate(expression, {
+                                "jwt": {}, "metadata": {"neurwerk_identity": identity},
+                            }))
+                            identity["permissions"] = ["llm:invoke", f"mcp:{name}:invoke"]
 
     def test_included_billing_requires_fixed_caller_supplied_codex(self):
         values = copy.deepcopy(self.values)

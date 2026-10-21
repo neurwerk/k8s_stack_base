@@ -6,7 +6,7 @@
 {{- $backendName := include "infra-agentgateway.mcpResourceName" (dict "id" $serverName "component" "be") }}
 {{- $policyName := include "infra-agentgateway.mcpResourceName" (dict "id" $serverName "component" "policy") }}
 {{- $permission := printf "mcp:%s:invoke" .name }}
-{{- $binding := dict "id" (printf "mcp-%s" .name) "prefix" (printf "/bindings/mcp-%s" .name) "kind" "mcp" "providerId" nil "local" true "credentialSources" (list "none") "requiredPermission" $permission "operations" (list (dict "profile" "mcp-streamable-http-v1" "id" "exchange" "paths" (list "/mcp"))) }}
+{{- $binding := dict "id" (printf "mcp-%s" .name) "prefix" "/mcp" "kind" "mcp" "providerId" nil "local" true "credentialSources" (list "none") "requiredPermission" $permission "operations" (list (dict "profile" "mcp-streamable-http-v1" "id" "exchange" "paths" (list (printf "/%s" .name)))) }}
 {{- $entry := dict "mode" "api" }}
 {{- $context := dict "binding" $binding "entry" $entry "operation" (first $binding.operations) }}
 {{- $authorization := include "infra-agentgateway.routeAuthorization" (dict "root" $ "binding" $binding "entry" $entry) }}
@@ -30,7 +30,7 @@ spec:
     - matches:
         - path:
             type: Exact
-            value: {{ printf "/bindings/mcp-%s/mcp" .name | quote }}
+            value: {{ printf "/mcp/%s" .name | quote }}
       backendRefs:
         - name: {{ $backendName }}
           group: agentgateway.dev
