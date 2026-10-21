@@ -228,8 +228,8 @@ spec:
       appVersion: 0.12.0
     - path: charts/agentgateway-extproc
       name: agentgateway-extproc
-      version: 2.0.15
-      appVersion: 0.19.16
+      version: 2.0.16
+      appVersion: 0.19.17
     - path: charts/cert-manager/approval-policy
       name: infra-cert-manager-approval-policy
       version: 1.2.9
@@ -356,7 +356,7 @@ spec:
           sha256: b344a03d0006aba69a8c20ae1ff0354ac7687bdf72c3611c4f330b59a22b7548
     - path: charts/langfuse
       name: monitor-langfuse
-      version: 2.0.25
+      version: 2.0.26
       appVersion: 4.28.1
       dependencyLock:
         digest: sha256:68156b8f74aa153f2e33eb76f6ac11e9277c1a8fe8073c3f37da8834a97292cc
@@ -451,15 +451,15 @@ spec:
       appVersion: v1.20.3
     - path: charts/studio/api
       name: studio-api
-      version: 2.0.2
-      appVersion: 0.20.1
+      version: 2.0.3
+      appVersion: 0.20.3
     - path: charts/studio/shared
       name: studio-shared
       version: 1.0.0
     - path: charts/studio/web
       name: studio
-      version: 1.0.33
-      appVersion: 0.20.1
+      version: 1.0.34
+      appVersion: 0.20.3
     - path: charts/traefik
       name: traefik
       version: 1.1.1
@@ -747,7 +747,7 @@ spec:
       eligibility: included
       origins:
       - charts/wireguard/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.19.16@sha256:18f1dc8578cc3c3eeda2410b792ec298e51307860455eb55223cc31ca284c1dc
+    - reference: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.19.17@sha256:29c02e946134f6eb4ffc85b7372b1cf66d51493d4795fa909c0b16925f8ad548
       pinned: true
       eligibility: included
       origins:
@@ -774,12 +774,12 @@ spec:
       origins:
       - charts/pii-engine-model-sync/values.yaml
       - charts/pii-engine/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-studio-api:0.20.1@sha256:9eddbf8def2e90312022267174eba46e1851519e32a95562646dc4a290029ada
+    - reference: ghcr.io/neurwerk/k8s-stack-studio-api:0.20.3@sha256:cb9b00677ac219a4777cbe88179652fcbf069f251c4f24681c1a29de48fa54b0
       pinned: true
       eligibility: included
       origins:
       - charts/studio/api/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-studio-web:0.20.1@sha256:4fe8fd74a810e8f638369b83138c429cc14659e48646a5b1798ff14020d82b83
+    - reference: ghcr.io/neurwerk/k8s-stack-studio-web:0.20.3@sha256:8d29e48e5979bd17f511a153d34f6c354dc84078b1a6333139c1bf83bab8d10f
       pinned: true
       eligibility: included
       origins:
