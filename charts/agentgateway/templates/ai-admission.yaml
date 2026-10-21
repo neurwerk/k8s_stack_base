@@ -2,7 +2,6 @@
 {{- $bindings := include "infra-agentgateway.aiBindings" . | fromJsonArray }}
 {{- $revision := include "infra-agentgateway.aiRevision" . }}
 {{- $apiBindings := list }}
-{{- $mcpPaths := list }}
 {{- $listeners := list }}
 {{- range $binding := $bindings }}
 {{- if $binding.api }}{{ $apiBindings = append $apiBindings $binding }}{{ end }}
@@ -12,7 +11,6 @@
 {{- range $server := include "infra-agentgateway.effectiveMcpServers" . | fromYamlArray }}
 {{- if or (not $server.contextforge) (has $server.name $.Values.mcp.contextforgeRoutesEnabled) }}
 {{- $prefix := printf "/bindings/mcp-%s" $server.name }}
-{{- $mcpPaths = append $mcpPaths (printf "%s/mcp" $prefix) }}
 {{- $apiBindings = append $apiBindings (dict "id" (printf "mcp-%s" $server.name) "prefix" $prefix "kind" "mcp" "providerId" nil "local" true "credentialSources" (list "none") "credentialHeader" "" "requiredPermission" (printf "mcp:%s:invoke" $server.name) "operations" (list (dict "profile" "mcp-streamable-http-v1" "id" "exchange" "paths" (list "/mcp")))) }}
 {{- end }}
 {{- end }}
@@ -25,30 +23,6 @@
 {{- $proxy := eq $listener.mode "forward_proxy" }}
 {{- $credential := ternary "proxy-authorization" "x-neurwerk-authorization" $proxy }}
 {{- $headers := ternary "source.connectHeaders" "request.headers" $proxy }}
-{{- $matches := list }}
-{{- range $binding := $listener.bindings }}
-{{- $paths := list }}
-{{- range $operation := $binding.operations }}
-{{- range $path := ternary ($operation.proxyPaths | default $operation.paths) $operation.paths $proxy }}
-{{- if not $proxy }}{{ $path = printf "%s%s" $binding.prefix $path }}{{ end }}
-{{- $paths = append $paths $path }}
-{{- end }}
-{{- end }}
-{{- $methods := list "POST" }}
-{{- $permissions := "true" }}
-{{- if eq ($binding.kind | default "model") "mcp" }}
-{{- $methods = list "POST" "GET" "DELETE" }}
-{{- $permissions = printf `%q in (has(jwt.sub) ? jwt.resource_access.agentgateway.roles : extauthz.permissions)` $binding.requiredPermission }}
-{{- end }}
-{{- $matches = append $matches (printf `(request.path in %s && request.method in %s && (%s) && (%s))` ($paths | toJson) ($methods | toJson) $permissions (include "infra-agentgateway.aiCredentialAuthorization" $binding)) }}
-{{- end }}
-{{- $allowed := join " || " $matches | default "false" }}
-{{- if and (not $proxy) $discovery.enabled }}
-{{- $allowed = printf `%s || (request.method == "GET" && (%s) && !["authorization", "x-api-key", "x-goog-api-key", "api-key"].exists(h, h in request.headers && !(h == "authorization" && has(jwt.sub) && !("x-neurwerk-authorization" in request.headers))))` $allowed $discoveryPath }}
-{{- end }}
-{{- $allowlistSize := len $allowed }}
-{{- if not $proxy }}{{ $allowlistSize = add $allowlistSize (len $approvedOidc) }}{{ end }}
-{{- if gt $allowlistSize 14000 }}{{ fail "binding operation allowlist exceeds native authorization expression bounds" }}{{ end }}
 ---
 apiVersion: agentgateway.dev/v1alpha1
 kind: AgentgatewayPolicy
@@ -112,7 +86,7 @@ spec:
           - >-
             ((has(jwt.sub) && type(jwt.sub) == string && size(jwt.sub) > 0 &&
             has(jwt.azp) && (jwt.azp == "agentgateway" ||
-            (jwt.azp == {{ $.Values.authKeycloak.studioClientId | default "studio" | toJson }} && request.path in {{ $mcpPaths | toJson }} && has(jwt.realm_access.roles) && "studio-user" in jwt.realm_access.roles){{ if not $proxy }} || {{ $approvedOidc }}{{ end }}) &&
+            (jwt.azp == {{ $.Values.authKeycloak.studioClientId | default "studio" | toJson }} && has(jwt.realm_access.roles) && "studio-user" in jwt.realm_access.roles){{ if not $proxy }} || {{ $approvedOidc }}{{ end }}) &&
             has(jwt.resource_access.agentgateway.roles) && type(jwt.resource_access.agentgateway.roles) == list &&
             "llm:invoke" in jwt.resource_access.agentgateway.roles) ||
             (!has(jwt.sub) && extauthz.contract_version == 1 && type(extauthz.principal_id) == string && size(extauthz.principal_id) > 0 &&
@@ -121,7 +95,7 @@ spec:
             type(extauthz.permissions) == list && size(extauthz.permissions) <= 256 &&
             extauthz.permissions.all(p, type(p) == string && size(p) > 0 && size(p) <= 256 && extauthz.permissions.filter(q, q == p).size() == 1) &&
             "llm:invoke" in extauthz.permissions)) &&
-            ({{ $allowed }}) && !("upgrade" in request.headers)
+            !("upgrade" in request.headers)
             {{- if not $proxy }}
             && ("x-neurwerk-authorization" in request.headers ? size(request.headers.raw()["x-neurwerk-authorization"]) == 1 : has(jwt.sub))
             {{- end }}

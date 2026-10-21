@@ -143,10 +143,29 @@ class ApprovedOidcTests(unittest.TestCase):
         jwt = {"sub": "test-user", "azp": client, "aud": audience,
                "resource_access": {"agentgateway": {"roles": self.roles if roles is None else roles}}}
         jwt.update(claims)
-        return self.evaluate(self.expression, {
+        context = {
             "jwt": jwt, "extauthz": {},
             "request": {"path": path, "method": "POST", "headers": {"authorization": "Bearer synthetic"}},
-        })
+        }
+        if not self.evaluate(self.expression, context):
+            return False
+        policies = {
+            "/bindings/openai/": "ai-openai-api-processing",
+            "/bindings/local/": "ai-local-api-processing",
+            "/bindings/mcp-context7/": "mcp-context7-policy",
+        }
+        name = next((name for prefix, name in policies.items() if path.startswith(prefix)), None)
+        if name is None:
+            return False
+        traffic = resource(self.rendered, "AgentgatewayPolicy", name)["spec"]["traffic"]
+        expression = traffic["authorization"]["policy"]["matchExpressions"][0]
+        context["metadata"] = {"neurwerk_identity": {
+            "contract_version": 1, "entry_mode": "api", "principal_id": jwt["sub"],
+            "permissions": jwt["resource_access"]["agentgateway"]["roles"],
+            "policy_revision": re.search(r'policy_revision == "([a-f0-9]+)"', expression).group(1),
+            "path": path, "method": "POST", "standard_oidc": True, "provider_headers": [],
+        }}
+        return self.evaluate(expression, context)
 
     def test_two_addons_are_scoped_to_exact_bindings(self):
         self.assertTrue(self.admitted())
@@ -219,6 +238,7 @@ class ApprovedOidcTests(unittest.TestCase):
                 elif mode == "revoked":
                     values["aiGateway"]["approvedOidcClients"] = []
                 rendered = render("agentgateway", values)
+                self.rendered = rendered
                 traffic = resource(rendered, "AgentgatewayPolicy", "ai-admission-api-bindings")["spec"]["traffic"]
                 self.expression = traffic["authorization"]["policy"]["matchExpressions"][0]
                 for audience in ["agentgateway", ["agentgateway"], "addon-browser", ["addon-browser"]]:
@@ -303,10 +323,12 @@ class EndpointRoutingTests(unittest.TestCase):
             processing = resource(self.rendered, "AgentgatewayPolicy", f"ai-openai-{entry}-processing")["spec"]["traffic"]
             metadata = processing["extProc"]["conditional"][0]["policy"]["metadataContext"]["neurwerk.destination_policy"]["request_context"]
             identity = {"request_id": "test-request", "principal_id": "test-user",
+                        "contract_version": 1, "entry_mode": "api" if entry == "api" else "forward_proxy",
                         "credential_context_version": "1", "credential_id": "test-key",
                         "credential_kind": "personal", "permissions": ["llm:invoke"],
                         "standard_oidc": False, "provider_headers": ["authorization"],
-                        "policy_revision": "test-revision"}
+                        "provider_header_counts": {"authorization": 1}, "path": path, "method": "POST",
+                        "policy_revision": re.search(r'policy_revision == "([a-f0-9]+)"', processing["authorization"]["policy"]["matchExpressions"][0]).group(1)}
             admitted = env.program(env.compile(metadata)).evaluate(
                 {"metadata": json_to_cel({"neurwerk_identity": identity})})
             self.assertEqual(admitted["binding_id"], "openai")
@@ -319,8 +341,10 @@ class EndpointRoutingTests(unittest.TestCase):
             for wrong in ["/v1/responses", "/bindings/openai/v1/responses", path + "/extra",
                           path.replace("/responses", "//responses"), "/openai/api/v1/responses"]:
                 with self.subTest(listener=listener, path=wrong):
-                    context["request"]["path"] = wrong
-                    self.assertFalse(self.evaluate(expression, context))
+                    identity["path"] = wrong
+                    self.assertFalse(self.evaluate(processing["authorization"]["policy"]["matchExpressions"][0], {
+                        "jwt": {}, "metadata": {"neurwerk_identity": identity},
+                    }))
 
     def test_codex_api_prefix_survives_until_native_routing(self):
         for mode, incoming, expected in [
@@ -641,8 +665,11 @@ class InspectedGatewayTests(unittest.TestCase):
         self.assertNotIn("request.headers", context)
         self.assertNotIn("response", context)
         gate = traffic["authorization"]["policy"]["matchExpressions"][0]
-        self.assertIn('"authorization" in request.headers ? true : ("provider:openai:company-use" in (has(jwt.sub) ? jwt.resource_access.agentgateway.roles : extauthz.permissions))', gate)
-        self.assertIn('h == "authorization" || !(h in request.headers)', gate)
+        self.assertNotIn("request.path", gate)
+        self.assertNotIn("provider:openai:company-use", gate)
+        route = processing["authorization"]["policy"]["matchExpressions"][0]
+        self.assertIn('"provider:openai:company-use" in metadata.neurwerk_identity.permissions', route)
+        self.assertIn('metadata.neurwerk_identity.provider_header_counts[h] == 1', route)
 
     def test_canonical_catalog_contains_only_bound_models(self):
         values = binding_values()

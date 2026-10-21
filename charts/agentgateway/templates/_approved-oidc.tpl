@@ -1,16 +1,9 @@
 {{/* Trusted chart configuration approves clients, never token permissions. */}}
 {{- define "infra-agentgateway.approvedOidcAuthorization" -}}
 {{- $root := .root -}}
-{{- $pathsById := dict -}}
+{{- $bindingsById := dict -}}
 {{- range .bindings -}}
-{{- $prefix := .prefix -}}
-{{- $paths := list -}}
-{{- range $operation := .operations -}}
-{{- range $path := $operation.paths -}}
-{{- $paths = append $paths (printf "%s%s" $prefix $path) -}}
-{{- end -}}
-{{- end -}}
-{{- $_ := set $pathsById .id $paths -}}
+{{- $_ := set $bindingsById .id true -}}
 {{- end -}}
 {{- $clients := $root.Values.aiGateway.approvedOidcClients -}}
 {{- if eq (kindOf $clients) "invalid" -}}
@@ -24,17 +17,10 @@
 {{- if has $client.clientId $reserved }}{{ fail "approvedOidcClients cannot override reserved builtin clients" }}{{ end -}}
 {{- if hasKey $seen $client.clientId }}{{ fail "approvedOidcClients clientId must be unique" }}{{ end -}}
 {{- $_ := set $seen $client.clientId true -}}
-{{- $paths := list -}}
 {{- range $id := $client.bindings -}}
-{{- if not (hasKey $pathsById $id) }}{{ fail (printf "approvedOidcClients references unavailable API binding %s" $id) }}{{ end -}}
-{{- $paths = concat $paths (get $pathsById $id) -}}
+{{- if not (hasKey $bindingsById $id) }}{{ fail (printf "approvedOidcClients references unavailable API binding %s" $id) }}{{ end -}}
 {{- end -}}
-{{- $discovery := $root.Values.aiGateway.localModelDiscovery | default dict -}}
-{{- $extra := "false" -}}
-{{- if and $discovery.enabled (has $discovery.bindingId $client.bindings) -}}
-{{- $extra = `request.method == "GET" && (request.path == "/local/api/v1/models" || (request.path.startsWith("/local/api/v1/models/") && request.path != "/local/api/v1/models/"))` -}}
-{{- end -}}
-{{- $matches = append $matches (printf `(jwt.azp == %s && (request.path in %s || (%s)))` ($client.clientId | toJson) ($paths | toJson) $extra) -}}
+{{- $matches = append $matches (printf `jwt.azp == %s` ($client.clientId | toJson)) -}}
 {{- end -}}
 {{- $expression := printf `(has(jwt.aud) && ((type(jwt.aud) == string && jwt.aud == "agentgateway") || (type(jwt.aud) == list && "agentgateway" in jwt.aud)) && (%s))` (join " || " $matches | default "false") -}}
 {{- if gt (len $expression) 8000 }}{{ fail "approvedOidcClients exceeds native authorization expression bounds" }}{{ end -}}
