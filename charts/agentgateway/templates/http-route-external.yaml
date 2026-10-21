@@ -10,7 +10,7 @@
 {{- if (index .Values "mcp-servers").enabled }}
 {{- range $server := include "infra-agentgateway.effectiveMcpServers" . | fromYamlArray }}
 {{- if or (not $server.contextforge) (has $server.name (index $.Values "mcp-servers").contextforgeRoutesEnabled) }}
-{{- $prefixes = append $prefixes "/bindings" }}
+{{- $prefixes = append $prefixes "/mcp" }}
 {{- end }}
 {{- end }}
 {{- end }}
