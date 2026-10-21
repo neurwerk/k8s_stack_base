@@ -12,9 +12,9 @@ Use the selected release's standalone setup CLI for OpenBao catalog preparation;
 
 ## Adoption and upgrades
 
-Follow the shared [platform upgrade procedure](https://github.com/neurwerk/docs/blob/main/dev/operations/upgrades.md) for signed-tag verification, compatibility review, client adoption, and authorized reconciliation. Read [migration instructions](../../release/migrations) for every crossed release. Package presence, a newer version, or successful chart rendering does not establish upgrade compatibility.
+Follow the shared [platform upgrade procedure](https://github.com/neurwerk/docs/blob/main/dev/operations/upgrades.md) for signed-tag verification, compatibility review, client adoption, and authorized reconciliation. Read the [release instructions](../releases/README.md) and [earlier migrations](../../release/migrations) for every crossed release. Package presence, a newer version, or successful chart rendering does not establish upgrade compatibility.
 
-- [Upgrade to 0.3.27](upgrade-0.3.27.md) covers binding routes, setup prerequisites, inspection trust, and the LibreChat ownership crossover.
+- [Upgrade to 0.3.27](../releases/upgrade-0.3.27.md) covers binding routes, setup prerequisites, inspection trust, and the LibreChat ownership crossover.
 - [AI endpoints](../endpoints.md) covers configured API prefixes, provider credentials, and inspected-proxy clients.
 - [Inspection PKI](../../charts/agentgateway/inspection-pki/README.md) and [trust publication](../../charts/agentgateway/inspection-trust/README.md) describe the separate inspection-root lifecycle.
 
