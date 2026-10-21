@@ -5,7 +5,7 @@ Use this checklist from `v0.3.28`; earlier stable sources must also complete eve
 ## Before the maintenance window
 
 1. Verify the signed Base tag and independent backups of affected databases, application files, OpenBao, credentials and CA material. Downtime is expected; no data reset is required by this upgrade.
-2. Prepare all client values and compatible consumers together: Studio `0.20.3`, extProc `0.19.17`, bridge `0.10.3` and Tooling `0.12.0`. Standalone `stack-setup` remains `0.4.3` at the manifest's exact revision; preserve credentials and do not re-bootstrap.
+2. Prepare all client values and compatible consumers together: Studio `0.20.3`, extProc `0.19.17`, bridge `0.10.4` (including MCP DELETE authentication) and Tooling `0.12.0`. Standalone `stack-setup` remains `0.4.3` at the manifest's exact revision; preserve credentials and do not re-bootstrap.
 3. Replace `aiGateway.bindings` with `self-hosted-api-providers`, `external-api-providers` and `external-subscription-providers`; move `api`/`inspect`/`apiPath` into `routes.api.enabled`/`routes.inspected.enabled`/`routes.api.path`. Remove `aiGateway.localModelDiscovery`; API model discovery now follows eligible providers. Rename root `mcp` to `mcp-servers` in every client/product values source. Preserve IDs, permissions, model selection and protection settings; old fields are rejected even when empty.
 4. If LibreChat is selected, use the reviewed `0.1.6` add-on revision requiring exactly Base `0.3.29`, and require its publication before stable adoption. `0.1.5` introduced immutable Valkey claim preservation but still has old MCP URLs. Validate the exact Base/add-on pair; neither source version nor an alpha deployment proves stable publication.
 
