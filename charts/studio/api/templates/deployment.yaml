@@ -44,7 +44,7 @@
 {{- end }}
 # =============================================================================
 {{- $operator := .Values.frontendStudio.api.contextforge.operatorDiscovery }}
-{{- $studioSetup := .Values.mcp.studioSetup.enabled }}
+{{- $studioSetup := (index .Values "mcp-servers").studioSetup.enabled }}
 {{- if not (kindIs "bool" $studioSetup) }}{{ fail "mcp.studioSetup.enabled must be a boolean" }}{{- end }}
 {{- $adminDiscovery := deepCopy .Values.frontendStudio.api.contextforge.adminDiscovery }}
 {{- if $studioSetup }}

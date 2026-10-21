@@ -1,4 +1,4 @@
-{{- if .Values.mcp.studioSetup.enabled }}
+{{- if (index .Values "mcp-servers").studioSetup.enabled }}
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:

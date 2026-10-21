@@ -96,13 +96,15 @@ certManager:
   aws:
     accessKeyId: lint
     secretAccessKey: lint
-mcp:
+mcp-servers:
   enabled: false
 infraAgentgatewayWrapper:
   hostname: agentgateway.lint.example
 aiGateway:
   enabled: true
-  bindings:
+self-hosted-api-providers: []
+external-subscription-providers: []
+external-api-providers:
     - id: example
       enabled: true
       providerId: openai
@@ -110,6 +112,9 @@ aiGateway:
       upstreamURL: https://provider.lint.example
       credentialSources: [company]
       authSecret: example-provider-key
+      routes:
+        api: {enabled: true}
+        inspected: {enabled: false}
       profiles: [openai-chat-completions-v1]
       models:
         - name: remote/example/model
@@ -118,6 +123,8 @@ aiGateway:
           contentTracingEnabled: true
 infraAgentgatewayWrapperSecrets:
   databasePassword: lint-agentgateway-database-password
+  providerCredentials:
+    example-provider-key: lint-provider-credential
 guardrails:
   llmPolicyEngine:
     enabled: true

@@ -20,9 +20,8 @@ authKeycloak:
 # Shared client values also supply the Gateway's opt-in discovery approvals.
 aiGateway:
   approvedOidcClients: []
-  localModelDiscovery:
-    enabled: false
-    bindingId: ""
+self-hosted-api-providers: []
+external-api-providers: []
 
 # Platform-owned OpenRouter entries derive the complete role catalog.
 openrouterCatalog:

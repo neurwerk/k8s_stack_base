@@ -12,7 +12,7 @@
 # =============================================================================
 
 # --- Studio API configuration ---
-mcp:
+mcp-servers:
   # Requires matching Studio images, native setup and scoped OpenBao policies.
   studioSetup:
     enabled: false

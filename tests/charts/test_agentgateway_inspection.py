@@ -11,6 +11,17 @@ from celpy import CELEvalError, Environment, celtypes, json_to_cel
 from helm import documents, render, resource
 
 
+PROVIDER_GROUPS = ("self-hosted-api-providers", "external-api-providers", "external-subscription-providers")
+
+
+def configured_providers(values):
+    return [entry for group in PROVIDER_GROUPS for entry in values.get(group, [])]
+
+
+def catalog_owners(catalog):
+    return [entry for group in (*PROVIDER_GROUPS, "mcp-servers") for entry in catalog[group]]
+
+
 def binding_values():
     return {
         "guardrails": {"llmPolicyEngine": {"models": []}},
@@ -29,9 +40,10 @@ def binding_values():
                 "provider:openrouter:company-use",
             ]
         },
-        "aiGateway": {
-            "enabled": True,
-            "bindings": [
+        "infraAgentgatewayWrapperSecrets": {"providerCredentials": {
+            name: "synthetic-credential" for name in ["example-openai-key", "example-anthropic-key", "example-google-key", "example-openrouter-key"]
+        }},
+        "external-api-providers": [
                 {
                     "id": "openai",
                     "enabled": True,
@@ -39,7 +51,7 @@ def binding_values():
                     "upstreamURL": "https://provider.example.test/v1",
                     "credentialSources": ["caller_supplied", "company"],
                     "authSecret": "example-openai-key",
-                    "inspect": True,
+                    "routes": {"api": {"enabled": True}, "inspected": {"enabled": True}},
                     "profiles": ["openai-chat-completions-v1", "openai-responses-v1"],
                     "models": [{"name": "example-chat", "upstreamModel": "provider-chat"}],
                 },
@@ -51,7 +63,7 @@ def binding_values():
                     "upstreamURL": "https://anthropic.example.test/v1",
                     "credentialSources": ["caller_supplied", "company"],
                     "authSecret": "example-anthropic-key",
-                    "inspect": True,
+                    "routes": {"api": {"enabled": True}, "inspected": {"enabled": True}},
                     "profiles": ["anthropic-messages-v1"],
                     "models": [{"name": "example-claude", "upstreamModel": "provider-claude"}],
                 },
@@ -63,19 +75,9 @@ def binding_values():
                     "upstreamURL": "https://google.example.test",
                     "credentialSources": ["caller_supplied", "company"],
                     "authSecret": "example-google-key",
-                    "api": False,
-                    "inspect": True,
+                    "routes": {"api": {"enabled": False}, "inspected": {"enabled": True}},
                     "profiles": ["google-generate-content-v1"],
                     "models": [{"name": "example-gemini", "upstreamModel": "provider-gemini"}],
-                },
-                {
-                    "id": "local",
-                    "enabled": True,
-                    "upstreamURL": "http://local-model.example.svc.cluster.local:8080/v1",
-                    "local": True,
-                    "credentialSources": ["none"],
-                    "profiles": ["openai-chat-completions-v1"],
-                    "models": [{"name": "local-chat", "upstreamModel": "local-provider-chat"}],
                 },
                 {
                     "id": "openrouter",
@@ -85,11 +87,21 @@ def binding_values():
                     "upstreamURL": "https://router.example.test/api/v1",
                     "credentialSources": ["caller_supplied", "company"],
                     "authSecret": "example-openrouter-key",
-                    "inspect": True,
+                    "routes": {"api": {"enabled": True}, "inspected": {"enabled": True}},
                     "profiles": ["openai-chat-completions-v1", "openai-responses-v1"],
                     "models": [{"name": "example-router", "upstreamModel": "provider/router-chat"}],
                 },
-            ],
+        ],
+        "self-hosted-api-providers": [{
+            "id": "local", "enabled": True,
+            "upstreamURL": "http://local-model.example.svc.cluster.local:8080/v1",
+            "credentialSources": ["none"],
+            "routes": {"api": {"enabled": True}, "inspected": {"enabled": False}},
+            "profiles": ["openai-chat-completions-v1"],
+            "models": [{"name": "local-chat", "upstreamModel": "local-provider-chat"}],
+        }],
+        "aiGateway": {
+            "enabled": True,
             "proxy": {
                 "enabled": True,
                 "hostname": "proxy.example.test",
@@ -110,7 +122,7 @@ class ApprovedOidcTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         values = binding_values()
-        values["mcp"] = {"enabled": True, "contextforgeRoutesEnabled": ["context7"],
+        values["mcp-servers"] = {"enabled": True, "contextforgeRoutesEnabled": ["context7"],
                          "catalog": {"presets": {"context7": {"enabled": True}}}}
         values["authKeycloak"]["agentgatewayClientRoles"].append("mcp:context7:invoke")
         values["aiGateway"]["approvedOidcClients"] = [
@@ -227,7 +239,7 @@ class ApprovedOidcTests(unittest.TestCase):
         for mode in ["omitted", "null", "narrow", "revoked"]:
             with self.subTest(mode=mode):
                 values = binding_values()
-                values["mcp"] = self.values["mcp"]
+                values["mcp-servers"] = self.values["mcp-servers"]
                 values["authKeycloak"]["agentgatewayClientRoles"].append("mcp:context7:invoke")
                 if mode == "null":
                     values["aiGateway"]["approvedOidcClients"] = None
@@ -293,8 +305,10 @@ class EndpointRoutingTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.values = binding_values()
-        binding = cls.values["aiGateway"]["bindings"][0]
-        binding.update(apiPath="/openai/codex", upstreamURL="https://chatgpt.com/backend-api/codex",
+        binding = cls.values["external-api-providers"].pop(0)
+        cls.values["external-subscription-providers"] = [binding]
+        binding["routes"]["api"]["path"] = "/openai/codex"
+        binding.update(upstreamURL="https://chatgpt.com/backend-api/codex",
                        credentialSources=["caller_supplied"], profiles=["openai-codex-responses-v1"])
         binding.pop("authSecret")
         cls.rendered = render("agentgateway", cls.values)
@@ -371,23 +385,23 @@ class EndpointRoutingTests(unittest.TestCase):
                        "/openai//api", "/bindings/mcp-example", "/openai/api?x=1", 3]:
             with self.subTest(prefix=prefix):
                 values = copy.deepcopy(self.values)
-                values["aiGateway"]["bindings"][0]["apiPath"] = prefix
+                values["external-subscription-providers"][0]["routes"]["api"]["path"] = prefix
                 self.assertNotEqual(render("agentgateway", values, check=False).returncode, 0)
         for prefix in ["/openai/codex", "/openai", "/openai/codex/nested"]:
             with self.subTest(overlap=prefix):
                 values = copy.deepcopy(self.values)
-                values["aiGateway"]["bindings"][1]["apiPath"] = prefix
+                values["external-api-providers"][0]["routes"]["api"]["path"] = prefix
                 self.assertNotEqual(render("agentgateway", values, check=False).returncode, 0)
 
     def test_external_route_reaches_custom_legacy_and_mcp_mounts(self):
         for legacy, mcp in [(False, False), (True, False), (False, True), (True, True)]:
             with self.subTest(legacy=legacy, mcp=mcp):
                 values = copy.deepcopy(self.values)
-                for binding in values["aiGateway"]["bindings"]:
-                    if binding.get("api", True) and binding["id"] != "openai" and not legacy:
-                        binding["apiPath"] = f"/{binding['id']}/api"
+                for binding in configured_providers(values):
+                    if binding["routes"]["api"]["enabled"] and binding["id"] != "openai" and not legacy:
+                        binding["routes"]["api"]["path"] = f"/{binding['id']}/api"
                 if mcp:
-                    values["mcp"] = {"enabled": True, "contextforgeRoutesEnabled": ["context7"],
+                    values["mcp-servers"] = {"enabled": True, "contextforgeRoutesEnabled": ["context7"],
                                      "catalog": {"presets": {"context7": {"enabled": True}}}}
                     values["authKeycloak"]["agentgatewayClientRoles"].append("mcp:context7:invoke")
                 rendered = render("agentgateway", values)
@@ -400,8 +414,8 @@ class EndpointRoutingTests(unittest.TestCase):
                 self.assertEqual("/bindings" in prefixes, legacy or mcp)
                 for left in prefixes:
                     self.assertFalse(any(right != left and right.startswith(left + "/") for right in prefixes))
-                for binding in values["aiGateway"]["bindings"]:
-                    if not binding.get("api", True):
+                for binding in configured_providers(values):
+                    if not binding["routes"]["api"]["enabled"]:
                         continue
                     internal = resource(rendered, "HTTPRoute", f"ai-{binding['id']}-api")["spec"]
                     prefix = internal["rules"][0]["matches"][0]["path"]["value"]
@@ -416,7 +430,7 @@ class EndpointRoutingTests(unittest.TestCase):
 
     def test_included_billing_requires_fixed_caller_supplied_codex(self):
         values = copy.deepcopy(self.values)
-        values["aiGateway"]["bindings"][0]["billingMode"] = "included"
+        values["external-subscription-providers"][0]["billingMode"] = "included"
         render("agentgateway", values)
         for override in [
             {"billingMode": "free"}, {"billingMode": None},
@@ -427,7 +441,7 @@ class EndpointRoutingTests(unittest.TestCase):
         ]:
             with self.subTest(override=override):
                 invalid = copy.deepcopy(values)
-                invalid["aiGateway"]["bindings"][0].update(override)
+                invalid["external-subscription-providers"][0].update(override)
                 self.assertNotEqual(render("agentgateway", invalid, check=False).returncode, 0)
 
 
@@ -447,7 +461,7 @@ class InspectedGatewayTests(unittest.TestCase):
 
     def test_identity_is_separate_from_provider_credentials(self):
         values = binding_values()
-        values["mcp"] = {"enabled": True, "contextforgeRoutesEnabled": ["context7"],
+        values["mcp-servers"] = {"enabled": True, "contextforgeRoutesEnabled": ["context7"],
                          "catalog": {"presets": {"context7": {"enabled": True}}}}
         values["authKeycloak"]["agentgatewayClientRoles"].append("mcp:context7:invoke")
         rendered = render("agentgateway", values)
@@ -481,6 +495,8 @@ class InspectedGatewayTests(unittest.TestCase):
                 self.assertEqual(context.count("uuid()"), 1)
                 self.assertIn('"provider_header_counts"', context)
                 self.assertIn('"path": request.path, "method": request.method', context)
+                if 'request.method == "GET"' in conditional["condition"]:
+                    continue  # Discovery retains only the original platform credential for Bridge verification.
                 self.assertIn("x-neurwerk-authorization", request["remove"])
                 self.assertIn("proxy-authorization", request["remove"])
                 if '&& (has(jwt.sub)' in conditional["condition"]:
@@ -492,7 +508,7 @@ class InspectedGatewayTests(unittest.TestCase):
     def test_fixed_upstreams_models_and_no_company_fallback(self):
         models = [m for m in documents(self.enabled) if m["kind"] == "AgentgatewayModel" and m["metadata"]["name"].startswith("ai-")]
         self.assertEqual(len(models), 15)
-        bindings = {item["id"]: item for item in binding_values()["aiGateway"]["bindings"]}
+        bindings = {item["id"]: item for item in configured_providers(binding_values())}
         for model in models:
             spec = model["spec"]
             binding = model["metadata"]["name"].split("-")[1]
@@ -561,11 +577,11 @@ class InspectedGatewayTests(unittest.TestCase):
         catalog_map = resource(self.enabled, "ConfigMap", "agentgateway-catalog-config-map")
         self.assertEqual(catalog_map["metadata"]["namespace"], "frontend-studio")
         catalog = json.loads(catalog_map["data"]["catalog.json"])
-        self.assertEqual(catalog["schema_version"], 1)
-        endpoints = {entry["id"]: entry for entry in catalog["endpoints"]}
+        self.assertEqual(catalog["schema_version"], 2)
+        endpoints = {route["id"]: route for owner in catalog_owners(catalog) for route in owner["routes"]}
         self.assertEqual(endpoints["api-openai"]["url"], "https://agentgateway.lint.example/bindings/openai/v1")
         self.assertEqual(endpoints["api-openai"]["caller_auth_modes"], ["neurwerk_bearer", "oidc_bearer"])
-        destination = next(entry for entry in catalog["destinations"] if entry["id"] == "example-chat")
+        destination = next(entry for owner in catalog_owners(catalog) for entry in owner["destinations"] if entry["id"] == "example-chat")
         self.assertEqual(set(destination["endpoint_ids"]), {"api-openai", "forward-proxy"})
         modes = {entry["source"]: entry for entry in destination["credential_modes"]}
         self.assertEqual(modes["company"]["required_permissions"], ["provider:openai:company-use"])
@@ -647,14 +663,15 @@ class InspectedGatewayTests(unittest.TestCase):
     def test_api_only_catalog_and_disabled_binding(self):
         values = binding_values()
         values["aiGateway"]["proxy"]["enabled"] = False
-        for binding in values["aiGateway"]["bindings"]:
-            binding["inspect"] = False
-        values["aiGateway"]["bindings"][1]["enabled"] = False
-        values["aiGateway"]["bindings"][2]["enabled"] = False
+        for binding in configured_providers(values):
+            binding["routes"]["inspected"]["enabled"] = False
+        values["external-api-providers"][1]["enabled"] = False
+        values["external-api-providers"][2]["enabled"] = False
         result = render("agentgateway", values)
         catalog = json.loads(resource(result, "ConfigMap", "agentgateway-catalog-config-map")["data"]["catalog.json"])
-        self.assertNotIn("forward-proxy", {entry["id"] for entry in catalog["endpoints"]})
-        self.assertNotIn("api-anthropic", {entry["id"] for entry in catalog["endpoints"]})
+        endpoints = {route["id"] for owner in catalog_owners(catalog) for route in owner["routes"]}
+        self.assertNotIn("forward-proxy", endpoints)
+        self.assertNotIn("api-anthropic", endpoints)
         self.assertNotIn("ai-anthropic-api", result.stdout)
 
     def test_public_binding_selects_source_without_reading_or_falling_back_on_token(self):
@@ -678,7 +695,7 @@ class InspectedGatewayTests(unittest.TestCase):
         }]}}
         result = render("agentgateway", values)
         catalog = json.loads(resource(result, "ConfigMap", "agentgateway-catalog-config-map")["data"]["catalog.json"])
-        self.assertEqual(sum(entry["id"] == "example-chat" for entry in catalog["destinations"]), 1)
+        self.assertEqual(sum(entry["id"] == "example-chat" for owner in catalog_owners(catalog) for entry in owner["destinations"]), 1)
         self.assertNotIn("legacy-api", json.dumps(catalog))
 
     def test_google_only_admits_exact_model_operation_paths(self):
@@ -704,33 +721,34 @@ class InspectedGatewayTests(unittest.TestCase):
 
         values = binding_values()
         original = catalog(values)
-        values["aiGateway"]["bindings"][0]["models"][0]["contentTracingEnabled"] = True
+        values["external-api-providers"][0]["models"][0]["contentTracingEnabled"] = True
         self.assertNotEqual(original["policy_revision"], catalog(values)["policy_revision"])
         values = binding_values()
-        values["infraAgentgatewayWrapperSecrets"] = {"databasePassword": "different-synthetic-password"}
+        values["infraAgentgatewayWrapperSecrets"]["databasePassword"] = "different-synthetic-password"
+        values["infraAgentgatewayWrapperSecrets"]["providerCredentials"]["example-openai-key"] = "rotated-synthetic-credential"
         self.assertEqual(original, catalog(values))
         values = binding_values()
-        values["aiGateway"]["bindings"].append({"id": "future", "enabled": False})
+        values["external-api-providers"].append({"id": "future", "enabled": False})
         self.assertEqual(original, catalog(values))
 
     def test_unsafe_or_ambiguous_bindings_fail_render(self):
         mutations = [
-            ("personal-only secret", lambda v: v["aiGateway"]["bindings"][0].update(credentialSources=["caller_supplied"])),
+            ("personal-only secret", lambda v: v["external-api-providers"][0].update(credentialSources=["caller_supplied"])),
             ("missing provider role", lambda v: v["authKeycloak"]["agentgatewayClientRoles"].remove("provider:openai:company-use")),
-            ("duplicate inspection host", lambda v: v["aiGateway"]["bindings"][1].update(upstreamURL="https://provider.example.test/v1")),
-            ("unsupported browser profile", lambda v: v["aiGateway"]["bindings"][0].update(profiles=["chatgpt-web-v1"])),
-            ("unverified provider TLS", lambda v: v["aiGateway"]["bindings"][0].update(upstreamURL="http://provider.example.test/v1")),
-            ("injected URL credentials", lambda v: v["aiGateway"]["bindings"][0].update(upstreamURL="https://key@provider.example.test/v1")),
+            ("duplicate inspection host", lambda v: v["external-api-providers"][1].update(upstreamURL="https://provider.example.test/v1")),
+            ("unsupported browser profile", lambda v: v["external-api-providers"][0].update(profiles=["chatgpt-web-v1"])),
+            ("unverified provider TLS", lambda v: v["external-api-providers"][0].update(upstreamURL="http://provider.example.test/v1")),
+            ("injected URL credentials", lambda v: v["external-api-providers"][0].update(upstreamURL="https://key@provider.example.test/v1")),
             ("internal port collision", lambda v: v["aiGateway"].update(apiPort=443)),
             ("advertised API without HTTPS route", lambda v: v.update(externalGateway={"enabled": False})),
-            ("retry override", lambda v: v["aiGateway"]["bindings"][0].update(retries=3)),
-            ("credential-free is not automatically local", lambda v: v["aiGateway"]["bindings"][3].update(local=False)),
-            ("invalid upstream port", lambda v: v["aiGateway"]["bindings"][3].update(upstreamURL="http://local.example.test:99999/v1")),
-            ("ambiguous alias", lambda v: v["aiGateway"]["bindings"][0]["models"].append({"name": "provider-chat", "upstreamModel": "another-model"})),
-            ("unqualified Google API mount", lambda v: v["aiGateway"]["bindings"][2].update(api=True)),
-            ("provider/profile mismatch", lambda v: v["aiGateway"]["bindings"][0].update(profiles=["anthropic-messages-v1"])),
-            ("old per-source endpoint schema", lambda v: v["aiGateway"]["bindings"][0].update(credentialSource="company")),
-            ("duplicate canonical model", lambda v: v["aiGateway"]["bindings"][1]["models"][0].update(name="example-chat")),
+            ("retry override", lambda v: v["external-api-providers"][0].update(retries=3)),
+            ("removed local flag", lambda v: v["self-hosted-api-providers"][0].update(local=False)),
+            ("invalid upstream port", lambda v: v["self-hosted-api-providers"][0].update(upstreamURL="http://local.example.test:99999/v1")),
+            ("ambiguous alias", lambda v: v["external-api-providers"][0]["models"].append({"name": "provider-chat", "upstreamModel": "another-model"})),
+            ("unqualified Google API mount", lambda v: v["external-api-providers"][2]["routes"]["api"].update(enabled=True)),
+            ("provider/profile mismatch", lambda v: v["external-api-providers"][0].update(profiles=["anthropic-messages-v1"])),
+            ("old per-source endpoint schema", lambda v: v["external-api-providers"][0].update(credentialSource="company")),
+            ("duplicate canonical model", lambda v: v["external-api-providers"][1]["models"][0].update(name="example-chat")),
         ]
         for label, mutate in mutations:
             with self.subTest(label=label):

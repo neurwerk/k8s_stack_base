@@ -1,6 +1,7 @@
 {{/* One explicitly selected current MCP catalog. */}}
 {{- define "infra-agentgateway.effectiveMcpServers" -}}
-{{- $catalog := .Values.mcp.catalog | default dict -}}
+{{- $mcp := index .Values "mcp-servers" -}}
+{{- $catalog := $mcp.catalog | default dict -}}
 {{- range $field, $_ := $catalog -}}
 {{- if not (has $field (list "presets" "custom")) -}}{{- fail "mcp.catalog accepts only presets and custom" -}}{{- end -}}
 {{- end -}}
@@ -9,7 +10,7 @@
 {{- if or (not (kindIs "map" $selected)) (not (kindIs "slice" $custom)) -}}
 {{- fail "mcp.catalog.presets must be a map and custom must be a list" -}}
 {{- end -}}
-{{- if .Values.mcp.servers }}{{ fail "mcp.servers has been removed; configure mcp.catalog" }}{{ end -}}
+{{- if hasKey $mcp "servers" }}{{ fail "mcp-servers.servers has been removed; configure mcp-servers.catalog" }}{{ end -}}
 {{- $presets := .Files.Get "catalog/presets.yaml" | fromYaml -}}
 {{- $entries := list -}}
 {{- range $id, $selection := $selected -}}

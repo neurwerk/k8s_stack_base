@@ -11,7 +11,7 @@
 {{- if ne (len (uniq (list $global $member $owner))) 3 }}{{ fail "ContextForge setup role names must be distinct" }}{{- end }}
 {{- $operator := $setup.operatorDiscovery }}
 {{- $adminDiscovery := deepCopy $setup.adminDiscovery }}
-{{- $studioSetup := .Values.mcp.studioSetup.enabled }}
+{{- $studioSetup := (index .Values "mcp-servers").studioSetup.enabled }}
 {{- if $studioSetup }}{{- $_ := set $adminDiscovery "enabled" true }}{{- end }}
 {{- if not (kindIs "bool" $adminDiscovery.enabled) }}{{ fail "ContextForge adminDiscovery.enabled must be a boolean" }}{{- end }}
 {{- if and $adminDiscovery.enabled $operator.enabled }}{{ fail "Select adminDiscovery or legacy operatorDiscovery, not both" }}{{- end }}
@@ -39,7 +39,7 @@ metadata:
   labels:
     {{- include "contextforge.labels" . | nindent 4 }}
 data:
-  config.json: {{ dict "origin" (printf "https://%s.%s.svc.cluster.local:4444" .Release.Name .Release.Namespace) "teamName" $setup.teamName "serviceAccountEmail" $service "globalRoleName" $global "teamRoleName" $member "ownerRoleName" $owner "operatorDiscovery" $operator "adminDiscovery" $adminDiscovery "studioSetup" $studioSetup "nativeBudgetSeconds" (sub (int $setup.activeDeadlineSeconds) 60) "catalogHash" (.Values.mcp.catalog | toJson | sha256sum) | toJson | quote }}
+  config.json: {{ dict "origin" (printf "https://%s.%s.svc.cluster.local:4444" .Release.Name .Release.Namespace) "teamName" $setup.teamName "serviceAccountEmail" $service "globalRoleName" $global "teamRoleName" $member "ownerRoleName" $owner "operatorDiscovery" $operator "adminDiscovery" $adminDiscovery "studioSetup" $studioSetup "nativeBudgetSeconds" (sub (int $setup.activeDeadlineSeconds) 60) "catalogHash" ((index .Values "mcp-servers").catalog | toJson | sha256sum) | toJson | quote }}
   {{- (.Files.Glob "files/*.py").AsConfig | nindent 2 }}
 ---
 apiVersion: v1

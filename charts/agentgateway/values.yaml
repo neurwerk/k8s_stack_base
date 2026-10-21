@@ -76,24 +76,11 @@ externalGateway:
 aiGateway:
   enabled: true
   apiPort: 8082
-  # One provider/upstream binding owns its models and credentialSources. Personal
-  # credentials win on that same URL; company keys require the provider grant.
-  # One source of routing, admission policy and Studio catalog data.
-  # Optional binding apiPath (e.g. /openai/api) excludes /v1 and defaults to
-  # /bindings/<id>. Internal binding IDs and canonical model IDs stay unchanged.
-  # Optional billingMode: included is Codex-only, for an explicitly included plan.
-  # Omit it when billing is unknown; OAuth alone does not imply zero cost.
-  bindings: []
   # Trusted-admin approval of user OIDC clients, scoped to exact enabled API
   # binding IDs (including mcp-<server>). This grants no user permissions.
   # Empty, omitted, or null approvals deny product access. Approved clients
   # require the agentgateway audience as well as the user's own permissions.
   approvedOidcClients: [] # [{clientId: example-addon, bindings: [example-api]}]
-  # Opt-in discovery for the single local API binding at /local/api.
-  # Requires coordinated Studio and Bridge images with discovery handlers.
-  localModelDiscovery:
-    enabled: false
-    bindingId: ""
   proxy:
     enabled: false
     hostname: ""
@@ -113,7 +100,7 @@ publicCertificates:
 # Client repositories opt in through config/client.yaml. Each server
 # is an approved in-cluster workload or an approved static HTTP/SSE target; the
 # chart never renders a dynamic backend that could proxy arbitrary destinations.
-mcp:
+mcp-servers:
   # Studio owns tool publication and shared-key entry after the coordinated cutover.
   studioSetup:
     enabled: false
@@ -154,13 +141,25 @@ mcp:
   # declarations, not proof of a working provider connection. No credentials here.
   # Native routing additionally requires the integration ID in
   # contextforgeRoutesEnabled after successful setup and runtime qualification.
-  servers: []
-  # Alternative to legacy servers, never merged with it. All selections require
+  # All selections require
   # explicit enabled:true; new shipped presets never enable network access.
   # Catalog defaults: PII on, content tracing off. Definitions: catalog/presets.yaml.
   catalog:
     presets: {}
     custom: []
+
+# A provider owns both entry routes, its models and all credential modes.
+# routes.api: {enabled: true, path: /provider/api}; path excludes /v1 and
+# defaults to /bindings/<id>. routes.inspected: {enabled: false}.
+# Classification never chooses backend authentication: credentialSources does.
+# Supplied credentials never fall back to company billing; company mode requires
+# the provider grant and a provisioned credential in the approved Secret input.
+# Self-hosted and external API entries expose catalog-based model discovery.
+# Limits: 256 provider/server entries total, 32 models per provider, 256 models total,
+# 256 unique public endpoints, 62 inspected providers, 1 MiB catalog JSON.
+self-hosted-api-providers: []
+external-api-providers: []
+external-subscription-providers: []
 
 # Canonical client-wide values, shared with Docling and extProc. Do not set a
 # different flag or time budget in product values. Higher budgets may reach 3660s.
@@ -250,3 +249,6 @@ agentgateway:
 # Populated from the OpenBao-backed Helm input Secret. The database password is
 # delivered to the data plane by secretKeyRef and is never rendered in rawConfig.
 infraAgentgatewayWrapperSecrets: {}
+# providerCredentials maps nonreserved authSecret names to provider token strings;
+# deliver it only through the approved Helm values Secret, never a ConfigMap.
+# Reserved OpenRouter/DeepSeek names use openrouterApiKey/deepseekApiKey inputs.

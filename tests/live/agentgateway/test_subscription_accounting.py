@@ -26,12 +26,13 @@ class SubscriptionAccountingTest(unittest.TestCase):
         self.assertEqual(hashlib.sha256(binary.read_bytes()).hexdigest(), SHA256)
         values = binding_values()
         values["authKeycloak"]["agentgatewayClientRoles"].append("model:example-codex:invoke")
-        values["aiGateway"]["bindings"].append({
+        values["external-subscription-providers"] = [{
             "id": "codex", "enabled": True, "providerId": "openai", "provider": "OpenAI",
             "upstreamURL": "https://chatgpt.com/backend-api/codex", "credentialSources": ["caller_supplied"],
-            "inspect": True, "profiles": ["openai-codex-responses-v1"], "billingMode": "included",
+            "routes": {"api": {"enabled": True}, "inspected": {"enabled": True}},
+            "profiles": ["openai-codex-responses-v1"], "billingMode": "included",
             "models": [{"name": "example-codex", "upstreamModel": "shared"}],
-        })
+        }]
         rendered = render("agentgateway", values)
         raw = resource(rendered, "AgentgatewayParameters")["spec"]["rawConfig"]
         included_model = next(doc["spec"] for doc in documents(rendered) if doc["kind"] == "AgentgatewayModel"
@@ -58,7 +59,7 @@ class SubscriptionAccountingTest(unittest.TestCase):
             self.assertEqual(program.evaluate({key: json_to_cel(value) for key, value in context.items()}), "unknown")
         # OAuth transport alone must not select the zero-rate provider namespace.
         unconfirmed_values = copy.deepcopy(values)
-        unconfirmed_values["aiGateway"]["bindings"][-1].pop("billingMode")
+        unconfirmed_values["external-subscription-providers"][-1].pop("billingMode")
         unconfirmed = render("agentgateway", unconfirmed_values)
         unconfirmed_model = next(doc["spec"] for doc in documents(unconfirmed) if doc["kind"] == "AgentgatewayModel"
                                 and doc["metadata"]["name"].startswith("ai-codex-") and doc["spec"]["visibility"] == "Internal")

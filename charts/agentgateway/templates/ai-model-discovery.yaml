@@ -1,0 +1,72 @@
+{{- $bindings := include "infra-agentgateway.aiBindings" . | fromJsonArray }}
+{{- $enabled := false }}
+{{- range $bindings }}{{ if .discovery }}{{ $enabled = true }}{{ end }}{{ end }}
+{{- if $enabled }}
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayBackend
+metadata:
+  name: ai-model-discovery-backend
+  namespace: infra-agentgateway
+spec:
+  static:
+    host: frontend-studio-api-service.frontend-studio.svc.cluster.local
+    port: 80
+{{- range $binding := $bindings }}
+{{- if $binding.discovery }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: ai-{{ $binding.id }}-model-discovery
+  namespace: infra-agentgateway
+spec:
+  parentRefs:
+    - {name: infra-agentgateway-gateway, sectionName: api-bindings}
+  rules:
+    - matches:
+        - method: GET
+          path: {type: Exact, value: {{ printf "%s/v1/models" $binding.prefix | quote }}}
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplaceFullPath
+              replaceFullPath: {{ printf "/gateway/model-discovery/%s/models" $binding.id | quote }}
+      backendRefs:
+        - {group: agentgateway.dev, kind: AgentgatewayBackend, name: ai-model-discovery-backend}
+    - matches:
+        - method: GET
+          path: {type: PathPrefix, value: {{ printf "%s/v1/models/" $binding.prefix | quote }}}
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: {{ printf "/gateway/model-discovery/%s/models" $binding.id | quote }}
+      backendRefs:
+        - {group: agentgateway.dev, kind: AgentgatewayBackend, name: ai-model-discovery-backend}
+---
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayPolicy
+metadata:
+  name: ai-{{ $binding.id }}-model-discovery-processing
+  namespace: infra-agentgateway
+spec:
+  targetRefs:
+    - {group: gateway.networking.k8s.io, kind: HTTPRoute, name: ai-{{ $binding.id }}-model-discovery}
+  traffic:
+    phase: PostRouting
+    authorization:
+      action: Allow
+      policy:
+        matchExpressions:
+          - >-
+            {{- include "infra-agentgateway.routeIdentityAuthorization" (dict "root" $ "binding" $binding "entry" (dict "mode" "api")) | nindent 12 }} &&
+            metadata.neurwerk_identity.method == "GET" &&
+            (metadata.neurwerk_identity.path == {{ printf "%s/v1/models" $binding.prefix | toJson }} ||
+            (metadata.neurwerk_identity.path.startsWith({{ printf "%s/v1/models/" $binding.prefix | toJson }}) &&
+            metadata.neurwerk_identity.path != {{ printf "%s/v1/models/" $binding.prefix | toJson }})) &&
+            size(metadata.neurwerk_identity.provider_headers) == 0
+{{- end }}
+{{- end }}
+{{- end }}

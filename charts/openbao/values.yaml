@@ -329,7 +329,7 @@ openbao:
   snapshotAgent:
     enabled: false
 
-mcp:
+mcp-servers:
   # Project the same activation setting into OpenBao, AgentGateway, ContextForge and Studio.
   studioSetup:
     enabled: false

@@ -7,9 +7,9 @@
 {{- $prefixes = append $prefixes (ternary $binding.prefix "/bindings" (hasKey $binding "apiPath")) }}
 {{- end }}
 {{- end }}
-{{- if .Values.mcp.enabled }}
+{{- if (index .Values "mcp-servers").enabled }}
 {{- range $server := include "infra-agentgateway.effectiveMcpServers" . | fromYamlArray }}
-{{- if or (not $server.contextforge) (has $server.name $.Values.mcp.contextforgeRoutesEnabled) }}
+{{- if or (not $server.contextforge) (has $server.name (index $.Values "mcp-servers").contextforgeRoutesEnabled) }}
 {{- $prefixes = append $prefixes "/bindings" }}
 {{- end }}
 {{- end }}
@@ -40,13 +40,15 @@ spec:
   hostnames:
     - {{ $hostname }}
   rules:
+    {{- range $chunk := chunk 64 ($prefixes | uniq | sortAlpha) }}
     - matches:
-        {{- range $prefix := $prefixes | uniq | sortAlpha }}
+        {{- range $prefix := $chunk }}
         - path: {type: PathPrefix, value: {{ $prefix | quote }}}
         {{- end }}
       backendRefs:
         - name: infra-agentgateway-gateway
           namespace: infra-agentgateway
-          port: {{ .Values.aiGateway.apiPort }}
+          port: {{ $.Values.aiGateway.apiPort }}
+    {{- end }}
 {{- end }}
 {{- end }}

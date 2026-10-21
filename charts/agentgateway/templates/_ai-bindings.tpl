@@ -28,39 +28,75 @@ provider header and accidentally choose a company account instead. */}}
 
 {{/* Validated effective bindings feed native routing, v5 admission and Studio. */}}
 {{- define "infra-agentgateway.aiBindings" -}}
+{{- if not (hasKey . "_gatewayBindings") -}}
+{{- $_ := set . "_gatewayBindings" (include "infra-agentgateway.buildAiBindings" .) -}}
+{{- end -}}
+{{- get . "_gatewayBindings" -}}
+{{- end -}}
+
+{{- define "infra-agentgateway.buildAiBindings" -}}
 {{- $cfg := .Values.aiGateway -}}
 {{- $effective := list -}}
 {{- if ne $cfg.enabled true }}{{ fail "aiGateway.enabled must be true; the unbound gateway has been removed" }}{{ end -}}
 {{- if $cfg.enabled -}}
 {{- range $key, $_ := $cfg -}}
-{{- if not (has $key (list "enabled" "apiPort" "bindings" "proxy" "approvedOidcClients" "localModelDiscovery")) }}{{ fail (printf "unknown aiGateway field %s" $key) }}{{ end -}}
+{{- if not (has $key (list "enabled" "apiPort" "proxy" "approvedOidcClients")) }}{{ fail (printf "unknown or removed aiGateway field %s" $key) }}{{ end -}}
 {{- end -}}
-
-{{- if and $cfg.bindings (not $.Values.guardrails.llmPolicyEngine.enabled) }}{{ fail "model bindings require guardrails.llmPolicyEngine.enabled" }}{{ end -}}
+{{- if hasKey .Values "mcp" }}{{ fail "root mcp has been removed; use mcp-servers" }}{{ end -}}
+{{- $entries := list -}}
+{{- range $group := list "self-hosted-api-providers" "external-api-providers" "external-subscription-providers" -}}
+{{- $providers := index $.Values $group -}}
+{{- if not (kindIs "slice" $providers) }}{{ fail (printf "%s must be a list" $group) }}{{ end -}}
+{{- range $entry := $providers -}}
+{{- if not (kindIs "map" $entry) }}{{ fail "provider entries must be maps" }}{{ end -}}
+{{- range $key, $_ := $entry -}}
+{{- if not (has $key (list "id" "enabled" "displayName" "providerId" "provider" "upstreamURL" "credentialSources" "authSecret" "routes" "billingMode" "profiles" "models" "catalogModels" "localReroute" "attachments")) }}{{ fail (printf "unsupported provider field %s" $key) }}{{ end -}}
+{{- end -}}
+{{- $copy := deepCopy $entry -}}
+{{- $_ := set $copy "group" $group -}}
+{{- $entries = append $entries $copy -}}
+{{- end -}}
+{{- end -}}
+{{- if gt (len $entries) 256 }}{{ fail "provider configuration supports at most 256 aggregate entries" }}{{ end -}}
+{{- if and $entries (not $.Values.guardrails.llmPolicyEngine.enabled) }}{{ fail "model bindings require guardrails.llmPolicyEngine.enabled" }}{{ end -}}
 {{- if not $.Values.agentgateway.agentgatewayModels.enabled }}{{ fail "aiGateway requires native AgentgatewayModel support" }}{{ end -}}
 {{- $ports := list (int $.Values.infraAgentgatewayWrapper.ports.service.http) 443 15000 15020 15021 -}}
 {{- range $port := list $cfg.apiPort $cfg.proxy.port -}}
 {{- if or (not (regexMatch `^[1-9][0-9]*$` (toJson $port))) (gt (int $port) 65535) (has (int $port) $ports) }}{{ fail "aiGateway ports must be distinct, nonreserved TCP ports" }}{{ end -}}
 {{- $ports = append $ports (int $port) -}}
 {{- end -}}
-{{- if or (not (kindIs "slice" $cfg.bindings)) (gt (len $cfg.bindings) 8) }}{{ fail "aiGateway.bindings must be a list of at most 8 bindings" }}{{ end -}}
 {{- $ids := dict -}}{{- $hosts := dict -}}{{- $destinations := dict -}}{{- $prefixes := list -}}
 {{- $roles := include "infra-agentgateway.effectiveRoles" . | fromYamlArray -}}
 {{- $profiles := .Files.Get "catalog/ai-profiles.yaml" | fromYaml -}}
 {{- $upstreams := dict -}}
 {{- $catalog := dict -}}
 {{- range include "infra-agentgateway.effectiveModels" . | fromYamlArray }}{{ $_ := set $catalog .name . }}{{ end -}}
-{{- range $entry := $cfg.bindings -}}
+{{- range $entry := $entries -}}
 {{- if not (kindIs "map" $entry) }}{{ fail "aiGateway bindings must be maps" }}{{ end -}}
 {{- range $key, $_ := $entry -}}
-{{- if not (has $key (list "id" "enabled" "providerId" "provider" "upstreamURL" "local" "credentialSources" "authSecret" "api" "apiPath" "billingMode" "inspect" "profiles" "models" "catalogModels" "localReroute" "attachments")) }}{{ fail (printf "unsupported aiGateway binding field %s; use one provider/upstream binding with credentialSources" $key) }}{{ end -}}
+{{- if not (has $key (list "id" "enabled" "displayName" "providerId" "provider" "upstreamURL" "credentialSources" "authSecret" "routes" "billingMode" "profiles" "models" "catalogModels" "localReroute" "attachments" "group")) }}{{ fail (printf "unsupported provider field %s" $key) }}{{ end -}}
 {{- end -}}
 {{- if not (kindIs "bool" $entry.enabled) }}{{ fail "aiGateway bindings require explicit boolean enabled" }}{{ end -}}
 {{- $id := $entry.id | default "" -}}
 {{- if or (not (regexMatch `^[a-z0-9]([-a-z0-9]{0,30}[a-z0-9])?$` $id)) (hasKey $ids $id) }}{{ fail "aiGateway binding IDs must be unique DNS labels of at most 32 characters" }}{{ end -}}
 {{- $_ := set $ids $id true -}}
 {{- if $entry.enabled -}}
-{{- $binding := mergeOverwrite (dict "api" true "inspect" false "local" false "provider" "OpenAI" "providerId" nil) (deepCopy $entry) -}}
+{{- $binding := mergeOverwrite (dict "provider" "OpenAI" "providerId" nil "displayName" $id) (deepCopy $entry) -}}
+{{- $routes := $binding.routes -}}
+{{- if not (kindIs "map" $routes) }}{{ fail "providers require routes.api and routes.inspected" }}{{ end -}}
+{{- range $key, $_ := $routes }}{{ if not (has $key (list "api" "inspected")) }}{{ fail "unknown provider route" }}{{ end }}{{ end -}}
+{{- range $kind := list "api" "inspected" -}}
+{{- $route := get $routes $kind -}}
+{{- if not (kindIs "map" $route) }}{{ fail "providers require routes.api and routes.inspected" }}{{ end -}}
+{{- range $key, $_ := $route }}{{ if not (has $key (ternary (list "enabled" "path") (list "enabled") (eq $kind "api"))) }}{{ fail "unknown provider route field" }}{{ end }}{{ end -}}
+{{- if not (kindIs "bool" $route.enabled) }}{{ fail "route enabled must be boolean" }}{{ end -}}
+{{- end -}}
+{{- $_ := set $binding "api" $routes.api.enabled -}}
+{{- $_ := set $binding "inspect" $routes.inspected.enabled -}}
+{{- if hasKey $routes.api "path" }}{{ $_ := set $binding "apiPath" $routes.api.path }}{{ end -}}
+{{- $_ := set $binding "local" (eq (toJson $binding.credentialSources) `["none"]`) -}}
+{{- if or (not (kindIs "string" $binding.displayName)) (empty $binding.displayName) (gt (len $binding.displayName) 128) }}{{ fail "provider displayName must be a nonempty string of at most 128 characters" }}{{ end -}}
+{{- $_ := set $binding "discovery" (and $binding.api (ne $binding.group "external-subscription-providers")) -}}
 {{- range $flag := list "api" "inspect" "local" -}}
 {{- if not (kindIs "bool" (get $binding $flag)) }}{{ fail "binding api/inspect/local must be booleans" }}{{ end -}}
 {{- end -}}
@@ -68,6 +104,7 @@ provider header and accidentally choose a company account instead. */}}
 {{- if and $binding.api (not $.Values.externalGateway.enabled) }}{{ fail "API bindings require externalGateway.enabled for their advertised HTTPS URLs" }}{{ end -}}
 {{- if not (has $binding.provider (list "OpenAI" "Openrouter" "Deepseek" "Anthropic" "Gemini" "Custom")) }}{{ fail "binding provider has no admitted native path mapping" }}{{ end -}}
 {{- if and (eq $binding.provider "Custom") (not $binding.local) }}{{ fail "Custom bindings are reserved for explicit credential-free local models" }}{{ end -}}
+{{- if and $binding.local (ne $binding.group "self-hosted-api-providers") }}{{ fail "credential-free providers require the self-hosted group" }}{{ end -}}
 {{- if and (eq $binding.provider "Gemini") $binding.api }}{{ fail "Gemini API mounts require separate /bindings/<id>/v1beta acceptance; use api:false with inspected native Google paths" }}{{ end -}}
 {{- $sources := $binding.credentialSources -}}
 {{- if or (not (kindIs "slice" $sources)) (empty $sources) (gt (len $sources) 2) (ne (len $sources) (len (uniq $sources))) }}{{ fail "binding credentialSources must be a nonempty unique list" }}{{ end -}}
@@ -87,7 +124,9 @@ provider header and accidentally choose a company account instead. */}}
 {{- if and (contains ":" $parsed.host) (gt (int (last (splitList ":" $parsed.host))) 65535) }}{{ fail "binding upstream port must be at most 65535" }}{{ end -}}
 {{- if or (eq $host "localhost") (hasSuffix ".localhost" $host) (and (regexMatch `^[0-9.]+$` $host) (not (and $binding.local (regexMatch `^(10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[01])\.)` $host)))) }}{{ fail "binding upstreamURL requires an approved DNS host or an explicit private local address" }}{{ end -}}
 {{- if and (not $binding.local) (ne $parsed.scheme "https") }}{{ fail "provider credentials require verified upstream HTTPS" }}{{ end -}}
-{{- $upstreamIdentity := toJson (list $binding.providerId $binding.provider (trimSuffix "/" $url)) -}}
+{{- $authority := $parsed.host -}}
+{{- if or (and (eq $parsed.scheme "https") (hasSuffix ":443" $authority)) (and (eq $parsed.scheme "http") (hasSuffix ":80" $authority)) }}{{ $authority = $host }}{{ end -}}
+{{- $upstreamIdentity := toJson (list $binding.providerId $binding.provider (printf "%s://%s%s" $parsed.scheme $authority (trimSuffix "/" $parsed.path))) -}}
 {{- if hasKey $upstreams $upstreamIdentity }}{{ fail "one provider/upstream binding must own all its credential modes and models" }}{{ end -}}
 {{- $_ := set $upstreams $upstreamIdentity true -}}
 {{- if $binding.inspect -}}
@@ -105,9 +144,11 @@ provider header and accidentally choose a company account instead. */}}
 {{- if or (ne (toJson $binding.billingMode) `"included"`) (not (has "openai-codex-responses-v1" $binding.profiles)) }}{{ fail "binding billingMode accepts only included on a Codex binding" }}{{ end -}}
 {{- end -}}
 {{- if has "openai-codex-responses-v1" $binding.profiles -}}
+{{- if ne $binding.group "external-subscription-providers" }}{{ fail "Codex requires external-subscription-providers" }}{{ end -}}
 {{- if or (ne (len $binding.profiles) 1) (ne (toJson $sources) `["caller_supplied"]`) }}{{ fail "Codex bindings require only openai-codex-responses-v1 and credentialSources: [caller_supplied]" }}{{ end -}}
 {{- if ne $url "https://chatgpt.com/backend-api/codex" }}{{ fail "Codex bindings require upstreamURL: https://chatgpt.com/backend-api/codex" }}{{ end -}}
 {{- end -}}
+{{- if and (eq $binding.group "external-subscription-providers") (not (has "openai-codex-responses-v1" $binding.profiles)) }}{{ fail "subscription providers require an admitted subscription profile" }}{{ end -}}
 {{- $selectedModels := $binding.models | default list -}}
 {{- range $id := $binding.catalogModels | default list -}}
 {{- if not (hasKey $catalog $id) }}{{ fail (printf "binding selects unknown catalog model %s" $id) }}{{ end -}}
@@ -187,22 +228,17 @@ provider header and accidentally choose a company account instead. */}}
 {{- end -}}
 {{- end -}}
 {{- $_ := set $binding "operations" $operations -}}
+{{- if has "company" $sources -}}
+{{- $_ := set $binding "configuredCredentialSources" $sources -}}
+{{- $credential := include "infra-agentgateway.companyCredential" (dict "root" $ "name" $binding.authSecret) | fromJson -}}
+{{- if not $credential.available }}{{ $_ := set $binding "credentialSources" (without $sources "company") }}{{ end -}}
+{{- end -}}
 {{- if or (gt (len (toJson $modelBindings)) 16384) (gt (len (toJson $attachment)) 14000) }}{{ fail "v5 binding exceeds native metadata expression limits" }}{{ end -}}
 {{- $effective = append $effective $binding -}}
 {{- end -}}
 {{- end -}}
-{{- $discovery := $cfg.localModelDiscovery | default dict -}}
-{{- if $discovery.enabled -}}
-{{- if ne $discovery.bindingId "local" }}{{ fail "aiGateway.localModelDiscovery.bindingId must be local when enabled (Studio requires api-local)" }}{{ end -}}
-{{- $found := false -}}
-{{- range $binding := $effective -}}
-{{- if eq $binding.id $discovery.bindingId -}}
-{{- if or (not $binding.local) (not $binding.api) (ne $binding.prefix "/local/api") }}{{ fail "localModelDiscovery requires an enabled local API binding at /local/api" }}{{ end -}}
-{{- $found = true -}}
-{{- end -}}
-{{- end -}}
-{{- if not $found }}{{ fail "localModelDiscovery.bindingId must select an enabled local API binding" }}{{ end -}}
-{{- end -}}
+{{- if gt (len $hosts) 62 }}{{ fail "inspection supports at most 62 providers: Gateway API allows 64 listeners, including API and forward-proxy" }}{{ end -}}
+{{- if gt (len $destinations) 256 }}{{ fail "aggregate model destinations exceed 256" }}{{ end -}}
 {{- $localTargets := dict -}}
 {{- range $binding := $effective -}}
 {{- if $binding.local -}}
@@ -214,7 +250,7 @@ provider header and accidentally choose a company account instead. */}}
 {{- range $binding := $effective -}}
 {{- $targets := dict -}}
 {{- if $binding.localReroute -}}
-{{- if or $binding.local (not (has "company" $binding.credentialSources)) (not (hasKey $localTargets $binding.localReroute)) }}{{ fail "localReroute requires a company binding and an explicitly selected local target" }}{{ end -}}
+{{- if or $binding.local (not (has "company" ($binding.configuredCredentialSources | default $binding.credentialSources))) (not (hasKey $localTargets $binding.localReroute)) }}{{ fail "localReroute requires a company binding and an explicitly selected local target" }}{{ end -}}
 {{- $target := deepCopy (get $localTargets $binding.localReroute) -}}
 {{- $_ := set $binding "localRerouteBackend" (deepCopy $target) -}}
 {{- $_ := unset $target "upstreamURL" -}}{{- $_ := unset $target "provider" -}}
@@ -245,7 +281,9 @@ provider header and accidentally choose a company account instead. */}}
 {{- end -}}
 
 {{- define "infra-agentgateway.aiRevision" -}}
+{{- if not (hasKey . "_gatewayRevision") -}}
 {{- $revision := dict "bindings" (include "infra-agentgateway.aiBindings" . | fromJsonArray) "approvedOidcClients" .Values.aiGateway.approvedOidcClients "profiles" (.Files.Get "catalog/ai-profiles.yaml" | fromYaml) "models" (include "infra-agentgateway.effectiveModels" . | fromYamlArray) "mcp" (include "infra-agentgateway.effectiveMcpServers" . | fromYamlArray) -}}
-{{- if .Values.aiGateway.localModelDiscovery.enabled }}{{ $_ := set $revision "localModelDiscovery" .Values.aiGateway.localModelDiscovery }}{{ end -}}
-{{- $revision | toJson | sha256sum -}}
+{{- $_ := set . "_gatewayRevision" ($revision | toJson | sha256sum) -}}
+{{- end -}}
+{{- get . "_gatewayRevision" -}}
 {{- end -}}

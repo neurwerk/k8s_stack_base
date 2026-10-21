@@ -7,9 +7,9 @@
 {{- if $binding.api }}{{ $apiBindings = append $apiBindings $binding }}{{ end }}
 {{- if $binding.inspect }}{{ $listeners = append $listeners (dict "name" (printf "inspect-%s" $binding.id) "mode" "forward_proxy" "bindings" (list $binding)) }}{{ end }}
 {{- end }}
-{{- if .Values.mcp.enabled }}
+{{- if (index .Values "mcp-servers").enabled }}
 {{- range $server := include "infra-agentgateway.effectiveMcpServers" . | fromYamlArray }}
-{{- if or (not $server.contextforge) (has $server.name $.Values.mcp.contextforgeRoutesEnabled) }}
+{{- if or (not $server.contextforge) (has $server.name (index $.Values "mcp-servers").contextforgeRoutesEnabled) }}
 {{- $prefix := printf "/bindings/mcp-%s" $server.name }}
 {{- $apiBindings = append $apiBindings (dict "id" (printf "mcp-%s" $server.name) "prefix" $prefix "kind" "mcp" "providerId" nil "local" true "credentialSources" (list "none") "credentialHeader" "" "requiredPermission" (printf "mcp:%s:invoke" $server.name) "operations" (list (dict "profile" "mcp-streamable-http-v1" "id" "exchange" "paths" (list "/mcp")))) }}
 {{- end }}
@@ -17,8 +17,7 @@
 {{- end }}
 {{- $listeners = prepend $listeners (dict "name" "api-bindings" "mode" "api" "bindings" $apiBindings) }}
 {{- $approvedOidc := include "infra-agentgateway.approvedOidcAuthorization" (dict "root" . "bindings" $apiBindings) }}
-{{- $discovery := .Values.aiGateway.localModelDiscovery | default dict }}
-{{- $discoveryPath := `request.path == "/local/api/v1/models" || (request.path.startsWith("/local/api/v1/models/") && request.path != "/local/api/v1/models/")` }}
+{{- $discoveryPath := `request.path.endsWith("/v1/models") || request.path.contains("/v1/models/")` }}
 {{- range $listener := $listeners }}
 {{- $proxy := eq $listener.mode "forward_proxy" }}
 {{- $credential := ternary "proxy-authorization" "x-neurwerk-authorization" $proxy }}
@@ -105,7 +104,7 @@ spec:
     {{- if $listener.bindings }}
     transformation:
       conditional:
-        {{- if and (not $proxy) $discovery.enabled }}
+        {{- if not $proxy }}
         {{- range $variant := list "oidc" "dedicated" }}
         - condition: {{ printf `request.method == "GET" && (%s) && %s(has(jwt.sub) && !("x-neurwerk-authorization" in request.headers))` $discoveryPath (ternary "" "!" (eq $variant "oidc")) | squote }}
           policy:
@@ -146,7 +145,7 @@ spec:
         {{- if not $proxy }}{{ $variants = list "oidc" "dedicated" }}{{ end }}
         {{- range $variant := $variants }}
         {{- $condition := "true" }}
-        {{- if and (not $proxy) $discovery.enabled }}{{ $condition = printf `!(request.method == "GET" && (%s))` $discoveryPath }}{{ end }}
+        {{- if not $proxy }}{{ $condition = printf `!(request.method == "GET" && (%s))` $discoveryPath }}{{ end }}
         {{- if not $proxy }}{{ $condition = printf `%s && %s(has(jwt.sub) && !("x-neurwerk-authorization" in request.headers))` $condition (ternary "" "!" (eq $variant "oidc")) }}{{ end }}
         - condition: {{ $condition | squote }}
           policy:
