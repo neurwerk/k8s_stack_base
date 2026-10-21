@@ -260,8 +260,10 @@ class ApprovedOidcTests(unittest.TestCase):
         for binding, roles, expected in [("mcp-context7", self.roles, True),
                                          ("mcp-context7", ["llm:invoke"], False),
                                          ("openai", self.roles, False)]:
-            self.assertEqual(self.evaluate(expression, {"metadata": {"neurwerk_admission": {
-                "binding_id": binding, "destination_kind": "mcp", "permissions": roles,
+            self.assertEqual(self.evaluate(expression, {"jwt": {}, "metadata": {"neurwerk_identity": {
+                "contract_version": 1, "policy_revision": revision, "entry_mode": "api",
+                "principal_id": "test-user", "permissions": roles, "provider_headers": [],
+                "path": f"/bindings/{binding}/mcp", "method": "POST",
             }}}), expected)
 
 
@@ -295,9 +297,18 @@ class EndpointRoutingTests(unittest.TestCase):
                         if self.evaluate(entry["condition"], context)]
             self.assertEqual(len(selected), 1)
             env = Environment()
-            metadata = selected[0]["policy"]["request"]["metadata"]["neurwerk_admission"]
+            shared = selected[0]["policy"]["request"]["metadata"]["neurwerk_identity"]
+            self.assertIn('"path": request.path, "method": request.method', shared)
+            entry = "api" if listener == "api-bindings" else "proxy"
+            processing = resource(self.rendered, "AgentgatewayPolicy", f"ai-openai-{entry}-processing")["spec"]["traffic"]
+            metadata = processing["extProc"]["conditional"][0]["policy"]["metadataContext"]["neurwerk.destination_policy"]["request_context"]
+            identity = {"request_id": "test-request", "principal_id": "test-user",
+                        "credential_context_version": "1", "credential_id": "test-key",
+                        "credential_kind": "personal", "permissions": ["llm:invoke"],
+                        "standard_oidc": False, "provider_headers": ["authorization"],
+                        "policy_revision": "test-revision"}
             admitted = env.program(env.compile(metadata)).evaluate(
-                {key: json_to_cel(value) for key, value in context.items()})
+                {"metadata": json_to_cel({"neurwerk_identity": identity})})
             self.assertEqual(admitted["binding_id"], "openai")
             self.assertEqual(admitted["protocol_profile"], "openai-codex-responses-v1")
             if prefix:
@@ -319,7 +330,10 @@ class EndpointRoutingTests(unittest.TestCase):
             policy = resource(self.rendered, "AgentgatewayPolicy", f"ai-openai-{mode}-processing")["spec"]["traffic"]
             self.assertEqual(policy["phase"], "PostRouting")
             path = incoming
-            for header in policy.get("transformation", {}).get("request", {}).get("set", []):
+            branches = policy["transformation"]["conditional"]
+            self.assertEqual(len(branches), 1)
+            self.assertIn(incoming, branches[0]["condition"])
+            for header in branches[0]["policy"]["request"].get("set", []):
                 if header["name"] == ":path":
                     env = Environment()
                     path = str(env.program(env.compile(header["value"])).evaluate({}))
@@ -436,19 +450,19 @@ class InspectedGatewayTests(unittest.TestCase):
             for conditional in traffic["transformation"]["conditional"]:
                 for direction in ("request", "response"):
                     self.assertEqual(conditional["policy"][direction]["set"], [
-                        {"name": "x-request-id", "value": "metadata.neurwerk_admission.request_id"},
+                        {"name": "x-request-id", "value": "metadata.neurwerk_identity.request_id"},
                     ])
                 request = conditional["policy"]["request"]
-                context = request["metadata"]["neurwerk_admission"]
+                context = request["metadata"]["neurwerk_identity"]
                 self.assertEqual(context.count("uuid()"), 1)
-                self.assertNotIn("request.headers[", context)
+                self.assertIn('"provider_header_counts"', context)
+                self.assertIn('"path": request.path, "method": request.method', context)
                 self.assertIn("x-neurwerk-authorization", request["remove"])
                 self.assertIn("proxy-authorization", request["remove"])
                 if '&& (has(jwt.sub)' in conditional["condition"]:
                     self.assertIn("authorization", request["remove"])
                 else:
-                    self.assertEqual("authorization" in request["remove"], not any(
-                        f'"binding_id": "{name}"' in context for name in ["openai", "openrouter"]))
+                    self.assertNotIn("authorization", request["remove"])
         self.assertNotIn("infra-agentgateway-auth-ag-policy", self.enabled.stdout)
 
     def test_fixed_upstreams_models_and_no_company_fallback(self):
@@ -482,17 +496,23 @@ class InspectedGatewayTests(unittest.TestCase):
             policy = resource(self.enabled, "AgentgatewayPolicy", f"ai-{entry}-processing")["spec"]["traffic"]
             self.assertEqual(policy["phase"], "PostRouting")
             self.assertEqual(policy["retry"], {"attempts": 1, "precondition": "false", "codes": []})
-            processor = policy["extProc"]
-            self.assertEqual(processor["failureMode"], "FailClosed")
-            self.assertEqual(processor["processingOptions"]["requestBodyMode"], "Buffered")
-            self.assertFalse(processor["processingOptions"]["allowModeOverride"])
-            metadata = processor["metadataContext"]["neurwerk.destination_policy"]
-            self.assertEqual(set(metadata), {"contract_version", "request_context", "destination_policy", "model_bindings", "reroute_targets"})
-            self.assertEqual(metadata["contract_version"], "5")
-            self.assertEqual(metadata["request_context"], "metadata.neurwerk_admission")
-            for model in json.loads(metadata["model_bindings"]).values():
-                self.assertEqual(set(model), {"upstream_model", "required_permissions", "content_tracing_enabled"})
-            self.assertNotIn("uuid()", json.dumps(metadata))
+            processors = policy["extProc"]["conditional"]
+            transformations = policy["transformation"]["conditional"]
+            self.assertEqual(len(processors), len(transformations))
+            for branch, transformation in zip(processors, transformations):
+                processor = branch["policy"]
+                self.assertEqual(processor["failureMode"], "FailClosed")
+                self.assertEqual(processor["processingOptions"]["requestBodyMode"], "Buffered")
+                self.assertFalse(processor["processingOptions"]["allowModeOverride"])
+                metadata = processor["metadataContext"]["neurwerk.destination_policy"]
+                self.assertEqual(set(metadata), {"contract_version", "request_context", "destination_policy", "model_bindings", "reroute_targets"})
+                self.assertEqual(metadata["contract_version"], "5")
+                self.assertEqual(branch["condition"], transformation["condition"])
+                self.assertEqual(metadata["request_context"], transformation["policy"]["request"]["metadata"]["neurwerk_admission"])
+                for model in json.loads(metadata["model_bindings"]).values():
+                    self.assertEqual(set(model), {"upstream_model", "required_permissions", "content_tracing_enabled"})
+                self.assertNotIn("uuid()", json.dumps(metadata))
+                self.assertNotIn("request.headers", metadata["request_context"])
 
     def test_exact_host_inspection_and_private_exposure(self):
         gateway = resource(self.enabled, "Gateway", "infra-agentgateway-gateway")
@@ -582,8 +602,10 @@ class InspectedGatewayTests(unittest.TestCase):
             self.assertLess(statements.index(f'delete_key(attributes, "{target}")'), statements.index(setters[0]))
         for sink in (database, stdout, tracing):
             self.assertFalse(any(key.startswith(prefix) for key in sink))
-        self.assertIn('.destination_id, null)', database["neurwerk.destination_id"])
-        self.assertIn('.resolved_model, null)', database["neurwerk.resolved_model"])
+        self.assertIn('"neurwerk.request_context" in extproc', database["neurwerk.destination_id"])
+        self.assertIn('"neurwerk.request_context" in extproc', database["neurwerk.resolved_model"])
+        self.assertIn("metadata.neurwerk_identity.request_id", database["neurwerk.request_id"])
+        self.assertIn("metadata.neurwerk_admission.request_id", database["neurwerk.request_id"])
         self.assertNotIn("llm.requestModel", database["neurwerk.destination_id"])
         self.assertNotIn("credential_id", " ".join(statements))
         self.assertNotIn("credential_kind", " ".join(statements))
@@ -613,8 +635,10 @@ class InspectedGatewayTests(unittest.TestCase):
 
     def test_public_binding_selects_source_without_reading_or_falling_back_on_token(self):
         traffic = resource(self.enabled, "AgentgatewayPolicy", "ai-admission-api-bindings")["spec"]["traffic"]
-        context = traffic["transformation"]["conditional"][0]["policy"]["request"]["metadata"]["neurwerk_admission"]
-        self.assertIn('"authorization" in request.headers ? "caller_supplied" : "company"', context)
+        processing = resource(self.enabled, "AgentgatewayPolicy", "ai-openai-api-processing")["spec"]["traffic"]
+        context = processing["extProc"]["conditional"][0]["policy"]["metadataContext"]["neurwerk.destination_policy"]["request_context"]
+        self.assertIn('"authorization" in metadata.neurwerk_identity.provider_headers ? "caller_supplied" : "company"', context)
+        self.assertNotIn("request.headers", context)
         self.assertNotIn("response", context)
         gate = traffic["authorization"]["policy"]["matchExpressions"][0]
         self.assertIn('"authorization" in request.headers ? true : ("provider:openai:company-use" in (has(jwt.sub) ? jwt.resource_access.agentgateway.roles : extauthz.permissions))', gate)
@@ -632,7 +656,9 @@ class InspectedGatewayTests(unittest.TestCase):
 
     def test_google_only_admits_exact_model_operation_paths(self):
         traffic = resource(self.enabled, "AgentgatewayPolicy", "ai-admission-inspect-google")["spec"]["traffic"]
-        variants = traffic["transformation"]["conditional"]
+        self.assertEqual(len(traffic["transformation"]["conditional"]), 1)
+        processing = resource(self.enabled, "AgentgatewayPolicy", "ai-google-proxy-processing")["spec"]["traffic"]
+        variants = processing["transformation"]["conditional"]
         self.assertEqual(len(variants), 2)
         for variant, operation in zip(variants, ["generateContent", "streamGenerateContent"]):
             self.assertIn(f'"/v1beta/models/example-gemini:{operation}"', variant["condition"])

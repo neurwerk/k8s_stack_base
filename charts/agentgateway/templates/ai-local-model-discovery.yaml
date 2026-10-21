@@ -46,4 +46,37 @@ spec:
               replacePrefixMatch: /gateway/model-discovery
       backendRefs:
         - {group: agentgateway.dev, kind: AgentgatewayBackend, name: ai-local-model-discovery-backend}
+---
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayPolicy
+metadata:
+  name: ai-local-model-discovery-processing
+  namespace: infra-agentgateway
+spec:
+  targetRefs:
+    - {group: gateway.networking.k8s.io, kind: HTTPRoute, name: ai-local-model-discovery}
+  traffic:
+    phase: PostRouting
+    authorization:
+      action: Allow
+      policy:
+        matchExpressions:
+          - >-
+            {{- include "infra-agentgateway.routeIdentityAuthorization" (dict "root" . "binding" (dict "id" $discovery.bindingId "kind" "model_discovery") "entry" (dict "mode" "api")) | nindent 12 }} &&
+            metadata.neurwerk_identity.method == "GET" &&
+            (metadata.neurwerk_identity.path == "/local/api/v1/models" ||
+            (metadata.neurwerk_identity.path.startsWith("/local/api/v1/models/") && metadata.neurwerk_identity.path != "/local/api/v1/models/")) &&
+            size(metadata.neurwerk_identity.provider_headers) == 0
+    transformation:
+      request:
+        metadata:
+          neurwerk_admission: >-
+            {"request_id": metadata.neurwerk_identity.request_id,
+            "principal_id": metadata.neurwerk_identity.principal_id,
+            "credential_id": metadata.neurwerk_identity.credential_id,
+            "credential_kind": metadata.neurwerk_identity.credential_kind,
+            "permissions": metadata.neurwerk_identity.permissions,
+            "entry_mode": "api", "destination_kind": "model_discovery",
+            "binding_id": {{ $discovery.bindingId | toJson }},
+            "policy_revision": metadata.neurwerk_identity.policy_revision}
 {{- end }}
