@@ -122,18 +122,29 @@
 {{-   end -}}
 {{- end -}}
 
-{{- $mcpProtocolVersion := .Values.mcp.protocolVersion | default "" -}}
+{{- $mcp := index .Values "mcp-servers" -}}
+{{- $mcpProtocolVersion := $mcp.protocolVersion | default "" -}}
 {{- if not (has $mcpProtocolVersion (list "2025-11-25" "2026-07-28")) -}}
 {{-   fail "mcp.protocolVersion must be 2025-11-25 or 2026-07-28" -}}
 {{- end -}}
 {{- $mcpServers := include "infra-agentgateway.effectiveMcpServers" . | fromYamlArray -}}
-{{- if not (kindIs "slice" .Values.mcp.contextforgeRoutesEnabled) -}}{{ fail "mcp.contextforgeRoutesEnabled must be a list" }}{{- end -}}
+{{- $ownerIds := dict -}}
+{{- range $group := list "self-hosted-api-providers" "external-api-providers" "external-subscription-providers" -}}
+{{- range index $.Values $group }}{{ $_ := set $ownerIds .id true }}{{ end -}}
+{{- end -}}
+{{- range $mcpServers -}}
+{{- $id := printf "mcp-%s" .name -}}
+{{- if hasKey $ownerIds $id }}{{ fail "gateway entry IDs must be globally unique" }}{{ end -}}
+{{- $_ := set $ownerIds $id true -}}
+{{- end -}}
+{{- if gt (len $ownerIds) 256 }}{{ fail "gateway configuration supports at most 256 aggregate provider/server entries" }}{{ end -}}
+{{- if not (kindIs "slice" $mcp.contextforgeRoutesEnabled) -}}{{ fail "mcp-servers.contextforgeRoutesEnabled must be a list" }}{{- end -}}
 {{- $selectedNative := list -}}
 {{- range $mcpServers -}}{{- if .contextforge -}}{{- $selectedNative = append $selectedNative .name -}}{{- end -}}{{- end -}}
-{{- range .Values.mcp.contextforgeRoutesEnabled -}}
+{{- range $mcp.contextforgeRoutesEnabled -}}
 {{- if not (has . $selectedNative) -}}{{ fail "Enabled native routes must reference selected native catalog entries" }}{{- end -}}
 {{- end -}}
-{{- if and .Values.mcp.enabled (gt (len $mcpServers) 0) (not $engine.enabled) -}}
+{{- if and $mcp.enabled (gt (len $mcpServers) 0) (not $engine.enabled) -}}
 {{-   fail "guardrails.llmPolicyEngine.enabled must be true when MCP destinations are configured" -}}
 {{- end -}}
 {{- $mcpIds := dict -}}

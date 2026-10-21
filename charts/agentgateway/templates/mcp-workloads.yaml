@@ -1,4 +1,4 @@
-{{- if .Values.mcp.enabled }}
+{{- if (index .Values "mcp-servers").enabled }}
 {{- $upstreams := include "infra-agentgateway.mcpUpstreamWorkloads" . | fromYamlArray }}
 {{- $upstreamIds := dict }}
 {{- range $upstreams }}{{- $_ := set $upstreamIds .name true }}{{- end }}
@@ -10,7 +10,7 @@
 {{- $networkPolicyName := include "infra-agentgateway.mcpResourceName" (dict "id" $serverName "component" "netpol") }}
 {{- $secretName := include "infra-agentgateway.mcpResourceName" (dict "id" $serverName "component" "secret") }}
 {{- $server := . }}
-{{- $managed := and $.Values.mcp.studioSetup.enabled .credential }}
+{{- $managed := and (index $.Values "mcp-servers").studioSetup.enabled .credential }}
 {{- $record := dict }}
 {{- if $managed }}
 {{- $record = include "infra-agentgateway.mcpCredentialVersion" (dict "root" $ "id" $serverName) | fromYaml }}

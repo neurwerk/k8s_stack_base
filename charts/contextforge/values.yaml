@@ -71,7 +71,7 @@ contextforge:
 
 # Same canonical, non-routing upstream workload definitions consumed by the
 # AgentGateway chart. Project the approved client values into this namespace.
-mcp:
+mcp-servers:
   studioSetup:
     enabled: false
   upstreamWorkloads: []

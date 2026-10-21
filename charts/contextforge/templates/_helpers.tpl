@@ -15,8 +15,8 @@ app.kubernetes.io/part-of: contextforge
 {{- end -}}
 
 {{- define "contextforge.proxyEnvironment" -}}
-{{- if not (kindIs "bool" .Values.mcp.studioSetup.enabled) }}{{ fail "mcp.studioSetup.enabled must be a boolean" }}{{- end }}
-{{- if and .Values.mcp.studioSetup.enabled (not (and .Values.contextforge.setup.enabled .Values.contextforge.trustedProxy.enabled)) }}{{ fail "Studio MCP setup requires native bootstrap and trustedProxy.enabled" }}{{- end }}
+{{- if not (kindIs "bool" (index .Values "mcp-servers").studioSetup.enabled) }}{{ fail "mcp-servers.studioSetup.enabled must be a boolean" }}{{- end }}
+{{- if and (index .Values "mcp-servers").studioSetup.enabled (not (and .Values.contextforge.setup.enabled .Values.contextforge.trustedProxy.enabled)) }}{{ fail "Studio MCP setup requires native bootstrap and trustedProxy.enabled" }}{{- end }}
 {{- if .Values.contextforge.trustedProxy.enabled }}
 {{- if not .Values.contextforge.tls.enabled }}{{ fail "ContextForge trustedProxy requires native TLS" }}{{- end }}
 {{- $origin := required "ContextForge trustedProxy.studioOrigin is required" .Values.contextforge.trustedProxy.studioOrigin }}
@@ -49,7 +49,7 @@ app.kubernetes.io/part-of: contextforge
 {{- if .Values.contextforge.setup.enabled }}
 - {name: DEFAULT_TEAM_OWNER_ROLE, value: {{ .Values.contextforge.setup.ownerRoleName | quote }}}
 {{- end }}
-{{- if .Values.mcp.studioSetup.enabled }}
+{{- if (index .Values "mcp-servers").studioSetup.enabled }}
 # Install destinations even before their required shared key has been entered.
 - {name: GATEWAY_ASYNC_LIFECYCLE_ENABLED, value: "true"}
 {{- end }}

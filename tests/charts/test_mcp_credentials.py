@@ -13,7 +13,7 @@ from helm import ROOT, documents, render, resource
 
 
 def managed_values():
-    return {"mcp": {"enabled": True, "studioSetup": {"enabled": True}, "catalog": {"presets": {
+    return {"mcp-servers": {"enabled": True, "studioSetup": {"enabled": True}, "catalog": {"presets": {
         "context7": {"enabled": True}, "brave": {"enabled": True},
         "github": {"enabled": True, "registration": {"oauth": {
             "client_id": "example-app", "redirect_uri": "https://studio.example.com/oauth/callback"}}},
@@ -21,7 +21,7 @@ def managed_values():
 
 
 def studio_values():
-    return {"mcp": {"studioSetup": {"enabled": True}}, "frontendStudio": {"api": {
+    return {"mcp-servers": {"studioSetup": {"enabled": True}}, "frontendStudio": {"api": {
         "mcpSetup": {"kubernetesApiEgress": [{"cidr": "192.0.2.1/32", "port": 443},
                                              {"cidr": "198.51.100.1/32", "port": 6443}]},
         "contextforge": {"enabled": True, "accountOnboardingEnabled": True, "connectionsEnabled": True,
@@ -30,7 +30,7 @@ def studio_values():
 
 
 def native_values():
-    return {"mcp": {"studioSetup": {"enabled": True}}, "contextforge": {
+    return {"mcp-servers": {"studioSetup": {"enabled": True}}, "contextforge": {
         "trustedProxy": {"enabled": True, "studioOrigin": "https://studio.example.com",
                          "defaultUserRole": "reader", "defaultTeamMemberRole": "member"},
         "setup": {"enabled": True, "serviceAccountEmail": "studio@example.com",
@@ -39,7 +39,7 @@ def native_values():
 
 class McpCredentialsTests(unittest.TestCase):
     def test_optional_shared_key_is_projected_without_a_secret_value(self):
-        output = render("agentgateway", {"mcp": {"catalog": {"presets": {
+        output = render("agentgateway", {"mcp-servers": {"catalog": {"presets": {
             "context7": {"enabled": True},
         }}}})
         catalog = resource(output, "ConfigMap", "infra-agentgateway-mcp-catalog")
@@ -51,7 +51,7 @@ class McpCredentialsTests(unittest.TestCase):
         self.assertNotIn("apiKey", catalog["data"]["studio.json"])
 
     def test_preset_cannot_change_credential_owner(self):
-        output = render("agentgateway", {"mcp": {"catalog": {"presets": {
+        output = render("agentgateway", {"mcp-servers": {"catalog": {"presets": {
             "context7": {"enabled": True, "credential": {
                 "owner": "individual", "required": True, "method": "oauth",
             }},
@@ -64,7 +64,7 @@ class McpCredentialsTests(unittest.TestCase):
         for version, kv_version, configured in (("initial", 1, False), ("a" * 32, 2, True), ("b" * 32, 3, False)):
             with self.subTest(version=version):
                 if version != "initial":
-                    values["mcp"]["runtimeCredentials"] = {
+                    values["mcp-servers"]["runtimeCredentials"] = {
                         identity: {"version": version, "kvVersion": kv_version, "configured": configured}
                         for identity in ("context7", "brave")}
                 output = render("agentgateway", values, namespace="infra-agentgateway", release="infra-agentgateway")
@@ -131,7 +131,7 @@ class McpCredentialsTests(unittest.TestCase):
                         "kvVersion": 2, "operationId": "operation"}) for ref in runtime["data"]}
                 result = subprocess.run(["helm", "template", "metadata-test", str(chart), "--values", "-"],
                     input=json.dumps({"records": data}), capture_output=True, text=True, check=True)
-                metadata = yaml.safe_load(result.stdout)["mcp"]["runtimeCredentials"]
+                metadata = yaml.safe_load(result.stdout)["mcp-servers"]["runtimeCredentials"]
                 self.assertEqual(metadata, {identity: {"version": "a" * 32, "kvVersion": 2, "configured": bool(key)}
                                            for identity in ("brave", "context7")})
         release = yaml.safe_load((ROOT / "releases/agentgateway/app.yaml").read_text())
@@ -146,7 +146,7 @@ class McpCredentialsTests(unittest.TestCase):
                                    (["context7"], [backend_rule]), (["brave"], [deployment_rule]), (["github"], [])):
             with self.subTest(providers=selected):
                 values = managed_values()
-                for identity, preset in values["mcp"]["catalog"]["presets"].items():
+                for identity, preset in values["mcp-servers"]["catalog"]["presets"].items():
                     preset["enabled"] = identity in selected
                 scoped = render("agentgateway", values, namespace="infra-agentgateway", release="infra-agentgateway")
                 if not expected:
@@ -172,7 +172,7 @@ class McpCredentialsTests(unittest.TestCase):
         gateway = render("agentgateway", managed_values(), namespace="infra-agentgateway", release="infra-agentgateway")
         studio = render("studio/api", studio_values(), namespace="frontend-studio", release="frontend-studio-api")
         native = render("contextforge", native_values(), namespace="contextforge", release="contextforge")
-        bao = render("openbao", {"mcp": {"studioSetup": {"enabled": True}}}, namespace="infra-openbao", release="infra-openbao")
+        bao = render("openbao", {"mcp-servers": {"studioSetup": {"enabled": True}}}, namespace="infra-openbao", release="infra-openbao")
         policy = resource(gateway, "NetworkPolicy", "contextforge-providers")["spec"]
         studio_policy = resource(studio, "NetworkPolicy", "frontend-studio-api-egress-network-policy")["spec"]
         native_policy = resource(native, "NetworkPolicy", "contextforge")["spec"]

@@ -135,13 +135,13 @@ spec:
         - when: {{ printf `metadata.neurwerk_admission.provider_credential_source == "company" && extproc["neurwerk.request_context"].dispatch_destination_id == %q && extproc["neurwerk.request_context"].dispatch_binding_id == %q` $binding.localReroute $binding.localRerouteBackend.binding_id | squote }}
           modelRef: {name: {{ $name }}-local-reroute}
         {{- end }}
-        {{- range $source := $binding.credentialSources }}
+        {{- range $source := $binding.configuredCredentialSources | default $binding.credentialSources }}
         - when: {{ printf `metadata.neurwerk_admission.provider_credential_source == %q && extproc["neurwerk.request_context"].dispatch_destination_id == %q && extproc["neurwerk.request_context"].dispatch_binding_id == %q` $source $model.name $binding.id | squote }}
           modelRef:
             name: {{ $name }}-{{ ternary "personal" $source (eq $source "caller_supplied") }}
         {{- end }}
 {{- end }}
-{{- range $source := $binding.credentialSources }}
+{{- range $source := $binding.configuredCredentialSources | default $binding.credentialSources }}
 ---
 apiVersion: agentgateway.dev/v1alpha1
 kind: AgentgatewayModel

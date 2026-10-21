@@ -96,7 +96,7 @@ spec:
         - port: 3000
           protocol: TCP
     {{- end }}
-    {{- if .Values.mcp.studioSetup.enabled }}
+    {{- if (index .Values "mcp-servers").studioSetup.enabled }}
     - to:
         - namespaceSelector:
             matchLabels: {kubernetes.io/metadata.name: infra-openbao}

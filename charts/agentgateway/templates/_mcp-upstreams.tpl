@@ -1,10 +1,10 @@
 {{- define "infra-agentgateway.mcpUpstreamWorkloads" -}}
-{{- $upstreams := deepCopy (.Values.mcp.upstreamWorkloads | default list) -}}
+{{- $upstreams := deepCopy ((index .Values "mcp-servers").upstreamWorkloads | default list) -}}
 {{- if not (kindIs "slice" $upstreams) -}}{{ fail "mcp.upstreamWorkloads must be a list" }}{{- end -}}
 {{- $overrides := dict -}}
 {{- range $upstreams -}}{{- $_ := set $overrides .name true -}}{{- end -}}
 {{- $presets := .Files.Get "catalog/presets.yaml" | fromYaml -}}
-{{- range $id, $selection := .Values.mcp.catalog.presets | default dict -}}
+{{- range $id, $selection := (index .Values "mcp-servers").catalog.presets | default dict -}}
 {{- $preset := get $presets $id | default dict -}}
 {{- if and $selection.enabled $preset.upstreamWorkload (not (hasKey $overrides $id)) -}}
 {{- $upstreams = append $upstreams (deepCopy $preset.upstreamWorkload) -}}
@@ -40,7 +40,7 @@
 {{- $url := printf "http://%s.infra-agentgateway.svc.cluster.local:%d%s" $service (int $port) $path -}}
 {{- $entry := get $native $id -}}
 {{- if ne ($entry.registration.upstream_url | default "") $url -}}{{ fail "native registration.upstream_url must match its retained upstream workload Service, port and path" }}{{- end -}}
-{{- if $.Values.mcp.studioSetup.enabled -}}
+{{- if (index $.Values "mcp-servers").studioSetup.enabled -}}
 {{- if and $entry.credential (eq $entry.credential.method "upstream-env") -}}
 {{- $_ := set $upstream "credential" $entry.credential -}}
 {{- if ne (len ($upstream.workload.secretEnv | default list)) 1 -}}{{ fail "MCP upstream-env requires exactly one apiKey Secret environment reference" }}{{- end -}}

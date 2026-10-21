@@ -102,7 +102,7 @@ class ErrorContractTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(hashlib.sha256(binary.read_bytes()).hexdigest(), SHA256)
         self.assertEqual((platform.system(), platform.machine()), ("Linux", "x86_64"))
         values = binding_values()
-        values["aiGateway"]["bindings"][0]["models"][0]["piiEnabled"] = False
+        values["external-api-providers"][0]["models"][0]["piiEnabled"] = False
         rendered = render("agentgateway", values)
         auth_calls, provider_calls, errors = [], [], []
         release, finished = threading.Event(), threading.Event()

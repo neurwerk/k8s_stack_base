@@ -1,12 +1,12 @@
-{{- if .Values.mcp.enabled }}
+{{- if (index .Values "mcp-servers").enabled }}
 {{- if not .Values.externalGateway.enabled }}{{- fail "mcp.enabled requires externalGateway.enabled so external MCP clients have a public HTTPS route" }}{{- end }}
 {{- range include "infra-agentgateway.effectiveMcpServers" . | fromYamlArray }}
-{{- if or (not .contextforge) (has .name $.Values.mcp.contextforgeRoutesEnabled) }}
+{{- if or (not .contextforge) (has .name (index $.Values "mcp-servers").contextforgeRoutesEnabled) }}
 {{- $serverName := .name }}
 {{- $backendName := include "infra-agentgateway.mcpResourceName" (dict "id" $serverName "component" "be") }}
 {{- $serviceName := include "infra-agentgateway.mcpResourceName" (dict "id" $serverName "component" "svc") }}
 {{- $secretName := include "infra-agentgateway.mcpResourceName" (dict "id" $serverName "component" "secret") }}
-{{- $approvedHosts := $.Values.mcp.approvedHosts | default list }}
+{{- $approvedHosts := (index $.Values "mcp-servers").approvedHosts | default list }}
 {{- $permission := printf "mcp:%s:invoke" .name }}
 {{- if not (has $permission ($.Values.authKeycloak.agentgatewayClientRoles | default list)) }}{{- fail (printf "mcp server %q requires %q in authKeycloak.agentgatewayClientRoles" .name $permission) }}{{- end }}
 {{- if and .workload .host }}{{- fail (printf "mcp server %q cannot set both workload and host" .name) }}{{- end }}

@@ -1,6 +1,6 @@
-{{- if .Values.mcp.enabled }}
+{{- if (index .Values "mcp-servers").enabled }}
 {{- range include "infra-agentgateway.effectiveMcpServers" . | fromYamlArray }}
-{{- if or (not .contextforge) (has .name $.Values.mcp.contextforgeRoutesEnabled) }}
+{{- if or (not .contextforge) (has .name (index $.Values "mcp-servers").contextforgeRoutesEnabled) }}
 {{- $serverName := .name }}
 {{- $routeName := include "infra-agentgateway.mcpResourceName" (dict "id" $serverName "component" "route") }}
 {{- $backendName := include "infra-agentgateway.mcpResourceName" (dict "id" $serverName "component" "be") }}

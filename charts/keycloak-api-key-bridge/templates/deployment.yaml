@@ -1,16 +1,23 @@
-{{- if ne .Values.authKeycloakApiKeyBridge.bridgeImage "ghcr.io/neurwerk/k8s-stack-keycloak-api-key-bridge:0.10.2@sha256:f53d18a1953c0e4def736b062637227d2d34e574e01ccfec88d717e3d329dd80" }}
-{{- fail "bridge requires the verified PostgreSQL-compatible 0.10.2 image pin" }}
+{{- if ne .Values.authKeycloakApiKeyBridge.bridgeImage "ghcr.io/neurwerk/k8s-stack-keycloak-api-key-bridge:0.10.3@sha256:65e87317b362a0256f6bccbab5dc9514dbbf81ccafbee52b5a4e81369a6ee6c8" }}
+{{- fail "bridge requires the verified binding-scoped discovery 0.10.3 image pin" }}
 {{- end }}
 {{- if or (hasKey .Values.authKeycloakApiKeyBridge.postgres "enabled") (hasKey .Values.authKeycloakApiKeyBridge "persistence") (hasKey .Values.authKeycloakApiKeyBridge.config "database_url") }}
 {{- fail "bridge is PostgreSQL-only; remove legacy postgres.enabled, persistence and config.database_url values" }}
 {{- end }}
 {{- $registrations := .Values.authKeycloakApiKeyBridge.managedRegistrations | default list }}
 {{- $managedFiles := list }}
-{{- $discovery := .Values.aiGateway.localModelDiscovery | default dict }}
-{{- $discoveryClients := list "agentgateway" }}
-{{- if $discovery.enabled }}
-{{- range .Values.aiGateway.approvedOidcClients | default list }}
-{{- if has $discovery.bindingId .bindings }}{{ $discoveryClients = append $discoveryClients .clientId }}{{ end }}
+{{- $oidcBindings := dict }}
+{{- range $group := list "self-hosted-api-providers" "external-api-providers" }}
+{{- range index $.Values $group | default list }}
+{{- if and .enabled .routes.api.enabled }}
+{{- $id := .id }}
+{{- if hasKey $oidcBindings $id }}{{ fail "discovery binding IDs must be unique" }}{{ end }}
+{{- $clients := list }}
+{{- range $.Values.aiGateway.approvedOidcClients | default list }}
+{{- if has $id .bindings }}{{ $clients = append $clients .clientId }}{{ end }}
+{{- end }}
+{{- $_ := set $oidcBindings $id ($clients | uniq) }}
+{{- end }}
 {{- end }}
 {{- end }}
 {{- range $index, $registration := $registrations }}
@@ -126,8 +133,8 @@ spec:
               value: {{ .Values.authKeycloakApiKeyBridge.config.max_keys_per_user | quote }}
             - name: KEYCLOAK_API_KEY_BRIDGE_LOG_LEVEL
               value: {{ .Values.authKeycloakApiKeyBridge.config.log_level | quote }}
-            - name: KEYCLOAK_API_KEY_BRIDGE_GATEWAY_CALLER_OIDC_CLIENTS
-              value: {{ $discoveryClients | uniq | toJson | quote }}
+            - name: KEYCLOAK_API_KEY_BRIDGE_GATEWAY_CALLER_OIDC_CLIENTS_BY_BINDING
+              value: {{ $oidcBindings | toJson | quote }}
             {{- if $registrations }}
             - name: KEYCLOAK_API_KEY_BRIDGE_MANAGED_REGISTRATIONS
               value: {{ $managedFiles | toJson | quote }}

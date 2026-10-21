@@ -20,9 +20,8 @@ authKeycloak:
 # Shared client values also supply the Gateway's opt-in discovery approvals.
 aiGateway:
   approvedOidcClients: []
-  localModelDiscovery:
-    enabled: false
-    bindingId: ""
+self-hosted-api-providers: []
+external-api-providers: []
 
 # Platform-owned OpenRouter entries derive the complete role catalog.
 openrouterCatalog:
@@ -33,7 +32,7 @@ openrouterCatalog:
 
 # ── Chart own values ────────────────────────────────────────────────────────
 authKeycloakApiKeyBridge:
-  bridgeImage: ghcr.io/neurwerk/k8s-stack-keycloak-api-key-bridge:0.10.2@sha256:f53d18a1953c0e4def736b062637227d2d34e574e01ccfec88d717e3d329dd80
+  bridgeImage: ghcr.io/neurwerk/k8s-stack-keycloak-api-key-bridge:0.10.3@sha256:65e87317b362a0256f6bccbab5dc9514dbbf81ccafbee52b5a4e81369a6ee6c8
   # Add-ons can register managed keys separately; Base requires none by default.
   managedRegistrations: []
   hostname: ""

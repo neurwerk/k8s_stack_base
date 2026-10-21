@@ -1,4 +1,4 @@
-{{- $catalog := .Values.mcp.catalog | default dict -}}
+{{- $catalog := (index .Values "mcp-servers").catalog | default dict -}}
 {{- if or (not (empty $catalog.presets)) (not (empty $catalog.custom)) -}}
 {{- $servers := include "infra-agentgateway.effectiveMcpServers" . | fromYamlArray -}}
 {{- $studio := list -}}
@@ -11,7 +11,7 @@
 {{- $_ := set $connection "checks" ($server.checks | default list) -}}
 {{- $_ := set $connection "upstream_url" $server.registration.upstream_url -}}
 {{- if $server.credential -}}{{- $_ := set $connection "credential" $server.credential -}}{{- end -}}
-{{- if $.Values.mcp.studioSetup.enabled -}}
+{{- if (index $.Values "mcp-servers").studioSetup.enabled -}}
 {{- if or (empty $server.credential) (not (regexMatch `^[a-z0-9][a-z0-9-]{0,47}$` $server.name)) -}}{{- fail "Studio MCP setup requires a credential policy and a lowercase integration ID of at most 48 characters" -}}{{- end -}}
 {{- if ne ($server.registration.visibility | default "public") "public" -}}{{- fail "Studio MCP setup requires public native visibility behind private ingress" -}}{{- end -}}
 {{- if eq $server.credential.method "gateway-header" -}}
@@ -41,7 +41,7 @@
 {{- $_ := set $registration "permission" (printf "mcp:%s:invoke" $server.name) -}}
 {{- $_ := set $registration "public_route" (printf "/mcp/%s" $server.name) -}}
 {{- $_ := set $registration "content_trace" $server.contentTracingEnabled -}}
-{{- if $.Values.mcp.studioSetup.enabled -}}
+{{- if (index $.Values "mcp-servers").studioSetup.enabled -}}
 {{- $_ := set $registration "studio_managed" true -}}
 {{- $_ := set $registration "credential" $server.credential -}}
 {{- if $connection.native_url -}}
@@ -57,8 +57,8 @@ metadata:
   name: infra-agentgateway-mcp-catalog
   namespace: infra-agentgateway
 data:
-  studioSetup: {{ .Values.mcp.studioSetup.enabled | quote }}
-  catalogHash: {{ .Values.mcp.catalog | toJson | sha256sum | quote }}
+  studioSetup: {{ (index .Values "mcp-servers").studioSetup.enabled | quote }}
+  catalogHash: {{ (index .Values "mcp-servers").catalog | toJson | sha256sum | quote }}
   # Backend-only operator artifacts. Rendering does not reconcile or enable MCP.
   catalog.json: {{ $servers | toJson | quote }}
   studio.json: {{ $studio | toJson | quote }}

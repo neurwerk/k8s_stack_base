@@ -33,7 +33,7 @@ spec:
             matchLabels:
               app.kubernetes.io/name: infra-agentgateway-gateway
               gateway.networking.k8s.io/gateway-name: infra-agentgateway-gateway
-        {{- if .Values.mcp.studioSetup.enabled }}
+        {{- if (index .Values "mcp-servers").studioSetup.enabled }}
         - podSelector:
             matchLabels:
               gateway.networking.k8s.io/gateway-name: contextforge-providers

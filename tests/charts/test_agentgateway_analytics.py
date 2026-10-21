@@ -18,7 +18,7 @@ GATEWAY_PEER = {
 class AgentGatewayAnalyticsTests(unittest.TestCase):
     def test_logging_does_not_depend_on_guardrails_or_tracing(self):
         result = render("agentgateway", {
-            "aiGateway": {"bindings": []},
+            "external-api-providers": [],
             "guardrails": {"llmPolicyEngine": {"enabled": False, "models": []}},
             "infraAgentgatewayWrapper": {"tracing": None},
         })
