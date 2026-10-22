@@ -152,7 +152,9 @@ mcp-servers:
 # routes.api: {enabled: true, path: /provider/api}; path excludes /v1 and
 # defaults to /bindings/<id>. routes.inspected: {enabled: false}.
 # Classification never chooses backend authentication: credentialSources does.
-# Supplied credentials never fall back to company billing; company mode requires
+# credentialSources: global (shared credential), override (caller credential), or none.
+# Legacy company/caller_supplied inputs remain accepted; runtime enums are unchanged.
+# Override credentials never fall back to global billing; global mode requires
 # the provider grant and a provisioned credential in the approved Secret input.
 # Self-hosted and external API entries expose catalog-based model discovery.
 # Limits: 256 provider/server entries total, 32 models per provider, 256 models total,
