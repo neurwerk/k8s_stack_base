@@ -11,6 +11,11 @@ postgresOperations:
   containerPorts:
     postgresql: 9712
     documentdb: 10260
+  # Shared PostgreSQL startup limits; changes restart PostgreSQL and DocumentDB.
+  # Budget client pools together (including DocumentDB); connections are not a
+  # promise of simultaneous query capacity within the shared 4Gi memory limit.
+  maxConnections: 200
+  maxLocksPerTransaction: 512
   pgCron:
     # Record new runs in cron.job_run_details; existing history and statement logs are retained.
     # Changing this startup setting restarts the shared PostgreSQL/DocumentDB pod.
