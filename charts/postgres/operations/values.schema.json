@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "postgresOperations": {
+      "type": "object",
+      "required": ["maxConnections", "maxLocksPerTransaction"],
+      "properties": {
+        "maxConnections": {
+          "type": "integer",
+          "minimum": 20,
+          "maximum": 500,
+          "description": "Shared PostgreSQL connection limit, including DocumentDB connections. Review application pool totals and container memory before increasing; changing requires a restart."
+        },
+        "maxLocksPerTransaction": {
+          "type": "integer",
+          "minimum": 64,
+          "maximum": 4096,
+          "description": "Average lock-table budget per transaction. Shared memory scales with this value times maxConnections; changing requires a restart."
+        }
+      }
+    }
+  }
+}
