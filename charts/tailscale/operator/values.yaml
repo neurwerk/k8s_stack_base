@@ -1,0 +1,41 @@
+# IMAGE SOURCE: upstream
+tailscale:
+  # Selection and credential staging do not activate the suspended HelmRelease.
+  enabled: false
+  # Existing namespace-local Secret with client_id and client_secret only.
+  oauthSecret: operator-oauth
+  oauthSecretVolume:
+    secret:
+      secretName: operator-oauth
+  # Empty selects hosted Tailscale; custom control planes require verified HTTPS.
+  loginServer: ""
+  # Upstream joins repository and tag; include the verified digest in the tag.
+  operatorConfig:
+    image:
+      repository: ghcr.io/tailscale/k8s-operator
+      tag: v1.104.2@sha256:9cddfcbe75a7eab2b46d610966d519a28699a5e38235a2cb3aec960487c4aa48
+      digest: ""
+      pullPolicy: IfNotPresent
+    resources:
+      requests: {cpu: 50m, memory: 128Mi}
+      limits: {cpu: 500m, memory: 512Mi}
+    podSecurityContext:
+      runAsNonRoot: true
+      runAsUser: 1000
+      runAsGroup: 1000
+      seccompProfile: {type: RuntimeDefault}
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities: {drop: [ALL]}
+      readOnlyRootFilesystem: true
+  proxyConfig:
+    image:
+      repository: ghcr.io/tailscale/tailscale
+      tag: v1.104.2@sha256:b11583ad2e93e4671128538c88cf11f460444a5d7e449311dd1933a400ab849d
+      digest: ""
+  # Approved API transport is separate TCP passthrough preserving client-cert
+  # auth. Activation is held for the stock privileged-proxy risk decision;
+  # neither impersonation nor the TLS-terminating noauth proxy is used.
+  apiServerProxyConfig:
+    mode: "false"
+    allowImpersonation: "false"

@@ -1,0 +1,57 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "tailscale": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "oauthSecret", "oauthSecretVolume", "loginServer", "apiServerProxyConfig"],
+      "properties": {
+        "enabled": {"type": "boolean"},
+        "api": {"type": "object"},
+        "oauthSecret": {"const": "operator-oauth"},
+        "oauthSecretVolume": {"const": {"secret": {"secretName": "operator-oauth"}}},
+        "loginServer": {"type": "string", "pattern": "^$|^https://[a-zA-Z0-9]([a-zA-Z0-9.-]*[a-zA-Z0-9])?(:[0-9]{1,5})?/?$"},
+        "apiServerProxyConfig": {"const": {"mode": "false", "allowImpersonation": "false"}},
+        "oauth": {"const": {"clientId": "", "clientSecret": "", "audience": ""}},
+        "nameOverride": {"const": ""},
+        "fullnameOverride": {"const": ""},
+        "installCRDs": {"const": true},
+        "ingressClass": {"const": {"name": "tailscale", "enabled": true}},
+        "imagePullSecrets": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["name"], "properties": {"name": {"type": "string", "minLength": 1}}}},
+        "operatorConfig": {
+          "type": "object", "additionalProperties": false,
+          "properties": {
+            "image": {"const": {"repository": "ghcr.io/tailscale/k8s-operator", "tag": "v1.104.2@sha256:9cddfcbe75a7eab2b46d610966d519a28699a5e38235a2cb3aec960487c4aa48", "digest": "", "pullPolicy": "IfNotPresent"}},
+            "hostname": {"type": "string", "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$", "maxLength": 63},
+            "defaultTags": {"type": "array", "minItems": 1, "items": {"type": "string", "pattern": "^tag:[a-zA-Z0-9-]+$"}},
+            "logging": {"enum": ["info", "debug", "dev"]},
+            "resources": {"type": "object"},
+            "nodeSelector": {"type": "object", "additionalProperties": {"type": "string"}},
+            "tolerations": {"type": "array"},
+            "affinity": {"type": "object"},
+            "priorityClassName": {"type": "string"},
+            "annotations": {"type": "object", "additionalProperties": {"type": "string"}},
+            "podAnnotations": {"type": "object", "additionalProperties": {"type": "string"}},
+            "podLabels": {"type": "object", "additionalProperties": {"type": "string"}},
+            "serviceAccountAnnotations": {"type": "object", "additionalProperties": {"type": "string"}},
+            "podSecurityContext": {"type": "object"},
+            "securityContext": {"type": "object"},
+            "sharedACMEAccountKey": {"const": false},
+            "extraEnv": {"const": []}
+          }
+        },
+        "proxyConfig": {
+          "type": "object", "additionalProperties": false,
+          "properties": {
+            "image": {"const": {"repository": "ghcr.io/tailscale/tailscale", "tag": "v1.104.2@sha256:b11583ad2e93e4671128538c88cf11f460444a5d7e449311dd1933a400ab849d", "digest": ""}},
+            "defaultTags": {"type": "string", "pattern": "^tag:[a-zA-Z0-9-]+(,tag:[a-zA-Z0-9-]+)*$"},
+            "firewallMode": {"const": "auto"},
+            "defaultProxyClass": {"const": ""}
+          }
+        },
+        "global": {"type": "object"}
+      }
+    }
+  }
+}
