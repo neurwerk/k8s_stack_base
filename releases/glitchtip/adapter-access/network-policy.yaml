@@ -1,0 +1,21 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: glitchtip-adapter
+  namespace: monitor-opensearch
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: opensearch-v3
+      app.kubernetes.io/instance: monitor-opensearch
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: glitchtip}
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: glitchtip
+              app.kubernetes.io/instance: glitchtip
+              app.kubernetes.io/component: adapter
+      ports: [{protocol: TCP, port: 9200}]

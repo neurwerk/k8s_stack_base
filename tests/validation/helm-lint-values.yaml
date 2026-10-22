@@ -1,5 +1,7 @@
 # Synthetic, non-secret values used by the chart validation targets.
 # HelmRelease ConfigMaps and Secrets provide these values in deployments.
+glitchtip:
+  enabled: true
 contextforge:
   enabled: true
   tls:

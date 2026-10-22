@@ -1,0 +1,82 @@
+glitchtip:
+  # Also selects the optional credential catalog through product values.
+  enabled: false
+  image: docker.io/glitchtip/glitchtip:6.2.6@sha256:a3d8eb1b36c1e1603d55ab32711ea3dd8115874742a781a57391a62a16e0dff6
+  runtimeSecret: glitchtip-runtime
+  domain: https://glitchtip.example.com
+  fromEmail: glitchtip@example.com
+  retentionDays: 30
+  uptimeEnabled: false
+  # Keep private-IP monitoring off unless separately reviewed.
+  uptimeAllowPrivateIPs: false
+  storage:
+    size: 5Gi
+    storageClassName: ""
+  gateway:
+    issuerName: letsencrypt-production-cluster-issuer
+    status:
+      enabled: false
+      hostname: status.example.com
+      # Public root and this exact view only; no application/admin routes.
+      pagePath: ""
+    ui:
+      enabled: false
+      hostname: glitchtip.example.com
+      # TCP/TLS passthrough via the existing operator, never a public UI route.
+      # Map hostname above to the operator-reported tailnet DNS name/IP privately.
+      tailscale:
+        hostname: ""
+        # Dedicated reviewed UI tag(s)/ACL; never inherit the API transport tag.
+        tags: []
+      resources:
+        requests: {cpu: 100m, memory: 256Mi}
+        limits: {cpu: "1", memory: 1Gi}
+  # SMTP egress must be explicitly selected; no unrestricted Internet egress.
+  smtp:
+    host: smtp.example.com
+    cidrs: []
+    port: 465
+  # Optional uptime destinations; keep empty when uptime is disabled.
+  uptime:
+    cidrs: []
+    ports: [443]
+  resources:
+    requests: {cpu: 100m, memory: 512Mi}
+    limits: {cpu: "2", memory: 2Gi}
+  provisioning:
+    # First stage with adapter disabled. Save/verify the DSN through stack-setup,
+    # then disable provisioning before enabling the adapter (no readiness cycle).
+    enabled: false
+    image: ghcr.io/neurwerk/k8s-stack-tooling:0.13.0@sha256:1ad7aff3f747041e830bbe34ab6f4710daf11f8f5408eb7325dc934badbd0919
+    initialOwnerSecret: glitchtip-owner
+    # Native schema: organization/project {slug,name}, team {slug},
+    # alert {name,alertRecipients:[{recipientType:email}],timespanMinutes?};
+    # optional monitors and statusPage. Credentials never belong in this object.
+    # Webhook secrets/recipients are intentionally unsupported by this chart.
+    config: {}
+    resources:
+      requests: {cpu: 50m, memory: 256Mi}
+      limits: {cpu: 500m, memory: 1Gi}
+  adapter:
+    enabled: false
+    image: ghcr.io/neurwerk/k8s-stack-tooling:0.13.0@sha256:1ad7aff3f747041e830bbe34ab6f4710daf11f8f5408eb7325dc934badbd0919
+    credentialsSecret: glitchtip-adapter
+    environment: production
+    # Required for first activation. Existing state owns subsequent cursors.
+    initialStartAt: ""
+    pollSeconds: 60
+    overlapSeconds: 900
+    settleSeconds: 30
+    # The adapter validates namespace/container and stable app/service labels.
+    # No query/PPL input is accepted by this chart.
+    scopes: []
+    opensearchURL: https://opensearch-v3-master.monitor-opensearch.svc.cluster.local:9200
+    opensearchCAConfigMap: glitchtip-opensearch-ca
+    # Optional additional CA for the DSN endpoint; system trust otherwise.
+    glitchtipCAConfigMap: ""
+    storage:
+      size: 1Gi
+      storageClassName: ""
+    resources:
+      requests: {cpu: 50m, memory: 128Mi}
+      limits: {cpu: 500m, memory: 512Mi}

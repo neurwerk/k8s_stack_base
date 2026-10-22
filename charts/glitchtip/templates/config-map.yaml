@@ -1,0 +1,42 @@
+{{- if .Values.glitchtip.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: glitchtip-settings
+  labels:
+    {{- include "glitchtip.labels" . | nindent 4 }}
+data:
+  SERVER_ROLE: all_in_one
+  VALKEY_URL: ""
+  GLITCHTIP_DOMAIN: {{ .Values.glitchtip.domain | quote }}
+  DEFAULT_FROM_EMAIL: {{ .Values.glitchtip.fromEmail | quote }}
+  ALLOWED_HOSTS: {{ printf "%s,%s,glitchtip,glitchtip.%s.svc,glitchtip.%s.svc.cluster.local" (urlParse .Values.glitchtip.domain).hostname .Values.glitchtip.gateway.status.hostname .Release.Namespace .Release.Namespace | quote }}
+  CSRF_TRUSTED_ORIGINS: {{ .Values.glitchtip.domain | quote }}
+  EMAIL_HOST: {{ .Values.glitchtip.smtp.host | quote }}
+  EMAIL_PORT: {{ .Values.glitchtip.smtp.port | quote }}
+  EMAIL_USE_SSL: "true"
+  EMAIL_USE_TLS: "false"
+  EMAIL_ENABLED: "true"
+  EMAIL_TIMEOUT: "30"
+  ENABLE_USER_REGISTRATION: "false"
+  ENABLE_SOCIAL_APPS_USER_REGISTRATION: "false"
+  ENABLE_ORGANIZATION_CREATION: "false"
+  GLITCHTIP_ENABLE_UPTIME: {{ .Values.glitchtip.uptimeEnabled | quote }}
+  GLITCHTIP_UPTIME_ALLOW_PRIVATE_IPS: {{ .Values.glitchtip.uptimeAllowPrivateIPs | quote }}
+  GLITCHTIP_ENABLE_LOGS: "false"
+  GLITCHTIP_ENABLE_MCP: "false"
+  GLITCHTIP_ENABLE_DUCKDB: "false"
+  GLITCHTIP_RETENTION_DAYS: {{ .Values.glitchtip.retentionDays | quote }}
+  GLITCHTIP_RELEASE_RETENTION_DAYS: {{ .Values.glitchtip.retentionDays | quote }}
+{{- if .Values.glitchtip.adapter.enabled }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: glitchtip-adapter-scopes
+  labels:
+    {{- include "glitchtip.labels" . | nindent 4 }}
+data:
+  scopes.json: {{ .Values.glitchtip.adapter.scopes | toJson | quote }}
+{{- end }}
+{{- end }}

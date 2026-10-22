@@ -1,0 +1,220 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "glitchtip": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "image", "runtimeSecret", "domain", "fromEmail", "retentionDays", "uptimeEnabled", "uptimeAllowPrivateIPs", "storage", "gateway", "smtp", "uptime", "resources", "provisioning", "adapter"],
+      "properties": {
+        "enabled": {"type": "boolean"},
+        "image": {"type": "string", "pattern": "^docker.io/glitchtip/glitchtip:6\\.2\\.6@sha256:[a-f0-9]{64}$"},
+        "runtimeSecret": {"type": "string", "minLength": 1},
+        "domain": {"type": "string", "pattern": "^https://[a-zA-Z0-9.-]+$"},
+        "fromEmail": {"type": "string", "minLength": 3},
+        "retentionDays": {"type": "integer", "minimum": 1, "maximum": 365},
+        "uptimeEnabled": {"type": "boolean"},
+        "uptimeAllowPrivateIPs": {"type": "boolean"},
+        "storage": {"$ref": "#/definitions/storage"},
+        "gateway": {
+          "type": "object", "additionalProperties": false,
+          "required": ["issuerName", "status", "ui"],
+          "properties": {
+            "issuerName": {"enum": ["letsencrypt-production-cluster-issuer", "letsencrypt-staging-cluster-issuer"]},
+            "status": {
+              "type": "object", "additionalProperties": false,
+              "required": ["enabled", "hostname", "pagePath"],
+              "properties": {
+                "enabled": {"type": "boolean"},
+                "hostname": {"$ref": "#/definitions/hostname"},
+                "pagePath": {"type": "string"}
+              }
+            },
+            "ui": {
+              "type": "object", "additionalProperties": false,
+              "required": ["enabled", "hostname", "tailscale", "resources"],
+              "properties": {
+                "enabled": {"type": "boolean"},
+                "hostname": {"$ref": "#/definitions/hostname"},
+                "tailscale": {
+                  "type": "object", "additionalProperties": false,
+                  "required": ["hostname", "tags"],
+                  "properties": {
+                    "hostname": {"type": "string", "maxLength": 63},
+                    "tags": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^tag:[a-zA-Z0-9-]+$"}}
+                  }
+                },
+                "resources": {"type": "object"}
+              },
+              "allOf": [{
+                "if": {"properties": {"enabled": {"const": true}}},
+                "then": {"properties": {"tailscale": {"properties": {
+                  "hostname": {"minLength": 1, "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"},
+                  "tags": {"minItems": 1}
+                }}}}
+              }]
+            }
+          }
+        },
+        "smtp": {
+          "type": "object", "additionalProperties": false,
+          "required": ["host", "cidrs", "port"],
+          "properties": {
+            "host": {"$ref": "#/definitions/hostname"},
+            "cidrs": {"$ref": "#/definitions/cidrs"},
+            "port": {"$ref": "#/definitions/port"}
+          }
+        },
+        "uptime": {
+          "type": "object", "additionalProperties": false,
+          "required": ["cidrs", "ports"],
+          "properties": {
+            "cidrs": {"$ref": "#/definitions/cidrs"},
+            "ports": {"type": "array", "minItems": 1, "items": {"$ref": "#/definitions/port"}}
+          }
+        },
+        "resources": {"type": "object"},
+        "provisioning": {
+          "type": "object", "additionalProperties": false,
+          "required": ["enabled", "image", "initialOwnerSecret", "config", "resources"],
+          "properties": {
+            "enabled": {"type": "boolean"},
+            "image": {"type": "string"},
+            "initialOwnerSecret": {"type": "string", "minLength": 1},
+            "config": {"type": "object"},
+            "resources": {"type": "object"}
+          },
+          "allOf": [{
+            "if": {"properties": {"enabled": {"const": true}}},
+            "then": {"properties": {
+              "image": {"pattern": "^ghcr.io/neurwerk/k8s-stack-tooling:[0-9]+\\.[0-9]+\\.[0-9]+@sha256:[a-f0-9]{64}$"},
+              "config": {"$ref": "#/definitions/provisioningConfig"}
+            }}
+          }]
+        },
+        "adapter": {
+          "type": "object", "additionalProperties": false,
+          "required": ["enabled", "image", "credentialsSecret", "environment", "initialStartAt", "pollSeconds", "overlapSeconds", "settleSeconds", "scopes", "opensearchURL", "opensearchCAConfigMap", "glitchtipCAConfigMap", "storage", "resources"],
+          "properties": {
+            "enabled": {"type": "boolean"},
+            "image": {"type": "string"},
+            "credentialsSecret": {"type": "string", "minLength": 1},
+            "environment": {"type": "string", "minLength": 1},
+            "initialStartAt": {"type": "string"},
+            "pollSeconds": {"type": "integer", "minimum": 1, "maximum": 3600},
+            "overlapSeconds": {"type": "integer", "minimum": 0, "maximum": 86400},
+            "settleSeconds": {"type": "integer", "minimum": 0, "maximum": 3600},
+            "scopes": {"type": "array", "maxItems": 32, "items": {"$ref": "#/definitions/scope"}},
+            "opensearchURL": {"type": "string", "pattern": "^https://[a-zA-Z0-9.-]+:9200$"},
+            "opensearchCAConfigMap": {"type": "string", "minLength": 1},
+            "glitchtipCAConfigMap": {"type": "string"},
+            "storage": {"$ref": "#/definitions/storage"},
+            "resources": {"type": "object"}
+          },
+          "allOf": [{
+            "if": {"properties": {"enabled": {"const": true}}},
+            "then": {"properties": {
+              "image": {"pattern": "^ghcr.io/neurwerk/k8s-stack-tooling:[0-9]+\\.[0-9]+\\.[0-9]+@sha256:[a-f0-9]{64}$"},
+              "initialStartAt": {"pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?Z$"},
+              "scopes": {"minItems": 1}
+            }}
+          }]
+        }
+      }
+    }
+  },
+  "definitions": {
+    "slug": {"type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"},
+    "namedIdentity": {
+      "type": "object", "additionalProperties": false,
+      "required": ["slug", "name"],
+      "properties": {
+        "slug": {"$ref": "#/definitions/slug"},
+        "name": {"type": "string", "minLength": 1}
+      }
+    },
+    "provisioningConfig": {
+      "type": "object", "additionalProperties": false,
+      "required": ["organization", "team", "project", "alert"],
+      "properties": {
+        "organization": {"$ref": "#/definitions/namedIdentity"},
+        "project": {"$ref": "#/definitions/namedIdentity"},
+        "team": {
+          "type": "object", "additionalProperties": false,
+          "required": ["slug"], "properties": {"slug": {"$ref": "#/definitions/slug"}}
+        },
+        "alert": {
+          "type": "object", "additionalProperties": false,
+          "required": ["name", "alertRecipients"],
+          "properties": {
+            "name": {"type": "string", "minLength": 1},
+            "timespanMinutes": {"type": "integer", "minimum": 1, "maximum": 1440},
+            "alertRecipients": {
+              "type": "array", "minItems": 1,
+              "items": {
+                "type": "object", "additionalProperties": false,
+                "required": ["recipientType"],
+                "properties": {
+                  "recipientType": {"const": "email"},
+                  "url": {"const": ""},
+                  "tagsToAdd": {"type": "array", "items": {"type": "string"}}
+                }
+              }
+            }
+          }
+        },
+        "monitors": {
+          "type": "array", "maxItems": 100,
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["name", "url"],
+            "properties": {
+              "name": {"type": "string", "minLength": 1},
+              "url": {"type": "string", "pattern": "^https?://"},
+              "interval": {"type": "integer", "minimum": 1, "maximum": 86400},
+              "timeout": {"type": "integer", "minimum": 1, "maximum": 60},
+              "expectedStatus": {"type": "integer", "minimum": 100, "maximum": 599},
+              "expectedBody": {"type": "string"},
+              "allowPrivateIPs": {"type": "boolean"}
+            }
+          }
+        },
+        "statusPage": {
+          "type": "object", "additionalProperties": false,
+          "required": ["name", "isPublic", "monitorNames"],
+          "properties": {
+            "name": {"type": "string", "minLength": 1},
+            "isPublic": {"type": "boolean"},
+            "monitorNames": {"type": "array", "uniqueItems": true, "items": {"type": "string"}}
+          }
+        }
+      }
+    },
+    "hostname": {"type": "string", "pattern": "^[a-zA-Z0-9]([a-zA-Z0-9.-]*[a-zA-Z0-9])?$"},
+    "identifier": {"type": "string", "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$"},
+    "selection": {"type": "array", "minItems": 1, "maxItems": 32, "uniqueItems": true, "items": {"$ref": "#/definitions/identifier"}},
+    "scope": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "application", "service", "namespaces", "containers", "failure_types"],
+      "properties": {
+        "id": {"$ref": "#/definitions/identifier"},
+        "application": {"$ref": "#/definitions/identifier"},
+        "service": {"$ref": "#/definitions/identifier"},
+        "namespaces": {"$ref": "#/definitions/selection"},
+        "containers": {"$ref": "#/definitions/selection"},
+        "failure_types": {"$ref": "#/definitions/selection"},
+        "release": {"$ref": "#/definitions/identifier"}
+      }
+    },
+    "port": {"type": "integer", "minimum": 1, "maximum": 65535},
+    "cidrs": {"type": "array", "items": {"type": "string", "minLength": 3}},
+    "storage": {
+      "type": "object", "additionalProperties": false,
+      "required": ["size", "storageClassName"],
+      "properties": {
+        "size": {"type": "string", "pattern": "^[1-9][0-9]*(Mi|Gi|Ti)$"},
+        "storageClassName": {"type": "string"}
+      }
+    }
+  }
+}

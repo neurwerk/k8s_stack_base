@@ -19,6 +19,58 @@ packages:
   - releases/infrastructure
   - releases/applications
   optional:
+  - path: releases/namespaces/glitchtip
+    status: included
+    reason: Optional isolated GlitchTip namespace; selected only by clients using this product.
+    chartPrefixes: []
+  - path: releases/glitchtip/secret-sync
+    status: included
+    reason: Optional app-owned credential delivery; reconcile the selected catalog and approved SMTP credentials before startup.
+    chartPrefixes: []
+    prerequisites:
+    - name: openbao-stack-setup
+      version: 0.6.0
+      source: https://github.com/neurwerk/k8s_stack_tooling/commit/2825f854c8c15a1ce259988eeca8901bf6f3d496
+  - path: releases/glitchtip/postgres
+    status: included
+    reason: Optional dedicated GlitchTip database using the existing operations PostgreSQL; requires prepared credentials.
+    chartPrefixes: []
+  - path: releases/glitchtip/app
+    status: included
+    reason: Optional GlitchTip 6.2.6 with verified Tooling 0.13.0; disabled by default. Provision native identities before DSN handoff and adapter activation. Management UI uses Tailscale TCP/TLS only; public routing exposes one selected status page.
+    chartPrefixes:
+    - charts/glitchtip
+    prerequisites:
+    - name: k8s-stack-tooling
+      version: 0.13.0
+      source: https://github.com/neurwerk/k8s_stack_tooling/releases/tag/v0.13.0
+    - name: openbao-stack-setup
+      version: 0.6.0
+      source: https://github.com/neurwerk/k8s_stack_tooling/commit/2825f854c8c15a1ce259988eeca8901bf6f3d496
+  - path: releases/glitchtip/secret-sync/initial-owner
+    status: included
+    reason: Optional initial local organization-owner credentials for native provisioning; never delivered to the application or adapter.
+    chartPrefixes: []
+    prerequisites:
+    - name: openbao-stack-setup
+      version: 0.6.0
+      source: https://github.com/neurwerk/k8s_stack_tooling/commit/2825f854c8c15a1ce259988eeca8901bf6f3d496
+  - path: releases/glitchtip/adapter-access
+    status: included
+    reason: Optional reader credentials, internal CA distribution and scoped access; import the verified private DSN before adapter activation.
+    chartPrefixes: []
+    prerequisites:
+    - name: openbao-stack-setup
+      version: 0.6.0
+      source: https://github.com/neurwerk/k8s_stack_tooling/commit/2825f854c8c15a1ce259988eeca8901bf6f3d496
+  - path: releases/glitchtip/tailscale-access
+    status: included
+    reason: Optional egress allowance for only the managed GlitchTip UI proxy. Requires the existing operator DNS/control-plane/DERP egress policy, reviewed UI-specific tailnet tag/ACL and private DNS mapping; no public UI listener or Tailscale HTTPS API dependency.
+    chartPrefixes: []
+    prerequisites:
+    - name: tailscale-operator
+      version: 0.1.0
+      source: releases/tailscale/operator
   - path: releases/agentgateway/inspection-pki
     status: included
     reason: Optional dedicated inspection PKI; disabled by default. Reconcile current-generation approval

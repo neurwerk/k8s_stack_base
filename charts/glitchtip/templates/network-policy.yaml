@@ -1,0 +1,133 @@
+{{- if .Values.glitchtip.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: glitchtip-application
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "glitchtip.labels" . | nindent 6 }}
+      app.kubernetes.io/component: application
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "glitchtip.labels" . | nindent 14 }}
+              app.kubernetes.io/component: adapter
+      ports: [{protocol: TCP, port: 8000}]
+    {{- if .Values.glitchtip.gateway.status.enabled }}
+    - from:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: kube-system}
+          podSelector:
+            matchLabels: {app.kubernetes.io/name: traefik}
+      ports: [{protocol: TCP, port: 8000}]
+    {{- end }}
+    {{- if .Values.glitchtip.gateway.ui.enabled }}
+    - from:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: tailscale}
+          podSelector:
+            matchLabels:
+              tailscale.com/managed: "true"
+              tailscale.com/parent-resource: glitchtip-ui
+              tailscale.com/parent-resource-ns: {{ .Release.Namespace }}
+              tailscale.com/parent-resource-type: svc
+      ports: [{protocol: TCP, port: 8443}]
+    {{- end }}
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: kube-system}
+          podSelector:
+            matchLabels: {k8s-app: kube-dns}
+      ports: [{protocol: UDP, port: 53}, {protocol: TCP, port: 53}]
+    - to:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: infra-postgres-operations}
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: postgres-operations
+              app.kubernetes.io/instance: postgres-operations
+      ports: [{protocol: TCP, port: 9712}]
+    {{- if .Values.glitchtip.smtp.cidrs }}
+    - to:
+        {{- range .Values.glitchtip.smtp.cidrs }}
+        - ipBlock: {cidr: {{ . | quote }}}
+        {{- end }}
+      ports: [{protocol: TCP, port: {{ .Values.glitchtip.smtp.port }}}]
+    {{- end }}
+    {{- if and .Values.glitchtip.uptimeEnabled .Values.glitchtip.uptime.cidrs }}
+    - to:
+        {{- range .Values.glitchtip.uptime.cidrs }}
+        - ipBlock: {cidr: {{ . | quote }}}
+        {{- end }}
+      ports:
+        {{- range .Values.glitchtip.uptime.ports }}
+        - {protocol: TCP, port: {{ . }}}
+        {{- end }}
+    {{- end }}
+{{- if .Values.glitchtip.provisioning.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: glitchtip-provisioning
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "glitchtip.labels" . | nindent 6 }}
+      app.kubernetes.io/component: provisioning
+  policyTypes: [Ingress, Egress]
+  ingress: []
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: kube-system}
+          podSelector:
+            matchLabels: {k8s-app: kube-dns}
+      ports: [{protocol: UDP, port: 53}, {protocol: TCP, port: 53}]
+    - to:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: infra-postgres-operations}
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: postgres-operations
+              app.kubernetes.io/instance: postgres-operations
+      ports: [{protocol: TCP, port: 9712}]
+{{- end }}
+{{- if .Values.glitchtip.adapter.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: glitchtip-adapter
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "glitchtip.labels" . | nindent 6 }}
+      app.kubernetes.io/component: adapter
+  policyTypes: [Ingress, Egress]
+  ingress: []
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: kube-system}
+          podSelector:
+            matchLabels: {k8s-app: kube-dns}
+      ports: [{protocol: UDP, port: 53}, {protocol: TCP, port: 53}]
+    - to:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: monitor-opensearch}
+          podSelector:
+            matchLabels: {app.kubernetes.io/name: opensearch-v3}
+      ports: [{protocol: TCP, port: 9200}]
+    - to:
+        - podSelector:
+            matchLabels:
+              {{- include "glitchtip.labels" . | nindent 14 }}
+              app.kubernetes.io/component: application
+      ports: [{protocol: TCP, port: 8000}]
+{{- end }}
+{{- end }}

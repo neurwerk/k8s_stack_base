@@ -1,0 +1,59 @@
+{{- $gateway := .Values.glitchtip.gateway }}
+{{- if and .Values.glitchtip.enabled (or $gateway.status.enabled $gateway.ui.enabled) }}
+{{- range $name, $settings := dict "status" $gateway.status "ui" $gateway.ui }}
+{{- if $settings.enabled }}
+---
+apiVersion: policy.cert-manager.io/v1alpha1
+kind: CertificateRequestPolicy
+metadata:
+  name: cert-manager-public-glitchtip-{{ $name }}
+spec:
+  allowed:
+    dnsNames:
+      values: [{{ $settings.hostname | quote }}]
+      required: true
+    isCA: false
+    usages: [digital signature, key encipherment]
+  constraints:
+    minDuration: 2160h
+    maxDuration: 2160h
+    privateKey: {algorithm: RSA, minSize: 2048, maxSize: 2048}
+  selector:
+    issuerRef:
+      group: cert-manager.io
+      kind: ClusterIssuer
+      name: {{ $gateway.issuerName | quote }}
+    namespace:
+      matchNames: [{{ $.Release.Namespace | quote }}]
+{{- end }}
+{{- end }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cert-manager-glitchtip-approval-use
+rules:
+  - apiGroups: [policy.cert-manager.io]
+    resources: [certificaterequestpolicies]
+    verbs: [use]
+    resourceNames:
+      {{- if $gateway.status.enabled }}
+      - cert-manager-public-glitchtip-status
+      {{- end }}
+      {{- if $gateway.ui.enabled }}
+      - cert-manager-public-glitchtip-ui
+      {{- end }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: cert-manager-glitchtip-approval-use
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cert-manager-glitchtip-approval-use
+subjects:
+  - kind: ServiceAccount
+    name: infra-cert-manager-controller
+    namespace: infra-cert-manager
+{{- end }}
