@@ -49,7 +49,7 @@ def binding_values():
                     "enabled": True,
                     "providerId": "openai",
                     "upstreamURL": "https://provider.example.test/v1",
-                    "credentialSources": ["caller_supplied", "company"],
+                    "credentialSources": ["override", "global"],
                     "authSecret": "example-openai-key",
                     "routes": {"api": {"enabled": True}, "inspected": {"enabled": True}},
                     "profiles": ["openai-chat-completions-v1", "openai-responses-v1"],
@@ -61,7 +61,7 @@ def binding_values():
                     "providerId": "anthropic",
                     "provider": "Anthropic",
                     "upstreamURL": "https://anthropic.example.test/v1",
-                    "credentialSources": ["caller_supplied", "company"],
+                    "credentialSources": ["override", "global"],
                     "authSecret": "example-anthropic-key",
                     "routes": {"api": {"enabled": True}, "inspected": {"enabled": True}},
                     "profiles": ["anthropic-messages-v1"],
@@ -73,7 +73,7 @@ def binding_values():
                     "providerId": "google",
                     "provider": "Gemini",
                     "upstreamURL": "https://google.example.test",
-                    "credentialSources": ["caller_supplied", "company"],
+                    "credentialSources": ["override", "global"],
                     "authSecret": "example-google-key",
                     "routes": {"api": {"enabled": False}, "inspected": {"enabled": True}},
                     "profiles": ["google-generate-content-v1"],
@@ -85,7 +85,7 @@ def binding_values():
                     "providerId": "openrouter",
                     "provider": "Openrouter",
                     "upstreamURL": "https://router.example.test/api/v1",
-                    "credentialSources": ["caller_supplied", "company"],
+                    "credentialSources": ["override", "global"],
                     "authSecret": "example-openrouter-key",
                     "routes": {"api": {"enabled": True}, "inspected": {"enabled": True}},
                     "profiles": ["openai-chat-completions-v1", "openai-responses-v1"],
@@ -315,7 +315,7 @@ class EndpointRoutingTests(unittest.TestCase):
         cls.values["external-subscription-providers"] = [binding]
         binding["routes"]["api"]["path"] = "/openai/codex"
         binding.update(upstreamURL="https://chatgpt.com/backend-api/codex",
-                       credentialSources=["caller_supplied"], profiles=["openai-codex-responses-v1"])
+                       credentialSources=["override"], profiles=["openai-codex-responses-v1"])
         binding.pop("authSecret")
         cls.rendered = render("agentgateway", cls.values)
 

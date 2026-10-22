@@ -132,6 +132,34 @@ class GroupedGatewayTests(unittest.TestCase):
             values = binding_values()
             values["external-api-providers"][0][field] = [duplicate, duplicate]
             self.assertNotEqual(render("agentgateway", values, check=False).returncode, 0)
+        for sources in [[], ["unknown"], ["global", "global"], ["override", "override"],
+                        ["global", "company"], ["override", "caller_supplied"],
+                        ["global", "none"], ["override", "none"]]:
+            with self.subTest(sources=sources):
+                values = binding_values()
+                values["external-api-providers"][0]["credentialSources"] = sources
+                self.assertNotEqual(render("agentgateway", values, check=False).returncode, 0)
+
+    def test_credential_source_aliases_preserve_full_render_and_revisions(self):
+        for canonical, aliases in [
+            (["global"], ["company"]),
+            (["override"], ["caller_supplied"]),
+            (["override", "global"], ["caller_supplied", "company"]),
+            (["override", "global"], ["override", "company"]),
+            (["global", "override"], ["global", "caller_supplied"]),
+        ]:
+            with self.subTest(aliases=aliases):
+                values = binding_values()
+                provider = values["external-api-providers"][0]
+                provider["credentialSources"] = canonical
+                if "global" in canonical:
+                    provider["localReroute"] = "local-chat"
+                else:
+                    provider.pop("authSecret")
+                canonical_render = render("agentgateway", values).stdout
+                provider["credentialSources"] = aliases
+                # Includes catalog, revision hashes, permissions, Secret refs and reroutes.
+                self.assertEqual(render("agentgateway", values).stdout, canonical_render)
 
     def test_provisioning_and_frozen_caller_choice(self):
         for credential in [None, "", "synthetic-provider-token"]:
@@ -184,7 +212,7 @@ class GroupedGatewayTests(unittest.TestCase):
             values["infraAgentgatewayWrapperSecrets"]["providerCredentials"]["example-openai-key"] = credential
             self.assertNotEqual(render("agentgateway", values, check=False).returncode, 0)
         values = binding_values()
-        values["external-api-providers"][0]["credentialSources"] = ["company"]
+        values["external-api-providers"][0]["credentialSources"] = ["global"]
         values["infraAgentgatewayWrapperSecrets"]["providerCredentials"]["example-openai-key"] = ""
         result = catalog(render("agentgateway", values))
         owner = next(owner for owner in result["external-api-providers"] if owner["id"] == "openai")
