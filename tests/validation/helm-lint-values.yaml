@@ -51,17 +51,12 @@ docling:
     model: granite-docling
     tokenSecretRef: {name: docling-inference, key: token}
     cidrs: [10.20.30.40/32]
-wireguard:
+tailscale:
   enabled: true
-  serverKeySecret: wireguard-server-key
-  virtualIP: 192.0.2.10
-  target:
-    serviceIP: 198.51.100.10
-    servicePort: 443
-    namespace: example-app
-    podSelector: {app.kubernetes.io/name: example-app}
-    podPort: 3000
-  outerSourceCIDRs: [203.0.113.1/32]
+  api:
+    enabled: true
+    hostname: kube-api-test
+    tags: [tag:kube-api-test]
 authKeycloak:
   hostname: lint.example
   adminUser: lint-admin

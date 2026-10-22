@@ -1,0 +1,15 @@
+tailscale:
+  enabled: false
+  api:
+    # Activation is blocked pending explicit acceptance of upstream privileged
+    # main/init containers and proxy access to all Secrets in this namespace,
+    # plus reviewed TCP-443 ACLs and verified network egress restrictions.
+    enabled: false
+    hostname: ""
+    # Require an explicitly approved API-only tag and tailnet ACL for TCP 443.
+    tags: []
+    clusterDomain: cluster.local
+    # The upstream ExternalName transport forwards destination addresses, not
+    # only these Service ports. Port 443 below is NOT a security filter.
+    # Clients retain their Kubernetes cert/key, CA verification, and an existing
+    # API certificate SAN as tls-server-name; the tailnet hostname is transport only.

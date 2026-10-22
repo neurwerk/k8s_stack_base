@@ -119,27 +119,41 @@ packages:
     reason: Operator-tested maintenance pages; disabled by default and activated on demand.
     chartPrefixes:
     - charts/maintenance
-  - path: releases/namespaces/wireguard
+  - path: releases/namespaces/tailscale
     status: included
-    reason: Operator-tested optional gateway; client network and node prerequisites still apply.
+    reason: Optional Tailscale namespace; unselected by default.
     chartPrefixes: []
-  - path: releases/wireguard
+  - path: releases/tailscale/operator
     status: included
-    reason: Operator-tested one-device HTTPS gateway; disabled by default.
+    reason: Optional official operator; disabled and suspended by default. Stage credentials before activation.
+      Kubernetes API proxy and dashboard access are not enabled; custom control-plane compatibility requires operator validation.
     chartPrefixes:
-    - charts/wireguard
+    - charts/tailscale/operator
     prerequisites:
-    - name: openbao-stack-setup
-      version: 0.4.3
-      source: https://github.com/neurwerk/k8s_stack_tooling/commit/fee1854a8d55d1b9ded5dda221e4fb854ef66c56
-  - path: releases/wireguard/secret-sync
+    - name: tailscale-operator
+      version: 1.104.2
+      source: https://pkgs.tailscale.com/helmcharts
+  - path: releases/tailscale/secret-sync
     status: included
-    reason: Optional server-key delivery; provision the selected OpenBao catalog before startup.
+    reason: Optional two-field operator credential delivery; provision the selected Tailscale OpenBao catalog before activation.
     chartPrefixes: []
     prerequisites:
     - name: openbao-stack-setup
-      version: 0.4.3
-      source: https://github.com/neurwerk/k8s_stack_tooling/commit/fee1854a8d55d1b9ded5dda221e4fb854ef66c56
+      version: 0.5.0
+      source: https://github.com/neurwerk/k8s_stack_tooling/commit/d0fba64e974969d0381acf80206cf7148c24da84
+  - path: releases/tailscale/access
+    status: included
+    reason: Optional separately owned API TCP transport; disabled and suspended by default pending explicit security approval.
+      Upstream main and init proxy containers are privileged and proxy RBAC can access all namespace Secrets, including operator OAuth.
+      Experimental upstream ExternalName forwarding is address-based, not port-filtered; require API-only tailnet ACLs for TCP 443.
+      Preserve Kubernetes client certificates, CA verification and an existing API certificate SAN as tls-server-name.
+      No dashboards are selected. This package does not adopt the existing Kubernetes Service.
+    chartPrefixes:
+    - charts/tailscale/access
+    prerequisites:
+    - name: tailscale-operator
+      version: 0.1.0
+      source: releases/tailscale/operator
   - path: releases/contextforge/secret-sync
     status: excluded
     reason: Vault OAuth backend awaits upstream support; use the default database credential package instead.

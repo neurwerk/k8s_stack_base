@@ -124,27 +124,44 @@ spec:
       reason: Operator-tested maintenance pages; disabled by default and activated on demand.
       chartPrefixes:
       - charts/maintenance
-    - path: releases/namespaces/wireguard
+    - path: releases/namespaces/tailscale
       status: included
-      reason: Operator-tested optional gateway; client network and node prerequisites still apply.
+      reason: Optional Tailscale namespace; unselected by default.
       chartPrefixes: []
-    - path: releases/wireguard
+    - path: releases/tailscale/operator
       status: included
-      reason: Operator-tested one-device HTTPS gateway; disabled by default.
+      reason: Optional official operator; disabled and suspended by default. Stage credentials before
+        activation. Kubernetes API proxy and dashboard access are not enabled; custom control-plane compatibility
+        requires operator validation.
       chartPrefixes:
-      - charts/wireguard
+      - charts/tailscale/operator
       prerequisites:
-      - name: openbao-stack-setup
-        version: 0.4.3
-        source: https://github.com/neurwerk/k8s_stack_tooling/commit/fee1854a8d55d1b9ded5dda221e4fb854ef66c56
-    - path: releases/wireguard/secret-sync
+      - name: tailscale-operator
+        version: 1.104.2
+        source: https://pkgs.tailscale.com/helmcharts
+    - path: releases/tailscale/secret-sync
       status: included
-      reason: Optional server-key delivery; provision the selected OpenBao catalog before startup.
+      reason: Optional two-field operator credential delivery; provision the selected Tailscale OpenBao
+        catalog before activation.
       chartPrefixes: []
       prerequisites:
       - name: openbao-stack-setup
-        version: 0.4.3
-        source: https://github.com/neurwerk/k8s_stack_tooling/commit/fee1854a8d55d1b9ded5dda221e4fb854ef66c56
+        version: 0.5.0
+        source: https://github.com/neurwerk/k8s_stack_tooling/commit/d0fba64e974969d0381acf80206cf7148c24da84
+    - path: releases/tailscale/access
+      status: included
+      reason: Optional separately owned API TCP transport; disabled and suspended by default pending explicit
+        security approval. Upstream main and init proxy containers are privileged and proxy RBAC can access
+        all namespace Secrets, including operator OAuth. Experimental upstream ExternalName forwarding
+        is address-based, not port-filtered; require API-only tailnet ACLs for TCP 443. Preserve Kubernetes
+        client certificates, CA verification and an existing API certificate SAN as tls-server-name. No
+        dashboards are selected. This package does not adopt the existing Kubernetes Service.
+      chartPrefixes:
+      - charts/tailscale/access
+      prerequisites:
+      - name: tailscale-operator
+        version: 0.1.0
+        source: releases/tailscale/operator
     - path: releases/contextforge/secret-sync
       status: excluded
       reason: Vault OAuth backend awaits upstream support; use the default database credential package
@@ -460,6 +477,23 @@ spec:
       name: studio
       version: 1.0.34
       appVersion: 0.20.3
+    - path: charts/tailscale/access
+      name: tailscale-access
+      version: 0.1.0
+      appVersion: v1.104.2
+    - path: charts/tailscale/operator
+      name: tailscale-operator
+      version: 0.1.0
+      appVersion: v1.104.2
+      dependencyLock:
+        digest: sha256:5bd4b9e4a1fdc8a013b67f95c602732cace42744da39449b4b5af2666f381b25
+        dependencies:
+        - name: tailscale-operator
+          repository: https://pkgs.tailscale.com/helmcharts
+          version: 1.104.2
+        archives:
+        - path: charts/tailscale/operator/charts/tailscale-operator-1.104.2-1792591623-cf215d52f3a20fae4c77b14a191957ccb12e46b0f2ff2263c6f51c8a472cd505.tgz
+          sha256: cf215d52f3a20fae4c77b14a191957ccb12e46b0f2ff2263c6f51c8a472cd505
     - path: charts/traefik
       name: traefik
       version: 1.1.1
@@ -476,10 +510,6 @@ spec:
         archives:
         - path: charts/trust-manager/charts/trust-manager-v0.24.0.tgz
           sha256: 0de4bbef2d1a013bd4a91c6f59a9cb0273dda9a785e018a9a16e8f2b096af823
-    - path: charts/wireguard
-      name: wireguard
-      version: 0.2.0
-      appVersion: 1.0.20260223
     helmReleases:
     - path: releases/agentgateway/app.yaml
       namespace: infra-agentgateway
@@ -637,6 +667,14 @@ spec:
       namespace: frontend-studio
       name: studio
       chart: ./charts/studio/web
+    - path: releases/tailscale/access/access.yaml
+      namespace: tailscale
+      name: tailscale-access
+      chart: ./charts/tailscale/access
+    - path: releases/tailscale/operator/operator.yaml
+      namespace: tailscale
+      name: tailscale-operator
+      chart: ./charts/tailscale/operator
     - path: releases/traefik/app.yaml
       namespace: kube-system
       name: traefik
@@ -645,10 +683,6 @@ spec:
       namespace: infra-trust-manager
       name: trust-manager
       chart: ./charts/trust-manager
-    - path: releases/wireguard/app.yaml
-      namespace: wireguard
-      name: wireguard
-      chart: ./charts/wireguard
     images:
     - reference: cr.agentgateway.dev/controller:v1.6.0
       pinned: true
@@ -742,11 +776,6 @@ spec:
       eligibility: included
       origins:
       - charts/contextforge/values.yaml
-    - reference: ghcr.io/linuxserver/wireguard:1.0.20260223-r0-ls122@sha256:dca67384e3e9a5bcc288461fa983e6fcb0e248e5a2d8e5b3e5d3f753bfac3e35
-      pinned: true
-      eligibility: included
-      origins:
-      - charts/wireguard/values.yaml
     - reference: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.19.17@sha256:29c02e946134f6eb4ffc85b7372b1cf66d51493d4795fa909c0b16925f8ad548
       pinned: true
       eligibility: included
@@ -807,6 +836,16 @@ spec:
       eligibility: included
       origins:
       - charts/reloader/values.yaml
+    - reference: ghcr.io/tailscale/k8s-operator:v1.104.2@sha256:9cddfcbe75a7eab2b46d610966d519a28699a5e38235a2cb3aec960487c4aa48
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/tailscale/operator/values.yaml
+    - reference: ghcr.io/tailscale/tailscale:v1.104.2@sha256:b11583ad2e93e4671128538c88cf11f460444a5d7e449311dd1933a400ab849d
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/tailscale/operator/values.yaml
     - reference: quay.io/ceph/ceph:v20.2.2
       pinned: true
       eligibility: included
