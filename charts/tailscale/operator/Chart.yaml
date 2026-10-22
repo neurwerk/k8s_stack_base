@@ -1,0 +1,12 @@
+apiVersion: v2
+name: tailscale-operator
+description: Optional official Tailscale Kubernetes operator
+type: application
+version: 0.1.0
+appVersion: v1.104.2
+dependencies:
+  - name: tailscale-operator
+    alias: tailscale
+    version: 1.104.2
+    repository: https://pkgs.tailscale.com/helmcharts
+    condition: tailscale.enabled

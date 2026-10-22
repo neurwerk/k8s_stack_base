@@ -1,0 +1,24 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: tailscale-access
+  namespace: tailscale
+spec:
+  releaseName: tailscale-access
+  suspend: true
+  interval: 5m
+  timeout: 5m
+  dependsOn:
+    - name: tailscale-operator
+  chart:
+    spec:
+      chart: ./charts/tailscale/access
+      sourceRef:
+        kind: GitRepository
+        name: k8s-stack
+        namespace: flux-system
+      interval: 10m
+  valuesFrom:
+    - kind: ConfigMap
+      name: tailscale-product-values
+      valuesKey: values.yaml
