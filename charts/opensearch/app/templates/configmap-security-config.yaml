@@ -110,6 +110,20 @@ data:
             - "data_access"
             - "write"
 
+    {{- if and (dig "enabled" false (.Values.glitchtip | default dict)) (dig "adapter" "enabled" false (.Values.glitchtip | default dict)) }}
+    glitchtip_adapter_read:
+      reserved: false
+      cluster_permissions:
+        - "cluster:admin/opensearch/ppl"
+      index_permissions:
+        - index_patterns:
+            - "fluent-bit-*"
+          allowed_actions:
+            - "read"
+            - "indices:admin/mappings/get"
+            - "indices:monitor/settings/get"
+    {{- end }}
+
     # Read-only role for the Studio logs viewer (all indices).
     studio_logs_read_role:
       reserved: false
@@ -175,6 +189,14 @@ data:
       hosts: []
       users:
         - {{ .Values.monitorOpensearchWrapper.ingestUser | quote }}
+
+    {{- if and (dig "enabled" false (.Values.glitchtip | default dict)) (dig "adapter" "enabled" false (.Values.glitchtip | default dict)) }}
+    glitchtip_adapter_read:
+      reserved: false
+      backend_roles: ["glitchtip_adapter_read"]
+      hosts: []
+      users: ["glitchtip-adapter"]
+    {{- end }}
 
     studio_logs_read_role:
       reserved: false

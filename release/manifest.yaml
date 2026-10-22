@@ -24,6 +24,66 @@ spec:
     - releases/infrastructure
     - releases/applications
     optional:
+    - path: releases/namespaces/glitchtip
+      status: included
+      reason: Optional isolated GlitchTip namespace; selected only by clients using this product.
+      chartPrefixes: []
+    - path: releases/glitchtip/secret-sync
+      status: included
+      reason: Optional app-owned credential delivery; reconcile the selected catalog and approved SMTP
+        credentials before startup.
+      chartPrefixes: []
+      prerequisites:
+      - name: openbao-stack-setup
+        version: 0.6.0
+        source: https://github.com/neurwerk/k8s_stack_tooling/commit/2825f854c8c15a1ce259988eeca8901bf6f3d496
+    - path: releases/glitchtip/postgres
+      status: included
+      reason: Optional dedicated GlitchTip database using the existing operations PostgreSQL; requires
+        prepared credentials.
+      chartPrefixes: []
+    - path: releases/glitchtip/app
+      status: included
+      reason: Optional GlitchTip 6.2.6 with verified Tooling 0.13.0; disabled by default. Provision native
+        identities before DSN handoff and adapter activation. Management UI uses Tailscale TCP/TLS only;
+        public routing exposes one selected status page.
+      chartPrefixes:
+      - charts/glitchtip
+      prerequisites:
+      - name: k8s-stack-tooling
+        version: 0.13.0
+        source: https://github.com/neurwerk/k8s_stack_tooling/releases/tag/v0.13.0
+      - name: openbao-stack-setup
+        version: 0.6.0
+        source: https://github.com/neurwerk/k8s_stack_tooling/commit/2825f854c8c15a1ce259988eeca8901bf6f3d496
+    - path: releases/glitchtip/secret-sync/initial-owner
+      status: included
+      reason: Optional initial local organization-owner credentials for native provisioning; never delivered
+        to the application or adapter.
+      chartPrefixes: []
+      prerequisites:
+      - name: openbao-stack-setup
+        version: 0.6.0
+        source: https://github.com/neurwerk/k8s_stack_tooling/commit/2825f854c8c15a1ce259988eeca8901bf6f3d496
+    - path: releases/glitchtip/adapter-access
+      status: included
+      reason: Optional reader credentials, internal CA distribution and scoped access; import the verified
+        private DSN before adapter activation.
+      chartPrefixes: []
+      prerequisites:
+      - name: openbao-stack-setup
+        version: 0.6.0
+        source: https://github.com/neurwerk/k8s_stack_tooling/commit/2825f854c8c15a1ce259988eeca8901bf6f3d496
+    - path: releases/glitchtip/tailscale-access
+      status: included
+      reason: Optional egress allowance for only the managed GlitchTip UI proxy. Requires the existing
+        operator DNS/control-plane/DERP egress policy, reviewed UI-specific tailnet tag/ACL and private
+        DNS mapping; no public UI listener or Tailscale HTTPS API dependency.
+      chartPrefixes: []
+      prerequisites:
+      - name: tailscale-operator
+        version: 0.1.0
+        source: releases/tailscale/operator
     - path: releases/agentgateway/inspection-pki
       status: included
       reason: Optional dedicated inspection PKI; disabled by default. Reconcile current-generation approval
@@ -322,6 +382,10 @@ spec:
       name: monitor-fluent-bit-shared
       version: 1.0.0
       appVersion: '1.0'
+    - path: charts/glitchtip
+      name: glitchtip
+      version: 0.1.0
+      appVersion: 6.2.6
     - path: charts/keycloak/addon-access
       name: keycloak-addon-access
       version: 0.1.5
@@ -402,7 +466,7 @@ spec:
           sha256: 646d932f597632a7328bd300994e66c2cabaa1b6763372cbabb559cd84ff3f2f
     - path: charts/opensearch/app
       name: monitor-opensearch
-      version: 1.2.5
+      version: 1.2.6
       appVersion: 3.8.0
       dependencyLock:
         digest: sha256:9c8dd301b564083b467cb09c7cf52f57674aaf46b3ef479f62ebd61e49fc52f3
@@ -575,6 +639,14 @@ spec:
       namespace: monitor-fluent-bit
       name: fluent-bit-shared
       chart: ./charts/fluent-bit/shared
+    - path: releases/glitchtip/app/app.yaml
+      namespace: glitchtip
+      name: glitchtip
+      chart: ./charts/glitchtip
+    - path: releases/glitchtip/postgres/postgres.yaml
+      namespace: infra-postgres-operations
+      name: glitchtip-postgres
+      chart: ./charts/postgres/addon
     - path: releases/keycloak/active-directory/active-directory.yaml
       namespace: auth-keycloak
       name: keycloak-active-directory
@@ -704,6 +776,11 @@ spec:
       eligibility: included
       origins:
       - charts/langfuse/values.yaml
+    - reference: docker.io/glitchtip/glitchtip:6.2.6@sha256:a3d8eb1b36c1e1603d55ab32711ea3dd8115874742a781a57391a62a16e0dff6
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/glitchtip/values.yaml
     - reference: docker.io/langfuse/langfuse-worker:4.28.1
       pinned: true
       eligibility: included
@@ -831,6 +908,11 @@ spec:
       - charts/opensearch/app/values.yaml
       - charts/opensearch/dashboards/values.yaml
       - charts/postgres/documentdb-addon/values.yaml
+    - reference: ghcr.io/neurwerk/k8s-stack-tooling:0.13.0@sha256:1ad7aff3f747041e830bbe34ab6f4710daf11f8f5408eb7325dc934badbd0919
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/glitchtip/values.yaml
     - reference: ghcr.io/stakater/reloader:v1.4.21
       pinned: true
       eligibility: included

@@ -1,0 +1,17 @@
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: glitchtip-postgres-values
+  namespace: infra-postgres-operations
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: infra-postgres-operations-openbao-secret-store
+    kind: SecretStore
+  target:
+    name: glitchtip-postgres-values
+    creationPolicy: Owner
+    deletionPolicy: Retain
+  data:
+    - secretKey: password
+      remoteRef: {key: infra-postgres-operations/internal, property: glitchtipPassword}

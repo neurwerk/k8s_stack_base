@@ -1,0 +1,24 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: glitchtip-postgres
+  namespace: infra-postgres-operations
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: postgres-operations
+      app.kubernetes.io/instance: postgres-operations
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: glitchtip}
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: glitchtip
+              app.kubernetes.io/instance: glitchtip
+            matchExpressions:
+              - key: app.kubernetes.io/component
+                operator: In
+                values: [application, provisioning]
+      ports: [{protocol: TCP, port: 9712}]

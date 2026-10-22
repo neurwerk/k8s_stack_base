@@ -1,0 +1,3 @@
+{{- if and .Values.glitchtip.enabled .Values.glitchtip.adapter.enabled .Values.glitchtip.provisioning.enabled }}
+{{- fail "Stage native provisioning with adapter disabled; save and verify the private DSN, then disable provisioning before enabling adapter" }}
+{{- end }}

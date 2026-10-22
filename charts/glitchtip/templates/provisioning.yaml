@@ -1,0 +1,88 @@
+{{- if and .Values.glitchtip.enabled .Values.glitchtip.provisioning.enabled }}
+{{- $provisioning := .Values.glitchtip.provisioning }}
+{{- $_ := required "glitchtip.provisioning.image requires the reviewed published operations image" $provisioning.image }}
+{{- $_ := required "glitchtip.provisioning.config must select fixed native objects" $provisioning.config }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: glitchtip-provisioning-config
+data:
+  config.json: {{ $provisioning.config | toJson | quote }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: glitchtip-provisioning
+  annotations:
+    # Helm waits for the application startup/migrations before post-install.
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-delete-policy: before-hook-creation
+spec:
+  backoffLimit: 2
+  activeDeadlineSeconds: 300
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        {{- include "glitchtip.labels" . | nindent 8 }}
+        app.kubernetes.io/component: provisioning
+    spec:
+      automountServiceAccountToken: false
+      restartPolicy: Never
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 5000
+        runAsGroup: 5000
+        fsGroup: 5000
+        seccompProfile: {type: RuntimeDefault}
+      initContainers:
+        - name: export-payload
+          image: {{ $provisioning.image | quote }}
+          command: [provision-glitchtip, export, --output, /payload/glitchtip.py]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          resources:
+            requests: {cpu: 25m, memory: 64Mi}
+            limits: {cpu: 200m, memory: 256Mi}
+          volumeMounts:
+            - {name: payload, mountPath: /payload}
+            - {name: tmp, mountPath: /tmp}
+      containers:
+        - name: provisioning
+          image: {{ .Values.glitchtip.image | quote }}
+          workingDir: /code
+          command: [python, /payload/glitchtip.py, provision]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          envFrom:
+            - configMapRef: {name: glitchtip-settings}
+            - secretRef: {name: {{ $provisioning.initialOwnerSecret }}}
+          env:
+            - {name: PYTHONPATH, value: /code}
+            - {name: DJANGO_SETTINGS_MODULE, value: glitchtip.settings}
+            - {name: GLITCHTIP_PROVISIONING_CONFIG_FILE, value: /etc/glitchtip-provisioning/config.json}
+            {{- range $key := list "DATABASE_URL" "SECRET_KEY" "EMAIL_HOST_USER" "EMAIL_HOST_PASSWORD" }}
+            - name: {{ $key }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $.Values.glitchtip.runtimeSecret }}
+                  key: {{ $key }}
+            {{- end }}
+          resources:
+            {{- toYaml $provisioning.resources | nindent 12 }}
+          volumeMounts:
+            - {name: payload, mountPath: /payload, readOnly: true}
+            - {name: config, mountPath: /etc/glitchtip-provisioning, readOnly: true}
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - name: payload
+          emptyDir: {sizeLimit: 8Mi}
+        - name: config
+          configMap: {name: glitchtip-provisioning-config}
+        - name: tmp
+          emptyDir: {sizeLimit: 64Mi}
+{{- end }}
