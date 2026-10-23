@@ -178,6 +178,12 @@ class GlitchTipTests(unittest.TestCase):
         }])
 
     def test_native_provisioner_isolated_from_adapter_and_secret_controllers(self):
+        import os
+        import subprocess
+        import sys
+        import tempfile
+        from pathlib import Path
+
         image = self.adapter_values()["glitchtip"]["adapter"]["image"]
         result = render("glitchtip", {"glitchtip": {"provisioning": {
             "enabled": True, "image": image,
@@ -194,10 +200,45 @@ class GlitchTipTests(unittest.TestCase):
         self.assertFalse(pod["automountServiceAccountToken"])
         init = pod["initContainers"][0]
         main = pod["containers"][0]
-        self.assertEqual(init["command"], ["provision-glitchtip", "export", "--output", "/payload/glitchtip.py"])
+        self.assertEqual(init["command"][:3], ["provision-glitchtip", "export", "--output"])
         self.assertNotIn("envFrom", init)
         self.assertNotIn("env", init)
-        self.assertEqual(main["command"], ["python", "/payload/glitchtip.py", "provision"])
+        self.assertEqual(main["command"][0], "python")
+        self.assertEqual(main["command"][2:], ["provision"])
+        exported = Path(init["command"][init["command"].index("--output") + 1])
+        execution = Path(main["command"][1])
+        self.assertEqual(exported, execution)
+        # Reproduce Python's real script-directory precedence over PYTHONPATH.
+        # The previous filename shadows the native package before Django setup.
+        with tempfile.TemporaryDirectory(prefix="glitchtip-import-") as directory:
+            root = Path(directory)
+            working_dir = root / Path(main["workingDir"]).relative_to("/")
+            python_path = next(item["value"] for item in main["env"] if item["name"] == "PYTHONPATH")
+            native_path = root / Path(python_path).relative_to("/")
+            package = native_path / "glitchtip"
+            package.mkdir(parents=True)
+            (package / "__init__.py").write_text("")
+            (package / "settings.py").write_text('ORIGIN = "native-package"\n')
+            working_dir.mkdir(parents=True, exist_ok=True)
+            script = root / exported.relative_to("/")
+            script.parent.mkdir(parents=True)
+            probe = 'import glitchtip.settings\nassert glitchtip.settings.ORIGIN == "native-package"\n'
+            environment = {**os.environ, "PYTHONPATH": str(native_path), "PYTHONDONTWRITEBYTECODE": "1"}
+            legacy = script.with_name("glitchtip.py")
+            legacy.write_text(probe)
+            failed = subprocess.run(
+                [sys.executable, str(legacy), *main["command"][2:]],
+                cwd=working_dir, env=environment, capture_output=True, text=True,
+            )
+            self.assertNotEqual(failed.returncode, 0)
+            self.assertIn("ModuleNotFoundError", failed.stderr)
+            legacy.unlink()
+            script.write_text(probe)
+            passed = subprocess.run(
+                [sys.executable, str(root / execution.relative_to("/")), *main["command"][2:]],
+                cwd=working_dir, env=environment, capture_output=True, text=True,
+            )
+            self.assertEqual(passed.returncode, 0, passed.stderr)
         self.assertEqual(main["image"], resource(result, "Deployment", "glitchtip")["spec"]["template"]["spec"]["containers"][0]["image"])
         self.assertEqual(main["workingDir"], "/code")
         self.assertTrue(next(item for item in main["volumeMounts"] if item["name"] == "payload")["readOnly"])
