@@ -52,6 +52,7 @@ spec:
           env:
             - {name: ADAPTER_OPENSEARCH_URL, value: {{ $adapter.opensearchURL | quote }}}
             - {name: ADAPTER_OPENSEARCH_CA_FILE, value: /etc/opensearch-ca/ca.crt}
+            - {name: ADAPTER_GLITCHTIP_INGEST_BASE_URL, value: {{ printf "http://glitchtip.%s.svc.cluster.local:8000" .Release.Namespace | quote }}}
             - {name: ADAPTER_ENVIRONMENT, value: {{ $adapter.environment | quote }}}
             - {name: ADAPTER_SCOPES_FILE, value: /etc/adapter/scopes.json}
             - {name: ADAPTER_STATE_PATH, value: /var/lib/opensearch-glitchtip/state.sqlite3}

@@ -59,7 +59,8 @@ class GlitchTipTests(unittest.TestCase):
             self.assertNotIn(doc["kind"], ("Role", "ClusterRole", "RoleBinding", "ClusterRoleBinding"))
 
     def test_adapter_has_only_ingestion_credentials_and_restricted_egress(self):
-        result = render("glitchtip", self.adapter_values())
+        namespace = "adapter-contract"
+        result = render("glitchtip", self.adapter_values(), namespace=namespace)
         deployment = resource(result, "Deployment", "glitchtip-adapter")
         pod = deployment["spec"]["template"]["spec"]
         self.assertFalse(pod["automountServiceAccountToken"])
@@ -67,6 +68,10 @@ class GlitchTipTests(unittest.TestCase):
         self.assertEqual(deployment["spec"]["strategy"], {"type": "Recreate"})
         container = pod["containers"][0]
         self.assertEqual(container["command"], ["opensearch-glitchtip-adapter"])
+        service = resource(result, "Service")
+        http_port = next(port["port"] for port in service["spec"]["ports"] if port["name"] == "http")
+        ingest_url = next(item["value"] for item in container["env"] if item["name"] == "ADAPTER_GLITCHTIP_INGEST_BASE_URL")
+        self.assertEqual(ingest_url, f"http://{service['metadata']['name']}.{namespace}.svc.cluster.local:{http_port}")
         secret_keys = {
             item["valueFrom"]["secretKeyRef"]["key"]
             for item in container["env"] if "valueFrom" in item
