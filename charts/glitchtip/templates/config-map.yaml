@@ -12,6 +12,8 @@ data:
   DEFAULT_FROM_EMAIL: {{ .Values.glitchtip.fromEmail | quote }}
   ALLOWED_HOSTS: {{ printf "%s,%s,glitchtip,glitchtip.%s.svc,glitchtip.%s.svc.cluster.local" (urlParse .Values.glitchtip.domain).hostname .Values.glitchtip.gateway.status.hostname .Release.Namespace .Release.Namespace | quote }}
   CSRF_TRUSTED_ORIGINS: {{ .Values.glitchtip.domain | quote }}
+  # GlitchTip 6.2.6 native statuspage_detail.html inline CSS; verify on upgrades.
+  CSP_STYLE_SRC: "'self','sha256-wX8OfU1Dm8o+Ad7fIkKWQHGrlRXKySPjX0M+/IiN4r4='"
   EMAIL_HOST: {{ .Values.glitchtip.smtp.host | quote }}
   EMAIL_PORT: {{ .Values.glitchtip.smtp.port | quote }}
   EMAIL_USE_SSL: "true"
