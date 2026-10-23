@@ -37,13 +37,13 @@ packages:
     chartPrefixes: []
   - path: releases/glitchtip/app
     status: included
-    reason: Optional GlitchTip 6.2.6 with verified Tooling 0.13.2; disabled by default. Provision native identities before DSN handoff and adapter activation. Management UI uses Tailscale TCP/TLS only; public routing exposes one selected status page.
+    reason: Optional GlitchTip 6.2.6 with verified Tooling 0.13.5; disabled by default. Provision native identities before DSN handoff and adapter activation. Management UI uses Tailscale TCP/TLS only; public routing exposes one selected status page.
     chartPrefixes:
     - charts/glitchtip
     prerequisites:
     - name: k8s-stack-tooling
-      version: 0.13.2
-      source: https://github.com/neurwerk/k8s_stack_tooling/releases/tag/v0.13.2
+      version: 0.13.5
+      source: https://github.com/neurwerk/k8s_stack_tooling/releases/tag/v0.13.5
     - name: openbao-stack-setup
       version: 0.6.0
       source: https://github.com/neurwerk/k8s_stack_tooling/commit/2825f854c8c15a1ce259988eeca8901bf6f3d496
