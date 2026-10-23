@@ -38,7 +38,7 @@ spec:
       initContainers:
         - name: export-payload
           image: {{ $provisioning.image | quote }}
-          command: [provision-glitchtip, export, --output, /payload/glitchtip.py]
+          command: [provision-glitchtip, export, --output, /payload/provision_glitchtip.py]
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
@@ -53,7 +53,7 @@ spec:
         - name: provisioning
           image: {{ .Values.glitchtip.image | quote }}
           workingDir: /code
-          command: [python, /payload/glitchtip.py, provision]
+          command: [python, /payload/provision_glitchtip.py, provision]
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true

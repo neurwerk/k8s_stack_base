@@ -384,7 +384,7 @@ spec:
       appVersion: '1.0'
     - path: charts/glitchtip
       name: glitchtip
-      version: 0.1.1
+      version: 0.1.2
       appVersion: 6.2.6
     - path: charts/keycloak/addon-access
       name: keycloak-addon-access
