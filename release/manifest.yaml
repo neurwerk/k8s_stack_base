@@ -44,15 +44,15 @@ spec:
       chartPrefixes: []
     - path: releases/glitchtip/app
       status: included
-      reason: Optional GlitchTip 6.2.6 with verified Tooling 0.13.2; disabled by default. Provision native
+      reason: Optional GlitchTip 6.2.6 with verified Tooling 0.13.5; disabled by default. Provision native
         identities before DSN handoff and adapter activation. Management UI uses Tailscale TCP/TLS only;
         public routing exposes one selected status page.
       chartPrefixes:
       - charts/glitchtip
       prerequisites:
       - name: k8s-stack-tooling
-        version: 0.13.2
-        source: https://github.com/neurwerk/k8s_stack_tooling/releases/tag/v0.13.2
+        version: 0.13.5
+        source: https://github.com/neurwerk/k8s_stack_tooling/releases/tag/v0.13.5
       - name: openbao-stack-setup
         version: 0.6.0
         source: https://github.com/neurwerk/k8s_stack_tooling/commit/2825f854c8c15a1ce259988eeca8901bf6f3d496
@@ -384,7 +384,7 @@ spec:
       appVersion: '1.0'
     - path: charts/glitchtip
       name: glitchtip
-      version: 0.1.2
+      version: 0.1.3
       appVersion: 6.2.6
     - path: charts/keycloak/addon-access
       name: keycloak-addon-access
@@ -908,7 +908,7 @@ spec:
       - charts/opensearch/app/values.yaml
       - charts/opensearch/dashboards/values.yaml
       - charts/postgres/documentdb-addon/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-tooling:0.13.2@sha256:0a28a8ae58cc141b3ec00076e1671372de4c4022850ea0695c3ee0d726ab42ba
+    - reference: ghcr.io/neurwerk/k8s-stack-tooling:0.13.5@sha256:104018cd4c9297109ce6a66370fdefe68f1c8835085017dc5ffd3b13cdfcf594
       pinned: true
       eligibility: included
       origins:
