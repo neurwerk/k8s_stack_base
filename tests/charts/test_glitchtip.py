@@ -103,7 +103,16 @@ class GlitchTipTests(unittest.TestCase):
             "enabled": True, "pagePath": "/status-pages/example/public/",
         }}}})
         route = resource(result, "HTTPRoute", "glitchtip-status")
+        settings = resource(result, "ConfigMap", "glitchtip-settings")
+        # Permit the pinned native status CSS without allowing arbitrary inline code.
+        self.assertEqual(settings["data"]["CSP_STYLE_SRC"].split(","), [
+            "'self'", "'sha256-wX8OfU1Dm8o+Ad7fIkKWQHGrlRXKySPjX0M+/IiN4r4='",
+        ])
+        self.assertNotIn("CSP_SCRIPT_SRC", settings["data"])
+        pod = resource(result, "Deployment", "glitchtip")["spec"]["template"]["spec"]
+        self.assertIn({"configMapRef": {"name": settings["metadata"]["name"]}}, pod["containers"][0]["envFrom"])
         rules = route["spec"]["rules"]
+        self.assertEqual(len(rules), 1)
         paths = rules[0]["matches"]
         self.assertEqual([(item["path"]["value"], item["path"]["type"]) for item in paths], [
             ("/", "Exact"), ("/status-pages/example/public/", "Exact"),
