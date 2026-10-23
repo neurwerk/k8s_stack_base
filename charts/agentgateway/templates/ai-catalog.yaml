@@ -41,6 +41,12 @@
 {{- $destinations = append $destinations $destination }}{{- $_ := set $destinationKeys (printf "model:%s" $model.name) true }}
 {{- end }}
 {{- $owner := dict "id" $binding.id "provider_id" $binding.providerId "display_name" $binding.displayName "routes" $routes "destinations" $destinations }}
+{{/* Render-input status only; this does not establish runtime credential readiness. */}}
+{{- $companyStatus := "disabled" }}
+{{- if has "company" ($binding.configuredCredentialSources | default $binding.credentialSources) }}
+{{- $companyStatus = ternary "configured" "missing" (has "company" $binding.credentialSources) }}
+{{- end }}
+{{- $_ := set $owner "company_credential_status" $companyStatus }}
 {{- $_ := set $catalog $binding.group (append (get $catalog $binding.group) $owner) }}
 {{- end }}
 {{- $mcp := index .Values "mcp-servers" }}
