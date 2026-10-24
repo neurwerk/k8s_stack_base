@@ -25,6 +25,8 @@ glitchtip:
       # TCP/TLS passthrough via the existing operator, never a public UI route.
       # Map hostname above to the operator-reported tailnet DNS name/IP privately.
       tailscale:
+        # Disable while validating internal TLS; enable only at agreed cutover.
+        expose: true
         hostname: ""
         # Dedicated reviewed UI tag(s)/ACL; never inherit the API transport tag.
         tags: []

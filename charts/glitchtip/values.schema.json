@@ -38,8 +38,9 @@
                 "hostname": {"$ref": "#/definitions/hostname"},
                 "tailscale": {
                   "type": "object", "additionalProperties": false,
-                  "required": ["hostname", "tags"],
+                  "required": ["expose", "hostname", "tags"],
                   "properties": {
+                    "expose": {"type": "boolean"},
                     "hostname": {"type": "string", "maxLength": 63},
                     "tags": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^tag:[a-zA-Z0-9-]+$"}}
                   }
