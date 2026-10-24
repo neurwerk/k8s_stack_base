@@ -12,8 +12,17 @@
 {{- range $a.audiences -}}
 {{- if not (has . $approval.audiences) }}{{ fail "authentication audiences require exact client approval" }}{{ end -}}
 {{- end -}}
-{{- range $field := list "redirectUris" "webOrigins" -}}
-{{- range $url := index $a $field -}}
+{{- if hasKey $a "postLogoutRedirectUris" -}}
+{{- range $a.postLogoutRedirectUris -}}
+{{- if not (has . ($approval.postLogoutRedirectUris | default list)) }}{{ fail "authentication postLogoutRedirectUris require exact client approval" }}{{ end -}}
+{{- end -}}
+{{- end -}}
+{{- range $field := list "redirectUris" "webOrigins" "postLogoutRedirectUris" -}}
+{{- $urls := index $a $field | default list -}}
+{{- if eq $field "postLogoutRedirectUris" -}}
+{{- $urls = concat $urls ($approval.postLogoutRedirectUris | default list) -}}
+{{- end -}}
+{{- range $url := $urls -}}
 {{- $parsed := urlParse $url -}}
 {{- if or (ne $parsed.scheme "https") (empty $parsed.host) (not (empty $parsed.userinfo)) (not (empty $parsed.fragment)) (regexMatch "[[:space:]*\\\\]" $url) }}{{ fail "authentication requires exact HTTPS URLs" }}{{ end -}}
 {{- if and (eq $field "webOrigins") (or (not (empty $parsed.path)) (not (empty $parsed.query))) }}{{ fail "webOrigins must not contain a path or query" }}{{ end -}}
@@ -33,6 +42,7 @@
 {{- if not (regexMatch "^ghcr.io/neurwerk/k8s-stack-tooling:[0-9]+\\.[0-9]+\\.[0-9]+@sha256:[a-f0-9]{64}$" $image) }}{{ fail "enable only with an explicitly published immutable tooling image" }}{{ end -}}
 {{- $version := index (splitList "@" (trimPrefix "ghcr.io/neurwerk/k8s-stack-tooling:" $image)) 0 -}}
 {{- if not (semverCompare ">=0.11.1" $version) }}{{ fail "addon-oidc requires tooling >=0.11.1" }}{{ end -}}
+{{- if and (hasKey .Values.authentication "postLogoutRedirectUris") (not (semverCompare ">=0.13.6" $version)) }}{{ fail "explicit postLogoutRedirectUris require tooling >=0.13.6" }}{{ end -}}
 {{- end -}}
 
 {{- define "addon-oidc.gatewayScope" -}}

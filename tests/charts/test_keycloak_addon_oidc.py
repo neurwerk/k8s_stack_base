@@ -123,6 +123,8 @@ class AddonOidcTests(unittest.TestCase):
                     },
                 )
                 env = {e["name"]: e for e in container["env"]}
+                self.assertNotIn("KC_POST_LOGOUT_REDIRECT_URIS", env)
+                self.assertNotIn("KC_APPROVED_POST_LOGOUT_REDIRECT_URIS", env)
                 for name, expected in {
                     "KC_CLIENT_ID": "example-addon",
                     "KC_REALM": "example",
@@ -190,6 +192,65 @@ class AddonOidcTests(unittest.TestCase):
                         },
                     ],
                 )
+
+    def test_explicit_logout_requires_approval_and_capable_runtime(self):
+        values = configuration()
+        requested = ["https://example-addon.example.com/auth"]
+        approved = requested + ["https://example-addon.example.com/signed-out"]
+        values["authentication"]["postLogoutRedirectUris"] = requested
+        values["clientApproval"]["postLogoutRedirectUris"] = approved
+        values.update(
+            authKeycloak={"realm": "example", "adminUser": "setup-admin"},
+            clientSecret={"name": "example-oidc"},
+        )
+        result = render(CHART, values, namespace="auth-keycloak", value_files=(), check=False)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("explicit postLogoutRedirectUris require tooling >=0.13.6", result.stderr)
+        # Synthetic test-only digest, not a deployment pin or publication evidence.
+        values["k8sTools"] = {
+            "image": "ghcr.io/neurwerk/k8s-stack-tooling:0.13.6@sha256:" + "0" * 64
+        }
+        result = render(CHART, values, namespace="auth-keycloak", value_files=())
+        env = {
+            e["name"]: e.get("value")
+            for e in resource(result, "Job")["spec"]["template"]["spec"]["containers"][0]["env"]
+        }
+        self.assertEqual(json.loads(env["KC_POST_LOGOUT_REDIRECT_URIS"]), requested)
+        self.assertEqual(json.loads(env["KC_APPROVED_POST_LOGOUT_REDIRECT_URIS"]), approved)
+        legacy = copy.deepcopy(values)
+        del legacy["authentication"]["postLogoutRedirectUris"]
+        result = render(CHART, legacy, namespace="auth-keycloak", value_files=())
+        env_names = {
+            e["name"]
+            for e in resource(result, "Job")["spec"]["template"]["spec"]["containers"][0]["env"]
+        }
+        self.assertNotIn("KC_POST_LOGOUT_REDIRECT_URIS", env_names)
+        self.assertNotIn("KC_APPROVED_POST_LOGOUT_REDIRECT_URIS", env_names)
+        for approval in (None, ["https://example-addon.example.com/auth/"], approved[1:]):
+            with self.subTest(approval=approval):
+                invalid = copy.deepcopy(values)
+                if approval is None:
+                    del invalid["clientApproval"]["postLogoutRedirectUris"]
+                else:
+                    invalid["clientApproval"]["postLogoutRedirectUris"] = approval
+                result = render(
+                    CHART, invalid, namespace="auth-keycloak", value_files=(), check=False
+                )
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("postLogoutRedirectUris require exact client approval", result.stderr)
+
+    def test_logout_lists_reject_empty_duplicate_and_unsafe_urls(self):
+        for uris in (
+            [], [""], ["https://example.com/auth"] * 2,
+            ["http://example.com/auth"], ["https://example.com/*"],
+            ["https://example.com/auth#fragment"], ["https://user@example.com/auth"],
+            ["https://example.com/auth with space"], ["https://example.com/\\auth"],
+        ):
+            for field in ("authentication", "clientApproval"):
+                with self.subTest(field=field, uris=uris):
+                    values = configuration()
+                    values[field]["postLogoutRedirectUris"] = uris
+                    self.assertNotEqual(self.scope(values, check=False).returncode, 0)
 
     @classmethod
     def setUpClass(cls):
