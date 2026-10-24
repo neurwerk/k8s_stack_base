@@ -172,6 +172,57 @@ class GlitchTipTests(unittest.TestCase):
         self.assertEqual([listener["name"] for listener in resource(combined, "Gateway", "glitchtip")["spec"]["listeners"]], ["status"])
         self.assertEqual([doc["metadata"]["name"] for doc in documents(combined) if doc["kind"] == "HTTPRoute"], ["glitchtip-status"])
 
+    def test_ui_disabled_never_creates_tls_or_proxy_resources(self):
+        baseline = documents(render("glitchtip"))
+        for expose in (False, True):
+            with self.subTest(expose=expose):
+                result = render("glitchtip", {"glitchtip": {"gateway": {"ui": {
+                    "enabled": False, "tailscale": {"expose": expose},
+                }}}})
+                self.assertEqual(documents(result), baseline)
+
+    def test_ui_can_stage_tls_without_requesting_a_tailnet_device(self):
+        values = self.adapter_values()
+        values["glitchtip"]["gateway"] = {
+            "status": {"enabled": True, "pagePath": "/status-pages/example/public/"},
+            "ui": {"enabled": True, "tailscale": {
+                "hostname": "glitchtip-example", "tags": ["tag:glitchtip-ui"],
+            }},
+        }
+        default = documents(render("glitchtip", values))
+        tailscale = values["glitchtip"]["gateway"]["ui"]["tailscale"]
+        tailscale["expose"] = True
+        exposed = documents(render("glitchtip", values))
+        self.assertEqual(default, exposed)
+        tailscale["expose"] = False
+        staged_result = render("glitchtip", values)
+        staged = documents(staged_result)
+        service = resource(staged_result, "Service", "glitchtip-ui")
+        self.assertFalse(service["metadata"].get("annotations", {}))
+        self.assertEqual(service["spec"]["ports"], [{"name": "https", "port": 443, "targetPort": "ui-https"}])
+        self.assertEqual(resource(staged_result, "Certificate", "glitchtip-ui")["spec"]["dnsNames"], ["glitchtip.example.com"])
+        self.assertIn("cert-manager-public-glitchtip-ui", resource(staged_result, "ClusterRole", "cert-manager-glitchtip-approval-use")["rules"][0]["resourceNames"])
+        self.assertEqual(
+            [container["name"] for container in resource(staged_result, "Deployment", "glitchtip")["spec"]["template"]["spec"]["containers"]],
+            ["glitchtip", "ui"],
+        )
+        # Only operator annotations change: retain TLS, policies, public routes,
+        # application settings/checksum and every adapter resource byte-for-byte.
+        exposed_service = next(doc for doc in exposed if doc["kind"] == "Service" and doc["metadata"]["name"] == "glitchtip-ui")
+        del exposed_service["metadata"]["annotations"]
+        self.assertEqual(staged, exposed)
+
+    def test_ui_exposure_requires_a_boolean(self):
+        for expose in ("false", 0, []):
+            with self.subTest(expose=expose):
+                result = render("glitchtip", {"glitchtip": {"gateway": {"ui": {
+                    "enabled": True, "tailscale": {
+                        "hostname": "glitchtip-example", "tags": ["tag:glitchtip-ui"], "expose": expose,
+                    },
+                }}}}, check=False)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(result.stdout, "")
+
     def test_reader_role_is_opt_in_and_cannot_write(self):
         disabled = render("opensearch/app")
         self.assertNotIn("glitchtip_adapter_read", disabled.stdout)
