@@ -9,6 +9,9 @@ authentication:
   clientId: ""
   redirectUris: []
   webOrigins: []
+  # Optional nonempty exact HTTPS URLs; omission preserves webOrigins fallback.
+  # Requires an explicitly selected published Tooling image >=0.13.6.
+  # postLogoutRedirectUris: [https://app.example.com/auth]
   realmRoles: []
   roleClaim: addon_roles
   audiences: []
@@ -20,6 +23,8 @@ authentication:
 # Scope permits claims for roles users already have; it never assigns user roles.
 clientApproval:
   clientId: ""
+  # Optional trusted allowlist for authentication.postLogoutRedirectUris.
+  # postLogoutRedirectUris: [https://app.example.com/auth]
   realmRoles: []
   audiences: []
   gatewayPermissions: []
