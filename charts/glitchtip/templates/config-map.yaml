@@ -26,7 +26,7 @@ data:
   GLITCHTIP_ENABLE_UPTIME: {{ .Values.glitchtip.uptimeEnabled | quote }}
   GLITCHTIP_UPTIME_ALLOW_PRIVATE_IPS: {{ .Values.glitchtip.uptimeAllowPrivateIPs | quote }}
   GLITCHTIP_ENABLE_LOGS: "false"
-  GLITCHTIP_ENABLE_MCP: "false"
+  GLITCHTIP_ENABLE_MCP: {{ .Values.glitchtip.mcpEnabled | quote }}
   GLITCHTIP_ENABLE_DUCKDB: "false"
   GLITCHTIP_RETENTION_DAYS: {{ .Values.glitchtip.retentionDays | quote }}
   GLITCHTIP_RELEASE_RETENTION_DAYS: {{ .Values.glitchtip.retentionDays | quote }}
