@@ -144,6 +144,10 @@ mcp-servers:
   # All selections require
   # explicit enabled:true; new shipped presets never enable network access.
   # Catalog defaults: PII on, content tracing off. Definitions: catalog/presets.yaml.
+  # Native selections may add required_roles (all-of Studio realm roles); preset
+  # requirements cannot be removed. These do not grant gateway invocation.
+  # OAuth public clients use token_endpoint_auth_method: none with pkce: true
+  # and no client_secret_ref; confidential clients keep their Secret reference.
   catalog:
     presets: {}
     custom: []
