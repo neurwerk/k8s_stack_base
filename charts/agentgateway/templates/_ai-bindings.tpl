@@ -288,7 +288,7 @@ provider header and accidentally choose a company account instead. */}}
 
 {{- define "infra-agentgateway.aiRevision" -}}
 {{- if not (hasKey . "_gatewayRevision") -}}
-{{- $revision := dict "bindings" (include "infra-agentgateway.aiBindings" . | fromJsonArray) "approvedOidcClients" .Values.aiGateway.approvedOidcClients "profiles" (.Files.Get "catalog/ai-profiles.yaml" | fromYaml) "models" (include "infra-agentgateway.effectiveModels" . | fromYamlArray) "mcp" (include "infra-agentgateway.effectiveMcpServers" . | fromYamlArray) -}}
+{{- $revision := dict "identityTelemetryVersion" 2 "bindings" (include "infra-agentgateway.aiBindings" . | fromJsonArray) "approvedOidcClients" .Values.aiGateway.approvedOidcClients "profiles" (.Files.Get "catalog/ai-profiles.yaml" | fromYaml) "models" (include "infra-agentgateway.effectiveModels" . | fromYamlArray) "mcp" (include "infra-agentgateway.effectiveMcpServers" . | fromYamlArray) -}}
 {{- $_ := set . "_gatewayRevision" ($revision | toJson | sha256sum) -}}
 {{- end -}}
 {{- get . "_gatewayRevision" -}}
