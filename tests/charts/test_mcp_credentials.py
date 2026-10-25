@@ -57,6 +57,26 @@ class McpCredentialsTests(unittest.TestCase):
         selection["required_roles"] = []
         self.assertNotEqual(render("agentgateway", values, check=False).returncode, 0)
         selection.pop("required_roles")
+        oauth = selection["registration"]["oauth"]
+        oauth.update(
+            issuer="https://errors.example.com/mcp", resource="https://errors.example.com/mcp",
+            token_url="https://native-errors.example.com/mcp/token",
+        )
+        split = render("agentgateway", values)
+        split_data = resource(split, "ConfigMap", "infra-agentgateway-mcp-catalog")["data"]
+        self.assertEqual(json.loads(split_data["registrations.json"])[0]["oauth"], oauth | {
+            "scopes": ["org:read", "project:read", "event:read"],
+            "pkce": True, "token_endpoint_auth_method": "none",
+        })
+        self.assertEqual(json.loads(split_data["studio.json"])[0]["oauth_authorization_origin"],
+                         "https://errors.example.com")
+        for field in ("issuer", "resource"):
+            saved = oauth[field]
+            for invalid in ("http://errors.example.com/mcp", "https://user:secret@errors.example.com/mcp",
+                            "https://errors.example.com/mcp?token=secret"):
+                oauth[field] = invalid
+                self.assertNotEqual(render("agentgateway", values, check=False).returncode, 0)
+            oauth[field] = saved
         for invalid in ({"pkce": False}, {"client_secret_ref": {"name": "contextforge-oauth-apps", "key": "glitchtip"}}):
             original = selection["registration"]["oauth"].copy()
             selection["registration"]["oauth"].update(invalid)
