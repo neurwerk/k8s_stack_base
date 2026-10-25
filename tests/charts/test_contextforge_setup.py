@@ -31,7 +31,7 @@ def definition(identity="example"):
     return {"id": identity, "provider": "example", "authentication_model": "individual-authentication",
             "server_id": "b" * 32, "upstream_url": "https://mcp.example.com/" + identity,
             "transport": "STREAMABLEHTTP", "visibility": "public", "approved_tools": ["read"],
-            "oauth": {"authorization_url": "https://oauth.example.com/authorize"}}
+            "oauth": {"authorization_url": "https://oauth.example.com/authorize", "pkce": True}}
 
 
 def projection(spec):
@@ -41,6 +41,39 @@ def projection(spec):
 
 
 class SetupPublicationTests(unittest.TestCase):
+    def test_public_pkce_registration_uses_no_secret_and_rejects_secret_injection(self):
+        spec = definition() | {"studio_managed": True, "oauth": {
+            "authorization_url": "https://oauth.example.com/authorize",
+            "token_url": "https://oauth.example.com/token", "client_id": "public-client",
+            "redirect_uri": "https://studio.example.com/oauth/callback", "scopes": [],
+            "pkce": True, "token_endpoint_auth_method": "none",
+        }}
+        gateway = {"id": "a" * 32, "name": "neurwerk-contextforge-example",
+            "description": "neurwerk-contextforge/example/example/individual-authentication/studio-v1",
+            "teamId": "team", "ownerEmail": "owner", "createdBy": "owner", "visibility": "public",
+            "enabled": True, "gatewayMode": "cache", "transport": spec["transport"],
+            "url": spec["upstream_url"], "authType": "oauth", "oauthConfig": registrations.native_oauth(spec)}
+        registrations.check_gateway(gateway, spec, "team", "owner", gateway["description"])
+        for secret in ("unexpected-shared-secret", {"token": "unexpected"}):
+            with self.subTest(secret_type=type(secret).__name__), self.assertRaises(registrations.SetupError):
+                registrations.check_gateway(gateway | {"oauthConfig": gateway["oauthConfig"] | {
+                    "client_secret": secret}}, spec, "team", "owner", gateway["description"])
+        api = Mock()
+        posted = []
+        def request(method, path, body=None):
+            if method == "POST" and path == "/gateways":
+                posted.append(copy.deepcopy(body))
+            return gateway if path.startswith("/servers/") else None
+        api.request.side_effect = request
+        with patch.object(registrations, "catalog", side_effect=[[], [], [gateway]]), \
+                patch.object(registrations, "members", return_value=set()), \
+                patch.object(registrations, "Path") as secret_path:
+            result = registrations.reconcile_one(api, spec, "team", "owner", studio=(api, "owner"))
+        secret_path.assert_not_called()
+        self.assertEqual(posted[0]["oauth_config"], registrations.native_oauth(spec))
+        self.assertNotIn("client_secret", posted[0]["oauth_config"])
+        self.assertEqual(result["state"], "pending-discovery")
+
     def run_main(self, specs, entries, reconcile_one, api, previous=None, source_changed=False, managed=False):
         """Exercise the publication pipeline without transport or credential access."""
         config = {"origin": "https://native.example.com", "nativeBudgetSeconds": 120,
