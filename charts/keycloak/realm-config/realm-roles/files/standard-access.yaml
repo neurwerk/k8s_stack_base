@@ -1,4 +1,4 @@
-realmRoles: keycloak-admin,api-key-admin,opensearch-admin,langfuse-admin,pii-admin,mcp-admin,gateway-admin,platform-admin,studio-user
+realmRoles: keycloak-admin,api-key-admin,opensearch-admin,langfuse-admin,pii-admin,mcp-admin,gateway-admin,platform-admin,studio-user,glitchtip-admin
 realmRoleComposites:
   platform-admin:
     - keycloak-admin
@@ -28,6 +28,8 @@ accessGroups:
     realmRoles: [platform-admin]
   /access/neurwerk-studio-users:
     realmRoles: [studio-user]
+  /access/neurwerk-glitchtip-admins:
+    realmRoles: [glitchtip-admin]
   /access/neurwerk-llm-all-users:
     realmRoles: []
   /access/neurwerk-mcp-all-users:

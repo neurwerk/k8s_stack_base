@@ -20,7 +20,7 @@ class KeycloakStandardAccessTests(unittest.TestCase):
         groups = json.loads(env_value(rendered, "KC_ACCESS_GROUPS"))
         role_names = (
             "keycloak-admin,api-key-admin,opensearch-admin,langfuse-admin,pii-admin,mcp-admin,gateway-admin,"
-            "platform-admin,studio-user"
+            "platform-admin,studio-user,glitchtip-admin"
         )
         expected = {
             f"/access/neurwerk-{role}s": {"realmRoles": [role]}
@@ -40,7 +40,7 @@ class KeycloakStandardAccessTests(unittest.TestCase):
         self.assertEqual(json.loads(env_value(rendered, "KC_REALM_ROLE_COMPOSITE_OWNERSHIP")), {
             "platform-admin": [
                 "keycloak-admin", "api-key-admin", "opensearch-admin",
-                "langfuse-admin", "pii-admin", "mcp-admin", "gateway-admin", "studio-user",
+                "langfuse-admin", "pii-admin", "mcp-admin", "gateway-admin", "studio-user", "glitchtip-admin",
             ],
         })
         self.assertEqual(env_value(rendered, "KC_PARENT_ROLE"), "keycloak-admin")
@@ -137,7 +137,7 @@ class KeycloakStandardAccessTests(unittest.TestCase):
         self.assertEqual(groups.pop(APPLICATION), {
             "realmRoles": [], "clientRoles": {"agentgateway": ["llm:invoke", application, provider]},
         })
-        self.assertEqual(len(groups), 9)
+        self.assertEqual(len(groups), 10)
         self.assertTrue(all(
             group["clientRoles"] == {"agentgateway": []} for group in groups.values()
         ))
@@ -152,6 +152,40 @@ class KeycloakStandardAccessTests(unittest.TestCase):
         self.assertTrue(all(
             group["clientRoles"] == {"agentgateway": []} for group in updated.values()
         ))
+
+    def test_glitchtip_group_is_the_only_managed_invocation_grant(self) -> None:
+        group = "/access/neurwerk-glitchtip-admins"
+        role = "mcp:glitchtip:invoke"
+        values = {"authKeycloak": {
+            "agentgatewayClientRoles": ["llm:invoke", role, "mcp:example:invoke"],
+            "agentgatewayAccessGroups": {group: ["llm:invoke", role]},
+        }}
+        result = render(CHART, values)
+        groups = json.loads(env_value(result, "KC_ACCESS_GROUPS"))
+        self.assertEqual(groups[group], {
+            "realmRoles": ["glitchtip-admin"],
+            "clientRoles": {"agentgateway": ["llm:invoke", role]},
+        })
+        self.assertTrue(all(
+            role not in definition["clientRoles"]["agentgateway"]
+            for path, definition in groups.items() if path != group
+        ))
+        baseline = render(CHART)
+        self.assertEqual(json.loads(env_value(baseline, "KC_ACCESS_GROUPS"))[group], {
+            "realmRoles": ["glitchtip-admin"], "clientRoles": {"agentgateway": []},
+        })
+        self.assertNotIn("glitchtip-admin", json.loads(
+            env_value(result, "KC_REALM_ROLE_COMPOSITES")
+        )["platform-admin"])
+        self.assertIn("glitchtip-admin", json.loads(
+            env_value(result, "KC_REALM_ROLE_COMPOSITE_OWNERSHIP")
+        )["platform-admin"])
+        for path in (LLM, MCP, APPLICATION, "/access/neurwerk-platform-admins"):
+            with self.subTest(path=path):
+                values["authKeycloak"]["agentgatewayAccessGroups"] = {path: ["llm:invoke", role]}
+                self.assertNotEqual(render(CHART, values, check=False).returncode, 0)
+        values["authKeycloak"]["agentgatewayAccessGroups"] = {group: ["mcp:example:invoke"]}
+        self.assertNotEqual(render(CHART, values, check=False).returncode, 0)
 
     def test_mapping_overrides_and_unsafe_grants_fail_closed(self) -> None:
         model = "model:example:invoke"
