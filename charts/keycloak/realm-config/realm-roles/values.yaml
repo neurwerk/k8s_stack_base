@@ -26,6 +26,8 @@ authKeycloak:
   # /access/neurwerk-llm-all-users accepts llm/model/provider permissions;
   # /access/neurwerk-mcp-all-users accepts llm/MCP permissions;
   # /access/neurwerk-ai-application-users accepts llm/application/provider permissions.
+  # Only /access/neurwerk-glitchtip-admins may receive mcp:glitchtip:invoke;
+  # it accepts that role and llm:invoke, with no automatic human membership.
   # All resource groups exist without grants; application admission implies no access.
   agentgatewayAccessGroups: {}
 

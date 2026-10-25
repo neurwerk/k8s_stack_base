@@ -28,7 +28,8 @@
 {{- $_ := set $standard.realmRoleComposites "platform-admin" $filteredRoles }}
 {{- $ownership := dict }}
 {{- range $parent, $children := $standard.realmRoleComposites }}
-{{- $_ := set $ownership $parent (ternary $platformAdminRoles $children (eq $parent "platform-admin")) }}
+{{/* GlitchTip admission is never inherited from platform-admin, including stale grants. */}}
+{{- $_ := set $ownership $parent (ternary (append $platformAdminRoles "glitchtip-admin") $children (eq $parent "platform-admin")) }}
 {{- end }}
 {{- range $key := list "accessGroups" "realmRoles" "realmRoleComposites" }}
 {{- if hasKey $.Values.authKeycloak $key }}{{- fail (printf "authKeycloak.%s is platform-owned and must be omitted" $key) }}{{- end }}
@@ -46,6 +47,7 @@
 {{- $resourcePrefixes := dict
       "/access/neurwerk-llm-all-users" (list "model:" "provider:")
       "/access/neurwerk-mcp-all-users" (list "mcp:")
+      "/access/neurwerk-glitchtip-admins" (list "mcp:glitchtip:")
       "/access/neurwerk-ai-application-users" (list "application:" "provider:") }}
 {{- range $groupName, $groupRoles := .Values.authKeycloak.agentgatewayAccessGroups | default dict }}
 {{- $group := get $accessGroups $groupName }}
@@ -54,6 +56,7 @@
 {{- $groupRoles = $groupRoles | uniq }}
 {{- range $permission := $groupRoles }}
 {{- if not (has $permission $agentgatewayRoles) }}{{- fail (printf "AgentGateway access group %q grants undeclared role %q" $groupName $permission) }}{{- end }}
+{{- if and (eq $permission "mcp:glitchtip:invoke") (ne $groupName "/access/neurwerk-glitchtip-admins") }}{{- fail "mcp:glitchtip:invoke is restricted to /access/neurwerk-glitchtip-admins" }}{{- end }}
 {{- $allowed := eq $permission "llm:invoke" }}
 {{- range get $resourcePrefixes $groupName }}
 {{- if hasPrefix . $permission }}{{- $allowed = true }}{{- end }}
