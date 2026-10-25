@@ -3,7 +3,7 @@
 {{- range $field := list "request_id" "entry_mode" "destination_kind" "provider_id" "binding_id" "protocol_profile" "operation_id" "provider_credential_source" "policy_revision" "credential_id" "credential_kind" -}}
 {{- $_ := set $fields (printf "neurwerk.%s" $field) (printf "has(metadata.neurwerk_admission) && has(metadata.neurwerk_admission.%s) ? metadata.neurwerk_admission.%s : null" $field $field) -}}
 {{- end -}}
-{{- range $field := list "request_id" "entry_mode" "policy_revision" "credential_id" "credential_kind" -}}
+{{- range $field := list "request_id" "entry_mode" "policy_revision" "credential_id" "credential_kind" "app_id" -}}
 {{- $_ := set $fields (printf "neurwerk.%s" $field) (printf "has(metadata.neurwerk_identity) && has(metadata.neurwerk_identity.%s) ? metadata.neurwerk_identity.%s : has(metadata.neurwerk_admission) && has(metadata.neurwerk_admission.%s) ? metadata.neurwerk_admission.%s : null" $field $field $field $field) -}}
 {{- end -}}
 {{- $_ := set $fields "neurwerk.matched_route" `has(proxy.route.name) ? proxy.route.name : null` -}}

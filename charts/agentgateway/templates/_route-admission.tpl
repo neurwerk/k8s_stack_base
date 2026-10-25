@@ -2,6 +2,7 @@
 {{- define "infra-agentgateway.sharedIdentity" -}}
 {"contract_version": 1, "request_id": has(jwt.sub) ? uuid() : extauthz.request_id,
 "principal_id": has(jwt.sub) ? jwt.sub : extauthz.principal_id,
+"app_id": has(jwt.sub) && has(jwt.azp) ? jwt.azp : null,
 "credential_context_version": has(jwt.sub) ? null : "1",
 "credential_id": has(jwt.sub) ? null : extauthz.credential_id,
 "credential_kind": has(jwt.sub) ? null : extauthz.credential_kind,
