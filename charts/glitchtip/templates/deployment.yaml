@@ -79,7 +79,7 @@ spec:
           # Native web-only process; same image, database, cache and uploads.
           image: {{ .Values.glitchtip.image }}
           command: [./bin/run-granian.sh]
-          args: [--ssl-certificate, /etc/glitchtip-ui-tls/tls.crt, --ssl-keyfile, /etc/glitchtip-ui-tls/tls.key]
+          args: [--ssl-certificate, /etc/glitchtip-native-tls/tls.crt, --ssl-keyfile, /etc/glitchtip-native-tls/tls.key]
           securityContext:
             allowPrivilegeEscalation: false
             capabilities: {drop: [ALL]}
@@ -122,15 +122,15 @@ spec:
             {{- toYaml .Values.glitchtip.gateway.ui.resources | nindent 12 }}
           volumeMounts:
             - {name: uploads, mountPath: /code/uploads}
-            - {name: ui-tls, mountPath: /etc/glitchtip-ui-tls, readOnly: true}
+            - {name: native-tls, mountPath: /etc/glitchtip-native-tls, readOnly: true}
         {{- end }}
       volumes:
         - name: uploads
           persistentVolumeClaim: {claimName: glitchtip-uploads}
         {{- if .Values.glitchtip.gateway.ui.enabled }}
-        - name: ui-tls
+        - name: native-tls
           secret:
-            secretName: glitchtip-ui-tls
+            secretName: glitchtip-native-tls
             defaultMode: 0440
         {{- end }}
 {{- end }}

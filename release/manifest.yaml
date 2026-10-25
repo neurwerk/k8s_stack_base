@@ -42,11 +42,22 @@ spec:
       reason: Optional dedicated GlitchTip database using the existing operations PostgreSQL; requires
         prepared credentials.
       chartPrefixes: []
+    - path: releases/glitchtip/secret-sync/admission
+      status: included
+      reason: Optional isolated proxy-cookie and Keycloak-client credential delivery; prepare through
+        the reviewed standalone CLI before adopting the gated UI.
+      chartPrefixes: []
+      prerequisites:
+      - name: openbao-stack-setup
+        version: 0.6.5
+        source: https://github.com/neurwerk/k8s_stack_tooling/commit/93e9a36ebefaa3aec4b2cdffbf5d80e37a4dac6a
     - path: releases/glitchtip/app
       status: included
-      reason: Optional GlitchTip 6.2.6 with verified adapter Tooling 0.13.7 and provisioning Tooling 0.13.5;
-        disabled by default. Provision native identities before DSN handoff and adapter activation. Management
-        UI uses Tailscale TCP/TLS only; public routing exposes one selected status page.
+      reason: Optional stock GlitchTip 6.2.6 with verified adapter Tooling 0.13.7 and provisioning Tooling
+        0.13.5; disabled by default. The private UI requires prepared Keycloak full-path group admission
+        and separate credentials. Stock OAuth2 Proxy filters internal MCP, status and ingestion paths
+        with verified upstream TLS. Public routing exposes one selected status page; no native identities
+        or data are replaced.
       chartPrefixes:
       - charts/glitchtip
       prerequisites:
@@ -54,8 +65,11 @@ spec:
         version: 0.13.7
         source: https://github.com/neurwerk/k8s_stack_tooling/releases/tag/v0.13.7
       - name: openbao-stack-setup
-        version: 0.6.0
-        source: https://github.com/neurwerk/k8s_stack_tooling/commit/2825f854c8c15a1ce259988eeca8901bf6f3d496
+        version: 0.6.5
+        source: https://github.com/neurwerk/k8s_stack_tooling/commit/93e9a36ebefaa3aec4b2cdffbf5d80e37a4dac6a
+      - name: k8s-stack-tooling-workstation
+        version: 0.13.7
+        source: https://github.com/neurwerk/k8s_stack_tooling/commit/73a48e6fe1c794bc80b8c847c37280ebfc0f73fd
     - path: releases/glitchtip/secret-sync/initial-owner
       status: included
       reason: Optional initial local organization-owner credentials for native provisioning; never delivered
@@ -384,7 +398,7 @@ spec:
       appVersion: '1.0'
     - path: charts/glitchtip
       name: glitchtip
-      version: 0.1.7
+      version: 0.2.0
       appVersion: 6.2.6
     - path: charts/keycloak/addon-access
       name: keycloak-addon-access
@@ -988,6 +1002,11 @@ spec:
       eligibility: included
       origins:
       - charts/trust-manager/values.yaml
+    - reference: quay.io/oauth2-proxy/oauth2-proxy:v7.15.5@sha256:8498b0d0ef0a7b29686414000a08aee467f02d0299c9ed1e006a8f33fc017916
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/glitchtip/values.yaml
     - reference: quay.io/openbao/openbao:2.6.1
       pinned: true
       eligibility: included

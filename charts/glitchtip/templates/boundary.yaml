@@ -1,0 +1,198 @@
+{{- if and .Values.glitchtip.enabled .Values.glitchtip.gateway.ui.enabled }}
+{{- $root := . }}
+{{- $profiles := list "browser" "ingest" }}
+{{- if .Values.glitchtip.mcpEnabled }}{{- $profiles = append $profiles "mcp" }}{{- end }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: glitchtip-boundary
+data:
+  {{- range $profile := $profiles }}
+  {{ $profile }}.yaml: |
+    server:
+      {{- if eq $profile "ingest" }}
+      bindAddress: "0.0.0.0:8000"
+      {{- else }}
+      bindAddress: "-"
+      secureBindAddress: "0.0.0.0:{{ ternary 8443 9443 (eq $profile "browser") }}"
+      tls:
+        cert: {fromFile: /etc/{{ ternary "ui-tls" "native-tls" (eq $profile "browser") }}/tls.crt}
+        key: {fromFile: /etc/{{ ternary "ui-tls" "native-tls" (eq $profile "browser") }}/tls.key}
+        minVersion: TLS1.2
+      {{- end }}
+    providers:
+      - id: glitchtip-admission
+        provider: keycloak-oidc
+        clientID: {{ $root.Values.glitchtip.admission.clientID | quote }}
+        clientSecretFile: /etc/admission/clientSecret
+        allowedGroups: [{{ $root.Values.glitchtip.admission.allowedGroup | quote }}]
+        scope: openid profile email
+        code_challenge_method: S256
+        useSystemTrustStore: true
+        oidcConfig:
+          issuerURL: {{ $root.Values.glitchtip.admission.issuerURL | quote }}
+          groupsClaim: groups
+          insecureSkipNonce: false
+          {{- if ne $profile "browser" }}
+          # Keycloak's fixed endpoints; internal path filters need no discovery.
+          skipDiscovery: true
+          jwksURL: {{ printf "%s/protocol/openid-connect/certs" $root.Values.glitchtip.admission.issuerURL | quote }}
+        loginURL: {{ printf "%s/protocol/openid-connect/auth" $root.Values.glitchtip.admission.issuerURL | quote }}
+        redeemURL: {{ printf "%s/protocol/openid-connect/token" $root.Values.glitchtip.admission.issuerURL | quote }}
+          {{- end }}
+    # Strip caller-supplied identity hints; never inject the proxy's OAuth tokens.
+    injectRequestHeaders:
+      {{- range list "Forwarded" "X-Forwarded-Host" "X-Real-IP" "X-Forwarded-User" "X-Forwarded-Email" "X-Forwarded-Groups" "X-Forwarded-Preferred-Username" "X-Forwarded-Access-Token" "X-Auth-Request-User" "X-Auth-Request-Email" "X-Auth-Request-Groups" }}
+      - name: {{ . }}
+        preserveRequestValue: false
+      {{- end }}
+      - name: X-Forwarded-Proto
+        preserveRequestValue: false
+        values: [{secretSource: {fromEnv: GLITCHTIP_PROXY_SCHEME}}]
+    upstreamConfig:
+      upstreams:
+        {{- if eq $profile "browser" }}
+        - {id: browser-authorize, path: /mcp/authorize, uri: "https://glitchtip-backend.{{ $root.Release.Namespace }}.svc.cluster.local:8443"}
+        - {id: deny-mcp, path: /mcp, static: true, staticCode: 404}
+        - {id: deny-mcp-paths, path: /mcp/, static: true, staticCode: 404}
+        - {id: deny-discovery, path: /.well-known/, static: true, staticCode: 404}
+        - {id: deny-native-health, path: /api/0/internal/health/, static: true, staticCode: 404}
+        - {id: browser, path: /, uri: "https://glitchtip-backend.{{ $root.Release.Namespace }}.svc.cluster.local:8443", timeout: 600s, flushInterval: -1s}
+        {{- else if eq $profile "mcp" }}
+        {{- range $index, $path := list "/mcp" "/mcp/token" "/mcp/register" "/mcp/revoke" "/.well-known/oauth-authorization-server" "/.well-known/oauth-authorization-server/mcp" "/.well-known/oauth-protected-resource/mcp" }}
+        - {id: managed-{{ $index }}, path: {{ $path | quote }}, uri: "https://glitchtip-backend.{{ $root.Release.Namespace }}.svc.cluster.local:8443", timeout: 600s, flushInterval: -1s}
+        {{- end }}
+        - {id: deny, path: /, static: true, staticCode: 404}
+        {{- else }}
+        {{- if $root.Values.glitchtip.gateway.status.enabled }}
+        - {id: status, path: {{ $root.Values.glitchtip.gateway.status.pagePath | quote }}, uri: "https://glitchtip-backend.{{ $root.Release.Namespace }}.svc.cluster.local:8443"}
+        {{- end }}
+        - {id: ingest, path: "/api/{project:[1-9][0-9]*}/{ingest:envelope|store}/", uri: "https://glitchtip-backend.{{ $root.Release.Namespace }}.svc.cluster.local:8443"}
+        - {id: deny, path: /, static: true, staticCode: 404}
+        {{- end }}
+  {{- end }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: glitchtip-boundary
+  annotations: {reloader.stakater.com/auto: "true"}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "glitchtip.labels" . | nindent 6 }}
+      app.kubernetes.io/component: boundary
+  template:
+    metadata:
+      labels:
+        {{- include "glitchtip.labels" . | nindent 8 }}
+        app.kubernetes.io/component: boundary
+      annotations:
+        checksum/routing: {{ dict "domain" .Values.glitchtip.domain "admission" .Values.glitchtip.admission "mcp" .Values.glitchtip.mcpEnabled "status" .Values.glitchtip.gateway.status | toJson | sha256sum }}
+    spec:
+      serviceAccountName: glitchtip
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        {{- range $profile := $profiles }}
+        - name: {{ $profile }}
+          image: {{ $root.Values.glitchtip.admission.image }}
+          args:
+            - --alpha-config=/etc/boundary/{{ $profile }}.yaml
+            - --redirect-url={{ $root.Values.glitchtip.domain }}/oauth2/callback
+            - --email-domain=*
+            - --cookie-name=__Host-glitchtip-admission
+            - --cookie-secure=true
+            - --cookie-httponly=true
+            - --cookie-samesite=lax
+            - --cookie-expire=15m
+            - --cookie-refresh=0
+            - --session-cookie-minimal=true
+            - --skip-jwt-bearer-tokens=false
+            - --skip-provider-button=true
+            - --auth-logging=false
+            - --request-logging=false
+            {{- if eq $profile "mcp" }}
+            - --skip-auth-route=GET=^/mcp$
+            - --skip-auth-route=POST=^/mcp$
+            - --skip-auth-route=DELETE=^/mcp$
+            - --skip-auth-route=POST=^/mcp/(token|register|revoke)$
+            - --skip-auth-route=GET=^/\.well-known/oauth-authorization-server(/mcp)?$
+            - --skip-auth-route=GET=^/\.well-known/oauth-protected-resource/mcp$
+            {{- else if eq $profile "ingest" }}
+            - --skip-auth-route=POST=^/api/[1-9][0-9]*/(envelope|store)/$
+            {{- if $root.Values.glitchtip.gateway.status.enabled }}
+            - --skip-auth-route=GET=^{{ $root.Values.glitchtip.gateway.status.pagePath }}$
+            - --skip-auth-route=HEAD=^{{ $root.Values.glitchtip.gateway.status.pagePath }}$
+            {{- end }}
+            {{- end }}
+          env:
+            - name: OAUTH2_PROXY_COOKIE_SECRET
+              valueFrom:
+                secretKeyRef: {name: {{ $root.Values.glitchtip.admission.secret }}, key: cookieSecret}
+            # Go's system pool also reads SSL_CERT_DIR; keep public roots for Keycloak.
+            - {name: SSL_CERT_FILE, value: /etc/native-tls/ca.crt}
+            - {name: SSL_CERT_DIR, value: /etc/ssl/certs}
+            - {name: GLITCHTIP_PROXY_SCHEME, value: https}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          ports:
+            - {name: {{ get (dict "browser" "admission-https" "ingest" "ingest-status" "mcp" "managed-mcp") $profile }}, containerPort: {{ get (dict "browser" 8443 "ingest" 8000 "mcp" 9443) $profile }}}
+          readinessProbe:
+            tcpSocket: {port: {{ get (dict "browser" "admission-https" "ingest" "ingest-status" "mcp" "managed-mcp") $profile }}}
+          livenessProbe:
+            tcpSocket: {port: {{ get (dict "browser" "admission-https" "ingest" "ingest-status" "mcp" "managed-mcp") $profile }}}
+          resources:
+            {{- if eq $profile "browser" }}
+            {{- toYaml $root.Values.glitchtip.admission.resources | nindent 12 }}
+            {{- else }}
+            {{- toYaml $root.Values.glitchtip.boundary.resources | nindent 12 }}
+            {{- end }}
+          volumeMounts:
+            - {name: config, mountPath: /etc/boundary, readOnly: true}
+            - {name: admission, mountPath: /etc/admission, readOnly: true}
+            - {name: native-tls, mountPath: /etc/native-tls, readOnly: true}
+            {{- if eq $profile "browser" }}
+            - {name: ui-tls, mountPath: /etc/ui-tls, readOnly: true}
+            {{- end }}
+        {{- end }}
+      volumes:
+        - name: config
+          configMap: {name: glitchtip-boundary}
+        - name: admission
+          secret: {secretName: {{ .Values.glitchtip.admission.secret }}, defaultMode: 0440}
+        - name: native-tls
+          secret: {secretName: glitchtip-native-tls, defaultMode: 0440}
+        - name: ui-tls
+          secret: {secretName: glitchtip-ui-tls, defaultMode: 0440}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: glitchtip-backend
+spec:
+  selector:
+    {{- include "glitchtip.labels" . | nindent 4 }}
+    app.kubernetes.io/component: application
+  ports: [{name: native, port: 8443, targetPort: ui-https}]
+{{- if .Values.glitchtip.mcpEnabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: glitchtip-mcp
+spec:
+  selector:
+    {{- include "glitchtip.labels" . | nindent 4 }}
+    app.kubernetes.io/component: boundary
+  ports: [{name: mcp, port: 8443, targetPort: managed-mcp}]
+{{- end }}
+{{- end }}

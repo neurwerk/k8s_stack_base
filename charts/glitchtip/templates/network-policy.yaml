@@ -10,6 +10,16 @@ spec:
       app.kubernetes.io/component: application
   policyTypes: [Ingress, Egress]
   ingress:
+    {{- if .Values.glitchtip.gateway.ui.enabled }}
+    - from:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: {{ .Release.Namespace }}}
+          podSelector:
+            matchLabels:
+              {{- include "glitchtip.labels" . | nindent 14 }}
+              app.kubernetes.io/component: boundary
+      ports: [{protocol: TCP, port: {{ ternary 8443 8000 .Values.glitchtip.gateway.ui.enabled }}}]
+    {{- else }}
     - from:
         - podSelector:
             matchLabels:
@@ -24,17 +34,6 @@ spec:
             matchLabels: {app.kubernetes.io/name: traefik}
       ports: [{protocol: TCP, port: 8000}]
     {{- end }}
-    {{- if .Values.glitchtip.gateway.ui.enabled }}
-    - from:
-        - namespaceSelector:
-            matchLabels: {kubernetes.io/metadata.name: tailscale}
-          podSelector:
-            matchLabels:
-              tailscale.com/managed: "true"
-              tailscale.com/parent-resource: glitchtip-ui
-              tailscale.com/parent-resource-ns: {{ .Release.Namespace }}
-              tailscale.com/parent-resource-type: svc
-      ports: [{protocol: TCP, port: 8443}]
     {{- end }}
   egress:
     - to:
@@ -127,7 +126,7 @@ spec:
         - podSelector:
             matchLabels:
               {{- include "glitchtip.labels" . | nindent 14 }}
-              app.kubernetes.io/component: application
+              app.kubernetes.io/component: {{ ternary "boundary" "application" .Values.glitchtip.gateway.ui.enabled }}
       ports: [{protocol: TCP, port: 8000}]
 {{- end }}
 {{- end }}

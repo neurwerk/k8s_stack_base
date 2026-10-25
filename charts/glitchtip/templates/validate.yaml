@@ -1,3 +1,6 @@
 {{- if and .Values.glitchtip.enabled .Values.glitchtip.adapter.enabled .Values.glitchtip.provisioning.enabled }}
 {{- fail "Stage native provisioning with adapter disabled; save and verify the private DSN, then disable provisioning before enabling adapter" }}
 {{- end }}
+{{- if and .Values.glitchtip.enabled .Values.glitchtip.mcpEnabled (not .Values.glitchtip.gateway.ui.enabled) }}
+{{- fail "Native MCP requires the group-gated browser authorization listener" }}
+{{- end }}

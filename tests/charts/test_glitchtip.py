@@ -8,6 +8,9 @@ from helm import ROOT, documents, render, resource
 
 
 class GlitchTipTests(unittest.TestCase):
+    def admission_values(self):
+        return {"issuerURL": "https://auth.example.com/realms/example", "issuerCIDRs": ["192.0.2.10/32"]}
+
     def test_unselected_chart_has_no_workloads_storage_or_authority(self):
         self.assertEqual(render("glitchtip", {"glitchtip": {"enabled": False}}).stdout.strip(), "")
 
@@ -68,7 +71,7 @@ class GlitchTipTests(unittest.TestCase):
         self.assertEqual(deployment["spec"]["strategy"], {"type": "Recreate"})
         container = pod["containers"][0]
         self.assertEqual(container["command"], ["opensearch-glitchtip-adapter"])
-        service = resource(result, "Service")
+        service = resource(result, "Service", "glitchtip")
         http_port = next(port["port"] for port in service["spec"]["ports"] if port["name"] == "http")
         ingest_url = next(item["value"] for item in container["env"] if item["name"] == "ADAPTER_GLITCHTIP_INGEST_BASE_URL")
         self.assertEqual(ingest_url, f"http://{service['metadata']['name']}.{namespace}.svc.cluster.local:{http_port}")
@@ -138,13 +141,14 @@ class GlitchTipTests(unittest.TestCase):
         }}}}, check=False)
         self.assertNotEqual(invalid.returncode, 0)
         self.assertEqual(invalid.stdout, "")
-        result = render("glitchtip", {"glitchtip": {"gateway": {"ui": {
+        result = render("glitchtip", {"glitchtip": {"admission": self.admission_values(), "gateway": {"ui": {
             "enabled": True, "tailscale": {"hostname": "glitchtip-example", "tags": ["tag:glitchtip-ui"]},
         }}}})
         self.assertTrue(all(doc["kind"] not in ("Gateway", "HTTPRoute", "Ingress", "Middleware") for doc in documents(result)))
         service = resource(result, "Service", "glitchtip-ui")
         self.assertEqual(service["spec"]["type"], "ClusterIP")
-        self.assertEqual(service["spec"]["ports"], [{"name": "https", "port": 443, "targetPort": "ui-https"}])
+        self.assertEqual(service["spec"]["selector"]["app.kubernetes.io/component"], "boundary")
+        self.assertEqual(service["spec"]["ports"], [{"name": "https", "port": 443, "targetPort": "admission-https"}])
         self.assertEqual(service["metadata"]["annotations"], {
             "tailscale.com/expose": "true", "tailscale.com/hostname": "glitchtip-example",
             "tailscale.com/tags": "tag:glitchtip-ui",
@@ -154,8 +158,8 @@ class GlitchTipTests(unittest.TestCase):
         self.assertEqual(containers[0]["image"], containers[1]["image"])
         ui = next(container for container in containers if container["name"] == "ui")
         self.assertEqual(ui["command"], ["./bin/run-granian.sh"])
-        self.assertEqual(ui["args"], ["--ssl-certificate", "/etc/glitchtip-ui-tls/tls.crt", "--ssl-keyfile", "/etc/glitchtip-ui-tls/tls.key"])
-        policy = resource(result, "NetworkPolicy", "glitchtip-application")["spec"]
+        self.assertEqual(ui["args"], ["--ssl-certificate", "/etc/glitchtip-native-tls/tls.crt", "--ssl-keyfile", "/etc/glitchtip-native-tls/tls.key"])
+        policy = resource(result, "NetworkPolicy", "glitchtip-boundary")["spec"]
         private = next(rule for rule in policy["ingress"] if rule["ports"][0]["port"] == 8443)
         self.assertEqual(private["from"], [{
             "namespaceSelector": {"matchLabels": {"kubernetes.io/metadata.name": "tailscale"}},
@@ -165,7 +169,7 @@ class GlitchTipTests(unittest.TestCase):
             }},
         }])
         self.assertNotIn("100.64", result.stdout)
-        combined = render("glitchtip", {"glitchtip": {"gateway": {
+        combined = render("glitchtip", {"glitchtip": {"admission": self.admission_values(), "gateway": {
             "ui": {"enabled": True, "tailscale": {"hostname": "glitchtip-example", "tags": ["tag:glitchtip-ui"]}},
             "status": {"enabled": True, "pagePath": "/status-pages/example/public/"},
         }}})
@@ -183,6 +187,7 @@ class GlitchTipTests(unittest.TestCase):
 
     def test_ui_can_stage_tls_without_requesting_a_tailnet_device(self):
         values = self.adapter_values()
+        values["glitchtip"]["admission"] = self.admission_values()
         values["glitchtip"]["gateway"] = {
             "status": {"enabled": True, "pagePath": "/status-pages/example/public/"},
             "ui": {"enabled": True, "tailscale": {
@@ -199,7 +204,7 @@ class GlitchTipTests(unittest.TestCase):
         staged = documents(staged_result)
         service = resource(staged_result, "Service", "glitchtip-ui")
         self.assertFalse(service["metadata"].get("annotations", {}))
-        self.assertEqual(service["spec"]["ports"], [{"name": "https", "port": 443, "targetPort": "ui-https"}])
+        self.assertEqual(service["spec"]["ports"], [{"name": "https", "port": 443, "targetPort": "admission-https"}])
         self.assertEqual(resource(staged_result, "Certificate", "glitchtip-ui")["spec"]["dnsNames"], ["glitchtip.example.com"])
         self.assertIn("cert-manager-public-glitchtip-ui", resource(staged_result, "ClusterRole", "cert-manager-glitchtip-approval-use")["rules"][0]["resourceNames"])
         self.assertEqual(
@@ -207,9 +212,12 @@ class GlitchTipTests(unittest.TestCase):
             ["glitchtip", "ui"],
         )
         # Only operator annotations change: retain TLS, policies, public routes,
-        # application settings/checksum and every adapter resource byte-for-byte.
+        # application settings and every adapter resource byte-for-byte.
         exposed_service = next(doc for doc in exposed if doc["kind"] == "Service" and doc["metadata"]["name"] == "glitchtip-ui")
         del exposed_service["metadata"]["annotations"]
+        for docs in (staged, exposed):
+            boundary = next(doc for doc in docs if doc["kind"] == "Deployment" and doc["metadata"]["name"] == "glitchtip-boundary")
+            del boundary["spec"]["template"]["metadata"]["annotations"]["checksum/routing"]
         self.assertEqual(staged, exposed)
 
     def test_ui_exposure_requires_a_boolean(self):

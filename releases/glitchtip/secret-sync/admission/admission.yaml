@@ -1,0 +1,33 @@
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: glitchtip-admission
+  namespace: glitchtip
+spec:
+  refreshInterval: 1h
+  secretStoreRef: {kind: SecretStore, name: glitchtip-openbao-secret-store}
+  target:
+    name: glitchtip-admission
+    creationPolicy: Owner
+    deletionPolicy: Retain
+  data:
+    - secretKey: clientSecret
+      remoteRef: {key: glitchtip/admission, property: clientSecret}
+    - secretKey: cookieSecret
+      remoteRef: {key: glitchtip/admission, property: cookieSecret}
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: glitchtip-admission-client
+  namespace: auth-keycloak
+spec:
+  refreshInterval: 1h
+  secretStoreRef: {kind: SecretStore, name: auth-keycloak-openbao-secret-store}
+  target:
+    name: glitchtip-admission-client
+    creationPolicy: Owner
+    deletionPolicy: Retain
+  data:
+    - secretKey: clientSecret
+      remoteRef: {key: auth-keycloak/glitchtip, property: clientSecret}

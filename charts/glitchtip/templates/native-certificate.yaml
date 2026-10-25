@@ -1,0 +1,64 @@
+{{- if and .Values.glitchtip.enabled .Values.glitchtip.gateway.ui.enabled }}
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: glitchtip-native
+spec:
+  secretName: glitchtip-native-tls
+  dnsNames:
+    - glitchtip-mcp.{{ .Release.Namespace }}.svc.cluster.local
+    - glitchtip-backend.{{ .Release.Namespace }}.svc.cluster.local
+  duration: 2160h
+  renewBefore: 360h
+  privateKey: {algorithm: RSA, size: 2048, rotationPolicy: Always}
+  usages: [server auth]
+  issuerRef:
+    name: infra-cert-manager-internal-ca-issuer
+    kind: ClusterIssuer
+    group: cert-manager.io
+---
+apiVersion: policy.cert-manager.io/v1alpha1
+kind: CertificateRequestPolicy
+metadata:
+  name: cert-manager-internal-glitchtip
+spec:
+  allowed:
+    dnsNames:
+      values:
+        - glitchtip-mcp.{{ .Release.Namespace }}.svc.cluster.local
+        - glitchtip-backend.{{ .Release.Namespace }}.svc.cluster.local
+      required: true
+    isCA: false
+    usages: [server auth]
+  constraints:
+    minDuration: 2160h
+    maxDuration: 2160h
+    privateKey: {algorithm: RSA, minSize: 2048, maxSize: 2048}
+  selector:
+    issuerRef: {group: cert-manager.io, kind: ClusterIssuer, name: infra-cert-manager-internal-ca-issuer}
+    namespace:
+      matchNames: [{{ .Release.Namespace }}]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cert-manager-glitchtip-native-approval-use
+rules:
+  - apiGroups: [policy.cert-manager.io]
+    resources: [certificaterequestpolicies]
+    verbs: [use]
+    resourceNames: [cert-manager-internal-glitchtip]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: cert-manager-glitchtip-native-approval-use
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cert-manager-glitchtip-native-approval-use
+subjects:
+  - kind: ServiceAccount
+    name: infra-cert-manager-controller
+    namespace: infra-cert-manager
+{{- end }}

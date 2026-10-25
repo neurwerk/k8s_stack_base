@@ -36,7 +36,7 @@ spec:
   type: ClusterIP
   selector:
     {{- include "glitchtip.labels" . | nindent 4 }}
-    app.kubernetes.io/component: application
+    app.kubernetes.io/component: boundary
   ports:
-    - {name: https, port: 443, targetPort: ui-https}
+    - {name: https, port: 443, targetPort: admission-https}
 {{- end }}

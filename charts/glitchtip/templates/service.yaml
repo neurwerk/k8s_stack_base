@@ -8,7 +8,7 @@ metadata:
 spec:
   selector:
     {{- include "glitchtip.labels" . | nindent 4 }}
-    app.kubernetes.io/component: application
+    app.kubernetes.io/component: {{ ternary "boundary" "application" .Values.glitchtip.gateway.ui.enabled }}
   ports:
-    - {name: http, port: 8000, targetPort: http}
+    - {name: http, port: 8000, targetPort: {{ ternary "ingest-status" "http" .Values.glitchtip.gateway.ui.enabled }}}
 {{- end }}

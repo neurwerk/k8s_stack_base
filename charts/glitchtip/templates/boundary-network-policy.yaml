@@ -1,0 +1,80 @@
+{{- if and .Values.glitchtip.enabled .Values.glitchtip.gateway.ui.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: glitchtip-boundary
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "glitchtip.labels" . | nindent 6 }}
+      app.kubernetes.io/component: boundary
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: {{ .Release.Namespace }}}
+          podSelector:
+            matchLabels:
+              {{- include "glitchtip.labels" . | nindent 14 }}
+              app.kubernetes.io/component: adapter
+      ports: [{protocol: TCP, port: 8000}]
+    {{- if .Values.glitchtip.gateway.status.enabled }}
+    - from:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: kube-system}
+          podSelector:
+            matchLabels: {app.kubernetes.io/name: traefik}
+      ports: [{protocol: TCP, port: 8000}]
+    {{- end }}
+    {{- if .Values.glitchtip.gateway.ui.enabled }}
+    - from:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: tailscale}
+          podSelector:
+            matchLabels:
+              tailscale.com/managed: "true"
+              tailscale.com/parent-resource: glitchtip-ui
+              tailscale.com/parent-resource-ns: {{ .Release.Namespace }}
+              tailscale.com/parent-resource-type: svc
+      ports: [{protocol: TCP, port: 8443}]
+    {{- if .Values.glitchtip.mcpEnabled }}
+    - from:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: contextforge}
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: contextforge
+              app.kubernetes.io/instance: contextforge
+              app.kubernetes.io/component: application
+      ports: [{protocol: TCP, port: 9443}]
+    {{- end }}
+    {{- end }}
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: kube-system}
+          podSelector:
+            matchLabels: {k8s-app: kube-dns}
+      ports: [{protocol: UDP, port: 53}, {protocol: TCP, port: 53}]
+    - to:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: {{ .Release.Namespace }}}
+          podSelector:
+            matchLabels:
+              {{- include "glitchtip.labels" . | nindent 14 }}
+              app.kubernetes.io/component: application
+      ports: [{protocol: TCP, port: {{ ternary 8443 8000 .Values.glitchtip.gateway.ui.enabled }}}]
+    {{- if .Values.glitchtip.gateway.ui.enabled }}
+    - to:
+        {{- range .Values.glitchtip.admission.issuerCIDRs }}
+        - ipBlock: {cidr: {{ . | quote }}}
+        {{- end }}
+      ports: [{protocol: TCP, port: 443}]
+    - to:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: kube-system}
+          podSelector:
+            matchLabels: {app.kubernetes.io/name: traefik}
+      ports: [{protocol: TCP, port: 443}]
+    {{- end }}
+{{- end }}
