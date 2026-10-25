@@ -148,6 +148,8 @@ mcp-servers:
   # requirements cannot be removed. These do not grant gateway invocation.
   # OAuth public clients use token_endpoint_auth_method: none with pkce: true
   # and no client_secret_ref; confidential clients keep their Secret reference.
+  # Split browser/internal OAuth URLs may set explicit HTTPS issuer and resource
+  # identifiers so ContextForge does not derive the resource from an internal origin.
   catalog:
     presets: {}
     custom: []
