@@ -5,9 +5,10 @@
     "glitchtip": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["enabled", "image", "runtimeSecret", "domain", "fromEmail", "retentionDays", "uptimeEnabled", "uptimeAllowPrivateIPs", "storage", "gateway", "smtp", "uptime", "resources", "provisioning", "adapter"],
+      "required": ["enabled", "mcpEnabled", "image", "runtimeSecret", "domain", "fromEmail", "retentionDays", "uptimeEnabled", "uptimeAllowPrivateIPs", "storage", "gateway", "smtp", "uptime", "resources", "provisioning", "adapter"],
       "properties": {
         "enabled": {"type": "boolean"},
+        "mcpEnabled": {"type": "boolean"},
         "image": {"type": "string", "pattern": "^docker.io/glitchtip/glitchtip:6\\.2\\.6@sha256:[a-f0-9]{64}$"},
         "runtimeSecret": {"type": "string", "minLength": 1},
         "domain": {"type": "string", "pattern": "^https://[a-zA-Z0-9.-]+$"},

@@ -1,6 +1,7 @@
 glitchtip:
   # Also selects the optional credential catalog through product values.
   enabled: false
+  mcpEnabled: false
   image: docker.io/glitchtip/glitchtip:6.2.6@sha256:a3d8eb1b36c1e1603d55ab32711ea3dd8115874742a781a57391a62a16e0dff6
   runtimeSecret: glitchtip-runtime
   domain: https://glitchtip.example.com
