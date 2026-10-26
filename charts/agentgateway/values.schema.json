@@ -3,6 +3,53 @@
   "type": "object",
   "not": {"required": ["mcp"]},
   "definitions": {
+    "metadataLimit": {"type": ["integer", "null"], "minimum": 1, "maximum": 9007199254740991},
+    "metadataCapability": {"enum": ["supported", "unsupported", "unknown"]},
+    "metadataTimestamp": {
+      "type": "string", "format": "date-time", "maxLength": 40,
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$"
+    },
+    "metadataModel": {
+      "type": "object", "additionalProperties": false,
+      "required": ["binding_id", "public_id", "limits", "capabilities", "provenance"],
+      "properties": {
+        "binding_id": {"type": "string", "minLength": 1, "maxLength": 32, "pattern": "^[a-z0-9]([-a-z0-9]{0,30}[a-z0-9])?$"},
+        "public_id": {"type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]{0,127}$"},
+        "limits": {
+          "type": "object", "additionalProperties": false,
+          "required": ["context_tokens", "max_input_tokens", "max_output_tokens"],
+          "properties": {
+            "context_tokens": {"$ref": "#/definitions/metadataLimit"},
+            "max_input_tokens": {"$ref": "#/definitions/metadataLimit"},
+            "max_output_tokens": {"$ref": "#/definitions/metadataLimit"}
+          }
+        },
+        "capabilities": {
+          "type": "object", "additionalProperties": false,
+          "required": ["streaming", "tool_calling", "streaming_tool_calling", "structured_output", "image_input", "audio_input", "video_input", "document_input"],
+          "properties": {
+            "streaming": {"$ref": "#/definitions/metadataCapability"},
+            "tool_calling": {"$ref": "#/definitions/metadataCapability"},
+            "streaming_tool_calling": {"$ref": "#/definitions/metadataCapability"},
+            "structured_output": {"$ref": "#/definitions/metadataCapability"},
+            "image_input": {"$ref": "#/definitions/metadataCapability"},
+            "audio_input": {"$ref": "#/definitions/metadataCapability"},
+            "video_input": {"$ref": "#/definitions/metadataCapability"},
+            "document_input": {"$ref": "#/definitions/metadataCapability"}
+          }
+        },
+        "provenance": {
+          "type": "object", "additionalProperties": false,
+          "required": ["kind", "source", "observed_at", "valid_until"],
+          "properties": {
+            "kind": {"enum": ["provider_api", "runtime", "reviewed_config"]},
+            "source": {"type": "string", "minLength": 1, "maxLength": 512, "pattern": "^[^\\x00-\\x1f\\x7f]+$"},
+            "observed_at": {"$ref": "#/definitions/metadataTimestamp"},
+            "valid_until": {"$ref": "#/definitions/metadataTimestamp"}
+          }
+        }
+      }
+    },
     "providers": {
       "type": "array", "maxItems": 256,
       "items": {
@@ -39,6 +86,13 @@
     }
   },
   "properties": {
+    "gatewayModelMetadata": {
+      "type": "object", "additionalProperties": false, "required": ["enabled", "models"],
+      "properties": {
+        "enabled": {"type": "boolean"},
+        "models": {"type": "array", "maxItems": 256, "items": {"$ref": "#/definitions/metadataModel"}}
+      }
+    },
     "self-hosted-api-providers": {"$ref": "#/definitions/providers"},
     "external-api-providers": {"$ref": "#/definitions/providers"},
     "external-subscription-providers": {"$ref": "#/definitions/providers"},
