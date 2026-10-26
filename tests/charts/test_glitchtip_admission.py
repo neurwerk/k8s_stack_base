@@ -1,11 +1,13 @@
 """Protect the outer identity and transport boundaries, not native token ownership."""
 
 import json
+import re
+import subprocess
 import unittest
 
 import yaml
 
-from helm import documents, env_value, render, resource
+from helm import ROOT, documents, env_value, render, resource
 
 
 GROUP = "/access/neurwerk-glitchtip-admins"
@@ -124,6 +126,39 @@ class GlitchTipAdmissionTests(unittest.TestCase):
                     self.assertFalse(upstream.get("insecureSkipTLSVerify", False))
         cert = resource(result, "Certificate", "glitchtip-native")["spec"]
         self.assertEqual(cert["dnsNames"], ["glitchtip-mcp.glitchtip.svc.cluster.local", "glitchtip-backend.glitchtip.svc.cluster.local"])
+
+    def test_tailnet_transport_matches_both_proxy_service_and_ingress_not_native(self):
+        result = render("glitchtip", settings(), namespace="glitchtip", release="glitchtip")
+        output = subprocess.run(
+            ["kustomize", "build", str(ROOT / "releases/glitchtip/tailscale-access")],
+            check=True, capture_output=True, text=True,
+        )
+        egress = next(d for d in yaml.safe_load_all(output.stdout) if d["kind"] == "NetworkPolicy")
+        service = resource(result, "Service", "glitchtip-ui")["spec"]
+        rule = egress["spec"]["egress"][0]
+        peer = rule["to"][0]
+        self.assertEqual(peer["namespaceSelector"]["matchLabels"], {"kubernetes.io/metadata.name": "glitchtip"})
+        self.assertEqual(peer["podSelector"]["matchLabels"], service["selector"])
+        self.assertEqual(service["ports"][0]["targetPort"], "admission-https")
+        self.assertEqual(rule["ports"], [{"protocol": "TCP", "port": 8443}])
+        incoming = resource(result, "NetworkPolicy", "glitchtip-boundary")["spec"]["ingress"]
+        tailnet = next(r for r in incoming if r["ports"] == rule["ports"])
+        self.assertEqual(tailnet["from"][0]["namespaceSelector"]["matchLabels"], {"kubernetes.io/metadata.name": egress["metadata"]["namespace"]})
+        self.assertEqual(tailnet["from"][0]["podSelector"], egress["spec"]["podSelector"])
+        native = resource(result, "Service", "glitchtip-backend")["spec"]["selector"]
+        self.assertNotEqual(peer["podSelector"]["matchLabels"], native)
+
+    def test_status_and_ingestion_native_upstreams_match_exact_paths_not_prefixes(self):
+        values = settings()
+        values["glitchtip"]["gateway"]["status"] = {"enabled": True, "pagePath": "/status-pages/example/public/"}
+        result = render("glitchtip", values)
+        config = yaml.safe_load(resource(result, "ConfigMap", "glitchtip-boundary")["data"]["ingest.yaml"])
+        upstreams = [u for u in config["upstreamConfig"]["upstreams"] if not u.get("static")]
+        for path in ("/status-pages/example/public/", "/api/1/envelope/", "/api/24/store/"):
+            self.assertEqual(sum(bool(re.fullmatch(u["path"], path)) for u in upstreams), 1)
+        for path in ("/status-pages/example/public/extra", "/api/1/envelope/extra", "/api/0/", "/api/1/store//"):
+            self.assertFalse(any(re.search(u["path"], path) for u in upstreams))
+        self.assertTrue(all(u.get("rewriteTarget") == "$1" for u in upstreams))
 
     def test_dedicated_invocation_grant_cannot_leak_to_general_groups(self):
         role = "mcp:glitchtip:invoke"

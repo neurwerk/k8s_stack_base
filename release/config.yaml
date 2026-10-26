@@ -37,7 +37,7 @@ packages:
     chartPrefixes: []
   - path: releases/glitchtip/secret-sync/admission
     status: included
-    reason: Optional isolated proxy-cookie and Keycloak-client credential delivery; prepare through the reviewed standalone CLI before adopting the gated UI.
+    reason: Optional isolated proxy-cookie and Keycloak-client credential delivery from the reviewed standalone CLI.
     chartPrefixes: []
     prerequisites:
     - name: openbao-stack-setup
@@ -45,7 +45,7 @@ packages:
       source: https://github.com/neurwerk/k8s_stack_tooling/commit/93e9a36ebefaa3aec4b2cdffbf5d80e37a4dac6a
   - path: releases/glitchtip/app
     status: included
-    reason: Optional stock GlitchTip 6.2.6 with verified adapter Tooling 0.13.7 and provisioning Tooling 0.13.5; disabled by default. The private UI requires prepared Keycloak full-path group admission and separate credentials. Stock OAuth2 Proxy filters internal MCP, status and ingestion paths with verified upstream TLS. Public routing exposes one selected status page; no native identities or data are replaced.
+    reason: Optional stock GlitchTip 6.2.6 with verified adapter Tooling 0.13.7 and provisioning Tooling 0.13.5; disabled by default. The private UI requires Keycloak full-path group admission and separate credentials. Stock OAuth2 Proxy filters native upstream paths with verified TLS; its own health and OAuth handlers remain separate. Public routing exposes one selected status page; no native identities or data are replaced.
     chartPrefixes:
     - charts/glitchtip
     prerequisites:

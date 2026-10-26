@@ -20,5 +20,5 @@ spec:
             matchLabels:
               app.kubernetes.io/name: glitchtip
               app.kubernetes.io/instance: glitchtip
-              app.kubernetes.io/component: application
+              app.kubernetes.io/component: boundary
       ports: [{protocol: TCP, port: 8443}]

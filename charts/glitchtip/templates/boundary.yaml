@@ -49,6 +49,10 @@ data:
       - name: X-Forwarded-Proto
         preserveRequestValue: false
         values: [{secretSource: {fromEnv: GLITCHTIP_PROXY_SCHEME}}]
+    # Proxy-owned health and OAuth routes run before this native-upstream filter.
+    # Skip-auth rules exempt selected method/path pairs from proxy login, not
+    # native authentication. Admission cookies may reach allowed native paths
+    # with other methods; native handlers enforce their own HTTP methods.
     upstreamConfig:
       upstreams:
         {{- if eq $profile "browser" }}
@@ -65,9 +69,9 @@ data:
         - {id: deny, path: /, static: true, staticCode: 404}
         {{- else }}
         {{- if $root.Values.glitchtip.gateway.status.enabled }}
-        - {id: status, path: {{ $root.Values.glitchtip.gateway.status.pagePath | quote }}, uri: "https://glitchtip-backend.{{ $root.Release.Namespace }}.svc.cluster.local:8443"}
+        - {id: status, path: {{ printf "^(%s)$" (regexQuoteMeta $root.Values.glitchtip.gateway.status.pagePath) | quote }}, rewriteTarget: "$1", uri: "https://glitchtip-backend.{{ $root.Release.Namespace }}.svc.cluster.local:8443"}
         {{- end }}
-        - {id: ingest, path: "/api/{project:[1-9][0-9]*}/{ingest:envelope|store}/", uri: "https://glitchtip-backend.{{ $root.Release.Namespace }}.svc.cluster.local:8443"}
+        - {id: ingest, path: "^(/api/[1-9][0-9]*/(envelope|store)/)$", rewriteTarget: "$1", uri: "https://glitchtip-backend.{{ $root.Release.Namespace }}.svc.cluster.local:8443"}
         - {id: deny, path: /, static: true, staticCode: 404}
         {{- end }}
   {{- end }}
