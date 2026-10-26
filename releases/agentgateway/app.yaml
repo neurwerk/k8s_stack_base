@@ -60,6 +60,10 @@ spec:
     - kind: ConfigMap
       name: agentgateway-product-values
       valuesKey: values.yaml
+    - kind: ConfigMap
+      name: client-gateway-model-metadata-values
+      valuesKey: values.yaml
+      optional: true
     - kind: Secret
       name: mcp-runtime-values
       valuesKey: values.yaml
