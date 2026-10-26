@@ -9,15 +9,13 @@ upgrade path.
 
 ## [Unreleased]
 
-## [0.4.0] - 2026-10-26
-
-- Prepare the standalone add-on candidate for maintenance-window alpha adoption on the existing installation, followed by promotion of an exact frozen and reconciled alpha revision. This candidate is not published or ready for adoption.
-- Direct stable-to-stable upgrade support remains unreviewed and disabled. The release policy value `stableUpgrade: fresh-install-only` does not describe alpha adoption or authorize reinstalling Base, OpenBao or storage; existing-data promotion uses adoption mode `upgrade` and an explicit `upgradesFromAlphaRevisions` entry once frozen.
+- Prepare the future 0.4.0 standalone add-on baseline for maintenance-window alpha adoption on the existing installation, followed by promotion of an exact frozen and reconciled alpha revision. Version, release date and promotion evidence are assigned by the later release preparation step; these changes are not published or ready for adoption.
+- Direct stable-to-stable upgrade support for the future baseline remains unreviewed. Prepare that release with `stableUpgrade: fresh-install-only`; this does not describe alpha adoption or authorize reinstalling Base, OpenBao or storage. Existing-data promotion uses adoption mode `upgrade` and an explicit `upgradesFromAlphaRevisions` entry once frozen.
 - The clean break applies to optional add-on definitions and interfaces. Any application-data reset requires a separate, named decision; no infrastructure or persistent-data reset is authorized by this candidate.
 - Require client-approved browser callbacks, origins and all requested gateway permissions before identity mutation; pass approved add-on AD groups into runtime validation and require existing target groups.
 - Allow independently pinned ownership-capable access provisioners and pin the unchanged DocumentDB `pg18-0.116.0` native image to its anonymously verified multi-platform digest.
 - Release gate: publish and verify Tooling `0.14.0` and stack-setup `0.7.0`, then update their intended consumers and prerequisites. Existing runtime pins are retained until verified replacements exist.
-- Refresh release provenance after the complete candidate is reviewed and committed; signing and release execution remain operator-owned.
+- Prepare the successor of v0.3.29 through the existing release workflow after the complete candidate is reviewed, committed and reconciled; signing and release execution remain operator-owned.
 
 ## [0.3.29] - 2026-10-21
 

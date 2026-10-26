@@ -1,17 +1,17 @@
 apiVersion: platform.neurwerk.com/v1alpha1
 kind: PlatformRelease
 metadata:
-  name: v0.4.0
+  name: v0.3.29
 spec:
-  version: 0.4.0
-  releaseDate: '2026-10-26'
-  summary: Standalone add-on identity approval interfaces and immutable native provisioning images
+  version: 0.3.29
+  releaseDate: '2026-10-21'
+  summary: Grouped gateway providers, Studio developer endpoints and browser CORS
   trust:
     signerIdentity: platform-release
     algorithm: ssh-ed25519
     fingerprint: SHA256:+rDcofrsfRE3ElJJxnUVoB3gmoEzZJUrisDqLZMHimw
   compatibility:
-    stableUpgrade: fresh-install-only
+    stableUpgrade: supported
     upgradesFromAlphaRevisions: []
     downgrade: unsupported
     recovery: forward-fix
@@ -1063,71 +1063,43 @@ spec:
       node: 24.20.0
       lua: 5.4.9
   provenance:
-    previousTag: v0.3.29
-    includedThrough: c7fb9f2f86d57811f3581ab9d95ddcdf68bae3c5
+    previousTag: v0.3.28
+    includedThrough: e188321bc52f5c3241a1add384cd5fb146baeaab
     commits:
-    - fc8c8e5171e23a98509db37407ec1458b7647931
-    - 6d91d09844fd4bd214de9f47c0295bbbb3540c01
-    - 88de92038f1b36b9053be56214edc6060d26ab48
-    - 0745aab6c3bbdf469aa988d98b3f707b1e6264dc
-    - d869547e23a39b97ae7612c402bd6389277721d1
-    - de6a62ee94a2c7b4f3c62bc66c6cc90a46251314
-    - d72471ec31a049ab7be7655cc548146308cc8d05
-    - 4fae341eba28a5dde63d3797a2263efead9bc7d0
-    - a9e5c81ccd5ddfa573bacf5299f1f7db5a81acf6
-    - e84dead5e509210f556ee6bc7e929033a74d9b28
-    - fab177b366758b4632641cc5b57d4bb534533502
-    - 3decbeab0ebae7844ba610b32f0eb0181328168e
-    - 6be4c3c2e588e98ce08f3efae97e812f3566d32d
-    - 1dd06184f7a65f618fc4a912d9995b0aa0435172
-    - 375629ee939d0e4d7579f6a0f274ebcf4a43f35f
-    - 744add338886eff7fb660d04817cb382965b4ccc
-    - a4ccfd6973e6d8d9fc02f7d7fae7bc76f3c8e75f
-    - 43cb419dead68fa779585e31a2f08a220ce339d1
-    - f6d529730cfadcd3402626aea3f094af23497b57
-    - cbeb2f809687b3776a72610f00a13447a1cea5b1
-    - 8ae12c484b719bb69ee14aec46f328a300da92a4
-    - 428d55c6ca045a5f7919ba7aeaae07ef7694f737
-    - 7cfb2aee6792aaeec8c4566506ad1655f9b41ad1
-    - 58e19c1170624cf02f3a7b237b89dd96b326e765
-    - c081ae3a62340415c8656197ad6dc368644f8b17
-    - 0163f40e413502bbfa7e7a27b5c8236e078b53ab
-    - 9d73048dba21b9251ace7ccaf9aaa6811aa9b6d4
-    - 0bac4ab64ec63ccf3013c839a2bd05994a92dcb7
-    - a1dae467d772fd37eaee918afccf16edbebff8d7
-    - 65ebd66677749e10f13e3081e403a17c8e13ce8b
-    - 76229c9b0188690cfd2c11b83f8b8ba8b3c39023
-    - 841553cac83dece64574b648e76665ff501f38be
-    - cd940236faa5c8f3c939d7f2503677846da87b5b
-    - 04aab998c850d5df858a33bd863233bae0c8595b
-    - 9e112efa0e9b468b7c015b462b7bbac7fe48c733
-    - e670c75bf5d43abd25315932e694f444e0da1e70
-    - e64acb2daee4c516cf60957f425f50b14456ca0f
-    - 1dcd762d0d107844ffe0be576976cfa12366a1f8
-    - 243c7fadd7e7ca479a02d13040371fd79d4ec19b
-    - 04d5b8cef485f7d2a5e43e2b916211d90eab291c
-    - 0cb8b604954f0743bffa098e893eb80aab23d038
-    - daf932a17636f1739d862b0bf0ecfd989e763861
-    - f55aa5554865c5bfa5bfe0e2b49b063465d5f942
-    - 1d3cd942590673fba76608b2d41d2fc12fe746db
-    - 79b9812a488f75b40dded505d7e4415dc003371a
-    - 1e7355dc67b70ad9a88ab40b01e57abf2016f53f
-    - ac3dc3e8c6db2dd65c577fdad6177b3cfd851d05
-    - 3aa6a24138e83c9367378afdd3f4134a04bade1a
-    - 75005e193bef16e9ac749e2c9e8aa6b7ce9945d7
-    - 8b00fece3538baeaa7f6261c0f46aea6225ed173
-    - 161196f6b76d2b3af8ff511151526165d9f2e96b
-    - 096cfaad94c7ec01bcbca69b752177b43834f152
-    - f45290145a35104e36a53b71512ada6d0425c237
-    - 799c4379bdefafc28cb692e20c7e54c59454c202
-    - 3b91012e166d778a7ae48216baced63606d58039
-    - c96ec31d16e71a0d7d168eb739eac4aa3885e018
-    - 6dd9a6e1b90adfc6f6732131ce50a5149c338f8f
-    - 59a8fcbeefc6437ba28f8604624f30ee8ea81afe
-    - d89e3db57f4387f75c8caaa0b24fb97bbbbfe352
-    - 8bc9aac7679adbff00d2b7f7bf8306ca41dfe3da
-    - 2bc6c795d51b2f9065613e1e247b1d12e0cacef6
-    - 8473555005111ba253a862420e1db672fae6ede3
-    - 1033499fd5f6d4c72f120a8066714f08e00cb26c
-    - c7fb9f2f86d57811f3581ab9d95ddcdf68bae3c5
-    compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.29...c7fb9f2f86d57811f3581ab9d95ddcdf68bae3c5
+    - 76a3d9fc9636e05ee66179b598a25c3beaa2832a
+    - 466c33e1979d5ef9b3ba672c0615900c31a537a3
+    - 373d0c92ab0e687a6d27193c602887230cb9f69f
+    - 002547c7ec06238a0cd427b671e9e0da171c9f01
+    - aeb26c03e3268201515ab19b1a9cc3321c1310a9
+    - c4bb53162f81d4e9dcb9a5b5b7bf42f1414387d7
+    - 71c908296880ff8835cb77cbd9bbf7687d50d36f
+    - 5e4f87519f24e29e9f2ecea99e6a6d9a37032af3
+    - c21c37f76d5c1b225a5f39a0abdf1463d797efbb
+    - 3ea6f317b6a56fb07c657df3205080659c5ffae4
+    - 9c7517b0b20c35c6d1ad1226a99effc7571ef6a1
+    - 3ea629a9f8fd16876c0ab374cd7da1da2821be82
+    - 51c860c0f70ed76f9748f02cbafb02de9e3a0cbc
+    - 1d45b077a9ec5f889df5ad2afc314e7cce1e4d06
+    - 55cef49ff31af93ff5f6a4656089d44425fa8d95
+    - 7f56723162eaaead9ac2aee06d8345940bb438e0
+    - 03572493dda0cf120b3e7f8ba9a44a2b6c18070d
+    - 4fc014dba9e6087efa6b740ae774f7653fb530b9
+    - 8f6465eef4a30fd58442deaee44feef2a6f9b6e7
+    - 8c65ae175ac572b80b3858eff6ece00b06256f8e
+    - a78dad94c9e4457218d4c716cf8cf08ef6746106
+    - 41084810e430232546b899994cc8522f6de1e647
+    - ba83aa4ddb760dc8380c67f6c2e283679bcd44bc
+    - cfc6ce97f9e132a9a125605f270672ea9cc68424
+    - 2375765320250314d6564a3912c06b0ae87273d3
+    - 50eafa05ff805e524041340b9c6743236420c127
+    - cb1e83ce91648a898e6afc82cb2b214b4037dd33
+    - c5c3d9b05c92107335d2cbef5056b20b9f5d7703
+    - 43a78d9816d0f37a225fedb4784ab5e6465d1775
+    - a964bba25e15dd594c8b8a9ca175aec96dd5fdfc
+    - 710c17fdb495261fe6e8488653ac77d1b04abd36
+    - 6b7b8251d2bc0a2411e4726bec5f8dd79b84dbc1
+    - 7976bccf2c058f01c3ba62bc0cca5d5fea7e6af2
+    - e6b3d5347fc05f3d232d4301336aa7718dcc5bed
+    - dcae36a4027ba1278a17dc781c2affe09c505e32
+    - e188321bc52f5c3241a1add384cd5fb146baeaab
+    compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.28...e188321bc52f5c3241a1add384cd5fb146baeaab
