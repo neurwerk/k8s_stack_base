@@ -532,15 +532,15 @@ spec:
       appVersion: v1.20.3
     - path: charts/studio/api
       name: studio-api
-      version: 2.0.6
-      appVersion: 0.20.8
+      version: 2.0.7
+      appVersion: 0.20.9
     - path: charts/studio/shared
       name: studio-shared
       version: 1.0.0
     - path: charts/studio/web
       name: studio
-      version: 1.0.37
-      appVersion: 0.20.8
+      version: 1.0.38
+      appVersion: 0.20.9
     - path: charts/tailscale/access
       name: tailscale-access
       version: 0.1.0
@@ -880,12 +880,12 @@ spec:
       origins:
       - charts/pii-engine-model-sync/values.yaml
       - charts/pii-engine/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-studio-api:0.20.8@sha256:04061acc71fb8cad8eb3318e9b847235112151223593e10213eaa1354eaa7952
+    - reference: ghcr.io/neurwerk/k8s-stack-studio-api:0.20.9@sha256:64a9679c10d9c27ba8137524c0a944033c154c9bdd6b3811eb781c785466f082
       pinned: true
       eligibility: included
       origins:
       - charts/studio/api/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-studio-web:0.20.8@sha256:f3df0c50ca3642ec7ae9f070dfd59d468a829a137359557abb35f5d66f5da6de
+    - reference: ghcr.io/neurwerk/k8s-stack-studio-web:0.20.9@sha256:e5cc56427c101aa104c66b3ec9486be94d40f7b0a4f4703d5ec77a3181aae0a7
       pinned: true
       eligibility: included
       origins:
