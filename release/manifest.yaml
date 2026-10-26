@@ -420,8 +420,8 @@ spec:
       appVersion: 26.7.2
     - path: charts/keycloak-api-key-bridge
       name: auth-keycloak-api-key-bridge
-      version: 2.0.2
-      appVersion: 0.10.4
+      version: 2.0.3
+      appVersion: 0.10.5
     - path: charts/kube-prometheus-stack
       name: monitor-kube-prometheus-stack
       version: 1.1.2
@@ -859,7 +859,7 @@ spec:
       origins:
       - charts/agentgateway-extproc/values.yaml
       - charts/langfuse/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-keycloak-api-key-bridge:0.10.4@sha256:0533dc6f152ede5a57f462a0190e0852ba952469c9d82862cab9840dcc8024ef
+    - reference: ghcr.io/neurwerk/k8s-stack-keycloak-api-key-bridge:0.10.5@sha256:1a5aa0bd9c2d240d7b6089c703d28d319fb0e147458eabcd669f2984001ede33
       pinned: true
       eligibility: included
       origins:
