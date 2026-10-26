@@ -138,9 +138,13 @@
 {{- $oauth := $registration.oauth -}}
 {{- if not (kindIs "map" $oauth) -}}{{- fail "MCP oauth must be a non-secret map" -}}{{- end -}}
 {{- range $field, $_ := $oauth -}}
-{{- if not (has $field (list "authorization_url" "token_url" "client_id" "redirect_uri" "scopes" "client_secret_ref" "pkce" "token_endpoint_auth_method")) -}}{{- fail "unsupported MCP oauth field; plaintext secrets are forbidden" -}}{{- end -}}
+{{- if not (has $field (list "authorization_url" "token_url" "client_id" "redirect_uri" "scopes" "client_secret_ref" "pkce" "token_endpoint_auth_method" "issuer" "resource")) -}}{{- fail "unsupported MCP oauth field; plaintext secrets are forbidden" -}}{{- end -}}
 {{- end -}}
-{{- range $field := list "authorization_url" "token_url" "redirect_uri" -}}
+{{- $urls := list "authorization_url" "token_url" "redirect_uri" -}}
+{{- range $field := list "issuer" "resource" -}}
+{{- if hasKey $oauth $field -}}{{- $urls = append $urls $field -}}{{- end -}}
+{{- end -}}
+{{- range $field := $urls -}}
 {{- $url := get $oauth $field -}}
 {{- if or (not (kindIs "string" $url)) (not (regexMatch `^https://[a-zA-Z0-9.-]+(:[0-9]+)?(/[a-zA-Z0-9_./-]*)?$` (toString $url))) (regexMatch `(^|/)\.\.?(/|$)` (toString $url)) -}}{{- fail "MCP oauth endpoints must be approved HTTPS URLs without credentials, query or fragment" -}}{{- end -}}
 {{- end -}}
