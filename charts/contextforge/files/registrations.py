@@ -81,12 +81,10 @@ def check_gateway(row, spec, team, owner, marker):
     if spec.get("oauth"):
         expected = native_oauth(spec)
         actual = row.get("oauthConfig")
-        public = expected.get("token_endpoint_auth_method") == "none"
         require(row.get("authType") == "oauth" and isinstance(actual, dict)
-                and set(expected) <= set(actual) <= set(expected) | {"client_secret"}
+                and set(actual) == set(expected) | {"client_secret"}
                 and all(actual.get(k) == v for k, v in expected.items())
-                and (empty(actual.get("client_secret")) if public else
-                     isinstance(actual.get("client_secret"), str) and actual["client_secret"]),
+                and isinstance(actual.get("client_secret"), str) and actual["client_secret"],
                 "Conflicting OAuth app metadata; refusing to rotate or overwrite")
     else:
         require(row.get("authType") in (None, "", "none") and empty(row.get("oauthConfig"))
@@ -174,11 +172,6 @@ def reconcile_one(api, spec, team, owner, studio=None):
             "Unsupported authentication model")
     require(bool(spec.get("oauth")) == (spec["authentication_model"] == "individual-authentication"),
             "Individual authentication requires approved OAuth app metadata")
-    if spec.get("oauth"):
-        oauth = spec["oauth"]
-        require(oauth.get("pkce") is True, "OAuth requires PKCE")
-        if oauth.get("token_endpoint_auth_method") == "none":
-            require("client_secret_ref" not in oauth, "Public OAuth cannot use a client secret")
     require(re.fullmatch(r"[0-9a-f]{32}", spec["server_id"]), "Invalid server ID")
     require(spec["approved_tools"] and len(spec["approved_tools"]) == len(set(spec["approved_tools"])),
             "Explicit unique tool approval is required")
@@ -203,19 +196,13 @@ def reconcile_one(api, spec, team, owner, studio=None):
                    "transport": spec["transport"], "auth_type": "none", "passthrough_headers": [],
                    "gateway_mode": "cache", "team_id": team, "visibility": spec["visibility"]}
         if spec.get("oauth"):
-            require(spec["oauth"]["pkce"] is True, "OAuth requires PKCE")
-            config = native_oauth(spec)
-            if config.get("token_endpoint_auth_method") == "none":
-                require("client_secret_ref" not in spec["oauth"], "Public OAuth cannot use a client secret")
-            else:
-                require(spec["oauth"].get("client_secret_ref") == {"name": "contextforge-oauth-apps", "key": spec["id"]},
-                        "Invalid OAuth Secret reference")
-                secret = Path("/oauth-apps", spec["id"]).read_text()
-                require(secret.strip() and len(secret) <= 16384 and not any(ord(c) < 32 for c in secret),
-                        "Invalid OAuth app credential; value hidden")
-                config["client_secret"] = secret
-                secret = ""
-            payload.update(auth_type="oauth", oauth_config=config)
+            require(spec["oauth"]["client_secret_ref"] == {"name": "contextforge-oauth-apps", "key": spec["id"]}
+                    and spec["oauth"]["pkce"] is True, "Invalid OAuth Secret reference or PKCE")
+            secret = Path("/oauth-apps", spec["id"]).read_text()
+            require(secret.strip() and len(secret) <= 16384 and not any(ord(c) < 32 for c in secret),
+                    "Invalid OAuth app credential; value hidden")
+            payload.update(auth_type="oauth", oauth_config=native_oauth(spec) | {"client_secret": secret})
+            secret = ""
         try:
             api.request("POST", "/gateways", payload)
         finally:

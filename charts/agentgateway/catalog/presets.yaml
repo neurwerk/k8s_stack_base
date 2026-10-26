@@ -2,15 +2,13 @@
 glitchtip:
   name: glitchtip
   displayName: GlitchTip
-  required_roles: [glitchtip-admin]
-  credential: {owner: individual, required: true, method: oauth}
+  credential: {owner: shared, required: true, method: gateway-header, header: Authorization}
   contextforge:
     provider: glitchtip
-    authenticationModel: individual-authentication
+    authenticationModel: shared-authentication
     serverId: 8104c910079d4a1a9ba4ddbfda0d08df
   registration:
-    # Client-owned native URL and registered public OAuth client.
-    # No route or provider connection is installed until explicitly selected.
+    # Client-owned native URL; the shared API token is delivered by the gateway.
     upstream_url: ""
     transport: STREAMABLEHTTP
     approved_tools:
@@ -24,15 +22,8 @@ glitchtip:
       - list_monitors
       - list_transaction_groups
       - get_transaction_group
+      - update_issue
     pii_policy: platform-default
-    oauth:
-      authorization_url: ""
-      token_url: ""
-      client_id: ""
-      redirect_uri: ""
-      scopes: [org:read, project:read, event:read]
-      pkce: true
-      token_endpoint_auth_method: none
 context7:
   name: context7
   displayName: Context7

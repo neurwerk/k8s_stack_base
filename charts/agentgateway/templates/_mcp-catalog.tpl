@@ -17,7 +17,7 @@
 {{- if not (hasKey $presets $id) -}}{{- fail (printf "unknown MCP preset %q; use mcp.catalog.custom for client definitions" $id) -}}{{- end -}}
 {{- if not (kindIs "map" $selection) -}}{{- fail "MCP preset selection must be a map" -}}{{- end -}}
 {{- range $field, $_ := $selection -}}
-{{- if not (has $field (list "enabled" "displayName" "piiEnabled" "contentTracingEnabled" "contextforge" "registration" "checks" "credential" "required_roles")) -}}
+{{- if not (has $field (list "enabled" "displayName" "piiEnabled" "contentTracingEnabled" "contextforge" "registration" "checks" "credential" "host")) -}}
 {{- fail (printf "MCP preset selection field %q is unsupported" $field) -}}
 {{- end -}}
 {{- end -}}
@@ -25,10 +25,6 @@
 {{- $_ := unset $entry "upstreamWorkload" -}}
 {{- if or (ne $entry.contextforge.provider (get $presets $id).contextforge.provider) (ne $entry.contextforge.authenticationModel (get $presets $id).contextforge.authenticationModel) (ne ($entry.credential | toJson) ((get $presets $id).credential | toJson)) -}}
 {{- fail "preset provider/authentication or credential policy cannot change; use a custom definition" -}}
-{{- end -}}
-{{- if not (hasKey $entry "required_roles") -}}{{- $_ := set $entry "required_roles" list -}}{{- end -}}
-{{- range $role := (get $presets $id).required_roles | default list -}}
-{{- if not (has $role $entry.required_roles) -}}{{- fail "preset required roles cannot be removed" -}}{{- end -}}
 {{- end -}}
 {{- $entries = append $entries $entry -}}
 {{- end -}}
@@ -40,18 +36,11 @@
 {{- fail "MCP catalog entries require explicit boolean enabled" -}}
 {{- end -}}
 {{- range $field, $_ := $entry -}}
-{{- if not (has $field (list "enabled" "name" "displayName" "piiEnabled" "contentTracingEnabled" "contextforge" "registration" "checks" "credential" "required_roles" "host" "workload" "path" "port" "protocol" "tls" "upstreamAuth")) -}}
+{{- if not (has $field (list "enabled" "name" "displayName" "piiEnabled" "contentTracingEnabled" "contextforge" "registration" "checks" "credential" "host" "workload" "path" "port" "protocol" "tls" "upstreamAuth")) -}}
 {{- fail (printf "MCP catalog field %q is unsupported; credentials must use Secret references" $field) -}}
 {{- end -}}
 {{- end -}}
 {{- if $entry.enabled -}}
-{{- $roles := list -}}
-{{- if hasKey $entry "required_roles" -}}{{- $roles = $entry.required_roles -}}{{- end -}}
-{{- if or (not (kindIs "slice" $roles)) (gt (len $roles) 20) (ne (len $roles) (len (uniq $roles))) -}}{{- fail "MCP required_roles must be a list of at most 20 unique roles" -}}{{- end -}}
-{{- range $role := $roles -}}
-{{- if or (not (kindIs "string" $role)) (empty $role) (gt (len $role) 100) (ne (trim $role) $role) -}}{{- fail "MCP required_roles must contain nonempty role names" -}}{{- end -}}
-{{- end -}}
-{{- if and $roles (not $entry.contextforge) -}}{{- fail "MCP required_roles requires a ContextForge registration" -}}{{- end -}}
 {{- $server := mergeOverwrite (dict "piiEnabled" true "contentTracingEnabled" false) (deepCopy $entry) -}}
 {{- $_ := unset $server "enabled" -}}
 {{- if not $server.displayName -}}{{- $_ := set $server "displayName" $server.name -}}{{- end -}}
@@ -138,13 +127,9 @@
 {{- $oauth := $registration.oauth -}}
 {{- if not (kindIs "map" $oauth) -}}{{- fail "MCP oauth must be a non-secret map" -}}{{- end -}}
 {{- range $field, $_ := $oauth -}}
-{{- if not (has $field (list "authorization_url" "token_url" "client_id" "redirect_uri" "scopes" "client_secret_ref" "pkce" "token_endpoint_auth_method" "issuer" "resource")) -}}{{- fail "unsupported MCP oauth field; plaintext secrets are forbidden" -}}{{- end -}}
+{{- if not (has $field (list "authorization_url" "token_url" "client_id" "redirect_uri" "scopes" "client_secret_ref" "pkce")) -}}{{- fail "unsupported MCP oauth field; plaintext secrets are forbidden" -}}{{- end -}}
 {{- end -}}
-{{- $urls := list "authorization_url" "token_url" "redirect_uri" -}}
-{{- range $field := list "issuer" "resource" -}}
-{{- if hasKey $oauth $field -}}{{- $urls = append $urls $field -}}{{- end -}}
-{{- end -}}
-{{- range $field := $urls -}}
+{{- range $field := list "authorization_url" "token_url" "redirect_uri" -}}
 {{- $url := get $oauth $field -}}
 {{- if or (not (kindIs "string" $url)) (not (regexMatch `^https://[a-zA-Z0-9.-]+(:[0-9]+)?(/[a-zA-Z0-9_./-]*)?$` (toString $url))) (regexMatch `(^|/)\.\.?(/|$)` (toString $url)) -}}{{- fail "MCP oauth endpoints must be approved HTTPS URLs without credentials, query or fragment" -}}{{- end -}}
 {{- end -}}
@@ -153,15 +138,9 @@
 {{- if not (kindIs "slice" $oauth.scopes) -}}{{- fail "MCP oauth scopes must be a list" -}}{{- end -}}
 {{- range $scope := $oauth.scopes -}}{{- if or (not (kindIs "string" $scope)) (empty $scope) -}}{{- fail "MCP oauth scopes must be nonempty strings" -}}{{- end -}}{{- end -}}
 {{- $ref := $oauth.client_secret_ref -}}
-{{- $method := $oauth.token_endpoint_auth_method | default "client_secret_post" -}}
-{{- if not (has $method (list "none" "client_secret_post")) -}}{{- fail "MCP OAuth token_endpoint_auth_method must be none or client_secret_post" -}}{{- end -}}
-{{- if eq $method "none" -}}
-{{- if hasKey $oauth "client_secret_ref" -}}{{- fail "Public MCP OAuth clients cannot reference a client secret" -}}{{- end -}}
-{{- else -}}
 {{- if not (kindIs "map" $ref) -}}{{- fail "MCP oauth requires client_secret_ref with name and key" -}}{{- end -}}
 {{- if or (ne (len $ref) 2) (empty $ref.name) (empty $ref.key) -}}{{- fail "MCP client_secret_ref requires only name and key" -}}{{- end -}}
 {{- if or (not (kindIs "string" $ref.name)) (not (kindIs "string" $ref.key)) (not (regexMatch `^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$` (toString $ref.name))) (not (regexMatch `^[-._a-zA-Z0-9]+$` (toString $ref.key))) -}}{{- fail "MCP client_secret_ref name and key must be valid Secret identifiers" -}}{{- end -}}
 {{- if or (ne $ref.name "contextforge-oauth-apps") (ne $ref.key .name) -}}{{- fail "MCP client_secret_ref must use contextforge-oauth-apps and the selected integration ID" -}}{{- end -}}
-{{- end -}}
 {{- end -}}
 {{- end -}}

@@ -77,7 +77,9 @@ spec:
 {{- range $server := $forward }}
 {{- $record := include "infra-agentgateway.mcpCredentialVersion" (dict "root" $ "id" $server.name) | fromYaml }}
 {{- $url := urlParse $server.registration.upstream_url }}
-{{- if or (ne $url.scheme "https") (contains ":" $url.host) }}{{ fail "Shared-header MCP forwarding requires a fixed public HTTPS endpoint on port 443" }}{{- end }}
+{{- if or (ne $url.scheme "https") (contains ":" $url.host) }}{{ fail "Shared-header MCP forwarding requires a fixed HTTPS endpoint on port 443" }}{{- end }}
+{{- $host := $server.host | default $url.host }}
+{{- if and $server.host (not (has $host (index $.Values "mcp-servers").approvedHosts)) }}{{ fail "Shared-header MCP forwarding host override must be in mcp.approvedHosts" }}{{- end }}
 {{- $backend := include "infra-agentgateway.mcpForwardName" (dict "id" $server.name "version" $record.version) }}
 ---
 apiVersion: agentgateway.dev/v1alpha1
@@ -86,10 +88,11 @@ metadata:
   name: {{ $backend }}
   namespace: infra-agentgateway
 spec:
-  static: {host: {{ $url.host | quote }}, port: 443}
+  static: {host: {{ $host | quote }}, port: 443}
   policies:
     tls:
       sni: {{ $url.host | quote }}
+      verifySubjectAltNames: [{{ $url.host | quote }}]
     {{- if $record.configured }}
     auth:
       credentials:
@@ -97,7 +100,11 @@ spec:
             name: {{ include "infra-agentgateway.mcpCredentialName" (dict "id" $server.name "version" $record.version) }}
             key: apiKey
           location:
-            header: {name: {{ $server.credential.header | quote }}}
+            header:
+              name: {{ $server.credential.header | quote }}
+              {{- if eq (lower $server.credential.header) "authorization" }}
+              prefix: "Bearer "
+              {{- end }}
     {{- end }}
 ---
 apiVersion: gateway.networking.k8s.io/v1
@@ -117,7 +124,7 @@ spec:
             path: {type: ReplaceFullPath, replaceFullPath: {{ $url.path | default "/" | quote }}}
         - type: RequestHeaderModifier
           requestHeaderModifier:
-            remove: [Authorization, Cookie, x-contextforge-account-email, {{ $server.credential.header | quote }}]
+            remove: {{ list "Authorization" "Cookie" "x-contextforge-account-email" $server.credential.header | uniq | toJson }}
       backendRefs:
         - {group: agentgateway.dev, kind: AgentgatewayBackend, name: {{ $backend }}}
 {{- end }}

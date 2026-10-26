@@ -38,50 +38,38 @@ def native_values():
 
 
 class McpCredentialsTests(unittest.TestCase):
-    def test_restricted_public_pkce_preset_is_opt_in_and_cannot_weaken_admission(self):
+    def test_glitchtip_shared_token_is_opt_in_and_uses_verified_native_tls(self):
         default = render("agentgateway", {})
         self.assertNotIn("8104c910079d4a1a9ba4ddbfda0d08df", default.stdout)
-        selection = {"enabled": True, "registration": {
-            "upstream_url": "https://errors.example.com/mcp", "approved_tools": ["read"],
-            "oauth": {"authorization_url": "https://errors.example.com/mcp/authorize",
-                "token_url": "https://errors.example.com/mcp/token", "client_id": "public-client",
-                "redirect_uri": "https://studio.example.com/oauth/callback"}}}
-        values = {"mcp-servers": {"catalog": {"presets": {"glitchtip": selection}}}}
+        selection = {"enabled": True, "host": "glitchtip-ui.glitchtip.svc.cluster.local",
+                     "registration": {"upstream_url": "https://errors.example.com/mcp"}}
+        values = {"mcp-servers": {"enabled": True, "studioSetup": {"enabled": True},
+                  "approvedHosts": [selection["host"]], "catalog": {"presets": {"glitchtip": selection}},
+                  "runtimeCredentials": {"glitchtip": {"version": "a" * 32, "kvVersion": 2, "configured": True}}}}
         output = render("agentgateway", values)
         data = resource(output, "ConfigMap", "infra-agentgateway-mcp-catalog")["data"]
-        self.assertEqual(json.loads(data["studio.json"])[0]["required_roles"], ["glitchtip-admin"])
         registration, = json.loads(data["registrations.json"])
-        self.assertEqual(registration["required_roles"], ["glitchtip-admin"])
-        self.assertEqual(registration["oauth"]["token_endpoint_auth_method"], "none")
-        self.assertNotIn("client_secret_ref", registration["oauth"])
-        selection["required_roles"] = []
+        self.assertEqual(registration["authentication_model"], "shared-authentication")
+        self.assertNotIn("oauth", registration)
+        self.assertNotIn("required_roles", registration)
+        self.assertEqual(registration["upstream_url"],
+                         "http://contextforge-providers.infra-agentgateway.svc.cluster.local:8080/glitchtip")
+        self.assertEqual(len(registration["approved_tools"]), 11)
+        self.assertIn("update_issue", registration["approved_tools"])
+        suffix = hashlib.sha256(b"glitchtip").hexdigest()[:12] + "-" + "a" * 32
+        backend = resource(output, "AgentgatewayBackend", "mcp-forward-" + suffix)["spec"]
+        self.assertEqual(backend["static"], {"host": selection["host"], "port": 443})
+        self.assertEqual(backend["policies"]["tls"], {
+            "sni": "errors.example.com", "verifySubjectAltNames": ["errors.example.com"]})
+        self.assertEqual(backend["policies"]["auth"]["credentials"], [{
+            "secretRef": {"name": "mcp-key-" + suffix, "key": "apiKey"},
+            "location": {"header": {"name": "Authorization", "prefix": "Bearer "}}}])
+        route = resource(output, "HTTPRoute", "mcp-forward-glitchtip")["spec"]["rules"][0]
+        self.assertIn("Authorization", route["filters"][1]["requestHeaderModifier"]["remove"])
+        secret = resource(output, "ExternalSecret", "mcp-key-" + suffix)
+        self.assertEqual(secret["spec"]["data"][0]["remoteRef"]["key"], "mcp/shared/glitchtip")
+        values["mcp-servers"]["approvedHosts"] = []
         self.assertNotEqual(render("agentgateway", values, check=False).returncode, 0)
-        selection.pop("required_roles")
-        oauth = selection["registration"]["oauth"]
-        oauth.update(
-            issuer="https://errors.example.com/mcp", resource="https://errors.example.com/mcp",
-            token_url="https://native-errors.example.com/mcp/token",
-        )
-        split = render("agentgateway", values)
-        split_data = resource(split, "ConfigMap", "infra-agentgateway-mcp-catalog")["data"]
-        self.assertEqual(json.loads(split_data["registrations.json"])[0]["oauth"], oauth | {
-            "scopes": ["org:read", "project:read", "event:read"],
-            "pkce": True, "token_endpoint_auth_method": "none",
-        })
-        self.assertEqual(json.loads(split_data["studio.json"])[0]["oauth_authorization_origin"],
-                         "https://errors.example.com")
-        for field in ("issuer", "resource"):
-            saved = oauth[field]
-            for invalid in ("http://errors.example.com/mcp", "https://user:secret@errors.example.com/mcp",
-                            "https://errors.example.com/mcp?token=secret"):
-                oauth[field] = invalid
-                self.assertNotEqual(render("agentgateway", values, check=False).returncode, 0)
-            oauth[field] = saved
-        for invalid in ({"pkce": False}, {"client_secret_ref": {"name": "contextforge-oauth-apps", "key": "glitchtip"}}):
-            original = selection["registration"]["oauth"].copy()
-            selection["registration"]["oauth"].update(invalid)
-            self.assertNotEqual(render("agentgateway", values, check=False).returncode, 0)
-            selection["registration"]["oauth"] = original
 
     def test_optional_shared_key_is_projected_without_a_secret_value(self):
         output = render("agentgateway", {"mcp-servers": {"catalog": {"presets": {
