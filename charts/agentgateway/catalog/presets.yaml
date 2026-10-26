@@ -3,6 +3,10 @@ glitchtip:
   name: glitchtip
   displayName: GlitchTip
   credential: {owner: shared, required: true, method: gateway-header, header: Authorization}
+  checks:
+    - name: Check connection
+      tool: list_organizations
+      arguments: {}
   contextforge:
     provider: glitchtip
     authenticationModel: shared-authentication
