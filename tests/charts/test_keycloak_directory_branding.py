@@ -2,6 +2,9 @@
 
 import json
 import unittest
+from pathlib import Path
+
+import yaml
 
 from helm import documents, env_value, render, resource
 
@@ -31,6 +34,33 @@ BRAND = {"enabled": True, "logoConfigMapName": "keycloak-branding-logo"}
 
 
 class KeycloakDirectoryTests(unittest.TestCase):
+    def test_declared_admin_secret_output_matches_actual_producer(self):
+        root = Path(__file__).resolve().parents[2]
+        release = yaml.safe_load((root / "releases/keycloak/server.yaml").read_text())
+        manifest = yaml.safe_load((root / "release/manifest.yaml").read_text())
+        producer = next(
+            row for row in manifest["spec"]["artifacts"]["helmReleases"]
+            if row["path"] == "releases/keycloak/server.yaml"
+        )
+        self.assertEqual(producer["namespace"], release["metadata"]["namespace"])
+        self.assertEqual(producer["name"], release["metadata"]["name"])
+        self.assertEqual(producer["chart"], release["spec"]["chart"]["spec"]["chart"])
+        self.assertEqual(release["spec"]["chart"]["spec"]["sourceRef"], {
+            "kind": "GitRepository", "name": "k8s-stack", "namespace": "flux-system",
+        })
+        result = render(
+            producer["chart"].removeprefix("./charts/"),
+            {"authKeycloakSecrets": {
+                "adminPassword": "synthetic-admin", "dbPassword": "synthetic-database",
+            }},
+            namespace=producer["namespace"], release=release["spec"]["releaseName"],
+        )
+        secret = resource(result, "Secret", "auth-keycloak-secret")
+        self.assertEqual(producer["helmOutputs"], [{
+            "kind": secret["kind"], "namespace": secret["metadata"]["namespace"],
+            "name": secret["metadata"]["name"], "helmRelease": release["metadata"]["name"],
+        }])
+
     def test_transport_and_job_inputs(self):
         for settings in (
             {**AD, "enabled": False},

@@ -1,6 +1,12 @@
 version: 0.3.29
 releaseDate: '2026-10-21'
 summary: Grouped gateway providers, Studio developer endpoints and browser CORS
+helmOutputs:
+  releases/keycloak/server.yaml:
+  - kind: Secret
+    namespace: auth-keycloak
+    name: auth-keycloak-secret
+    helmRelease: keycloak
 trust:
   signerIdentity: platform-release
   algorithm: ssh-ed25519

@@ -675,6 +675,11 @@ spec:
       namespace: auth-keycloak
       name: keycloak
       chart: ./charts/keycloak/server
+      helmOutputs:
+      - kind: Secret
+        namespace: auth-keycloak
+        name: auth-keycloak-secret
+        helmRelease: keycloak
     - path: releases/keycloak-api-key-bridge/app.yaml
       namespace: auth-keycloak-api-key-bridge
       name: keycloak-api-key-bridge
