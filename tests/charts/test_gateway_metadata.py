@@ -43,6 +43,9 @@ def metadata(result):
 class GatewayMetadataTests(unittest.TestCase):
     def test_metadata_only_changes_leave_primary_and_runtime_resources_identical(self):
         values = values_with_metadata()
+        # Go encoding/json uses UTF-8, HTML escaping and escaped line separators.
+        # Exercise the exact producer/consumer contract, not Python's ASCII default.
+        values["gatewayModelMetadata"]["models"][0]["provenance"]["source"] = "reviewed & <café>\u2028line\u2029paragraph"
         first = render("agentgateway", values)
         values["gatewayModelMetadata"]["models"][0]["limits"]["max_output_tokens"] = 100
         second = render("agentgateway", values)
@@ -61,7 +64,10 @@ class GatewayMetadataTests(unittest.TestCase):
         self.assertEqual(companion["catalog_revision"], json.loads(primary)["catalog_revision"])
         self.assertNotEqual(companion["metadata_revision"], metadata(second)["metadata_revision"])
         revision = companion.pop("metadata_revision")
-        canonical = json.dumps(companion, sort_keys=True, separators=(",", ":"))
+        canonical = json.dumps(companion, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
+        for raw, escaped in (("&", "\\u0026"), ("<", "\\u003c"), (">", "\\u003e"),
+                             ("\u2028", "\\u2028"), ("\u2029", "\\u2029")):
+            canonical = canonical.replace(raw, escaped)
         self.assertEqual(revision, hashlib.sha256(canonical.encode()).hexdigest())
 
     def test_limits_unknown_facts_and_stale_structural_timestamps(self):
