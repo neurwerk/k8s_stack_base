@@ -285,7 +285,7 @@ spec:
     charts:
     - path: charts/agentgateway
       name: infra-agentgateway
-      version: 3.0.5
+      version: 3.0.6
       appVersion: 1.6.0
       dependencyLock:
         digest: sha256:ef5fd87240e231990e45578f9deb65e6a6f947ba8a8b846cf13954882299cb3a
@@ -343,7 +343,7 @@ spec:
       version: 1.0.0
     - path: charts/contextforge
       name: contextforge
-      version: 0.4.1
+      version: 0.4.2
       appVersion: 1.0.11
     - path: charts/contextforge/certificates
       name: contextforge-certificates
@@ -413,7 +413,7 @@ spec:
       version: 1.1.8
     - path: charts/keycloak/realm-config/realm-roles
       name: keycloak-oidc-configurations-realm-roles
-      version: 2.4.3
+      version: 2.4.4
     - path: charts/keycloak/server
       name: keycloak
       version: 1.1.11

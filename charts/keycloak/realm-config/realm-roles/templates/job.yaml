@@ -46,6 +46,7 @@
 {{- $resourcePrefixes := dict
       "/access/neurwerk-llm-all-users" (list "model:" "provider:")
       "/access/neurwerk-mcp-all-users" (list "mcp:")
+      "/access/neurwerk-mcp-glitchtip-users" (list "mcp:glitchtip:")
       "/access/neurwerk-ai-application-users" (list "application:" "provider:") }}
 {{- range $groupName, $groupRoles := .Values.authKeycloak.agentgatewayAccessGroups | default dict }}
 {{- $group := get $accessGroups $groupName }}
