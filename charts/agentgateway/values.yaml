@@ -1,3 +1,11 @@
+# Optional source facts, separate from routing and native AgentGateway model costs.
+# Each record requires binding_id, public_id, limits, capabilities and provenance.
+# Limits are null or positive JSON-safe integers (at most 9007199254740991).
+# Gateway restrictions are derived by the chart, never accepted from source records.
+gatewayModelMetadata:
+  enabled: false
+  models: []
+
 infraAgentgatewayWrapper:
   hostname: ""                        # set in client_*/config/client.yaml
   # Client-approved in-cluster callers of the API listener (NetworkPolicy peers).
