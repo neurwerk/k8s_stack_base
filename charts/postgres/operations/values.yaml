@@ -2,7 +2,7 @@
 postgresOperations:
   # Exact client-approved NetworkPolicy peers for the sole document-store product.
   documentdbIngressPeers: []
-  image: ghcr.io/documentdb/documentdb/documentdb-local:pg18-0.116.0
+  image: ghcr.io/documentdb/documentdb/documentdb-local:pg18-0.116.0@sha256:01bb9408393fb6417cc32735f4566dee4b53bbab6df6b70c42797317da631f12
   imagePullPolicy: IfNotPresent
   clusterDomain: cluster.local
   service:

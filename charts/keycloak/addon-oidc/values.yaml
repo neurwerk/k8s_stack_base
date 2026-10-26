@@ -23,6 +23,8 @@ authentication:
 # Scope permits claims for roles users already have; it never assigns user roles.
 clientApproval:
   clientId: ""
+  redirectUris: []
+  webOrigins: []
   # Optional trusted allowlist for authentication.postLogoutRedirectUris.
   # postLogoutRedirectUris: [https://app.example.com/auth]
   realmRoles: []

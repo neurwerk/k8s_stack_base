@@ -27,7 +27,11 @@ def configuration(client="example-addon"):
             "webOrigins": [f"https://{client}.example.com"],
             "realmRoles": [f"{client}-user"],
         },
-        "clientApproval": {"clientId": client, "realmRoles": [f"{client}-user"]},
+        "clientApproval": {
+            "clientId": client, "realmRoles": [f"{client}-user"],
+            "redirectUris": [f"https://{client}.example.com/callback"],
+            "webOrigins": [f"https://{client}.example.com"],
+        },
     }
 
 
@@ -74,7 +78,7 @@ class AddonOidcTests(unittest.TestCase):
                         gatewayPermissions=["llm:invoke", "model:vendor/Model-1.2:invoke"],
                     )
                     values["clientApproval"].update(
-                        audiences=["agentgateway"], gatewayPermissions=["llm:invoke"]
+                        audiences=["agentgateway"], gatewayPermissions=auth["gatewayPermissions"]
                     )
                 result = render(CHART, values, namespace="auth-keycloak", value_files=())
                 schema = subprocess.run(
@@ -139,7 +143,10 @@ class AddonOidcTests(unittest.TestCase):
                     "KC_WEB_ORIGINS": auth["webOrigins"],
                     "KC_REALM_ROLE_SCOPE": auth["realmRoles"],
                     "KC_CLIENT_AUDIENCES": ["agentgateway"] if gateway else [],
-                    "KC_GATEWAY_ROLE_SCOPE": ["llm:invoke"] if gateway else [],
+                    "KC_GATEWAY_ROLE_SCOPE": auth.get("gatewayPermissions", []),
+                    "KC_APPROVED_GATEWAY_ROLE_SCOPE": auth.get("gatewayPermissions", []),
+                    "KC_APPROVED_REDIRECT_URIS": auth["redirectUris"],
+                    "KC_APPROVED_WEB_ORIGINS": auth["webOrigins"],
                 }.items():
                     self.assertEqual(json.loads(env[name]["value"]), expected)
                 secrets = {
@@ -307,21 +314,21 @@ class AddonOidcTests(unittest.TestCase):
                     gatewayPermissions=["llm:invoke", "model:vendor/Model-1.2:invoke"],
                 )
                 values["clientApproval"]["audiences"] = ["agentgateway"]
-                for approved, expected in (
-                    ([], []),
-                    (["llm:invoke", "model:other:invoke"], ["llm:invoke"]),
-                    (request["gatewayPermissions"], request["gatewayPermissions"]),
-                ):
+                for approved in ([], ["llm:invoke", "model:other:invoke"]):
                     values["clientApproval"]["gatewayPermissions"] = approved
-                    self.assertEqual(
-                        json.loads(resource(self.scope(values), "ConfigMap")["data"]["gateway"]),
-                        expected,
-                    )
+                    self.assertNotEqual(self.scope(values, check=False).returncode, 0)
+                values["clientApproval"]["gatewayPermissions"] = request["gatewayPermissions"]
+                self.assertEqual(
+                    json.loads(resource(self.scope(values), "ConfigMap")["data"]["gateway"]),
+                    request["gatewayPermissions"],
+                )
 
     def test_unapproved_or_unsafe_configuration_is_rejected(self):
         changes = [
             ("clientApproval", {"clientId": "other"}),
             ("clientApproval", {"realmRoles": []}),
+            ("clientApproval", {"redirectUris": ["https://other.example.com/callback"]}),
+            ("clientApproval", {"webOrigins": ["https://other.example.com"]}),
             ("authentication", {"audiences": ["other-api"]}),
             ("authentication", {"mode": "login+gateway", "audiences": ["agentgateway"]}),
             ("authentication", {"gatewayPermissions": ["llm:invoke"]}),
