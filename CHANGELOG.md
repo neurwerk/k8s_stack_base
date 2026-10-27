@@ -9,6 +9,8 @@ upgrade path.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-27
+
 - Prepare the future 0.4.0 standalone add-on baseline for maintenance-window alpha adoption on the existing installation, followed by promotion of an exact frozen and reconciled alpha revision. Version, release date and promotion evidence are assigned by the later release preparation step; these changes are not published or ready for adoption.
 - Direct stable-to-stable upgrade support for the future baseline remains unreviewed. Prepare that release with `stableUpgrade: fresh-install-only`; this does not describe alpha adoption or authorize reinstalling Base, OpenBao or storage. Existing-data promotion uses adoption mode `upgrade` and an explicit `upgradesFromAlphaRevisions` entry once frozen.
 - The clean break applies to optional add-on definitions and interfaces. Any application-data reset requires a separate, named decision; no infrastructure or persistent-data reset is authorized by this candidate.
