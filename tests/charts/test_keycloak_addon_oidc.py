@@ -209,6 +209,7 @@ class AddonOidcTests(unittest.TestCase):
         values.update(
             authKeycloak={"realm": "example", "adminUser": "setup-admin"},
             clientSecret={"name": "example-oidc"},
+            k8sTools={"image": TEST_ONLY_UNPUBLISHED_IMAGE},
         )
         result = render(CHART, values, namespace="auth-keycloak", value_files=(), check=False)
         self.assertNotEqual(result.returncode, 0)
