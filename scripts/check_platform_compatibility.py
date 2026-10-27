@@ -43,6 +43,7 @@ CLUSTER_RESOURCES = [
     "flux-system",
 ]
 ADDON_SOURCE_RESOURCE = "addon-source.yaml"
+ADDON_SELECTION_RESOURCE = "addon-selection.yaml"
 PRODUCT_ADDON_SOURCE = re.compile(r"^addon-[a-z][a-z0-9-]*-source\.yaml$")
 ADDON_GIT_URL = re.compile(r"^(?:ssh://git@github\.com|https://github\.com)/neurwerk/[a-zA-Z0-9_-]+\.git$")
 DNS_LABEL = re.compile(r"^[a-z][a-z0-9-]{0,62}$")
@@ -234,6 +235,8 @@ def parse_kustomization(
         raise CompatibilityError(f"{origin} must remain transform-free with the canonical resources")
     addons: list[str] = []
     expected = resources.copy()
+    if allow_addon_source and ADDON_SELECTION_RESOURCE in entries:
+        expected.insert(expected.index("namespaces.yaml"), ADDON_SELECTION_RESOURCE)
     if allow_addon_source:
         start = expected.index("platform-source.yaml") + 1
         if ADDON_SOURCE_RESOURCE in entries:
@@ -258,6 +261,39 @@ def parse_kustomization(
             f"{origin} must remain transform-free with the canonical resources"
         )
     return addons
+
+
+def parse_addon_selection(content: str) -> None:
+    """Allow only the bounded nonsecret staging envelope; SDK verifies its full payload."""
+    message = "addon selection must be one bounded flux-system/addon-selection ConfigMap"
+    if len(content.encode("utf-8")) > MAX_REVISION_FILE_BYTES:
+        raise CompatibilityError(message)
+    try:
+        document = yaml.safe_load(content)
+        if (
+            not isinstance(document, dict)
+            or set(document) != {"apiVersion", "kind", "metadata", "data"}
+            or document["apiVersion"] != "v1"
+            or document["kind"] != "ConfigMap"
+            or document["metadata"] != {"name": "addon-selection", "namespace": "flux-system"}
+            or not isinstance(document["data"], dict)
+            or set(document["data"]) != {"selection.json"}
+        ):
+            raise CompatibilityError(message)
+        text = document["data"]["selection.json"]
+        if (
+            not isinstance(text, str)
+            or not 0 < len(text.encode("utf-8")) <= MAX_REVISION_FILE_BYTES
+        ):
+            raise CompatibilityError(message)
+        payload = json.loads(text)
+        if (
+            not isinstance(payload, dict)
+            or payload.get("apiVersion") != "addons.neurwerk.com/v1alpha2"
+        ):
+            raise CompatibilityError(message)
+    except (ValueError, TypeError, RecursionError, yaml.YAMLError) as error:
+        raise CompatibilityError(message) from error
 
 
 def parse_product_addon_source(content: str, *, origin: str) -> tuple[str, str | None]:
@@ -354,13 +390,21 @@ def read_control_plane_contract(
         (CLUSTER_KUSTOMIZATION_PATH, CLUSTER_RESOURCES),
         (FLUX_KUSTOMIZATION_PATH, FLUX_RESOURCES),
     ):
+        content = revision_reader(root, revision, path)
         selected = parse_kustomization(
-            revision_reader(root, revision, path),
+            content,
             origin="composition Kustomization",
             resources=resources,
             allow_addon_source=path == CLUSTER_KUSTOMIZATION_PATH,
         )
         addons.extend(selected)
+        if (
+            path == CLUSTER_KUSTOMIZATION_PATH
+            and ADDON_SELECTION_RESOURCE in yaml.safe_load(content)["resources"]
+        ):
+            parse_addon_selection(
+                revision_reader(root, revision, path.parent / ADDON_SELECTION_RESOURCE)
+            )
     seen_names = {"flux-system", "k8s-stack"}
     seen_secrets = {"flux-system", "k8s-stack-release-trust", "k8s-stack-alpha-trust"}
     for filename in addons:
