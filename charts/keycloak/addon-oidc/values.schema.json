@@ -31,9 +31,11 @@
     },
     "clientApproval": {
       "type": "object", "additionalProperties": false,
-      "required": ["clientId", "realmRoles", "audiences", "gatewayPermissions"],
+      "required": ["clientId", "redirectUris", "webOrigins", "realmRoles", "audiences", "gatewayPermissions"],
       "properties": {
         "clientId": {"type": "string", "pattern": "^([a-z][a-z0-9-]*)?$"},
+        "redirectUris": {"$ref": "#/properties/authentication/properties/redirectUris"},
+        "webOrigins": {"$ref": "#/properties/authentication/properties/webOrigins"},
         "postLogoutRedirectUris": {"$ref": "#/definitions/postLogoutRedirectUris"},
         "realmRoles": {"$ref": "#/definitions/realmRoles"},
         "audiences": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-z][a-z0-9-]*$"}},

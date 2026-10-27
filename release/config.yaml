@@ -1,6 +1,12 @@
 version: 0.3.29
 releaseDate: '2026-10-21'
 summary: Grouped gateway providers, Studio developer endpoints and browser CORS
+helmOutputs:
+  releases/keycloak/server.yaml:
+  - kind: Secret
+    namespace: auth-keycloak
+    name: auth-keycloak-secret
+    helmRelease: keycloak
 trust:
   signerIdentity: platform-release
   algorithm: ssh-ed25519
@@ -25,7 +31,8 @@ packages:
     chartPrefixes: []
   - path: releases/glitchtip/secret-sync
     status: included
-    reason: Optional app-owned credential delivery; reconcile the selected catalog and approved SMTP credentials before startup.
+    reason: Optional app-owned credential delivery; reconcile the selected catalog and approved SMTP credentials
+      before startup.
     chartPrefixes: []
     prerequisites:
     - name: openbao-stack-setup
@@ -33,11 +40,14 @@ packages:
       source: https://github.com/neurwerk/k8s_stack_tooling/commit/2825f854c8c15a1ce259988eeca8901bf6f3d496
   - path: releases/glitchtip/postgres
     status: included
-    reason: Optional dedicated GlitchTip database using the existing operations PostgreSQL; requires prepared credentials.
+    reason: Optional dedicated GlitchTip database using the existing operations PostgreSQL; requires prepared
+      credentials.
     chartPrefixes: []
   - path: releases/glitchtip/app
     status: included
-    reason: Optional GlitchTip 6.2.6 with verified adapter Tooling 0.13.7 and provisioning Tooling 0.13.5; disabled by default. Provision native identities before DSN handoff and adapter activation. Management UI uses Tailscale TCP/TLS only; public routing exposes one selected status page.
+    reason: Optional GlitchTip 6.2.6 with verified adapter Tooling 0.13.7 and provisioning Tooling 0.13.5;
+      disabled by default. Provision native identities before DSN handoff and adapter activation. Management
+      UI uses Tailscale TCP/TLS only; public routing exposes one selected status page.
     chartPrefixes:
     - charts/glitchtip
     prerequisites:
@@ -49,7 +59,8 @@ packages:
       source: https://github.com/neurwerk/k8s_stack_tooling/commit/2825f854c8c15a1ce259988eeca8901bf6f3d496
   - path: releases/glitchtip/secret-sync/initial-owner
     status: included
-    reason: Optional initial local organization-owner credentials for native provisioning; never delivered to the application or adapter.
+    reason: Optional initial local organization-owner credentials for native provisioning; never delivered
+      to the application or adapter.
     chartPrefixes: []
     prerequisites:
     - name: openbao-stack-setup
@@ -57,7 +68,8 @@ packages:
       source: https://github.com/neurwerk/k8s_stack_tooling/commit/2825f854c8c15a1ce259988eeca8901bf6f3d496
   - path: releases/glitchtip/adapter-access
     status: included
-    reason: Optional reader credentials, internal CA distribution and scoped access; import the verified private DSN before adapter activation.
+    reason: Optional reader credentials, internal CA distribution and scoped access; import the verified
+      private DSN before adapter activation.
     chartPrefixes: []
     prerequisites:
     - name: openbao-stack-setup
@@ -65,7 +77,9 @@ packages:
       source: https://github.com/neurwerk/k8s_stack_tooling/commit/2825f854c8c15a1ce259988eeca8901bf6f3d496
   - path: releases/glitchtip/tailscale-access
     status: included
-    reason: Optional egress allowance for only the managed GlitchTip UI proxy. Requires the existing operator DNS/control-plane/DERP egress policy, reviewed UI-specific tailnet tag/ACL and private DNS mapping; no public UI listener or Tailscale HTTPS API dependency.
+    reason: Optional egress allowance for only the managed GlitchTip UI proxy. Requires the existing operator
+      DNS/control-plane/DERP egress policy, reviewed UI-specific tailnet tag/ACL and private DNS mapping;
+      no public UI listener or Tailscale HTTPS API dependency.
     chartPrefixes: []
     prerequisites:
     - name: tailscale-operator
@@ -178,7 +192,8 @@ packages:
   - path: releases/tailscale/operator
     status: included
     reason: Optional official operator; disabled and suspended by default. Stage credentials before activation.
-      Kubernetes API proxy and dashboard access are not enabled; custom control-plane compatibility requires operator validation.
+      Kubernetes API proxy and dashboard access are not enabled; custom control-plane compatibility requires
+      operator validation.
     chartPrefixes:
     - charts/tailscale/operator
     prerequisites:
@@ -187,7 +202,8 @@ packages:
       source: https://pkgs.tailscale.com/helmcharts
   - path: releases/tailscale/secret-sync
     status: included
-    reason: Optional two-field operator credential delivery; provision the selected Tailscale OpenBao catalog before activation.
+    reason: Optional two-field operator credential delivery; provision the selected Tailscale OpenBao
+      catalog before activation.
     chartPrefixes: []
     prerequisites:
     - name: openbao-stack-setup
@@ -195,11 +211,12 @@ packages:
       source: https://github.com/neurwerk/k8s_stack_tooling/commit/d0fba64e974969d0381acf80206cf7148c24da84
   - path: releases/tailscale/access
     status: included
-    reason: Optional separately owned API TCP transport; disabled and suspended by default pending explicit security approval.
-      Upstream main and init proxy containers are privileged and proxy RBAC can access all namespace Secrets, including operator OAuth.
-      Experimental upstream ExternalName forwarding is address-based, not port-filtered; require API-only tailnet ACLs for TCP 443.
-      Preserve Kubernetes client certificates, CA verification and an existing API certificate SAN as tls-server-name.
-      No dashboards are selected. This package does not adopt the existing Kubernetes Service.
+    reason: Optional separately owned API TCP transport; disabled and suspended by default pending explicit
+      security approval. Upstream main and init proxy containers are privileged and proxy RBAC can access
+      all namespace Secrets, including operator OAuth. Experimental upstream ExternalName forwarding is
+      address-based, not port-filtered; require API-only tailnet ACLs for TCP 443. Preserve Kubernetes
+      client certificates, CA verification and an existing API certificate SAN as tls-server-name. No
+      dashboards are selected. This package does not adopt the existing Kubernetes Service.
     chartPrefixes:
     - charts/tailscale/access
     prerequisites:

@@ -6,6 +6,11 @@
 {{- if ne .Release.Namespace "auth-keycloak" }}{{ fail "addon-oidc must run in auth-keycloak" }}{{ end -}}
 {{- if or (empty $a.clientId) (ne $a.clientId $approval.clientId) }}{{ fail "clientApproval must explicitly approve the authentication clientId" }}{{ end -}}
 {{- if or (empty $a.redirectUris) (empty $a.webOrigins) (empty $a.realmRoles) }}{{ fail "authentication requires redirectUris, webOrigins and realmRoles" }}{{ end -}}
+{{- range $field := list "redirectUris" "webOrigins" "gatewayPermissions" -}}
+{{- range index $a $field -}}
+{{- if not (has . (index $approval $field)) }}{{ fail (printf "authentication %s require exact client approval" $field) }}{{ end -}}
+{{- end -}}
+{{- end -}}
 {{- range $a.realmRoles -}}
 {{- if not (has . $approval.realmRoles) }}{{ fail "authentication realmRoles require exact client approval" }}{{ end -}}
 {{- end -}}
@@ -18,10 +23,7 @@
 {{- end -}}
 {{- end -}}
 {{- range $field := list "redirectUris" "webOrigins" "postLogoutRedirectUris" -}}
-{{- $urls := index $a $field | default list -}}
-{{- if eq $field "postLogoutRedirectUris" -}}
-{{- $urls = concat $urls ($approval.postLogoutRedirectUris | default list) -}}
-{{- end -}}
+{{- $urls := concat (index $a $field | default list) (index $approval $field | default list) -}}
 {{- range $url := $urls -}}
 {{- $parsed := urlParse $url -}}
 {{- if or (ne $parsed.scheme "https") (empty $parsed.host) (not (empty $parsed.userinfo)) (not (empty $parsed.fragment)) (regexMatch "[[:space:]*\\\\]" $url) }}{{ fail "authentication requires exact HTTPS URLs" }}{{ end -}}
@@ -49,7 +51,7 @@
 {{- $roles := list -}}
 {{- if eq .Values.authentication.mode "login+gateway" -}}
 {{- range .Values.authentication.gatewayPermissions -}}
-{{- if has . $.Values.clientApproval.gatewayPermissions }}{{ $roles = append $roles . }}{{ end -}}
+{{- $roles = append $roles . -}}
 {{- end -}}
 {{- end -}}
 {{- $roles | toJson -}}

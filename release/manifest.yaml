@@ -388,10 +388,10 @@ spec:
       appVersion: 6.2.6
     - path: charts/keycloak/addon-access
       name: keycloak-addon-access
-      version: 0.1.5
+      version: 0.1.6
     - path: charts/keycloak/addon-oidc
       name: addon-oidc
-      version: 0.1.4
+      version: 0.2.1
       appVersion: 0.12.0
     - path: charts/keycloak/oidc/agentgateway
       name: agentgateway
@@ -407,7 +407,7 @@ spec:
       appVersion: '1.0'
     - path: charts/keycloak/realm-config/active-directory
       name: keycloak-active-directory
-      version: 1.1.10
+      version: 1.2.1
     - path: charts/keycloak/realm-config/initial-admin
       name: keycloak-oidc-configurations-initial-admin
       version: 1.1.8
@@ -500,18 +500,18 @@ spec:
       appVersion: 0.15.3
     - path: charts/postgres/addon
       name: infra-postgres-addon
-      version: 0.1.2
+      version: 0.1.3
     - path: charts/postgres/auth
       name: infra-postgres-auth
       version: 1.0.0
       appVersion: '18.6'
     - path: charts/postgres/documentdb-addon
       name: documentdb-addon
-      version: 1.0.3
+      version: 1.0.4
       appVersion: pg18-0.116.0
     - path: charts/postgres/operations
       name: infra-postgres-operations
-      version: 1.4.0
+      version: 1.4.1
       appVersion: pg18-0.116.0
     - path: charts/reloader
       name: infra-reloader
@@ -675,6 +675,11 @@ spec:
       namespace: auth-keycloak
       name: keycloak
       chart: ./charts/keycloak/server
+      helmOutputs:
+      - kind: Secret
+        namespace: auth-keycloak
+        name: auth-keycloak-secret
+        helmRelease: keycloak
     - path: releases/keycloak-api-key-bridge/app.yaml
       namespace: auth-keycloak-api-key-bridge
       name: keycloak-api-key-bridge
@@ -836,7 +841,7 @@ spec:
       eligibility: included
       origins:
       - charts/docling/values.yaml
-    - reference: ghcr.io/documentdb/documentdb/documentdb-local:pg18-0.116.0
+    - reference: ghcr.io/documentdb/documentdb/documentdb-local:pg18-0.116.0@sha256:01bb9408393fb6417cc32735f4566dee4b53bbab6df6b70c42797317da631f12
       pinned: true
       eligibility: included
       origins:
@@ -896,7 +901,6 @@ spec:
       origins:
       - charts/agentgateway/inspection-trust/values.yaml
       - charts/keycloak/addon-access/values.yaml
-      - charts/keycloak/addon-oidc/values.yaml
       - charts/keycloak/oidc/agentgateway/values.yaml
       - charts/keycloak/oidc/keycloak-api-key-bridge/values.yaml
       - charts/keycloak/oidc/studio/values.yaml
@@ -918,6 +922,12 @@ spec:
       eligibility: included
       origins:
       - charts/glitchtip/values.yaml
+    - reference: ghcr.io/neurwerk/k8s-stack-tooling:0.14.0@sha256:a1db80f00e8579478382ecc34717af484cf75239008ae8dbe66b01632aa49305
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/keycloak/addon-oidc/values.yaml
+      - charts/keycloak/realm-config/active-directory/values.yaml
     - reference: ghcr.io/stakater/reloader:v1.4.21
       pinned: true
       eligibility: included

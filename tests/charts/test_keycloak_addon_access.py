@@ -59,7 +59,16 @@ class KeycloakAddonAccessTests(unittest.TestCase):
             "image": "ghcr.io/neurwerk/k8s-stack-tooling:0.7.2",
         }}, check=False, value_files=())
         self.assertNotEqual(old.returncode, 0)
-        self.assertIn("verified ownership-capable k8sTools.image pin", old.stderr)
+        self.assertIn("explicit immutable k8sTools.image pin", old.stderr)
+
+    def test_independent_immutable_ownership_capable_pin(self):
+        # Synthetic digests exercise selection, not publication evidence.
+        for version, accepted in (("0.11.1", False), ("0.12.0", True), ("0.13.8", True)):
+            with self.subTest(version=version):
+                image = f"ghcr.io/neurwerk/k8s-stack-tooling:{version}@sha256:" + "0" * 64
+                result = render(CHART, {**VALUES, "k8sTools": {"image": image}},
+                                check=False, value_files=())
+                self.assertEqual(result.returncode == 0, accepted)
 
 
 if __name__ == "__main__":
