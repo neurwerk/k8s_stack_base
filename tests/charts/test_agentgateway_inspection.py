@@ -305,6 +305,48 @@ class ApprovedOidcTests(unittest.TestCase):
             }}}), expected)
 
 
+class ModelAttachmentIsolationTests(unittest.TestCase):
+    @staticmethod
+    def values():
+        values = binding_values()
+        binding = next(row for row in values["external-api-providers"] if row["id"] == "openrouter")
+        binding["attachments"] = {"images": {"mode": "block"}, "documents": {"mode": "block"}}
+        binding["models"] = [
+            {"name": "example-router", "upstreamModel": "provider/router-chat"},
+            {"name": "image-model", "upstreamModel": "provider/image", "supportsImages": True,
+             "attachments": {"images": {"mode": "forward-normalized"}}},
+        ]
+        values["authKeycloak"]["agentgatewayClientRoles"].append("model:image-model:invoke")
+        values["docling"] = {"enabled": True, "inference": {"mode": "cpu"}}
+        return values, binding
+
+    def test_model_overrides_preserve_sibling_policies_in_both_orders(self):
+        for override_first in (False, True):
+            with self.subTest(override_first=override_first):
+                values, binding = self.values()
+                if override_first:
+                    binding["models"].reverse()
+                rendered = render("agentgateway", values)
+                for entry in ("api", "proxy"):
+                    traffic = resource(rendered, "AgentgatewayPolicy", f"ai-openrouter-{entry}-processing")["spec"]["traffic"]
+                    for processor in traffic["extProc"]["conditional"]:
+                        expression = processor["policy"]["metadataContext"]["neurwerk.destination_policy"]["destination_policy"]
+                        policy = json.loads(expression.split(".merge(", 1)[0])
+                        self.assertEqual(policy["image_modes"], {
+                            "example-router": "block", "image-model": "forward-normalized",
+                        })
+                        self.assertEqual(policy["document_modes"], {
+                            "example-router": "block", "image-model": "block",
+                        })
+
+    def test_explicit_invalid_model_override_is_still_rejected(self):
+        values, binding = self.values()
+        binding["models"][1]["supportsImages"] = False
+        failed = render("agentgateway", values, check=False)
+        self.assertNotEqual(failed.returncode, 0)
+        self.assertIn('model "image-model" forward-normalized requires supportsImages:true', failed.stderr)
+
+
 class EndpointRoutingTests(unittest.TestCase):
     evaluate = ApprovedOidcTests.evaluate
 
