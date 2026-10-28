@@ -183,7 +183,7 @@ provider header and accidentally choose a company account instead. */}}
 {{- end -}}
 {{- if hasKey $destinations $name }}{{ fail "each canonical model must belong to exactly one provider/upstream binding" }}{{ end -}}
 {{- $_ := set $destinations $name true -}}
-{{- $normalized := mergeOverwrite (dict "piiEnabled" true "contentTracingEnabled" false "attachments" ($binding.attachments | default dict) "displayName" $name) (deepCopy $model) -}}
+{{- $normalized := mergeOverwrite (dict "piiEnabled" true "contentTracingEnabled" false "attachments" (deepCopy ($binding.attachments | default dict)) "displayName" $name) (deepCopy $model) -}}
 {{- if or (not (kindIs "string" $normalized.displayName)) (empty $normalized.displayName) (gt (len $normalized.displayName) 128) }}{{ fail "binding model displayName must be a nonempty string of at most 128 characters" }}{{ end -}}
 {{- range $flag := list "piiEnabled" "contentTracingEnabled" -}}
 {{- if not (kindIs "bool" (get $normalized $flag)) }}{{ fail "binding model PII/tracing flags must be booleans" }}{{ end -}}
