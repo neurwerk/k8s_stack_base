@@ -42,6 +42,12 @@
 {{- $destinations = append $destinations $destination }}{{- $_ := set $destinationKeys (printf "model:%s" $model.name) true }}
 {{- end }}
 {{- $owner := dict "id" $binding.id "provider_id" $binding.providerId "display_name" $binding.displayName "routes" $routes "destinations" $destinations }}
+{{/* Global input is normalized to company internally; this status does not establish runtime credential readiness. */}}
+{{- $globalStatus := "disabled" }}
+{{- if has "company" ($binding.configuredCredentialSources | default $binding.credentialSources) }}
+{{- $globalStatus = ternary "configured" "missing" (has "company" $binding.credentialSources) }}
+{{- end }}
+{{- $_ := set $owner "global_credential_status" $globalStatus }}
 {{- $_ := set $catalog $binding.group (append (get $catalog $binding.group) $owner) }}
 {{- end }}
 {{- $mcp := index .Values "mcp-servers" }}
