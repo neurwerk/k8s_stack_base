@@ -62,6 +62,18 @@ spec:
               value: {{ .Values.authentication.redirectUris | toJson | quote }}
             - name: KC_WEB_ORIGINS
               value: {{ .Values.authentication.webOrigins | toJson | quote }}
+            - name: KC_APPROVED_REDIRECT_URIS
+              value: {{ .Values.clientApproval.redirectUris | toJson | quote }}
+            - name: KC_APPROVED_WEB_ORIGINS
+              value: {{ .Values.clientApproval.webOrigins | toJson | quote }}
+            - name: KC_APPROVED_GATEWAY_ROLE_SCOPE
+              value: {{ .Values.clientApproval.gatewayPermissions | toJson | quote }}
+            {{- if hasKey .Values.authentication "postLogoutRedirectUris" }}
+            - name: KC_POST_LOGOUT_REDIRECT_URIS
+              value: {{ .Values.authentication.postLogoutRedirectUris | toJson | quote }}
+            - name: KC_APPROVED_POST_LOGOUT_REDIRECT_URIS
+              value: {{ .Values.clientApproval.postLogoutRedirectUris | toJson | quote }}
+            {{- end }}
             - name: KC_REALM_ROLE_SCOPE
               value: {{ .Values.authentication.realmRoles | toJson | quote }}
             - name: KC_ROLE_CLAIM

@@ -14,6 +14,8 @@ data:
     # pg_ctl appends repeated -o options, preserving the image's port setting.
     if [ "${1:-}" = start ]; then
       set -- "$@" -o "-c cron.log_run={{ ternary "on" "off" .Values.postgresOperations.pgCron.logRun }}"
+      set -- "$@" -o "-c max_connections={{ .Values.postgresOperations.maxConnections }}"
+      set -- "$@" -o "-c max_locks_per_transaction={{ .Values.postgresOperations.maxLocksPerTransaction }}"
     fi
     exec pg_ctl "$@"
   bootstrap-admin.sh: |

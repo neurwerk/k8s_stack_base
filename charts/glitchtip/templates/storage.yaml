@@ -1,0 +1,37 @@
+{{- if .Values.glitchtip.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: glitchtip-uploads
+  annotations:
+    helm.sh/resource-policy: keep
+  labels:
+    {{- include "glitchtip.labels" . | nindent 4 }}
+spec:
+  accessModes: [ReadWriteOnce]
+  {{- with .Values.glitchtip.storage.storageClassName }}
+  storageClassName: {{ . | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.glitchtip.storage.size }}
+{{- if .Values.glitchtip.adapter.enabled }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: glitchtip-adapter-state
+  annotations:
+    helm.sh/resource-policy: keep
+  labels:
+    {{- include "glitchtip.labels" . | nindent 4 }}
+spec:
+  accessModes: [ReadWriteOnce]
+  {{- with .Values.glitchtip.adapter.storage.storageClassName }}
+  storageClassName: {{ . | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.glitchtip.adapter.storage.size }}
+{{- end }}
+{{- end }}

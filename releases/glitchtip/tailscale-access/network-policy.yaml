@@ -1,0 +1,24 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: glitchtip-ui-egress
+  namespace: tailscale
+spec:
+  podSelector:
+    matchLabels:
+      tailscale.com/managed: "true"
+      tailscale.com/parent-resource: glitchtip-ui
+      tailscale.com/parent-resource-ns: glitchtip
+      tailscale.com/parent-resource-type: svc
+  policyTypes: [Egress]
+  egress:
+    # Union with the existing operator DNS/control-plane/DERP policy.
+    - to:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: glitchtip}
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: glitchtip
+              app.kubernetes.io/instance: glitchtip
+              app.kubernetes.io/component: application
+      ports: [{protocol: TCP, port: 8443}]

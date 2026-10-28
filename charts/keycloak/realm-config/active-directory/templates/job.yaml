@@ -77,6 +77,8 @@ spec:
               value: {{ $ad.groupNames | toJson | quote }}
             - name: KC_ACTIVE_DIRECTORY_GROUP_MAPPINGS
               value: {{ $ad.groupMappings | toJson | quote }}
+            - name: KC_ACTIVE_DIRECTORY_ADDON_GROUP_TARGETS
+              value: {{ $ad.addonGroupTargets | toJson | quote }}
             - name: KC_ACTIVE_DIRECTORY_BIND_DN
               valueFrom:
                 secretKeyRef:

@@ -1,0 +1,136 @@
+{{- if .Values.glitchtip.enabled }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: glitchtip
+automountServiceAccountToken: false
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: glitchtip
+  annotations:
+    reloader.stakater.com/auto: "true"
+  labels:
+    {{- include "glitchtip.labels" . | nindent 4 }}
+    app.kubernetes.io/component: application
+spec:
+  replicas: 1
+  strategy: {type: Recreate}
+  selector:
+    matchLabels:
+      {{- include "glitchtip.labels" . | nindent 6 }}
+      app.kubernetes.io/component: application
+  template:
+    metadata:
+      labels:
+        {{- include "glitchtip.labels" . | nindent 8 }}
+        app.kubernetes.io/component: application
+      annotations:
+        checksum/settings: {{ include (print $.Template.BasePath "/config-map.yaml") . | sha256sum }}
+    spec:
+      serviceAccountName: glitchtip
+      automountServiceAccountToken: false
+      securityContext:
+        {{- include "glitchtip.securityContext" . | nindent 8 }}
+      terminationGracePeriodSeconds: 90
+      containers:
+        - name: glitchtip
+          image: {{ .Values.glitchtip.image }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: {drop: [ALL]}
+          ports:
+            - {name: http, containerPort: 8000}
+          envFrom:
+            - configMapRef: {name: glitchtip-settings}
+          env:
+            {{- range $key := list "DATABASE_URL" "SECRET_KEY" "EMAIL_HOST_USER" "EMAIL_HOST_PASSWORD" }}
+            - name: {{ $key }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $.Values.glitchtip.runtimeSecret }}
+                  key: {{ $key }}
+            {{- end }}
+          startupProbe:
+            httpGet:
+              path: /api/0/internal/health/
+              port: http
+              httpHeaders:
+                - {name: Host, value: {{ (urlParse .Values.glitchtip.domain).hostname | quote }}}
+            periodSeconds: 10
+            failureThreshold: 90
+          readinessProbe:
+            httpGet:
+              path: /api/0/internal/health/
+              port: http
+              httpHeaders:
+                - {name: Host, value: {{ (urlParse .Values.glitchtip.domain).hostname | quote }}}
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket: {port: http}
+            periodSeconds: 30
+          resources:
+            {{- toYaml .Values.glitchtip.resources | nindent 12 }}
+          volumeMounts:
+            - {name: uploads, mountPath: /code/uploads}
+        {{- if .Values.glitchtip.gateway.ui.enabled }}
+        - name: ui
+          # Native web-only process; same image, database, cache and uploads.
+          image: {{ .Values.glitchtip.image }}
+          command: [./bin/run-granian.sh]
+          args: [--ssl-certificate, /etc/glitchtip-ui-tls/tls.crt, --ssl-keyfile, /etc/glitchtip-ui-tls/tls.key]
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: {drop: [ALL]}
+          ports:
+            - {name: ui-https, containerPort: 8443}
+          envFrom:
+            - configMapRef: {name: glitchtip-settings}
+          env:
+            - {name: SERVER_ROLE, value: web}
+            - {name: GLITCHTIP_EMBED_WORKER, value: "false"}
+            - {name: GRANIAN_PORT, value: "8443"}
+            {{- range $key := list "DATABASE_URL" "SECRET_KEY" "EMAIL_HOST_USER" "EMAIL_HOST_PASSWORD" }}
+            - name: {{ $key }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $.Values.glitchtip.runtimeSecret }}
+                  key: {{ $key }}
+            {{- end }}
+          startupProbe:
+            httpGet:
+              scheme: HTTPS
+              path: /api/0/internal/health/
+              port: ui-https
+              httpHeaders:
+                - {name: Host, value: {{ .Values.glitchtip.gateway.ui.hostname | quote }}}
+            periodSeconds: 10
+            failureThreshold: 90
+          readinessProbe:
+            httpGet:
+              scheme: HTTPS
+              path: /api/0/internal/health/
+              port: ui-https
+              httpHeaders:
+                - {name: Host, value: {{ .Values.glitchtip.gateway.ui.hostname | quote }}}
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket: {port: ui-https}
+            periodSeconds: 30
+          resources:
+            {{- toYaml .Values.glitchtip.gateway.ui.resources | nindent 12 }}
+          volumeMounts:
+            - {name: uploads, mountPath: /code/uploads}
+            - {name: ui-tls, mountPath: /etc/glitchtip-ui-tls, readOnly: true}
+        {{- end }}
+      volumes:
+        - name: uploads
+          persistentVolumeClaim: {claimName: glitchtip-uploads}
+        {{- if .Values.glitchtip.gateway.ui.enabled }}
+        - name: ui-tls
+          secret:
+            secretName: glitchtip-ui-tls
+            defaultMode: 0440
+        {{- end }}
+{{- end }}

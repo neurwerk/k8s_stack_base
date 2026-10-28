@@ -1,5 +1,8 @@
 {{- if .Values.addonAccess.enabled -}}
-{{- if ne .Values.k8sTools.image "ghcr.io/neurwerk/k8s-stack-tooling:0.12.0@sha256:b70f0f93ca2c3e5cef9290af2db6480bec72cedc0289ecd232747996eb01091a" }}{{ fail "addonAccess requires the verified ownership-capable k8sTools.image pin" }}{{ end -}}
+{{- $image := .Values.k8sTools.image -}}
+{{- if not (regexMatch "^ghcr.io/neurwerk/k8s-stack-tooling:[0-9]+\\.[0-9]+\\.[0-9]+@sha256:[a-f0-9]{64}$" $image) }}{{ fail "addonAccess requires an explicit immutable k8sTools.image pin" }}{{ end -}}
+{{- $version := index (splitList "@" (trimPrefix "ghcr.io/neurwerk/k8s-stack-tooling:" $image)) 0 -}}
+{{- if not (semverCompare ">=0.12.0" $version) }}{{ fail "addonAccess ownership reconciliation requires tooling >=0.12.0" }}{{ end -}}
 {{- $addon := .Values.addonAccess -}}
 {{- $name := required "addonAccess.name is required" $addon.name -}}
 {{- if not (regexMatch `^[a-z][a-z0-9]*$` $name) }}{{ fail "addonAccess.name must be a unique lowercase product key without hyphens" }}{{ end -}}

@@ -1,5 +1,5 @@
-{{- if ne .Values.authKeycloakApiKeyBridge.bridgeImage "ghcr.io/neurwerk/k8s-stack-keycloak-api-key-bridge:0.10.4@sha256:0533dc6f152ede5a57f462a0190e0852ba952469c9d82862cab9840dcc8024ef" }}
-{{- fail "bridge requires the verified MCP DELETE authentication 0.10.4 image pin" }}
+{{- if ne .Values.authKeycloakApiKeyBridge.bridgeImage "ghcr.io/neurwerk/k8s-stack-keycloak-api-key-bridge:0.10.5@sha256:1a5aa0bd9c2d240d7b6089c703d28d319fb0e147458eabcd669f2984001ede33" }}
+{{- fail "bridge requires the verified usage metadata 0.10.5 image pin" }}
 {{- end }}
 {{- if or (hasKey .Values.authKeycloakApiKeyBridge.postgres "enabled") (hasKey .Values.authKeycloakApiKeyBridge "persistence") (hasKey .Values.authKeycloakApiKeyBridge.config "database_url") }}
 {{- fail "bridge is PostgreSQL-only; remove legacy postgres.enabled, persistence and config.database_url values" }}

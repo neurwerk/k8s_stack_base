@@ -304,22 +304,29 @@ def chart_inventory() -> list[dict[str, Any]]:
     return charts
 
 
-def helm_release_inventory() -> list[dict[str, str]]:
-    releases: list[dict[str, str]] = []
+def helm_release_inventory() -> list[dict[str, Any]]:
+    releases: list[dict[str, Any]] = []
+    declared_outputs = load_yaml(CONFIG_PATH).get("helmOutputs", {})
     for path in sorted((ROOT / "releases").glob("**/*.yaml")):
         for document in yaml.safe_load_all(path.read_text()):
             if not isinstance(document, dict) or document.get("kind") != "HelmRelease":
                 continue
             metadata = document["metadata"]
             chart = document["spec"]["chart"]["spec"]["chart"]
-            releases.append(
-                {
-                    "path": path.relative_to(ROOT).as_posix(),
-                    "namespace": str(metadata["namespace"]),
-                    "name": str(metadata["name"]),
-                    "chart": str(chart),
-                }
-            )
+            item: dict[str, Any] = {
+                "path": path.relative_to(ROOT).as_posix(),
+                "namespace": str(metadata["namespace"]),
+                "name": str(metadata["name"]),
+                "chart": str(chart),
+            }
+            outputs = [
+                output for output in declared_outputs.get(item["path"], [])
+                if output["namespace"] == item["namespace"]
+                and output["helmRelease"] == item["name"]
+            ]
+            if outputs:
+                item["helmOutputs"] = outputs
+            releases.append(item)
     return releases
 
 

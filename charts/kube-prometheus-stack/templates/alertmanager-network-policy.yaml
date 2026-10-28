@@ -1,3 +1,4 @@
+{{- if (index .Values "kube-prometheus-stack").alertmanager.enabled -}}
 {{- $email := .Values.monitorKubePrometheusStack.alerting.email -}}
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -63,3 +64,4 @@ spec:
         - protocol: TCP
           port: {{ $email.port }}
     {{- end }}
+{{- end }}

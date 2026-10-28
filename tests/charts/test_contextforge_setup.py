@@ -31,7 +31,7 @@ def definition(identity="example"):
     return {"id": identity, "provider": "example", "authentication_model": "individual-authentication",
             "server_id": "b" * 32, "upstream_url": "https://mcp.example.com/" + identity,
             "transport": "STREAMABLEHTTP", "visibility": "public", "approved_tools": ["read"],
-            "oauth": {"authorization_url": "https://oauth.example.com/authorize"}}
+            "oauth": {"authorization_url": "https://oauth.example.com/authorize", "pkce": True}}
 
 
 def projection(spec):

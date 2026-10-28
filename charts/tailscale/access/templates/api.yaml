@@ -1,0 +1,18 @@
+{{- if and .Values.tailscale.enabled .Values.tailscale.api.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: kube-api-tailnet
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    tailscale.com/expose: "true"
+    tailscale.com/hostname: {{ .Values.tailscale.api.hostname | quote }}
+    tailscale.com/tags: {{ join "," .Values.tailscale.api.tags | quote }}
+spec:
+  type: ExternalName
+  externalName: kubernetes.default.svc.{{ .Values.tailscale.api.clusterDomain }}
+  ports:
+    - name: https
+      protocol: TCP
+      port: 443
+{{- end }}

@@ -38,6 +38,45 @@ def native_values():
 
 
 class McpCredentialsTests(unittest.TestCase):
+    def test_glitchtip_shared_token_is_opt_in_and_uses_verified_native_tls(self):
+        default = render("agentgateway", {})
+        self.assertNotIn("8104c910079d4a1a9ba4ddbfda0d08df", default.stdout)
+        selection = {"enabled": True, "host": "glitchtip-ui.glitchtip.svc.cluster.local",
+                     "registration": {"upstream_url": "https://errors.example.com/mcp"}}
+        values = {"mcp-servers": {"enabled": True, "studioSetup": {"enabled": True},
+                  "approvedHosts": [selection["host"]], "catalog": {"presets": {"glitchtip": selection}},
+                  "runtimeCredentials": {"glitchtip": {"version": "a" * 32, "kvVersion": 2, "configured": True}}}}
+        output = render("agentgateway", values)
+        data = resource(output, "ConfigMap", "infra-agentgateway-mcp-catalog")["data"]
+        registration, = json.loads(data["registrations.json"])
+        self.assertEqual(registration["authentication_model"], "shared-authentication")
+        self.assertNotIn("oauth", registration)
+        self.assertNotIn("required_roles", registration)
+        self.assertEqual(registration["upstream_url"],
+                         "http://contextforge-providers.infra-agentgateway.svc.cluster.local:8080/glitchtip")
+        self.assertEqual(len(registration["approved_tools"]), 11)
+        self.assertIn("update_issue", registration["approved_tools"])
+        suffix = hashlib.sha256(b"glitchtip").hexdigest()[:12] + "-" + "a" * 32
+        backend = resource(output, "AgentgatewayBackend", "mcp-forward-" + suffix)["spec"]
+        self.assertEqual(backend["static"], {"host": selection["host"], "port": 443})
+        self.assertEqual(backend["policies"]["tls"], {
+            "sni": "errors.example.com", "verifySubjectAltNames": ["errors.example.com"]})
+        self.assertEqual(backend["policies"]["auth"]["credentials"], [{
+            "secretRef": {"name": "mcp-key-" + suffix, "key": "apiKey"},
+            "location": {"header": {"name": "Authorization", "prefix": "Bearer "}}}])
+        connection, = json.loads(data["studio.json"])
+        self.assertEqual(connection["upstream_url"], "https://errors.example.com/mcp")
+        self.assertEqual(connection["forwarding"], {
+            "host": backend["static"]["host"],
+            "header_prefix": backend["policies"]["auth"]["credentials"][0]["location"]["header"]["prefix"],
+        })
+        route = resource(output, "HTTPRoute", "mcp-forward-glitchtip")["spec"]["rules"][0]
+        self.assertIn("Authorization", route["filters"][1]["requestHeaderModifier"]["remove"])
+        secret = resource(output, "ExternalSecret", "mcp-key-" + suffix)
+        self.assertEqual(secret["spec"]["data"][0]["remoteRef"]["key"], "mcp/shared/glitchtip")
+        values["mcp-servers"]["approvedHosts"] = []
+        self.assertNotEqual(render("agentgateway", values, check=False).returncode, 0)
+
     def test_optional_shared_key_is_projected_without_a_secret_value(self):
         output = render("agentgateway", {"mcp-servers": {"catalog": {"presets": {
             "context7": {"enabled": True},
@@ -97,6 +136,11 @@ class McpCredentialsTests(unittest.TestCase):
                         route = resource(output, "HTTPRoute", "mcp-forward-context7")
                         self.assertEqual(route["spec"]["rules"][0]["backendRefs"][0]["name"], backend_name)
                         self.assertEqual(backend["spec"]["static"], {"host": "mcp.context7.com", "port": 443})
+                        catalog = resource(output, "ConfigMap", "infra-agentgateway-mcp-catalog")
+                        connection = next(entry for entry in json.loads(catalog["data"]["studio.json"])
+                                          if entry["id"] == identity)
+                        self.assertEqual(connection["forwarding"], {
+                            "host": backend["spec"]["static"]["host"], "header_prefix": ""})
                         # Studio reads the same exact backend as the active route,
                         # including after replacing or removing a shared key.
                         rules = resource(output, "Role", "studio-mcp-runtime")["rules"]

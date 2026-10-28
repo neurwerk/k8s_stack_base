@@ -1,3 +1,11 @@
+# Optional source facts, separate from routing and native AgentGateway model costs.
+# Each record requires binding_id, public_id, limits, capabilities and provenance.
+# Limits are null or positive JSON-safe integers (at most 9007199254740991).
+# Gateway restrictions are derived by the chart, never accepted from source records.
+gatewayModelMetadata:
+  enabled: false
+  models: []
+
 infraAgentgatewayWrapper:
   hostname: ""                        # set in client_*/config/client.yaml
   # Client-approved in-cluster callers of the API listener (NetworkPolicy peers).
@@ -144,6 +152,8 @@ mcp-servers:
   # All selections require
   # explicit enabled:true; new shipped presets never enable network access.
   # Catalog defaults: PII on, content tracing off. Definitions: catalog/presets.yaml.
+  # Shared-header selections may set host to an approved internal Service DNS name;
+  # TLS SNI, certificate identity and HTTP Host still use registration.upstream_url.
   catalog:
     presets: {}
     custom: []
@@ -152,7 +162,9 @@ mcp-servers:
 # routes.api: {enabled: true, path: /provider/api}; path excludes /v1 and
 # defaults to /bindings/<id>. routes.inspected: {enabled: false}.
 # Classification never chooses backend authentication: credentialSources does.
-# Supplied credentials never fall back to company billing; company mode requires
+# credentialSources: global (shared credential), override (caller credential), or none.
+# Legacy company/caller_supplied inputs remain accepted; runtime enums are unchanged.
+# Override credentials never fall back to global billing; global mode requires
 # the provider grant and a provisioned credential in the approved Secret input.
 # Self-hosted and external API entries expose catalog-based model discovery.
 # Limits: 256 provider/server entries total, 32 models per provider, 256 models total,

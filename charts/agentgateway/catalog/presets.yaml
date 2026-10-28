@@ -1,4 +1,33 @@
 # Optional defaults; clients select presets and supply their own credentials.
+glitchtip:
+  name: glitchtip
+  displayName: GlitchTip
+  credential: {owner: shared, required: true, method: gateway-header, header: Authorization}
+  checks:
+    - name: Check connection
+      tool: list_organizations
+      arguments: {}
+  contextforge:
+    provider: glitchtip
+    authenticationModel: shared-authentication
+    serverId: 8104c910079d4a1a9ba4ddbfda0d08df
+  registration:
+    # Client-owned native URL; the shared API token is delivered by the gateway.
+    upstream_url: ""
+    transport: STREAMABLEHTTP
+    approved_tools:
+      - list_organizations
+      - list_projects
+      - list_issues
+      - get_issue
+      - get_latest_event
+      - get_event
+      - list_alerts
+      - list_monitors
+      - list_transaction_groups
+      - get_transaction_group
+      - update_issue
+    pii_policy: platform-default
 context7:
   name: context7
   displayName: Context7

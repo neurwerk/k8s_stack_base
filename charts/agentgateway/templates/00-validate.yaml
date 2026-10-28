@@ -180,7 +180,11 @@
 {{-     end -}}
 {{-     range $field := list "host" "workload" "path" "port" "protocol" "tls" "upstreamAuth" -}}
 {{-       if hasKey $server $field -}}
+{{-         if and (eq $field "host") (eq (dig "credential" "method" "none" $server) "gateway-header") (index $.Values "mcp-servers").studioSetup.enabled -}}
+{{-           if or (not (kindIs "string" $server.host)) (not (regexMatch `^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$` (toString $server.host))) -}}{{- fail "Shared-header MCP forwarding host must be a DNS hostname" -}}{{- end -}}
+{{-         else -}}
 {{-         fail (printf "mcp server %q contextforge cannot set %s" $serverId $field) -}}
+{{-         end -}}
 {{-       end -}}
 {{-     end -}}
 {{-     if and (get ($.Values.infraAgentgatewayWrapperSecrets.mcp | default dict) $serverId) (not (hasKey $upstreamIds $serverId)) -}}

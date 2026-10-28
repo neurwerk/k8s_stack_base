@@ -1,0 +1,56 @@
+{{- if .Values.gatewayModelMetadata.enabled }}
+{{- $bindings := include "infra-agentgateway.aiBindings" . | fromJsonArray }}
+{{- $apiBindings := dict }}
+{{- range $binding := $bindings }}
+{{- if $binding.api }}{{ $_ := set $apiBindings $binding.id $binding }}{{ end }}
+{{- end }}
+{{- $models := list }}{{- $pairs := dict }}
+{{- range $source := .Values.gatewayModelMetadata.models }}
+{{- $pair := printf "%s:%s" $source.binding_id $source.public_id }}
+{{- if hasKey $pairs $pair }}{{ fail "gateway metadata binding_id/public_id pairs must be unique" }}{{ end }}
+{{- $_ := set $pairs $pair true }}
+{{- if not (hasKey $apiBindings $source.binding_id) }}{{ fail "gateway metadata must reference an enabled API binding" }}{{ end }}
+{{- $binding := get $apiBindings $source.binding_id }}
+{{- if not (hasKey $binding.modelBindings $source.public_id) }}{{ fail "gateway metadata must reference a public model ID in its API binding" }}{{ end }}
+{{- range $field, $limit := $source.limits }}
+{{- if and (ne (toJson $limit) "null") (not (regexMatch `^[1-9][0-9]*$` (toJson $limit))) }}{{ fail "gateway metadata limits must be null or positive strict integers" }}{{ end }}
+{{- end }}
+{{- range $field := list "max_input_tokens" "max_output_tokens" }}
+{{- /* Compare decimal integer strings without lossy floating-point conversion. */}}
+{{- $limit := toJson (get $source.limits $field) }}{{- $context := toJson $source.limits.context_tokens }}
+{{- if and (ne $context "null") (ne $limit "null") (or (gt (len $limit) (len $context)) (and (eq (len $limit) (len $context)) (gt $limit $context))) }}{{ fail "gateway metadata input/output limits must individually not exceed context_tokens" }}{{ end }}
+{{- end }}
+{{- $record := deepCopy $source }}
+{{- $blocked := list }}{{- $evidence := list }}
+{{- /* Only report unconditional policy restrictions. Aliases use this same canonical
+     model policy; local reroutes cannot bypass the source attachment admission. */}}
+{{- $policy := $binding.attachmentPolicy }}
+{{- $imageMode := get $policy.image_modes $source.public_id }}
+{{- if has $imageMode (list "block" "extract-text") }}
+{{- $blocked = append $blocked "image_input" }}
+{{- $evidence = append $evidence (printf "binding:%s/model:%s/attachmentPolicy.image_modes:%s" $source.binding_id $source.public_id $imageMode) }}
+{{- end }}
+{{- $documentMode := get $policy.document_modes $source.public_id }}
+{{- if has $documentMode (list "block" "extract-text") }}
+{{- $blocked = append $blocked "document_input" }}
+{{- $evidence = append $evidence (printf "binding:%s/model:%s/attachmentPolicy.document_modes:%s" $source.binding_id $source.public_id $documentMode) }}
+{{- end }}
+{{- $_ := set $record "gateway_restrictions" (dict "blocked_capabilities" $blocked "evidence_refs" $evidence) }}
+{{- $models = append $models $record }}
+{{- end }}
+{{- $catalog := include "infra-agentgateway.aiCatalog" . | fromJson }}
+{{- $metadata := dict "schema_version" 1 "catalog_revision" $catalog.catalog_revision "models" $models }}
+{{- $_ := set $metadata "metadata_revision" (sha256sum (toJson $metadata)) }}
+{{- if gt (len (toJson $metadata)) 1048576 }}{{ fail "gateway model metadata exceeds 1 MiB document limit" }}{{ end }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gateway-model-metadata-config-map
+  namespace: frontend-studio
+  labels:
+    app.kubernetes.io/name: gateway-model-metadata
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: infra-agentgateway
+data:
+  metadata.json: {{ $metadata | toJson | quote }}
+{{- end }}

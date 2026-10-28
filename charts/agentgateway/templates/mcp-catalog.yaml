@@ -16,6 +16,9 @@
 {{- if ne ($server.registration.visibility | default "public") "public" -}}{{- fail "Studio MCP setup requires public native visibility behind private ingress" -}}{{- end -}}
 {{- if eq $server.credential.method "gateway-header" -}}
 {{- $_ := set $connection "native_url" (printf "http://contextforge-providers.infra-agentgateway.svc.cluster.local:8080/%s" $server.name) -}}
+{{- $url := urlParse $server.registration.upstream_url -}}
+{{- $prefix := ternary "Bearer " "" (eq (lower $server.credential.header) "authorization") -}}
+{{- $_ := set $connection "forwarding" (dict "host" ($server.host | default $url.host) "header_prefix" $prefix) -}}
 {{- end -}}
 {{- end -}}
 {{- if $server.registration.oauth -}}

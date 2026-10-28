@@ -1,0 +1,42 @@
+{{- $ui := .Values.glitchtip.gateway.ui }}
+{{- if and .Values.glitchtip.enabled $ui.enabled }}
+{{- if ne (urlParse .Values.glitchtip.domain).hostname $ui.hostname }}
+{{- fail "glitchtip.domain must identify the Tailscale-only UI hostname" }}
+{{- end }}
+{{- if eq .Values.glitchtip.gateway.status.hostname $ui.hostname }}
+{{- fail "Public status and private UI require separate hostnames" }}
+{{- end }}
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: glitchtip-ui
+spec:
+  secretName: glitchtip-ui-tls
+  dnsNames: [{{ $ui.hostname | quote }}]
+  duration: 2160h
+  usages: [digital signature, key encipherment]
+  privateKey: {algorithm: RSA, size: 2048}
+  issuerRef:
+    name: {{ .Values.glitchtip.gateway.issuerName | quote }}
+    kind: ClusterIssuer
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: glitchtip-ui
+  {{- if $ui.tailscale.expose }}
+  annotations:
+    tailscale.com/expose: "true"
+    tailscale.com/hostname: {{ $ui.tailscale.hostname | quote }}
+    tailscale.com/tags: {{ join "," $ui.tailscale.tags | quote }}
+  {{- end }}
+  labels:
+    {{- include "glitchtip.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "glitchtip.labels" . | nindent 4 }}
+    app.kubernetes.io/component: application
+  ports:
+    - {name: https, port: 443, targetPort: ui-https}
+{{- end }}

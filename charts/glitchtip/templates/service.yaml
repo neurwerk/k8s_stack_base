@@ -1,0 +1,14 @@
+{{- if .Values.glitchtip.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: glitchtip
+  labels:
+    {{- include "glitchtip.labels" . | nindent 4 }}
+spec:
+  selector:
+    {{- include "glitchtip.labels" . | nindent 4 }}
+    app.kubernetes.io/component: application
+  ports:
+    - {name: http, port: 8000, targetPort: http}
+{{- end }}

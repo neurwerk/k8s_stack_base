@@ -1,0 +1,96 @@
+{{- if and .Values.glitchtip.enabled .Values.glitchtip.adapter.enabled }}
+{{- $adapter := .Values.glitchtip.adapter }}
+{{- $_ := required "glitchtip.adapter.image must be the reviewed published Tooling image" $adapter.image }}
+{{- $_ := required "glitchtip.adapter.initialStartAt is required for initial activation" $adapter.initialStartAt }}
+{{- $_ := required "glitchtip.adapter.scopes must explicitly select log sources" $adapter.scopes }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: glitchtip-adapter
+automountServiceAccountToken: false
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: glitchtip-adapter
+  annotations:
+    reloader.stakater.com/auto: "true"
+  labels:
+    {{- include "glitchtip.labels" . | nindent 4 }}
+    app.kubernetes.io/component: adapter
+spec:
+  replicas: 1
+  strategy: {type: Recreate}
+  selector:
+    matchLabels:
+      {{- include "glitchtip.labels" . | nindent 6 }}
+      app.kubernetes.io/component: adapter
+  template:
+    metadata:
+      labels:
+        {{- include "glitchtip.labels" . | nindent 8 }}
+        app.kubernetes.io/component: adapter
+      annotations:
+        checksum/scopes: {{ $adapter.scopes | toJson | sha256sum }}
+    spec:
+      serviceAccountName: glitchtip-adapter
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: adapter
+          image: {{ $adapter.image | quote }}
+          command: [opensearch-glitchtip-adapter]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          env:
+            - {name: ADAPTER_OPENSEARCH_URL, value: {{ $adapter.opensearchURL | quote }}}
+            - {name: ADAPTER_OPENSEARCH_CA_FILE, value: /etc/opensearch-ca/ca.crt}
+            - {name: ADAPTER_GLITCHTIP_INGEST_BASE_URL, value: {{ printf "http://glitchtip.%s.svc.cluster.local:8000" .Release.Namespace | quote }}}
+            - {name: ADAPTER_ENVIRONMENT, value: {{ $adapter.environment | quote }}}
+            - {name: ADAPTER_SCOPES_FILE, value: /etc/adapter/scopes.json}
+            - {name: ADAPTER_STATE_PATH, value: /var/lib/opensearch-glitchtip/state.sqlite3}
+            - {name: ADAPTER_INITIAL_START_AT, value: {{ $adapter.initialStartAt | quote }}}
+            - {name: ADAPTER_POLL_SECONDS, value: {{ $adapter.pollSeconds | quote }}}
+            - {name: ADAPTER_OVERLAP_SECONDS, value: {{ $adapter.overlapSeconds | quote }}}
+            - {name: ADAPTER_SETTLE_SECONDS, value: {{ $adapter.settleSeconds | quote }}}
+            {{- range $key := list "ADAPTER_OPENSEARCH_USERNAME" "ADAPTER_OPENSEARCH_PASSWORD" "ADAPTER_GLITCHTIP_DSN" }}
+            - name: {{ $key }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $adapter.credentialsSecret }}
+                  key: {{ $key }}
+            {{- end }}
+            {{- if $adapter.glitchtipCAConfigMap }}
+            - {name: ADAPTER_GLITCHTIP_CA_FILE, value: /etc/glitchtip-ca/ca.crt}
+            {{- end }}
+          resources:
+            {{- toYaml $adapter.resources | nindent 12 }}
+          volumeMounts:
+            - {name: state, mountPath: /var/lib/opensearch-glitchtip}
+            - {name: tmp, mountPath: /tmp}
+            - {name: scopes, mountPath: /etc/adapter, readOnly: true}
+            - {name: opensearch-ca, mountPath: /etc/opensearch-ca, readOnly: true}
+            {{- if $adapter.glitchtipCAConfigMap }}
+            - {name: glitchtip-ca, mountPath: /etc/glitchtip-ca, readOnly: true}
+            {{- end }}
+      volumes:
+        - name: state
+          persistentVolumeClaim: {claimName: glitchtip-adapter-state}
+        - name: tmp
+          emptyDir: {sizeLimit: 64Mi}
+        - name: scopes
+          configMap: {name: glitchtip-adapter-scopes}
+        - name: opensearch-ca
+          configMap: {name: {{ $adapter.opensearchCAConfigMap }}}
+        {{- if $adapter.glitchtipCAConfigMap }}
+        - name: glitchtip-ca
+          configMap: {name: {{ $adapter.glitchtipCAConfigMap }}}
+        {{- end }}
+{{- end }}

@@ -11,6 +11,83 @@ from pathlib import Path
 from helm import render, resource
 
 
+class OperationsStartupTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.default = render("postgres/operations")
+        cls.custom = render("postgres/operations", {
+            "postgresOperations": {
+                "maxConnections": 150,
+                "maxLocksPerTransaction": 1024,
+                "pgCron": {"logRun": True},
+            },
+        })
+
+    def invoke(self, rendered, arguments):
+        script = resource(rendered, "ConfigMap", "postgres-operations-bootstrap")["data"]["pg-ctl.sh"]
+        with tempfile.TemporaryDirectory() as directory:
+            wrapper = Path(directory) / "wrapper.sh"
+            wrapper.write_text(script)
+            stub = Path(directory) / "pg_ctl"
+            stub.write_text(
+                f"#!{sys.executable}\nimport json, sys\nprint(json.dumps(sys.argv[1:]))\n"
+            )
+            stub.chmod(0o755)
+            result = subprocess.run(
+                ["/bin/bash", str(wrapper), *arguments],
+                env={**os.environ, "PATH": f"{directory}:{os.environ['PATH']}"},
+                capture_output=True, text=True, check=True, timeout=15,
+            )
+        return json.loads(result.stdout)
+
+    def test_start_preserves_upstream_options_and_applies_default_or_custom_settings(self):
+        arguments = ["start", "-D", "/data/path with spaces", "-o", "-p 9712", "-w"]
+        for rendered, connections, locks, cron in (
+            (self.default, 200, 512, "off"),
+            (self.custom, 150, 1024, "on"),
+        ):
+            with self.subTest(connections=connections, locks=locks, cron=cron):
+                actual = self.invoke(rendered, arguments)
+                self.assertEqual(actual[:len(arguments)], arguments)
+                options = actual[len(arguments):]
+                self.assertEqual(options[::2], ["-o", "-o", "-o"])
+                self.assertCountEqual(options[1::2], [
+                    f"-c cron.log_run={cron}",
+                    f"-c max_connections={connections}",
+                    f"-c max_locks_per_transaction={locks}",
+                ])
+
+    def test_non_start_invocations_are_unchanged(self):
+        for arguments in ([], ["stop", "-D", "/data/path with spaces", "-m", "fast"],
+                          ["status", "-D", "/data/postgresql"]):
+            with self.subTest(arguments=arguments):
+                self.assertEqual(self.invoke(self.custom, arguments), arguments)
+
+    def test_invalid_startup_limits_fail_before_rendering(self):
+        for key, invalid in (
+            ("maxConnections", (19, 501, "200", 200.5, True, None)),
+            ("maxLocksPerTransaction", (63, 4097, "512", 512.5, False, None)),
+        ):
+            for value in invalid:
+                with self.subTest(key=key, value=value):
+                    result = render("postgres/operations", {
+                        "postgresOperations": {key: value},
+                    }, check=False)
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertIn(key, result.stderr)
+
+    def test_each_startup_limit_changes_the_pod_restart_checksum(self):
+        def checksum(rendered):
+            statefulset = resource(rendered, "StatefulSet", "postgres-operations")
+            return statefulset["spec"]["template"]["metadata"]["annotations"]["checksum/bootstrap"]
+
+        original = checksum(self.default)
+        for key, value in (("maxConnections", 150), ("maxLocksPerTransaction", 1024)):
+            with self.subTest(key=key):
+                changed = render("postgres/operations", {"postgresOperations": {key: value}})
+                self.assertNotEqual(checksum(changed), original)
+
+
 class AddonDatabaseTests(unittest.TestCase):
     def test_database_intent_commits_before_creation_and_unmarked_retry_needs_pending_owner(self):
         job = resource(render("postgres/addon", {

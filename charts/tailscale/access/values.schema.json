@@ -1,0 +1,30 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "tailscale": {
+      "type": "object",
+      "required": ["enabled", "api"],
+      "properties": {
+        "enabled": {"type": "boolean"},
+        "api": {
+          "type": "object", "additionalProperties": false,
+          "required": ["enabled", "hostname", "tags", "clusterDomain"],
+          "properties": {
+            "enabled": {"type": "boolean"},
+            "hostname": {"type": "string", "maxLength": 63},
+            "tags": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^tag:[a-zA-Z0-9-]+$"}},
+            "clusterDomain": {"type": "string", "maxLength": 220, "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)+$"}
+          }
+        }
+      },
+      "allOf": [{
+        "if": {"properties": {"enabled": {"const": true}, "api": {"properties": {"enabled": {"const": true}}}}},
+        "then": {"properties": {"api": {"properties": {
+          "hostname": {"minLength": 1, "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"},
+          "tags": {"minItems": 1}
+        }}}}
+      }]
+    }
+  }
+}

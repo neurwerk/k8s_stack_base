@@ -2,7 +2,7 @@
 postgresOperations:
   # Exact client-approved NetworkPolicy peers for the sole document-store product.
   documentdbIngressPeers: []
-  image: ghcr.io/documentdb/documentdb/documentdb-local:pg18-0.116.0
+  image: ghcr.io/documentdb/documentdb/documentdb-local:pg18-0.116.0@sha256:01bb9408393fb6417cc32735f4566dee4b53bbab6df6b70c42797317da631f12
   imagePullPolicy: IfNotPresent
   clusterDomain: cluster.local
   service:
@@ -11,6 +11,11 @@ postgresOperations:
   containerPorts:
     postgresql: 9712
     documentdb: 10260
+  # Shared PostgreSQL startup limits; changes restart PostgreSQL and DocumentDB.
+  # Budget client pools together (including DocumentDB); connections are not a
+  # promise of simultaneous query capacity within the shared 4Gi memory limit.
+  maxConnections: 200
+  maxLocksPerTransaction: 512
   pgCron:
     # Record new runs in cron.job_run_details; existing history and statement logs are retained.
     # Changing this startup setting restarts the shared PostgreSQL/DocumentDB pod.

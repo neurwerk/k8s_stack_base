@@ -1,0 +1,57 @@
+{{- if and (dig "enabled" false (.Values.glitchtip | default dict)) (dig "adapter" "enabled" false (.Values.glitchtip | default dict)) }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: monitor-opensearch-init-glitchtip-reader
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-weight: "-4"
+    helm.sh/hook-delete-policy: before-hook-creation
+  labels:
+    app.kubernetes.io/name: opensearch-user-provisioning
+    app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  backoffLimit: 3
+  activeDeadlineSeconds: 300
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: opensearch-user-provisioning
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      automountServiceAccountToken: false
+      restartPolicy: Never
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: reader
+          image: {{ .Values.k8sTools.image | quote }}
+          command: [upsert-opensearch-user]
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: {drop: [ALL]}
+          env:
+            - {name: OPENSEARCH_INTERNAL_URL, value: "https://opensearch-v3-master.monitor-opensearch.svc.cluster.local:9200"}
+            - {name: OPENSEARCH_ADMIN_USER, value: admin}
+            - name: OPENSEARCH_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef: {name: monitor-opensearch-secret, key: adminPassword}
+            - {name: INGEST_USER, value: glitchtip-adapter}
+            - {name: INGEST_ROLE, value: glitchtip_adapter_read}
+            - name: INGEST_PASSWORD
+              valueFrom:
+                secretKeyRef: {name: glitchtip-opensearch-reader, key: password}
+            - {name: REQUESTS_CA_BUNDLE, value: /certs/ca.crt}
+          resources:
+            requests: {cpu: 25m, memory: 64Mi}
+            limits: {cpu: 200m, memory: 256Mi}
+          volumeMounts:
+            - {name: ca, mountPath: /certs, readOnly: true}
+      volumes:
+        - name: ca
+          configMap: {name: monitor-opensearch-ca-trust}
+{{- end }}

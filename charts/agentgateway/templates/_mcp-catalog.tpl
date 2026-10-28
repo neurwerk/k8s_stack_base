@@ -17,7 +17,7 @@
 {{- if not (hasKey $presets $id) -}}{{- fail (printf "unknown MCP preset %q; use mcp.catalog.custom for client definitions" $id) -}}{{- end -}}
 {{- if not (kindIs "map" $selection) -}}{{- fail "MCP preset selection must be a map" -}}{{- end -}}
 {{- range $field, $_ := $selection -}}
-{{- if not (has $field (list "enabled" "displayName" "piiEnabled" "contentTracingEnabled" "contextforge" "registration" "checks" "credential")) -}}
+{{- if not (has $field (list "enabled" "displayName" "piiEnabled" "contentTracingEnabled" "contextforge" "registration" "checks" "credential" "host")) -}}
 {{- fail (printf "MCP preset selection field %q is unsupported" $field) -}}
 {{- end -}}
 {{- end -}}
