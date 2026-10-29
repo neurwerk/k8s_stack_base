@@ -1,3 +1,8 @@
+{{/* Called only after raw cardinality and the SP/HTAB-bounded vocabulary check. */}}
+{{- define "infra-agentgateway.selectedCredentialSource" -}}
+(request.headers["x-neurwerk-credential-mode"].matches("^[ \\t]*global[ \\t]*$") ? "global" : request.headers["x-neurwerk-credential-mode"].matches("^[ \\t]*none[ \\t]*$") ? "none" : "override")
+{{- end -}}
+
 {{/* All request-varying inputs are frozen before credential removal. */}}
 {{- define "infra-agentgateway.sharedIdentity" -}}
 {"contract_version": 1, "request_id": has(jwt.sub) ? uuid() : extauthz.request_id,
@@ -10,8 +15,18 @@
 "account_email": has(jwt.sub) ? (has(jwt.email) ? jwt.email : null) : extauthz.account_email,
 "entry_mode": {{ .mode | toJson }}, "path": request.path, "method": request.method,
 "standard_oidc": has(jwt.sub) && !("x-neurwerk-authorization" in request.headers),
+{{- if eq .mode "api" }}
+"provider_credential_source": "x-neurwerk-credential-mode" in request.headers ? {{ include "infra-agentgateway.selectedCredentialSource" . }} : null,
+"stripped_credential_headers": "x-neurwerk-credential-mode" in request.headers ?
+{{- if .discovery }}
+["authorization", "x-api-key", "x-goog-api-key", "api-key"].filter(h, h in request.headers)
+{{- else }}
+(["x-neurwerk-credential-mode"] + (({{ include "infra-agentgateway.selectedCredentialSource" . }}) in ["global", "none"] && "authorization" in request.headers ? ["authorization"] : []))
+{{- end }} : [],
+{{- end }}
 "provider_headers": ["authorization", "x-api-key", "x-goog-api-key", "api-key"].filter(h,
-h in request.headers && !(h == "authorization" && has(jwt.sub) && !("x-neurwerk-authorization" in request.headers))),
+h in request.headers && !(h == "authorization" && (has(jwt.sub) && !("x-neurwerk-authorization" in request.headers)
+{{- if eq .mode "api" }} || ("x-neurwerk-credential-mode" in request.headers && ({{ include "infra-agentgateway.selectedCredentialSource" . }}) in ["global", "none"]){{- end }}))),
 "provider_header_counts": {
 {{- range $index, $header := list "authorization" "x-api-key" "x-goog-api-key" "api-key" }}
 {{ if $index }},{{ end }}{{ $header | toJson }}: {{ $header | toJson }} in request.headers ? size(request.headers.raw()[{{ $header | toJson }}]) : 0
@@ -38,6 +53,8 @@ h in request.headers && !(h == "authorization" && has(jwt.sub) && !("x-neurwerk-
 {{- end -}}
 
 {{- define "infra-agentgateway.routeCredentialSource" -}}
+(has(metadata.neurwerk_identity.provider_credential_source) && metadata.neurwerk_identity.provider_credential_source != null ?
+metadata.neurwerk_identity.provider_credential_source : (
 {{- if .local -}}
 "none"
 {{- else -}}
@@ -45,6 +62,7 @@ h in request.headers && !(h == "authorization" && has(jwt.sub) && !("x-neurwerk-
 metadata.neurwerk_identity.standard_oidc ? {{ $missing | toJson }} :
 ({{ .credentialHeader | toJson }} in metadata.neurwerk_identity.provider_headers ? "override" : {{ $missing | toJson }})
 {{- end -}}
+))
 {{- end -}}
 
 {{- define "infra-agentgateway.routeOperationCondition" -}}
@@ -86,7 +104,8 @@ type(metadata.neurwerk_identity.principal_id) == string && size(metadata.neurwer
 {{- end -}}
 ({{ include "infra-agentgateway.routeIdentityAuthorization" . }}) && ({{ join " || " $conditions }}) &&
 {{- if .binding.local }}
-size(metadata.neurwerk_identity.provider_headers) == 0
+size(metadata.neurwerk_identity.provider_headers) == 0 &&
+({{ include "infra-agentgateway.routeCredentialSource" .binding }}) == "none"
 {{- else }}
 metadata.neurwerk_identity.provider_headers.all(h, h == {{ .binding.credentialHeader | toJson }} && metadata.neurwerk_identity.provider_header_counts[h] == 1) &&
 ({{ include "infra-agentgateway.routeCredentialSource" .binding }}) in {{ .binding.credentialSources | toJson }} &&

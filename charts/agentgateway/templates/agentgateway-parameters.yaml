@@ -102,7 +102,7 @@ spec:
     config:
       adminAddr: "0.0.0.0:15000"
       {{- if .Values.aiGateway.enabled }}
-      sensitiveHeaders: [x-neurwerk-authorization, x-api-key, x-goog-api-key, cookie, set-cookie]
+      sensitiveHeaders: [x-neurwerk-authorization, x-neurwerk-credential-mode, x-api-key, x-goog-api-key, cookie, set-cookie]
       {{- end }}
       standardAttributes:
         user: >-

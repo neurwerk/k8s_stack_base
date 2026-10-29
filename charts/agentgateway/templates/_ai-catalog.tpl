@@ -21,7 +21,7 @@
 {{- $_ := required "API catalog endpoints require infraAgentgatewayWrapper.hostname" $.Values.infraAgentgatewayWrapper.hostname }}
 {{- $id := printf "api-%s" $binding.id }}
 {{- $endpointIds = append $endpointIds $id }}
-{{- $route := dict "id" $id "url" (printf "%s%s/v1" $origin $binding.prefix) "entry_mode" "api" "caller_auth_modes" (list "neurwerk_bearer" "oidc_bearer") }}
+{{- $route := dict "id" $id "url" (printf "%s%s/v1" $origin $binding.prefix) "entry_mode" "api" "caller_auth_modes" (list "neurwerk_bearer" "oidc_bearer") "credential_mode_header" "X-Neurwerk-Credential-Mode" }}
 {{- $routes = append $routes $route }}{{- $_ := set $endpoints $id $route }}
 {{- end }}
 {{- if $binding.inspect }}
@@ -57,7 +57,7 @@
 {{- $id := printf "mcp-%s" $server.name }}
 {{- if hasKey $entryIds $id }}{{ fail "catalog entry IDs must be globally unique" }}{{ end }}
 {{- $_ := set $entryIds $id true }}
-{{- $route := dict "id" $id "url" (printf "%s/mcp/%s" $origin $server.name) "entry_mode" "api" "caller_auth_modes" (list "neurwerk_bearer" "oidc_bearer") }}
+{{- $route := dict "id" $id "url" (printf "%s/mcp/%s" $origin $server.name) "entry_mode" "api" "caller_auth_modes" (list "neurwerk_bearer" "oidc_bearer") "credential_mode_header" "X-Neurwerk-Credential-Mode" }}
 {{- $destination := dict "id" $server.name "kind" "mcp" "display_name" ($server.displayName | default $server.name) "endpoint_ids" (list $id) "profile_ids" (list "mcp-streamable-http-v1") "required_permissions" (list "llm:invoke" (printf "mcp:%s:invoke" $server.name)) "credential_modes" (list (dict "source" "none" "required_permissions" (list))) "provider_id" nil }}
 {{- $key := printf "mcp:%s" $server.name }}
 {{- if hasKey $destinationKeys $key }}{{ fail "duplicate catalog destination" }}{{ end }}

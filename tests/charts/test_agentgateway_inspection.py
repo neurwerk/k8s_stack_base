@@ -372,7 +372,8 @@ class EndpointRoutingTests(unittest.TestCase):
                 "credential_id": "test-key", "credential_kind": "personal", "permissions": ["llm:invoke"],
             }, "request": {"path": path, "host": "chatgpt.com", "method": "POST", "headers": {
                 "authorization": "Bearer provider-synthetic", "x-neurwerk-authorization": "Bearer platform-synthetic",
-            }}}
+             }}}
+            context["source"] = {"connectHeaders": {}}
             expression = traffic["authorization"]["policy"]["matchExpressions"][0]
             self.assertTrue(self.evaluate(expression, context))
             selected = [entry for entry in traffic["transformation"]["conditional"]
@@ -566,12 +567,14 @@ class InspectedGatewayTests(unittest.TestCase):
             self.assertEqual(set(auth["addRequestHeaders"]), {header, "x-request-id"})
             self.assertIn(f'size({source}.raw()["{header}"]) == 1', auth["addRequestHeaders"][header])
             for expression in traffic["authorization"]["policy"]["matchExpressions"]:
-                self.assertNotIn("source.connectHeaders", expression)
+                if listener == "api-bindings":
+                    self.assertNotIn("source.connectHeaders", expression)
+                else:
+                    self.assertIn('!("x-neurwerk-credential-mode" in source.connectHeaders)', expression)
             for conditional in traffic["transformation"]["conditional"]:
                 for direction in ("request", "response"):
-                    self.assertEqual(conditional["policy"][direction]["set"], [
-                        {"name": "x-request-id", "value": "metadata.neurwerk_identity.request_id"},
-                    ])
+                    self.assertEqual(conditional["policy"][direction]["set"][0],
+                                     {"name": "x-request-id", "value": "metadata.neurwerk_identity.request_id"})
                 request = conditional["policy"]["request"]
                 context = request["metadata"]["neurwerk_identity"]
                 self.assertEqual(context.count("uuid()"), 1)
@@ -678,7 +681,8 @@ class InspectedGatewayTests(unittest.TestCase):
         for field, value in db["add"].items():
             self.assertEqual(tracing[field], value)
             self.assertNotIn("permissions", value)
-            self.assertNotIn("headers", value)
+            for raw_headers in ["request.headers", "response.headers", "source.connectHeaders"]:
+                self.assertNotIn(raw_headers, value)
         self.assertIn('"unknown"', db["add"]["neurwerk.billing_classification"])
         self.assertIn("content_tracing_enabled", tracing["gen_ai.prompt"])
         self.assertNotIn("response.body", json.dumps(tracing))
