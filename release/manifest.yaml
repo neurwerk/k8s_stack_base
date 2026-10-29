@@ -305,8 +305,8 @@ spec:
       appVersion: 0.12.0
     - path: charts/agentgateway-extproc
       name: agentgateway-extproc
-      version: 2.0.18
-      appVersion: 0.19.20
+      version: 2.0.19
+      appVersion: 0.20.0
     - path: charts/cert-manager/approval-policy
       name: infra-cert-manager-approval-policy
       version: 1.2.9
@@ -420,8 +420,8 @@ spec:
       appVersion: 26.7.2
     - path: charts/keycloak-api-key-bridge
       name: auth-keycloak-api-key-bridge
-      version: 2.0.3
-      appVersion: 0.10.5
+      version: 2.0.4
+      appVersion: 0.11.0
     - path: charts/kube-prometheus-stack
       name: monitor-kube-prometheus-stack
       version: 1.1.2
@@ -437,7 +437,7 @@ spec:
           sha256: b344a03d0006aba69a8c20ae1ff0354ac7687bdf72c3611c4f330b59a22b7548
     - path: charts/langfuse
       name: monitor-langfuse
-      version: 2.0.28
+      version: 2.0.29
       appVersion: 4.28.1
       dependencyLock:
         digest: sha256:68156b8f74aa153f2e33eb76f6ac11e9277c1a8fe8073c3f37da8834a97292cc
@@ -532,15 +532,15 @@ spec:
       appVersion: v1.20.3
     - path: charts/studio/api
       name: studio-api
-      version: 2.0.7
-      appVersion: 0.20.10
+      version: 2.0.8
+      appVersion: 0.21.0
     - path: charts/studio/shared
       name: studio-shared
       version: 1.0.0
     - path: charts/studio/web
       name: studio
-      version: 1.0.38
-      appVersion: 0.20.10
+      version: 1.0.39
+      appVersion: 0.21.0
     - path: charts/tailscale/access
       name: tailscale-access
       version: 0.1.0
@@ -858,13 +858,13 @@ spec:
       eligibility: included
       origins:
       - charts/contextforge/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.19.20@sha256:41a4bf9773eef26e3bf9d90277d0ef31b59ff18260048b283d82ed16a50128ba
+    - reference: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.20.0@sha256:57c877e1a2cc9e8d09629fdc6853f649d565e9f8ace09d714dd75e35cf23ae7a
       pinned: true
       eligibility: included
       origins:
       - charts/agentgateway-extproc/values.yaml
       - charts/langfuse/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-keycloak-api-key-bridge:0.10.5@sha256:1a5aa0bd9c2d240d7b6089c703d28d319fb0e147458eabcd669f2984001ede33
+    - reference: ghcr.io/neurwerk/k8s-stack-keycloak-api-key-bridge:0.11.0@sha256:34e1649536a2cd5c25422f6b4369e7e4826dc73dff4db0e65a17faacd0b03859
       pinned: true
       eligibility: included
       origins:
@@ -885,12 +885,12 @@ spec:
       origins:
       - charts/pii-engine-model-sync/values.yaml
       - charts/pii-engine/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-studio-api:0.20.10@sha256:edc0a9d535770869579680f822b018a8a0d12a9a32af19300fdb30da0a5fb12e
+    - reference: ghcr.io/neurwerk/k8s-stack-studio-api:0.21.0@sha256:cfd1ef860239de6877e0f012ec552bf862effe73b1cf456b268172bb7af23260
       pinned: true
       eligibility: included
       origins:
       - charts/studio/api/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-studio-web:0.20.10@sha256:e1bfeb4e9ecfbb3c1c9a39e07e86c0b7e27ac9a84842cdd7a1fc207ee4f29f41
+    - reference: ghcr.io/neurwerk/k8s-stack-studio-web:0.21.0@sha256:6d7d286973e4cee1b04b608da55a6bda1279ba7a993c4bf67e011788f01d034a
       pinned: true
       eligibility: included
       origins:
@@ -1074,7 +1074,7 @@ spec:
       lua: 5.4.9
   provenance:
     previousTag: v0.3.29
-    includedThrough: 4344035cde7e536cc73df74b53265affc6f3c0c1
+    includedThrough: 0ce9809d50fe66e9c4b50b26c75f60f8b9b523dc
     commits:
     - fc8c8e5171e23a98509db37407ec1458b7647931
     - 6d91d09844fd4bd214de9f47c0295bbbb3540c01
@@ -1160,4 +1160,9 @@ spec:
     - 2b34857e2c476a0edd514af338a8558a227a98b2
     - d886f6570907b16935c457aa9eabe14409099c69
     - 4344035cde7e536cc73df74b53265affc6f3c0c1
-    compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.29...4344035cde7e536cc73df74b53265affc6f3c0c1
+    - 139522572f4c9273a76f2a1912f866eb67f61318
+    - ed934a28b41c72a7a6cea93390ee26ad9f852dd0
+    - 0faaa8026bb7138b0387b67601a8e3d54202f300
+    - 1bea577c470a2fecda554534303e9e659acf24fe
+    - 0ce9809d50fe66e9c4b50b26c75f60f8b9b523dc
+    compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.29...0ce9809d50fe66e9c4b50b26c75f60f8b9b523dc
