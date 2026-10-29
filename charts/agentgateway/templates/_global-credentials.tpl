@@ -1,5 +1,5 @@
 {{/* Return availability only. Secret bytes never enter effective bindings or revisions. */}}
-{{- define "infra-agentgateway.companyCredential" -}}
+{{- define "infra-agentgateway.globalCredential" -}}
 {{- $secrets := .root.Values.infraAgentgatewayWrapperSecrets -}}
 {{- $inputs := dict -}}
 {{- if hasKey $secrets "providerCredentials" }}{{ $inputs = $secrets.providerCredentials }}{{ end -}}
@@ -8,12 +8,12 @@
 {{- $present := hasKey $inputs .name -}}
 {{- if eq .name "infra-agentgateway-secret" }}{{ $value = $secrets.openrouterApiKey }}{{ $present = hasKey $secrets "openrouterApiKey" }}{{ end -}}
 {{- if eq .name "infra-agentgateway-deepseek-secret" }}{{ $value = $secrets.deepseekApiKey }}{{ $present = hasKey $secrets "deepseekApiKey" }}{{ end -}}
-{{- if and (hasKey $inputs .name) (has .name (list "infra-agentgateway-secret" "infra-agentgateway-deepseek-secret")) }}{{ fail "providerCredentials conflicts with a reserved company credential input" }}{{ end -}}
+{{- if and (hasKey $inputs .name) (has .name (list "infra-agentgateway-secret" "infra-agentgateway-deepseek-secret")) }}{{ fail "providerCredentials conflicts with a reserved global credential input" }}{{ end -}}
 {{- $available := false -}}
 {{- if $present -}}
-{{- if not (kindIs "string" $value) }}{{ fail "company credential input must be a string" }}{{ end -}}
+{{- if not (kindIs "string" $value) }}{{ fail "global credential input must be a string" }}{{ end -}}
 {{- if ne $value "" -}}
-{{- if or (not (regexMatch `^[A-Za-z0-9._~+/=-]+$` $value)) (gt (len $value) 8192) }}{{ fail "company credential input has invalid structure" }}{{ end -}}
+{{- if or (not (regexMatch `^[A-Za-z0-9._~+/=-]+$` $value)) (gt (len $value) 8192) }}{{ fail "global credential input has invalid structure" }}{{ end -}}
 {{- $available = true -}}
 {{- end -}}
 {{- end -}}

@@ -63,7 +63,7 @@ spec:
       template:
         metadata:
           annotations:
-            # sensitiveHeaders is startup-only; enabling v5 must restart the proxy.
+            # sensitiveHeaders is startup-only; enabling v6 must restart the proxy.
             neurwerk.com/ai-gateway-config: {{ include "infra-agentgateway.aiRevision" . | quote }}
     {{- end }}
   # AgentGateway otherwise generates a LoadBalancer Service. Keep its data plane

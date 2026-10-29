@@ -41,7 +41,7 @@
 {{- end }}
 {{- if not (has "llm:invoke" $agentgatewayRoles) }}{{- fail "authKeycloak.agentgatewayClientRoles must include llm:invoke" }}{{- end }}
 {{- range $agentgatewayRoles }}
-{{- if not (regexMatch "^(llm:invoke|(model|mcp|application):[A-Za-z0-9][A-Za-z0-9._/-]{0,127}:invoke|provider:[A-Za-z0-9][A-Za-z0-9._/-]{0,127}:company-use)$" .) }}{{- fail (printf "invalid AgentGateway client role %q" .) }}{{- end }}
+{{- if not (regexMatch "^(llm:invoke|(model|mcp|application):[A-Za-z0-9][A-Za-z0-9._/-]{0,127}:invoke|provider:[A-Za-z0-9][A-Za-z0-9._/-]{0,127}:global-use)$" .) }}{{- fail (printf "invalid AgentGateway client role %q" .) }}{{- end }}
 {{- end }}
 {{- $resourcePrefixes := dict
       "/access/neurwerk-llm-all-users" (list "model:" "provider:")

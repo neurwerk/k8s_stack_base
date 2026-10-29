@@ -18,7 +18,7 @@ authKeycloak:
   agentgatewayClientRoles:
     - llm:invoke
     - model:example-chat:invoke
-    - provider:example:company-use
+    - provider:example:global-use
 aiGateway:
   enabled: true
   apiPort: 8082
@@ -28,7 +28,7 @@ external-api-providers:
     providerId: example
     provider: OpenAI
     upstreamURL: https://provider.example.test/v1
-    credentialSources: [caller_supplied, company]
+    credentialSources: [override, global]
     authSecret: example-provider-key
     routes:
       api: {enabled: true}
@@ -43,18 +43,18 @@ external-api-providers:
 
 The base URL is `https://gateway.example.test/bindings/example-api/v1`.
 Use `X-Neurwerk-Authorization: Bearer <Neurwerk key or Keycloak token>` for identity
-and the provider's credential header for personal access. A supplied provider
-credential never falls back to company billing. Company/local OIDC clients can
+and the provider's credential header for override access. A supplied provider
+credential never falls back to global billing. Global/local OIDC clients can
 send only `Authorization: Bearer <Keycloak token>`.
 
-Each model requires `llm:invoke` and `model:<name>:invoke`. Company mode additionally
-requires `provider:<providerId>:company-use`. Selection does not grant permission.
+Each model requires `llm:invoke` and `model:<name>:invoke`. Global mode additionally
+requires `provider:<providerId>:global-use`. Selection does not grant permission.
 
 - `models` declares models directly; `catalogModels` selects canonical catalog IDs.
 - `attachments` sets binding defaults; model settings can override them.
 - Credential-free providers use `self-hosted-api-providers`, `credentialSources: [none]` and an approved local target.
-- `localReroute` selects an explicit local model for company requests. Its invocation
-  permission is also required. Personal credentials cannot follow that transition.
+- `localReroute` selects an explicit local model for global requests. Its invocation
+  permission is also required. Override credentials cannot follow that transition.
 - Unknown bindings, operations and ambiguous model aliases are rejected.
 
 See [`values.yaml`](values.yaml), [`catalog/ai-profiles.yaml`](catalog/ai-profiles.yaml)

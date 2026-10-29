@@ -15,7 +15,7 @@ are still required; this is not unrestricted native ContextForge administration.
 `gateway-admin` admits the AI Gateway configuration and health view in compatible
 Studio releases, together with `studio-user`. It is inherited by `platform-admin`
 unless excluded and can be assigned through `/access/neurwerk-gateway-admins`.
-It does not grant destination invocation, company billing or personal content access.
+It does not grant destination invocation, global billing or personal content access.
 
 Clients must omit `authKeycloak.accessGroups`, `authKeycloak.realmRoles`, and
 `authKeycloak.realmRoleComposites`; supplying them fails rendering. Configure
@@ -26,21 +26,21 @@ Clients may grant AgentGateway permissions only through
 `authKeycloak.agentgatewayAccessGroups`:
 
 - `/access/neurwerk-llm-all-users`: `llm:invoke`, explicit `model:<id>:invoke`
-  roles and explicit `provider:<id>:company-use` roles.
+  roles and explicit `provider:<id>:global-use` roles.
 - `/access/neurwerk-mcp-all-users`: `llm:invoke` and explicit `mcp:*:invoke` roles.
 - `/access/neurwerk-ai-application-users`: `llm:invoke`, explicit
-  `application:<id>:invoke` roles and explicit `provider:<id>:company-use` roles.
+  `application:<id>:invoke` roles and explicit `provider:<id>:global-use` roles.
 
 All resource groups are created without grants by default. `llm:invoke` is
 required for every destination type but alone grants no destination access.
-Company-use permits an account choice only alongside the destination grant;
+Global-use permits an account choice only alongside the destination grant;
 it does not grant any model or application. Wildcards are unsupported.
 All groups render an explicit `clientRoles.agentgateway: []` before approved
 grants are applied. This clears stale application-group grants and revokes a
 resource group's grants when its grant-map entry is removed.
 Every grant must be in the effective client-role catalog. Selected OpenRouter
 models still derive available model roles; clients declare MCP, application,
-provider company-use and custom/local model roles in `authKeycloak.agentgatewayClientRoles`. Base owns no model catalog
+provider global-use and custom/local model roles in `authKeycloak.agentgatewayClientRoles`. Base owns no model catalog
 or destination grants.
 
 `openrouterCatalog.grantToAccessGroups` defaults to `false` and must remain false.
@@ -48,4 +48,4 @@ There are no legacy group aliases or automatic membership migrations. Existing
 groups and memberships are not deleted by this chart; adoption of the new names requires
 separately coordinated client memberships and operator checks.
 Existing key grants remain immutable: adding a user role does not expand a key.
-Migration to company-use enforcement must explicitly preserve authorized callers.
+Migration to global-use enforcement must explicitly preserve authorized callers.

@@ -41,9 +41,9 @@ h in request.headers && !(h == "authorization" && has(jwt.sub) && !("x-neurwerk-
 {{- if .local -}}
 "none"
 {{- else -}}
-{{- $missing := ternary "company" "caller_supplied" (has "company" .credentialSources) -}}
+{{- $missing := ternary "global" "override" (has "global" .credentialSources) -}}
 metadata.neurwerk_identity.standard_oidc ? {{ $missing | toJson }} :
-({{ .credentialHeader | toJson }} in metadata.neurwerk_identity.provider_headers ? "caller_supplied" : {{ $missing | toJson }})
+({{ .credentialHeader | toJson }} in metadata.neurwerk_identity.provider_headers ? "override" : {{ $missing | toJson }})
 {{- end -}}
 {{- end -}}
 
@@ -90,8 +90,8 @@ size(metadata.neurwerk_identity.provider_headers) == 0
 {{- else }}
 metadata.neurwerk_identity.provider_headers.all(h, h == {{ .binding.credentialHeader | toJson }} && metadata.neurwerk_identity.provider_header_counts[h] == 1) &&
 ({{ include "infra-agentgateway.routeCredentialSource" .binding }}) in {{ .binding.credentialSources | toJson }} &&
-(({{ include "infra-agentgateway.routeCredentialSource" .binding }}) == "company" ?
-{{ printf "provider:%s:company-use" .binding.providerId | toJson }} in metadata.neurwerk_identity.permissions :
+(({{ include "infra-agentgateway.routeCredentialSource" .binding }}) == "global" ?
+{{ printf "provider:%s:global-use" .binding.providerId | toJson }} in metadata.neurwerk_identity.permissions :
 {{ .binding.credentialHeader | toJson }} in metadata.neurwerk_identity.provider_headers)
 {{- end }}
 {{- if eq (.binding.kind | default "model") "mcp" }} &&

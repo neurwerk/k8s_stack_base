@@ -18,7 +18,7 @@ authKeycloak:
   # [] restores all defaults. Groups, memberships, and invocation grants are unchanged.
   platformAdminRoleExclusions: []
 
-  # Clients retain explicit llm, MCP, application, provider company-use and custom/local model permissions. The
+  # Clients retain explicit llm, MCP, application, provider global-use and custom/local model permissions. The
   # platform derives inherited OpenRouter model permissions from its catalog.
   agentgatewayClientRoles:
     - llm:invoke

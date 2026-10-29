@@ -12,7 +12,7 @@ all of these environment variables are present and valid:
 * LIVE_ACCEPTANCE_API_KEY=<API key; environment only, never printed>
 
 The URL selects an openai-chat-completions-v1 binding. The Neurwerk key uses
-X-Neurwerk-Authorization; the gateway owns company upstream credentials.
+X-Neurwerk-Authorization; the gateway owns global upstream credentials.
 
 Invoke from the base repository with ``make live-acceptance``. The command reads
 only the current kubectl context, the non-secret

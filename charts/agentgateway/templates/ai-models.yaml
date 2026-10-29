@@ -8,7 +8,7 @@
 {{- range $model := $binding.models }}{{ $_ := set $pii $model.name $model.piiEnabled }}{{ end }}
 {{- $inner := merge (dict "contract_version" "4.1" "destination_kind" "model" "models" $pii) $binding.attachmentPolicy }}
 {{- $innerExpression := printf `%s.merge({"principal_id": metadata.neurwerk_identity.principal_id, "credential_context_version": metadata.neurwerk_identity.credential_context_version, "credential_id": metadata.neurwerk_identity.credential_id, "credential_kind": metadata.neurwerk_identity.credential_kind})` ($inner | toJson) }}
-{{- if gt (len $innerExpression) 16384 }}{{ fail "v5 destination_policy exceeds native metadata limit" }}{{ end }}
+{{- if gt (len $innerExpression) 16384 }}{{ fail "v6 destination_policy exceeds native metadata limit" }}{{ end }}
 {{- range $entry := $entries }}
 ---
 apiVersion: gateway.networking.k8s.io/v1
@@ -73,7 +73,7 @@ spec:
               agentgateway.dev.grpc_initial_metadata:
                 x-request-id: 'metadata.neurwerk_identity.request_id'
               neurwerk.destination_policy:
-                contract_version: '5'
+                contract_version: '6'
                 request_context: >-
                   {{- include "infra-agentgateway.routeAdmissionContext" $context | nindent 18 }}
                 destination_policy: {{ $innerExpression | squote }}
@@ -132,13 +132,13 @@ spec:
     conditional:
       targets:
         {{- if $binding.localReroute }}
-        - when: {{ printf `metadata.neurwerk_admission.provider_credential_source == "company" && extproc["neurwerk.request_context"].dispatch_destination_id == %q && extproc["neurwerk.request_context"].dispatch_binding_id == %q` $binding.localReroute $binding.localRerouteBackend.binding_id | squote }}
+        - when: {{ printf `metadata.neurwerk_admission.provider_credential_source == "global" && extproc["neurwerk.request_context"].dispatch_destination_id == %q && extproc["neurwerk.request_context"].dispatch_binding_id == %q` $binding.localReroute $binding.localRerouteBackend.binding_id | squote }}
           modelRef: {name: {{ $name }}-local-reroute}
         {{- end }}
         {{- range $source := $binding.configuredCredentialSources | default $binding.credentialSources }}
         - when: {{ printf `metadata.neurwerk_admission.provider_credential_source == %q && extproc["neurwerk.request_context"].dispatch_destination_id == %q && extproc["neurwerk.request_context"].dispatch_binding_id == %q` $source $model.name $binding.id | squote }}
           modelRef:
-            name: {{ $name }}-{{ ternary "personal" $source (eq $source "caller_supplied") }}
+            name: {{ $name }}-{{ $source }}
         {{- end }}
 {{- end }}
 {{- range $source := $binding.configuredCredentialSources | default $binding.credentialSources }}
@@ -146,7 +146,7 @@ spec:
 apiVersion: agentgateway.dev/v1alpha1
 kind: AgentgatewayModel
 metadata:
-  name: {{ $name }}-{{ ternary "personal" $source (eq $source "caller_supplied") }}
+  name: {{ $name }}-{{ $source }}
   namespace: infra-agentgateway
   labels:
     {{- include "infra-agentgateway.aiLabels" $ | nindent 4 }}
@@ -156,7 +156,7 @@ spec:
     - {group: gateway.networking.k8s.io, kind: HTTPRoute, name: ai-{{ $binding.id }}-{{ $entry.name }}, sectionName: models}
     {{- end }}
   visibility: Internal
-  {{- $includedCodex := and (eq ($binding.billingMode | default "") "included") (has "openai-codex-responses-v1" $binding.profiles) (eq $source "caller_supplied") }}
+  {{- $includedCodex := and (eq ($binding.billingMode | default "") "included") (has "openai-codex-responses-v1" $binding.profiles) (eq $source "override") }}
   provider: {{ ternary "Custom" $binding.provider $includedCodex }}
   baseURL: {{ $binding.upstreamURL | quote }}
   {{- if $includedCodex }}
@@ -168,7 +168,7 @@ spec:
     formats: [{type: Completions}]
   {{- end }}
   policies:
-    {{- if eq $source "company" }}
+    {{- if eq $source "global" }}
     auth:
       secretRef: {name: {{ $binding.authSecret | quote }}}
     {{- end }}
@@ -189,8 +189,8 @@ spec:
             extproc["neurwerk.request_context"].content_tracing_enabled == {{ $model.contentTracingEnabled }} &&
             extproc["neurwerk.request_context"].pii_policy.enabled == {{ $model.piiEnabled }} &&
             {{ (get $binding.modelBindings $model.name).required_permissions | toJson }}.all(p, p in metadata.neurwerk_admission.permissions)
-            {{- if eq $source "company" }}
-            && {{ printf "provider:%s:company-use" $binding.providerId | toJson }} in metadata.neurwerk_admission.permissions
+            {{- if eq $source "global" }}
+            && {{ printf "provider:%s:global-use" $binding.providerId | toJson }} in metadata.neurwerk_admission.permissions
             {{- end }}
     transformations:
       - field: model
@@ -226,7 +226,7 @@ spec:
           - >-
             metadata.neurwerk_admission.all(k, extproc["neurwerk.request_context"][k] == metadata.neurwerk_admission[k]) &&
             metadata.neurwerk_admission.binding_id == {{ $binding.id | toJson }} &&
-            metadata.neurwerk_admission.provider_credential_source == "company" &&
+            metadata.neurwerk_admission.provider_credential_source == "global" &&
             metadata.neurwerk_admission.policy_revision == {{ $revision | toJson }} &&
             extproc["neurwerk.request_context"].destination_id == {{ $model.name | toJson }} &&
             extproc["neurwerk.request_context"].requested_model in {{ list $model.name $model.upstreamModel | uniq | toJson }} &&
@@ -235,7 +235,7 @@ spec:
             extproc["neurwerk.request_context"].resolved_model == {{ $target.upstream_model | toJson }} &&
             extproc["neurwerk.request_context"].pii_policy.enabled == {{ $model.piiEnabled }} &&
             extproc["neurwerk.request_context"].content_tracing_enabled == {{ and $model.contentTracingEnabled $target.content_tracing_enabled }} &&
-            {{ concat (get $binding.modelBindings $model.name).required_permissions $target.required_permissions (list (printf "provider:%s:company-use" $binding.providerId)) | uniq | toJson }}.all(p, p in metadata.neurwerk_admission.permissions)
+            {{ concat (get $binding.modelBindings $model.name).required_permissions $target.required_permissions (list (printf "provider:%s:global-use" $binding.providerId)) | uniq | toJson }}.all(p, p in metadata.neurwerk_admission.permissions)
     transformations:
       - field: model
         expression: {{ $target.upstream_model | toJson | squote }}

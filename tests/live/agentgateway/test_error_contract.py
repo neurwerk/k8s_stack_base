@@ -133,7 +133,7 @@ class ErrorContractTest(unittest.IsolatedAsyncioTestCase):
                         "credential_id": "synthetic-credential", "credential_kind": "personal",
                         "account_email": None,
                         "permissions": [] if credential == "Bearer forbidden" else [
-                            "llm:invoke", "model:example-chat:invoke", "provider:openai:company-use"],
+                            "llm:invoke", "model:example-chat:invoke", "provider:openai:global-use"],
                     }))
                 self.end_headers()
                 self.wfile.write(payload)

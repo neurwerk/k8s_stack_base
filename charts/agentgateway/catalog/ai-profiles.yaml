@@ -32,7 +32,7 @@ openai-codex-responses-v1:
       support: unknown
       restoration_scope: request
       limitations: ["HTTP JSON and SSE with encrypted reasoning replay; WebSocket upgrades and previous_response_id server-side continuation are unsupported."]
-  limitations: ["Caller-supplied provider credentials only.", "Restoration mappings are request-local; no website route or uninspected fallback."]
+  limitations: ["Override provider credentials only.", "Restoration mappings are request-local; no website route or uninspected fallback."]
 anthropic-messages-v1:
   providers: [Anthropic]
   credentialHeader: x-api-key

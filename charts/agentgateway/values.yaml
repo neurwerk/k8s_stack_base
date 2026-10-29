@@ -79,7 +79,7 @@ infraAgentgatewayWrapper:
 externalGateway:
   enabled: false
 
-# Native inspected entry modes. These require the coordinated v5 extProc/bridge
+# Native inspected entry modes. These require the coordinated v6 extProc/bridge
 # release; selecting values does not update those images or qualify a browser.
 aiGateway:
   enabled: true
@@ -163,7 +163,7 @@ mcp-servers:
 # defaults to /bindings/<id>. routes.inspected: {enabled: false}.
 # Classification never chooses backend authentication: credentialSources does.
 # credentialSources: global (shared credential), override (caller credential), or none.
-# Legacy company/caller_supplied inputs remain accepted; runtime enums are unchanged.
+# These names are also used in admission metadata and the public catalog.
 # Override credentials never fall back to global billing; global mode requires
 # the provider grant and a provisioned credential in the approved Secret input.
 # Self-hosted and external API entries expose catalog-based model discovery.
