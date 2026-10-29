@@ -62,7 +62,7 @@
           "providerId": {"type": ["string", "null"]},
           "provider": {"type": "string"},
           "upstreamURL": {"type": "string"},
-          "credentialSources": {"type": "array", "minItems": 1, "maxItems": 2, "uniqueItems": true, "items": {"enum": ["global", "override", "none", "company", "caller_supplied"]}},
+          "credentialSources": {"type": "array", "minItems": 1, "maxItems": 2, "uniqueItems": true, "items": {"enum": ["global", "override", "none"]}},
           "authSecret": {"type": "string"},
           "billingMode": {"enum": ["included"]},
           "profiles": {"type": "array", "maxItems": 2, "uniqueItems": true, "items": {"type": "string"}},

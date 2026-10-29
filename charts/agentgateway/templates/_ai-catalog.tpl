@@ -11,7 +11,7 @@
 {{- end }}
 {{- $profiles = append $profiles (dict "id" "mcp-streamable-http-v1" "revision" "1" "operations" (list (dict "id" "exchange" "support" "unknown" "restoration_scope" "request" "limitations" (list "Stateless MCP exchanges; each configured integration requires qualification."))) "limitations" (list "Stateful sessions are unsupported.")) }}
 {{- $profiles = append $profiles (dict "id" "openai-model-discovery-v1" "revision" "1" "operations" (list (dict "id" "list" "support" "unknown" "restoration_scope" "none" "limitations" (list "GET /v1/models only.")) (dict "id" "retrieve" "support" "unknown" "restoration_scope" "none" "limitations" (list "GET /v1/models/{model} only."))) "limitations" (list "Configured, permission-filtered models only; discovery does not grant invocation.")) }}
-{{- $catalog := dict "schema_version" 2 "policy_revision" $revision "profiles" $profiles "self-hosted-api-providers" list "external-api-providers" list "external-subscription-providers" list "mcp-servers" list }}
+{{- $catalog := dict "schema_version" 3 "policy_revision" $revision "profiles" $profiles "self-hosted-api-providers" list "external-api-providers" list "external-subscription-providers" list "mcp-servers" list }}
 {{- $origin := printf "https://%s" .Values.infraAgentgatewayWrapper.hostname }}
 {{- $endpoints := dict }}{{- $destinationKeys := dict }}{{- $entryIds := dict }}
 {{- range $binding := $bindings }}
@@ -32,7 +32,7 @@
 {{- $modes := list }}
 {{- range $source := $binding.credentialSources }}
 {{- $permissions := list }}
-{{- if eq $source "company" }}{{ $permissions = list (printf "provider:%s:company-use" $binding.providerId) }}{{ end }}
+{{- if eq $source "global" }}{{ $permissions = list (printf "provider:%s:global-use" $binding.providerId) }}{{ end }}
 {{- $modes = append $modes (dict "source" $source "required_permissions" $permissions) }}
 {{- end }}
 {{- range $model := $binding.models }}
@@ -42,10 +42,10 @@
 {{- $destinations = append $destinations $destination }}{{- $_ := set $destinationKeys (printf "model:%s" $model.name) true }}
 {{- end }}
 {{- $owner := dict "id" $binding.id "provider_id" $binding.providerId "display_name" $binding.displayName "routes" $routes "destinations" $destinations }}
-{{/* Global input is normalized to company internally; this status does not establish runtime credential readiness. */}}
+{{/* Published configuration status does not establish runtime credential readiness. */}}
 {{- $globalStatus := "disabled" }}
-{{- if has "company" ($binding.configuredCredentialSources | default $binding.credentialSources) }}
-{{- $globalStatus = ternary "configured" "missing" (has "company" $binding.credentialSources) }}
+{{- if has "global" ($binding.configuredCredentialSources | default $binding.credentialSources) }}
+{{- $globalStatus = ternary "configured" "missing" (has "global" $binding.credentialSources) }}
 {{- end }}
 {{- $_ := set $owner "global_credential_status" $globalStatus }}
 {{- $_ := set $catalog $binding.group (append (get $catalog $binding.group) $owner) }}

@@ -38,7 +38,7 @@ spec:
     jwtAuthentication:
       mode: Permissive
       location:
-        # Standard OIDC clients send only Authorization; personal-provider calls
+        # Standard OIDC clients send only Authorization; override-provider calls
         # use the separate Neurwerk header. Expression extraction never removes
         # provider Authorization. The admitted branch strips employee credentials.
         expression: >-

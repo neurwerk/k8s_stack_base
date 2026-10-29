@@ -24,7 +24,7 @@
 {{- end -}}
 {{- if $includedBindings -}}
 {{- $existing := get $fields "neurwerk.billing_classification" -}}
-{{- $_ := set $fields "neurwerk.billing_classification" (printf `has(metadata.neurwerk_admission) && metadata.neurwerk_admission.provider_credential_source == "caller_supplied" && extproc != null && "neurwerk.request_context" in extproc && has(extproc["neurwerk.request_context"].dispatch_binding_id) && extproc["neurwerk.request_context"].dispatch_binding_id in %s ? "subscription" : (%s)` ($includedBindings | toJson) $existing) -}}
+{{- $_ := set $fields "neurwerk.billing_classification" (printf `has(metadata.neurwerk_admission) && metadata.neurwerk_admission.provider_credential_source == "override" && extproc != null && "neurwerk.request_context" in extproc && has(extproc["neurwerk.request_context"].dispatch_binding_id) && extproc["neurwerk.request_context"].dispatch_binding_id in %s ? "subscription" : (%s)` ($includedBindings | toJson) $existing) -}}
 {{- end -}}
 {{/* A selected target is not proof of an outbound attempt. Missing timing is unknown,
 including immediate extProc rejections. HTTP 200 does not prove final stream success. */}}

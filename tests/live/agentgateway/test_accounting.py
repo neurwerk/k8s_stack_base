@@ -88,7 +88,7 @@ class AccountingTest(unittest.TestCase):
                     gateway, admin = port(), port()
                     admission = {field: "fixture" for field in ["request_id", "credential_id", "credential_kind", "policy_revision", "binding_id"]}
                     admission.update(entry_mode="api", destination_kind="model", provider_id=provider,
-                                     protocol_profile=profile, operation_id="create", provider_credential_source="caller_supplied")
+                                     protocol_profile=profile, operation_id="create", provider_credential_source="override")
                     access = copy.deepcopy(raw["frontendPolicies"]["accessLog"])
                     for fields in (access["add"], access["database"]["add"]):
                         fields["fixture.case"] = 'request.headers["x-fixture-case"]'

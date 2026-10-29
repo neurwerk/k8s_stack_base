@@ -10,7 +10,7 @@
 {{- $roles := include "keycloak-agentgateway.effectiveRoles" . | fromYamlArray }}
 {{- if not (has "llm:invoke" $roles) }}{{- fail "authKeycloak.agentgatewayClientRoles must include llm:invoke" }}{{- end }}
 {{- range $roles }}
-{{- if not (regexMatch "^(llm:invoke|(model|mcp|application):[A-Za-z0-9][A-Za-z0-9._/-]{0,127}:invoke|provider:[A-Za-z0-9][A-Za-z0-9._/-]{0,127}:company-use)$" .) }}{{- fail (printf "invalid AgentGateway client role %q" .) }}{{- end }}
+{{- if not (regexMatch "^(llm:invoke|(model|mcp|application):[A-Za-z0-9][A-Za-z0-9._/-]{0,127}:invoke|provider:[A-Za-z0-9][A-Za-z0-9._/-]{0,127}:global-use)$" .) }}{{- fail (printf "invalid AgentGateway client role %q" .) }}{{- end }}
 {{- end }}
 apiVersion: batch/v1
 kind: Job

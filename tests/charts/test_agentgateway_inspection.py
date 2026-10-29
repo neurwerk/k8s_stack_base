@@ -34,10 +34,10 @@ def binding_values():
                 "model:example-gemini:invoke",
                 "model:example-router:invoke",
                 "model:local-chat:invoke",
-                "provider:openai:company-use",
-                "provider:anthropic:company-use",
-                "provider:google:company-use",
-                "provider:openrouter:company-use",
+                "provider:openai:global-use",
+                "provider:anthropic:global-use",
+                "provider:google:global-use",
+                "provider:openrouter:global-use",
             ]
         },
         "infraAgentgatewayWrapperSecrets": {"providerCredentials": {
@@ -134,7 +134,7 @@ class ApprovedOidcTests(unittest.TestCase):
         traffic = resource(cls.rendered, "AgentgatewayPolicy", "ai-admission-api-bindings")["spec"]["traffic"]
         cls.expression = traffic["authorization"]["policy"]["matchExpressions"][0]
         cls.roles = ["llm:invoke", "model:example-chat:invoke", "model:local-chat:invoke",
-                     "provider:openai:company-use", "mcp:context7:invoke"]
+                     "provider:openai:global-use", "mcp:context7:invoke"]
 
     def evaluate(self, expression, context):
         env = Environment()
@@ -205,7 +205,7 @@ class ApprovedOidcTests(unittest.TestCase):
                        {"audience": None}, {"audience": 7}, {"sub": ""},
                        {"roles": []}, {"roles": "llm:invoke"},
                        {"roles": [r for r in self.roles if r != "llm:invoke"]},
-                       {"roles": [r for r in self.roles if r != "provider:openai:company-use"]},
+                       {"roles": [r for r in self.roles if r != "provider:openai:global-use"]},
                        {"resource_access": {}},
                        {"path": "/mcp/context7", "roles": ["llm:invoke"]}]:
             with self.subTest(claims=claims):
@@ -280,8 +280,8 @@ class ApprovedOidcTests(unittest.TestCase):
         revision = re.search(r'policy_revision == "([a-f0-9]+)"', expression).group(1)
         for roles, expected in [(self.roles, True),
                                 ([r for r in self.roles if r != "model:example-chat:invoke"], False),
-                                ([r for r in self.roles if r != "provider:openai:company-use"], False)]:
-            admission = {"binding_id": "openai", "provider_credential_source": "company",
+                                ([r for r in self.roles if r != "provider:openai:global-use"], False)]:
+            admission = {"binding_id": "openai", "provider_credential_source": "global",
                          "policy_revision": revision, "permissions": roles}
             context = {**admission, "resolved_model": "provider-chat", "destination_id": "example-chat",
                        "dispatch_destination_id": "example-chat", "dispatch_binding_id": "openai",
@@ -510,7 +510,7 @@ class EndpointRoutingTests(unittest.TestCase):
                             }))
                             identity["permissions"] = ["llm:invoke", f"mcp:{name}:invoke"]
 
-    def test_included_billing_requires_fixed_caller_supplied_codex(self):
+    def test_included_billing_requires_fixed_override_codex(self):
         values = copy.deepcopy(self.values)
         values["external-subscription-providers"][0]["billingMode"] = "included"
         render("agentgateway", values)
@@ -518,8 +518,8 @@ class EndpointRoutingTests(unittest.TestCase):
             {"billingMode": "free"}, {"billingMode": None},
             {"profiles": ["openai-responses-v1"]},
             {"upstreamURL": "https://chatgpt.com/backend-api/other"},
-            {"credentialSources": ["company"], "authSecret": "example-openai-key"},
-            {"credentialSources": ["caller_supplied", "company"], "authSecret": "example-openai-key"},
+            {"credentialSources": ["global"], "authSecret": "example-openai-key"},
+            {"credentialSources": ["override", "global"], "authSecret": "example-openai-key"},
         ]:
             with self.subTest(override=override):
                 invalid = copy.deepcopy(values)
@@ -587,7 +587,7 @@ class InspectedGatewayTests(unittest.TestCase):
                     self.assertNotIn("authorization", request["remove"])
         self.assertNotIn("infra-agentgateway-auth-ag-policy", self.enabled.stdout)
 
-    def test_fixed_upstreams_models_and_no_company_fallback(self):
+    def test_fixed_upstreams_models_and_no_global_fallback(self):
         models = [m for m in documents(self.enabled) if m["kind"] == "AgentgatewayModel" and m["metadata"]["name"].startswith("ai-")]
         self.assertEqual(len(models), 15)
         bindings = {item["id"]: item for item in configured_providers(binding_values())}
@@ -602,7 +602,7 @@ class InspectedGatewayTests(unittest.TestCase):
                 self.assertTrue(all("when" in target for target in targets))
                 self.assertNotIn("failover", spec["virtualModel"])
                 continue
-            self.assertEqual("auth" in spec["policies"], model["metadata"]["name"].endswith("-company"))
+            self.assertEqual("auth" in spec["policies"], model["metadata"]["name"].endswith("-global"))
             self.assertNotIn("retry", spec["policies"])
             self.assertIn('extproc["neurwerk.request_context"].resolved_model', spec["policies"]["authorization"]["policy"]["matchExpressions"][0])
             self.assertIn("metadata.neurwerk_admission.all", spec["policies"]["authorization"]["policy"]["matchExpressions"][0])
@@ -628,7 +628,7 @@ class InspectedGatewayTests(unittest.TestCase):
                 self.assertFalse(processor["processingOptions"]["allowModeOverride"])
                 metadata = processor["metadataContext"]["neurwerk.destination_policy"]
                 self.assertEqual(set(metadata), {"contract_version", "request_context", "destination_policy", "model_bindings", "reroute_targets"})
-                self.assertEqual(metadata["contract_version"], "5")
+                self.assertEqual(metadata["contract_version"], "6")
                 self.assertEqual(branch["condition"], transformation["condition"])
                 self.assertEqual(metadata["request_context"], transformation["policy"]["request"]["metadata"]["neurwerk_admission"])
                 for model in json.loads(metadata["model_bindings"]).values():
@@ -659,15 +659,15 @@ class InspectedGatewayTests(unittest.TestCase):
         catalog_map = resource(self.enabled, "ConfigMap", "agentgateway-catalog-config-map")
         self.assertEqual(catalog_map["metadata"]["namespace"], "frontend-studio")
         catalog = json.loads(catalog_map["data"]["catalog.json"])
-        self.assertEqual(catalog["schema_version"], 2)
+        self.assertEqual(catalog["schema_version"], 3)
         endpoints = {route["id"]: route for owner in catalog_owners(catalog) for route in owner["routes"]}
         self.assertEqual(endpoints["api-openai"]["url"], "https://agentgateway.lint.example/bindings/openai/v1")
         self.assertEqual(endpoints["api-openai"]["caller_auth_modes"], ["neurwerk_bearer", "oidc_bearer"])
         destination = next(entry for owner in catalog_owners(catalog) for entry in owner["destinations"] if entry["id"] == "example-chat")
         self.assertEqual(set(destination["endpoint_ids"]), {"api-openai", "forward-proxy"})
         modes = {entry["source"]: entry for entry in destination["credential_modes"]}
-        self.assertEqual(modes["company"]["required_permissions"], ["provider:openai:company-use"])
-        self.assertEqual(modes["caller_supplied"]["required_permissions"], [])
+        self.assertEqual(modes["global"]["required_permissions"], ["provider:openai:global-use"])
+        self.assertEqual(modes["override"]["required_permissions"], [])
         self.assertNotIn("agentgateway-status-config-map", self.enabled.stdout)
         self.assertNotIn("agentgateway-inspection-trust-config-map", self.enabled.stdout)
         self.assertTrue(all(operation["support"] == "unknown" for profile in catalog["profiles"] for operation in profile["operations"]))
@@ -760,14 +760,14 @@ class InspectedGatewayTests(unittest.TestCase):
         traffic = resource(self.enabled, "AgentgatewayPolicy", "ai-admission-api-bindings")["spec"]["traffic"]
         processing = resource(self.enabled, "AgentgatewayPolicy", "ai-openai-api-processing")["spec"]["traffic"]
         context = processing["extProc"]["conditional"][0]["policy"]["metadataContext"]["neurwerk.destination_policy"]["request_context"]
-        self.assertIn('"authorization" in metadata.neurwerk_identity.provider_headers ? "caller_supplied" : "company"', context)
+        self.assertIn('"authorization" in metadata.neurwerk_identity.provider_headers ? "override" : "global"', context)
         self.assertNotIn("request.headers", context)
         self.assertNotIn("response", context)
         gate = traffic["authorization"]["policy"]["matchExpressions"][0]
         self.assertNotIn("request.path", gate)
-        self.assertNotIn("provider:openai:company-use", gate)
+        self.assertNotIn("provider:openai:global-use", gate)
         route = processing["authorization"]["policy"]["matchExpressions"][0]
-        self.assertIn('"provider:openai:company-use" in metadata.neurwerk_identity.permissions', route)
+        self.assertIn('"provider:openai:global-use" in metadata.neurwerk_identity.permissions', route)
         self.assertIn('metadata.neurwerk_identity.provider_header_counts[h] == 1', route)
 
     def test_canonical_catalog_contains_only_bound_models(self):
@@ -815,8 +815,8 @@ class InspectedGatewayTests(unittest.TestCase):
 
     def test_unsafe_or_ambiguous_bindings_fail_render(self):
         mutations = [
-            ("personal-only secret", lambda v: v["external-api-providers"][0].update(credentialSources=["caller_supplied"])),
-            ("missing provider role", lambda v: v["authKeycloak"]["agentgatewayClientRoles"].remove("provider:openai:company-use")),
+            ("override-only secret", lambda v: v["external-api-providers"][0].update(credentialSources=["override"])),
+            ("missing provider role", lambda v: v["authKeycloak"]["agentgatewayClientRoles"].remove("provider:openai:global-use")),
             ("duplicate inspection host", lambda v: v["external-api-providers"][1].update(upstreamURL="https://provider.example.test/v1")),
             ("unsupported browser profile", lambda v: v["external-api-providers"][0].update(profiles=["chatgpt-web-v1"])),
             ("unverified provider TLS", lambda v: v["external-api-providers"][0].update(upstreamURL="http://provider.example.test/v1")),
@@ -829,7 +829,7 @@ class InspectedGatewayTests(unittest.TestCase):
             ("ambiguous alias", lambda v: v["external-api-providers"][0]["models"].append({"name": "provider-chat", "upstreamModel": "another-model"})),
             ("unqualified Google API mount", lambda v: v["external-api-providers"][2]["routes"]["api"].update(enabled=True)),
             ("provider/profile mismatch", lambda v: v["external-api-providers"][0].update(profiles=["anthropic-messages-v1"])),
-            ("old per-source endpoint schema", lambda v: v["external-api-providers"][0].update(credentialSource="company")),
+            ("old per-source endpoint schema", lambda v: v["external-api-providers"][0].update(credentialSource="global")),
             ("duplicate canonical model", lambda v: v["external-api-providers"][1]["models"][0].update(name="example-chat")),
         ]
         for label, mutate in mutations:

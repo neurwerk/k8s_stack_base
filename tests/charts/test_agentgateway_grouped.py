@@ -21,7 +21,7 @@ def capacity_values(count, inspected=0):
     values["external-api-providers"] = [{
         "id": f"provider-{i}", "enabled": True, "providerId": "openai",
         "upstreamURL": f"https://provider-{i}.example.test/v1",
-        "credentialSources": ["caller_supplied"],
+        "credentialSources": ["override"],
         "routes": {"api": {"enabled": True, "path": f"/provider-{i}/api"},
                    "inspected": {"enabled": i < inspected}},
         "profiles": ["openai-chat-completions-v1"],
@@ -131,7 +131,7 @@ class GroupedGatewayTests(unittest.TestCase):
                 self.assertEqual(len(destination["profile_ids"]), len(set(destination["profile_ids"])))
 
     def test_duplicate_modes_and_profiles_are_rejected(self):
-        for field, duplicate in [("credentialSources", "company"), ("profiles", "openai-responses-v1")]:
+        for field, duplicate in [("credentialSources", "global"), ("profiles", "openai-responses-v1")]:
             values = binding_values()
             values["external-api-providers"][0][field] = [duplicate, duplicate]
             self.assertNotEqual(render("agentgateway", values, check=False).returncode, 0)
@@ -143,7 +143,7 @@ class GroupedGatewayTests(unittest.TestCase):
                 values["external-api-providers"][0]["credentialSources"] = sources
                 self.assertNotEqual(render("agentgateway", values, check=False).returncode, 0)
 
-    def test_credential_source_aliases_preserve_full_render_and_revisions(self):
+    def test_legacy_credential_sources_are_rejected(self):
         for canonical, aliases in [
             (["global"], ["company"]),
             (["override"], ["caller_supplied"]),
@@ -159,10 +159,9 @@ class GroupedGatewayTests(unittest.TestCase):
                     provider["localReroute"] = "local-chat"
                 else:
                     provider.pop("authSecret")
-                canonical_render = render("agentgateway", values).stdout
+                render("agentgateway", values)
                 provider["credentialSources"] = aliases
-                # Includes catalog, revision hashes, permissions, Secret refs and reroutes.
-                self.assertEqual(render("agentgateway", values).stdout, canonical_render)
+                self.assertNotEqual(render("agentgateway", values, check=False).returncode, 0)
 
     def test_provisioning_and_frozen_caller_choice(self):
         revisions = {}
@@ -183,23 +182,23 @@ class GroupedGatewayTests(unittest.TestCase):
                 self.assertNotIn(credential, json.dumps(result))
             revisions[credential] = (result["catalog_revision"], result["policy_revision"])
             modes = {mode["source"] for mode in owner["destinations"][0]["credential_modes"]}
-            self.assertEqual("company" in modes, bool(credential))
-            self.assertIn("caller_supplied", modes)
+            self.assertEqual("global" in modes, bool(credential))
+            self.assertIn("override", modes)
             processing = resource(rendered, "AgentgatewayPolicy", "ai-openai-api-processing")["spec"]["traffic"]
             expression = processing["extProc"]["conditional"][0]["policy"]["metadataContext"]["neurwerk.destination_policy"]["request_context"]
-            self.assertIn('"authorization" in metadata.neurwerk_identity.provider_headers ? "caller_supplied"', expression)
+            self.assertIn('"authorization" in metadata.neurwerk_identity.provider_headers ? "override"', expression)
             # Empty/malformed values still count as supplied; no response or token
-            # validity can cause company selection. extProc validates their syntax.
+            # validity can cause global selection. extProc validates their syntax.
             self.assertNotIn("request.headers", expression)
             self.assertNotIn("response", expression)
             route = processing["authorization"]["policy"]["matchExpressions"][0]
-            self.assertIn('["caller_supplied","company"]' if credential else '["caller_supplied"]', route)
+            self.assertIn('["override","global"]' if credential else '["override"]', route)
             identity = {
                 "contract_version": 1, "request_id": "request", "principal_id": "user",
                 "credential_context_version": "1", "credential_id": "key", "credential_kind": "personal",
                 "entry_mode": "api", "policy_revision": catalog(rendered)["policy_revision"],
                 "path": "/bindings/openai/v1/chat/completions", "method": "POST", "standard_oidc": False,
-                "permissions": ["llm:invoke", "model:example-chat:invoke", "provider:openai:company-use"],
+                "permissions": ["llm:invoke", "model:example-chat:invoke", "provider:openai:global-use"],
             }
             env = Environment()
             program = env.program(env.compile(expression))
@@ -215,7 +214,7 @@ class GroupedGatewayTests(unittest.TestCase):
                 self.assertEqual(self.evaluate(route, context), admitted)
                 frozen = program.evaluate({"metadata": json_to_cel(context["metadata"])})
                 if "authorization" in headers:
-                    self.assertEqual(frozen["provider_credential_source"], "caller_supplied")
+                    self.assertEqual(frozen["provider_credential_source"], "override")
             identity.update(provider_headers=[], provider_header_counts={}, permissions=["llm:invoke"])
             self.assertFalse(self.evaluate(route, {"jwt": {}, "metadata": {"neurwerk_identity": identity}}))
         self.assertEqual(revisions[None], revisions[""])
@@ -241,7 +240,7 @@ class GroupedGatewayTests(unittest.TestCase):
         owner = next(owner for owner in result["external-api-providers"] if owner["id"] == "openai")
         self.assertEqual(owner["global_credential_status"], "disabled")
         self.assertEqual([mode["source"] for mode in owner["destinations"][0]["credential_modes"]],
-                         ["caller_supplied"])
+                         ["override"])
         self.assertTrue(result["mcp-servers"])
         for owner in result["mcp-servers"]:
             self.assertNotIn("global_credential_status", owner)
@@ -253,10 +252,10 @@ class GroupedGatewayTests(unittest.TestCase):
         rendered = render("agentgateway", values)
         owner = next(entry for entry in catalog(rendered)["self-hosted-api-providers"] if entry["id"] == "openai")
         self.assertEqual({mode["source"] for mode in owner["destinations"][0]["credential_modes"]},
-                         {"company", "caller_supplied"})
-        company = next(doc for doc in documents(rendered) if doc["kind"] == "AgentgatewayModel"
-                       and doc["metadata"]["name"].startswith("ai-openai-") and doc["metadata"]["name"].endswith("-company"))
-        self.assertEqual(company["spec"]["policies"]["auth"]["secretRef"], {"name": "example-openai-key"})
+                         {"global", "override"})
+        global_mode = next(doc for doc in documents(rendered) if doc["kind"] == "AgentgatewayModel"
+                       and doc["metadata"]["name"].startswith("ai-openai-") and doc["metadata"]["name"].endswith("-global"))
+        self.assertEqual(global_mode["spec"]["policies"]["auth"]["secretRef"], {"name": "example-openai-key"})
 
     def test_discovery_scope_and_bridge_inputs(self):
         values = binding_values()

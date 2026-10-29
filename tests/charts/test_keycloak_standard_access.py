@@ -113,7 +113,7 @@ class KeycloakStandardAccessTests(unittest.TestCase):
         model = "model:remote/openrouter/acme/model:invoke"
         mcp = "mcp:example:invoke"
         application = "application:assistant:invoke"
-        provider = "provider:example:company-use"
+        provider = "provider:example:global-use"
         values = {
             "openrouterCatalog": selected,
             "authKeycloak": {
@@ -174,7 +174,7 @@ class KeycloakStandardAccessTests(unittest.TestCase):
         model = "model:example:invoke"
         mcp = "mcp:example:invoke"
         application = "application:assistant:invoke"
-        provider = "provider:example:company-use"
+        provider = "provider:example:global-use"
         for auth, catalog_values, message in [
             ({"accessGroups": {}}, {}, "accessGroups is platform-owned"),
             ({"accessGroups": {LLM: {"realmRoles": ["platform-admin"]}}}, {}, "accessGroups is platform-owned"),
@@ -192,7 +192,7 @@ class KeycloakStandardAccessTests(unittest.TestCase):
             ({"agentgatewayAccessGroups": {APPLICATION: [model]}}, {}, "cannot grant cross-resource role"),
             ({"agentgatewayAccessGroups": {APPLICATION: [mcp]}}, {}, "cannot grant cross-resource role"),
             ({"agentgatewayAccessGroups": {LLM: ["model:missing:invoke"]}}, {}, "grants undeclared role"),
-            ({"agentgatewayAccessGroups": {APPLICATION: ["provider:missing:company-use"]}}, {}, "grants undeclared role"),
+            ({"agentgatewayAccessGroups": {APPLICATION: ["provider:missing:global-use"]}}, {}, "grants undeclared role"),
             ({"agentgatewayAccessGroups": {LLM: "llm:invoke"}}, {}, "roles must be a list"),
         ]:
             with self.subTest(auth=auth, catalog=catalog_values):

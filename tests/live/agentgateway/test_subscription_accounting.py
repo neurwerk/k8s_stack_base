@@ -28,7 +28,7 @@ class SubscriptionAccountingTest(unittest.TestCase):
         values["authKeycloak"]["agentgatewayClientRoles"].append("model:example-codex:invoke")
         values["external-subscription-providers"] = [{
             "id": "codex", "enabled": True, "providerId": "openai", "provider": "OpenAI",
-            "upstreamURL": "https://chatgpt.com/backend-api/codex", "credentialSources": ["caller_supplied"],
+            "upstreamURL": "https://chatgpt.com/backend-api/codex", "credentialSources": ["override"],
             "routes": {"api": {"enabled": True}, "inspected": {"enabled": True}},
             "profiles": ["openai-codex-responses-v1"], "billingMode": "included",
             "models": [{"name": "example-codex", "upstreamModel": "shared"}],
@@ -48,14 +48,14 @@ class SubscriptionAccountingTest(unittest.TestCase):
         program = environment.program(environment.compile(expression), functions={
             "_!=_": lambda left, right: celtypes.BoolType((left is not right) if left is None or right is None else left != right),
         })
-        for source, dispatched, expected in [("caller_supplied", "codex", "subscription"),
-                                              ("caller_supplied", "openai", "unknown"),
-                                              ("company", "codex", "unknown")]:
+        for source, dispatched, expected in [("override", "codex", "subscription"),
+                                              ("override", "openai", "unknown"),
+                                              ("global", "codex", "unknown")]:
             context = {"metadata": {"neurwerk_admission": {"provider_credential_source": source}},
                        "extproc": {"neurwerk.request_context": {"dispatch_binding_id": dispatched}}}
             self.assertEqual(program.evaluate({key: json_to_cel(value) for key, value in context.items()}), expected)
         for context in [{"metadata": {}, "extproc": None},
-                        {"metadata": {"neurwerk_admission": {"provider_credential_source": "caller_supplied"}}, "extproc": None}]:
+                        {"metadata": {"neurwerk_admission": {"provider_credential_source": "override"}}, "extproc": None}]:
             self.assertEqual(program.evaluate({key: json_to_cel(value) for key, value in context.items()}), "unknown")
         # OAuth transport alone must not select the zero-rate provider namespace.
         unconfirmed_values = copy.deepcopy(values)
@@ -114,7 +114,7 @@ class SubscriptionAccountingTest(unittest.TestCase):
                 gateway, admin = port(), port()
                 admission = {field: "fixture" for field in ["request_id", "credential_id", "credential_kind", "policy_revision", "binding_id"]}
                 admission.update(entry_mode="api", destination_kind="model", provider_id="openai",
-                                 protocol_profile="openai-codex-responses-v1", operation_id="create", provider_credential_source="caller_supplied")
+                                 protocol_profile="openai-codex-responses-v1", operation_id="create", provider_credential_source="override")
                 access = copy.deepcopy(raw["frontendPolicies"]["accessLog"])
                 for fields in (access["add"], access["database"]["add"]):
                     fields["fixture.case"] = 'request.headers["x-fixture-case"]'

@@ -6,13 +6,13 @@ Use the full base URL from Studio or the effective binding configuration. The ex
 
 | API base URL | Service | Provider credential modes |
 | --- | --- | --- |
-| `https://ai-api.example.com/openai/codex/v1` | Codex Responses | Caller-supplied OAuth session, managed by the client |
-| `https://ai-api.example.com/openai/api/v1` | OpenAI API | Configured company key or caller-supplied API key |
-| `https://ai-api.example.com/openrouter/api/v1` | OpenRouter API | Configured company key or caller-supplied API key |
-| `https://ai-api.example.com/deepseek/api/v1` | DeepSeek API | Configured company key or caller-supplied API key |
+| `https://ai-api.example.com/openai/codex/v1` | Codex Responses | Override OAuth session, managed by the client |
+| `https://ai-api.example.com/openai/api/v1` | OpenAI API | Global credential or override API key |
+| `https://ai-api.example.com/openrouter/api/v1` | OpenRouter API | Global credential or override API key |
+| `https://ai-api.example.com/deepseek/api/v1` | DeepSeek API | Global credential or override API key |
 | `https://ai-api.example.com/local/api/v1` | Local models | No provider credential |
 
-Company requests omit provider credentials; caller-supplied credentials use the provider's approved header. Available modes depend on the binding configuration. Supported company/local OIDC clients can use `Authorization: Bearer <token>`; company use requires the provider company-use permission. Codex login is handled by the client: users sign in there rather than copying OAuth tokens. The gateway API endpoint does not redirect to a browser login.
+Global requests omit provider credentials; override credentials use the provider's approved header. Available modes depend on the binding configuration. Supported global/credential-free OIDC clients can use `Authorization: Bearer <token>`; global use requires the provider global-use permission. Codex login is handled by the client: users sign in there rather than copying OAuth tokens. The gateway API endpoint does not redirect to a browser login.
 
 ## Inspected proxy connection
 
@@ -20,18 +20,18 @@ Configure proxy URL `https://ai-proxy.example.com:443`. Keep the client's native
 
 | Service | Native destination URL | Provider credential modes |
 | --- | --- | --- |
-| Codex | `https://chatgpt.com/backend-api/codex/responses` | Caller-supplied OAuth session, managed by the client |
-| OpenAI API | `https://api.openai.com/v1` | Configured company key or caller-supplied API key |
-| OpenRouter API | `https://openrouter.ai/api/v1` | Configured company key or caller-supplied API key |
-| DeepSeek API | `https://api.deepseek.com/v1` | Configured company key or caller-supplied API key |
+| Codex | `https://chatgpt.com/backend-api/codex/responses` | Override OAuth session, managed by the client |
+| OpenAI API | `https://api.openai.com/v1` | Global credential or override API key |
+| OpenRouter API | `https://openrouter.ai/api/v1` | Global credential or override API key |
+| DeepSeek API | `https://api.deepseek.com/v1` | Global credential or override API key |
 
 Only enabled inspected bindings and admitted operations are available. Authenticate with Proxy Basic over TLS, using the platform API key as password, and install the published inspection CA after verifying its fingerprint. Provider login remains client-managed. Model invocation permissions apply in both connection modes.
 
 ## Codex and rollout
 
-Codex uses profile `openai-codex-responses-v1`, provider `OpenAI`, `credentialSources: [caller_supplied]`, and upstream `https://chatgpt.com/backend-api/codex`. Enable `api`, `inspect`, or both. API clients append `/responses`; proxy clients retain the native path and provider `Authorization` and optional `chatgpt-account-id` headers. The profile reuses Responses processing for HTTP JSON/SSE with request-local restoration. Encrypted reasoning replay is supported; `previous_response_id` server-side continuation, WebSocket and website traffic are unsupported.
+Codex uses profile `openai-codex-responses-v1`, provider `OpenAI`, `credentialSources: [override]`, and upstream `https://chatgpt.com/backend-api/codex`. Enable `api`, `inspect`, or both. API clients append `/responses`; proxy clients retain the native path and provider `Authorization` and optional `chatgpt-account-id` headers. The profile reuses Responses processing for HTTP JSON/SSE with request-local restoration. Encrypted reasoning replay is supported; `previous_response_id` server-side continuation, WebSocket and website traffic are unsupported.
 
-Codex billing classification is unknown unless explicitly configured. Set `billingMode: included` only for a Codex binding whose requests are covered by an included plan. Its native accounting uses provider `codex`; supply zero rates for the selected models in that provider's client model catalog to record $0. Subscription classification follows trusted final dispatch and the configured billing mode. OAuth or caller-supplied credentials alone do not imply free usage, and ordinary OpenAI API prices remain separate.
+Codex billing classification is unknown unless explicitly configured. Set `billingMode: included` only for a Codex binding whose requests are covered by an included plan. Its native accounting uses provider `codex`; supply zero rates for the selected models in that provider's client model catalog to record $0. Subscription classification follows trusted final dispatch and the configured billing mode. OAuth or override credentials alone do not imply free usage, and ordinary OpenAI API prices remain separate.
 
 Content recording follows each model's `contentTracingEnabled` setting. Usage and cost availability describe native reported accounting, independently of final delivery status; missing usage or pricing remains unknown. Native parsers can default individual missing counters, so a reported total is not proof that every original provider counter was present.
 

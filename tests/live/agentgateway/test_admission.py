@@ -29,7 +29,7 @@ class AdmissionTest(unittest.TestCase):
             "principal_id": "synthetic-principal",
             "credential_id": "synthetic-key",
             "credential_kind": "personal",
-            "permissions": ["llm:invoke", "provider:openai:company-use", "model:example-chat:invoke", "model:local-chat:invoke"],
+            "permissions": ["llm:invoke", "provider:openai:global-use", "model:example-chat:invoke", "model:local-chat:invoke"],
         }
         auth_calls, upstream_calls = [], []
 
@@ -56,7 +56,7 @@ class AdmissionTest(unittest.TestCase):
         thread = threading.Thread(target=server.serve_forever, kwargs={"poll_interval": 0.05})
         thread.start()
         try:
-            for listener, path, host, personal in [
+            for listener, path, host, override_allowed in [
                 ("api-bindings", "/bindings/openai/v1/responses", "provider.example.test", True),
                 ("inspect-openai", "/v1/responses", "provider.example.test", True),
                 ("api-bindings", "/bindings/local/v1/chat/completions", "local.example.test", False),
@@ -94,11 +94,11 @@ class AdmissionTest(unittest.TestCase):
                                     time.sleep(0.05)
                             else:
                                 self.fail("gateway not ready: " + log_path.read_text())
-                            cases = [("company or local", {}, 200),
+                            cases = [("global or local", {}, 200),
                                      ("unsupported", {"api-key": "synthetic-provider-key"}, 403),
                                      ("empty unsupported", {"api-key": ""}, 403)]
-                            if personal:
-                                cases.append(("personal", {"authorization": "Bearer synthetic-provider-key"}, 200))
+                            if override_allowed:
+                                cases.append(("override", {"authorization": "Bearer synthetic-provider-key"}, 200))
                             for label, headers, expected in cases:
                                 with self.subTest(case=label):
                                     upstream_calls.clear()
