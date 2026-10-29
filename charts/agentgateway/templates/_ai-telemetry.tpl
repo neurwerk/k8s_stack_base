@@ -1,5 +1,8 @@
 {{- define "infra-agentgateway.aiTelemetry" -}}
 {{- $fields := dict -}}
+{{- $_ := set $fields "neurwerk.stripped_credential_headers" `has(metadata.neurwerk_identity.stripped_credential_headers) ? metadata.neurwerk_identity.stripped_credential_headers : null` -}}
+{{- $_ := set $fields "neurwerk.credential_mode" `has(metadata.neurwerk_identity.provider_credential_source) ? metadata.neurwerk_identity.provider_credential_source : null` -}}
+{{- $_ := set $fields "neurwerk.credential_strip_reason" `has(metadata.neurwerk_identity.provider_credential_source) && metadata.neurwerk_identity.provider_credential_source != null ? "explicit_credential_mode" : null` -}}
 {{- range $field := list "request_id" "entry_mode" "destination_kind" "provider_id" "binding_id" "protocol_profile" "operation_id" "provider_credential_source" "policy_revision" "credential_id" "credential_kind" -}}
 {{- $_ := set $fields (printf "neurwerk.%s" $field) (printf "has(metadata.neurwerk_admission) && has(metadata.neurwerk_admission.%s) ? metadata.neurwerk_admission.%s : null" $field $field) -}}
 {{- end -}}

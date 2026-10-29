@@ -32,6 +32,7 @@ spec:
     accessControlAllowMethods: [GET, POST, DELETE, OPTIONS]
     accessControlAllowHeaders:
       - X-Neurwerk-Authorization
+      - X-Neurwerk-Credential-Mode
       - Content-Type
       - Authorization
       - X-Api-Key
