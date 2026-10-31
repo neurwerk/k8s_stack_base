@@ -2,5 +2,5 @@ apiVersion: v2
 name: glitchtip
 description: Optional client-local issue tracking and centralized log adapter
 type: application
-version: 0.1.7
+version: 0.1.8
 appVersion: 6.2.6
