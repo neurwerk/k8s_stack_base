@@ -450,7 +450,7 @@ spec:
           sha256: 66cea2e1b6fa9f215e5f09b0b378ea1ed755ebe5881c68caa4ceba66774d7258
     - path: charts/maintenance
       name: maintenance
-      version: 0.2.3
+      version: 0.2.4
     - path: charts/openbao
       name: infra-openbao
       version: 2.0.0
@@ -910,10 +910,14 @@ spec:
       - charts/keycloak/realm-config/initial-admin/values.yaml
       - charts/keycloak/realm-config/realm-roles/values.yaml
       - charts/keycloak/server/values.yaml
-      - charts/maintenance/values.yaml
       - charts/opensearch/app/values.yaml
       - charts/opensearch/dashboards/values.yaml
       - charts/postgres/documentdb-addon/values.yaml
+    - reference: ghcr.io/neurwerk/k8s-stack-tooling:0.15.7@sha256:726e75d02c23e7777d6483ffd08d1e7689a5cc17afb8fb4cdc5306ae84242073
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/maintenance/values.yaml
     - reference: ghcr.io/stakater/reloader:v1.4.21
       pinned: true
       eligibility: included
