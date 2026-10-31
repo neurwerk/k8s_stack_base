@@ -3,7 +3,7 @@
 {{- if or (not (kindIs "bool" $inspection.enabled)) (not (kindIs "bool" $trust.enabled)) }}{{ fail "inspection and trust enabled flags must be boolean" }}{{- end }}
 {{- if and $trust.enabled (not $inspection.enabled) }}{{ fail "trust publication requires agentgateway.inspection.enabled" }}{{- end }}
 {{- if and $inspection.enabled $trust.enabled -}}
-{{- if ne $trust.image "ghcr.io/neurwerk/k8s-stack-tooling:0.12.0@sha256:b70f0f93ca2c3e5cef9290af2db6480bec72cedc0289ecd232747996eb01091a" }}{{ fail "trust publication requires the verified Tooling 0.12.0 publisher image" }}{{- end }}
+{{- if ne $trust.image "ghcr.io/neurwerk/k8s-stack-tooling:0.15.6@sha256:2cfe62109c8067e08a81f422733e6673ef3eb0ee11066f72e7316878a76013db" }}{{ fail "trust publication requires the verified Tooling 0.15.6 publisher image" }}{{- end }}
 {{- if not (has $trust.operation (list "initialize" "stage" "promote")) }}{{ fail "trust operation must be initialize, stage or promote" }}{{- end }}
 {{- if or (lt (len $trust.roots) 1) (gt (len $trust.roots) 16) }}{{ fail "trust inventory must contain 1 to 16 roots" }}{{- end }}
 {{- $seen := dict -}}

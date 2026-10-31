@@ -105,7 +105,7 @@ opensearch:
 
 # Init Job settings
 k8sTools:
-  image: ghcr.io/neurwerk/k8s-stack-tooling:0.12.0@sha256:b70f0f93ca2c3e5cef9290af2db6480bec72cedc0289ecd232747996eb01091a
+  image: ghcr.io/neurwerk/k8s-stack-tooling:0.15.6@sha256:2cfe62109c8067e08a81f422733e6673ef3eb0ee11066f72e7316878a76013db
 
 monitorOpensearchWrapper:
   recoverySchedule: "*/15 * * * *"
