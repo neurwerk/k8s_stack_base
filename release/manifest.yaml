@@ -1,18 +1,19 @@
 apiVersion: platform.neurwerk.com/v1alpha1
 kind: PlatformRelease
 metadata:
-  name: v0.4.0
+  name: v0.3.30
 spec:
-  version: 0.4.0
-  releaseDate: '2026-10-27'
-  summary: Standalone add-on baseline
+  version: 0.3.30
+  releaseDate: '2026-10-31'
+  summary: Gateway credential controls, reliability fixes and optional monitoring and private access
   trust:
     signerIdentity: platform-release
     algorithm: ssh-ed25519
     fingerprint: SHA256:+rDcofrsfRE3ElJJxnUVoB3gmoEzZJUrisDqLZMHimw
   compatibility:
-    stableUpgrade: fresh-install-only
-    upgradesFromAlphaRevisions: []
+    stableUpgrade: supported
+    upgradesFromAlphaRevisions:
+    - 25ee6c19e0921f78c4cd2e0ffb2c2abf48f9a54c
     downgrade: unsupported
     recovery: forward-fix
   packages:
@@ -35,8 +36,8 @@ spec:
       chartPrefixes: []
       prerequisites:
       - name: openbao-stack-setup
-        version: 0.6.0
-        source: https://github.com/neurwerk/k8s_stack_tooling/commit/2825f854c8c15a1ce259988eeca8901bf6f3d496
+        version: 0.8.4
+        source: https://github.com/neurwerk/k8s_stack_tooling/commit/89734e057c1a58b0836d0205760169a0c7a0d85f
     - path: releases/glitchtip/postgres
       status: included
       reason: Optional dedicated GlitchTip database using the existing operations PostgreSQL; requires
@@ -54,8 +55,8 @@ spec:
         version: 0.15.6
         source: https://github.com/neurwerk/k8s_stack_tooling/releases/tag/v0.15.6
       - name: openbao-stack-setup
-        version: 0.6.0
-        source: https://github.com/neurwerk/k8s_stack_tooling/commit/2825f854c8c15a1ce259988eeca8901bf6f3d496
+        version: 0.8.4
+        source: https://github.com/neurwerk/k8s_stack_tooling/commit/89734e057c1a58b0836d0205760169a0c7a0d85f
     - path: releases/glitchtip/secret-sync/initial-owner
       status: included
       reason: Optional initial local organization-owner credentials for native provisioning; never delivered
@@ -63,8 +64,8 @@ spec:
       chartPrefixes: []
       prerequisites:
       - name: openbao-stack-setup
-        version: 0.6.0
-        source: https://github.com/neurwerk/k8s_stack_tooling/commit/2825f854c8c15a1ce259988eeca8901bf6f3d496
+        version: 0.8.4
+        source: https://github.com/neurwerk/k8s_stack_tooling/commit/89734e057c1a58b0836d0205760169a0c7a0d85f
     - path: releases/glitchtip/adapter-access
       status: included
       reason: Optional reader credentials, internal CA distribution and scoped access; import the verified
@@ -72,8 +73,8 @@ spec:
       chartPrefixes: []
       prerequisites:
       - name: openbao-stack-setup
-        version: 0.6.0
-        source: https://github.com/neurwerk/k8s_stack_tooling/commit/2825f854c8c15a1ce259988eeca8901bf6f3d496
+        version: 0.8.4
+        source: https://github.com/neurwerk/k8s_stack_tooling/commit/89734e057c1a58b0836d0205760169a0c7a0d85f
     - path: releases/glitchtip/tailscale-access
       status: included
       reason: Optional egress allowance for only the managed GlitchTip UI proxy. Requires the existing
@@ -137,8 +138,8 @@ spec:
         version: 0.2.0
         source: https://github.com/neurwerk/k8s_stack_tooling/commit/50b0c29c60482033bc0ceac58ca5a68733e5b075
       - name: openbao-stack-setup
-        version: 0.4.3
-        source: https://github.com/neurwerk/k8s_stack_tooling/commit/fee1854a8d55d1b9ded5dda221e4fb854ef66c56
+        version: 0.8.4
+        source: https://github.com/neurwerk/k8s_stack_tooling/commit/89734e057c1a58b0836d0205760169a0c7a0d85f
     - path: releases/docling/secret-sync/internal
       status: included
       reason: Optional CPU API-key delivery; provision operator credentials before startup, without an
@@ -146,8 +147,8 @@ spec:
       chartPrefixes: []
       prerequisites:
       - name: openbao-stack-setup
-        version: 0.4.3
-        source: https://github.com/neurwerk/k8s_stack_tooling/commit/fee1854a8d55d1b9ded5dda221e4fb854ef66c56
+        version: 0.8.4
+        source: https://github.com/neurwerk/k8s_stack_tooling/commit/89734e057c1a58b0836d0205760169a0c7a0d85f
     - path: releases/docling/secret-sync
       status: included
       reason: Optional remote-mode credential delivery; provision the API key and inference token before
@@ -155,8 +156,8 @@ spec:
       chartPrefixes: []
       prerequisites:
       - name: openbao-stack-setup
-        version: 0.4.3
-        source: https://github.com/neurwerk/k8s_stack_tooling/commit/fee1854a8d55d1b9ded5dda221e4fb854ef66c56
+        version: 0.8.4
+        source: https://github.com/neurwerk/k8s_stack_tooling/commit/89734e057c1a58b0836d0205760169a0c7a0d85f
     - path: releases/docling/reloader
       status: included
       reason: Optional Docling namespace watch and rotation RBAC; compose only after its namespace exists.
@@ -173,8 +174,8 @@ spec:
       - charts/docling
       prerequisites:
       - name: openbao-stack-setup
-        version: 0.4.3
-        source: https://github.com/neurwerk/k8s_stack_tooling/commit/fee1854a8d55d1b9ded5dda221e4fb854ef66c56
+        version: 0.8.4
+        source: https://github.com/neurwerk/k8s_stack_tooling/commit/89734e057c1a58b0836d0205760169a0c7a0d85f
     - path: releases/namespaces/maintenance
       status: included
       reason: Operator-tested optional maintenance; enable only when selected by the client.
@@ -206,8 +207,8 @@ spec:
       chartPrefixes: []
       prerequisites:
       - name: openbao-stack-setup
-        version: 0.5.0
-        source: https://github.com/neurwerk/k8s_stack_tooling/commit/d0fba64e974969d0381acf80206cf7148c24da84
+        version: 0.8.4
+        source: https://github.com/neurwerk/k8s_stack_tooling/commit/89734e057c1a58b0836d0205760169a0c7a0d85f
     - path: releases/tailscale/access
       status: included
       reason: Optional separately owned API TCP transport; disabled and suspended by default pending explicit
@@ -229,8 +230,8 @@ spec:
       chartPrefixes: []
       prerequisites:
       - name: openbao-stack-setup
-        version: 0.4.3
-        source: https://github.com/neurwerk/k8s_stack_tooling/commit/fee1854a8d55d1b9ded5dda221e4fb854ef66c56
+        version: 0.8.4
+        source: https://github.com/neurwerk/k8s_stack_tooling/commit/89734e057c1a58b0836d0205760169a0c7a0d85f
     - path: releases/contextforge/oauth-apps
       status: included
       reason: Provider application credential delivery is selected only with approved registrations; all
@@ -238,8 +239,8 @@ spec:
       chartPrefixes: []
       prerequisites:
       - name: openbao-stack-setup
-        version: 0.4.3
-        source: https://github.com/neurwerk/k8s_stack_tooling/commit/fee1854a8d55d1b9ded5dda221e4fb854ef66c56
+        version: 0.8.4
+        source: https://github.com/neurwerk/k8s_stack_tooling/commit/89734e057c1a58b0836d0205760169a0c7a0d85f
   prerequisites:
   - name: flux
     version: 2.9.4
@@ -248,8 +249,8 @@ spec:
     version: 0.0.5
     source: oci://ghcr.io/clickhouse/clickhouse-operator-helm
   - name: openbao-stack-setup
-    version: 0.4.3
-    source: https://github.com/neurwerk/k8s_stack_tooling/commit/fee1854a8d55d1b9ded5dda221e4fb854ef66c56
+    version: 0.8.4
+    source: https://github.com/neurwerk/k8s_stack_tooling/commit/89734e057c1a58b0836d0205760169a0c7a0d85f
   - name: gateway-api-experimental
     version: 1.6.0
     source: https://github.com/kubernetes-sigs/gateway-api/releases/tag/v1.6.0
@@ -1064,7 +1065,7 @@ spec:
       lua: 5.4.9
   provenance:
     previousTag: v0.3.29
-    includedThrough: a1b0e204598a99bff843c197dc5440ff7d715e2f
+    includedThrough: 25ee6c19e0921f78c4cd2e0ffb2c2abf48f9a54c
     commits:
     - fc8c8e5171e23a98509db37407ec1458b7647931
     - 6d91d09844fd4bd214de9f47c0295bbbb3540c01
@@ -1166,4 +1167,6 @@ spec:
     - 8fa68fac6187154405c4212a5f7457cab231c0b0
     - d2053342856a82905d5ee3f00879e0547cb22909
     - a1b0e204598a99bff843c197dc5440ff7d715e2f
-    compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.29...a1b0e204598a99bff843c197dc5440ff7d715e2f
+    - ed87414195ed998e1f0760b3f22c75f7f177fb34
+    - 25ee6c19e0921f78c4cd2e0ffb2c2abf48f9a54c
+    compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.29...25ee6c19e0921f78c4cd2e0ffb2c2abf48f9a54c
