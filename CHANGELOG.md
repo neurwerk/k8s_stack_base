@@ -9,15 +9,35 @@ upgrade path.
 
 ## [Unreleased]
 
-## [0.4.0] - 2026-10-27
+## [0.3.30] - 2026-10-31
 
-- Prepare the future 0.4.0 standalone add-on baseline for maintenance-window alpha adoption on the existing installation, followed by promotion of an exact frozen and reconciled alpha revision. Version, release date and promotion evidence are assigned by the later release preparation step; these changes are not published or ready for adoption.
-- Direct stable-to-stable upgrade support for the future baseline remains unreviewed. Prepare that release with `stableUpgrade: fresh-install-only`; this does not describe alpha adoption or authorize reinstalling Base, OpenBao or storage. Existing-data promotion uses adoption mode `upgrade` and an explicit `upgradesFromAlphaRevisions` entry once frozen.
-- The clean break applies to optional add-on definitions and interfaces. Any application-data reset requires a separate, named decision; no infrastructure or persistent-data reset is authorized by this candidate.
-- Require client-approved browser callbacks, origins and all requested gateway permissions before identity mutation; pass approved add-on AD groups into runtime validation and require existing target groups.
-- Allow independently pinned ownership-capable access provisioners and pin the unchanged DocumentDB `pg18-0.116.0` native image to its anonymously verified multi-platform digest.
-- Release gate: publish and verify Tooling `0.14.0` and stack-setup `0.7.0`, then update their intended consumers and prerequisites. Existing runtime pins are retained until verified replacements exist.
-- Prepare the successor of v0.3.29 through the existing release workflow after the complete candidate is reviewed, committed and reconciled; signing and release execution remain operator-owned.
+### Fixes and improvements
+
+- Use `global` and `override` provider credentials with explicit mode selection through `X-Neurwerk-Credential-Mode`, no fallback to global billing, and configured/missing/disabled global-credential status.
+- Show usage by person, application and named API key using verified caller information.
+- Isolate attachment-policy overrides between models and preserve Ollama timing data in streamed responses.
+- Use Neurwerk branding for PII protection notices and improve MCP forwarding readiness and GlitchTip ingestion and connection checks.
+- Raise shared PostgreSQL defaults to 200 connections and 512 locks per transaction, with configurable limits, and honor the Alertmanager disable switch.
+- Fix maintenance startup with a read-only filesystem by removing the unused control socket.
+- Adopt Studio `0.21.1`, extProc `0.20.1`, API-key bridge `0.11.0`, PII Engine `0.15.3`, shared runtime Tooling `0.15.6` and setup `0.8.4`; only maintenance uses runtime Tooling `0.15.7`.
+- Remove the optional WireGuard package.
+
+### Optional features
+
+- Add GlitchTip error tracking, log forwarding, public status pages, uptime and private-network checks, and an MCP connection; management access stays private.
+- Add Tailscale private access with separately selected Kubernetes API transport; operator and API access are disabled and suspended by default.
+- Provide Studio gateway endpoint and operation references, plus optional model-limit and capability metadata without changing routing or enforcement.
+
+### Separately released add-ons
+
+- Support independently versioned add-on definitions, tooling and credentials, with approved login/logout URLs, origins, gateway permissions and directory groups; Base does not install add-ons automatically.
+- LibreChat adds optional subagents and current-message file sharing, both off by default; parent agents must opt in and sibling sharing stays disabled.
+- Pipecat fixes private-page login and app-local logout; signing out clears the app session without ending the Keycloak session.
+- Dify refreshes its custom API and Web images.
+
+### Upgrade
+
+Manual fixes might be required for add-on configuration, provider credentials and login/logout settings, database capacity settings, and replacement of removed WireGuard access.
 
 ## [0.3.29] - 2026-10-21
 
