@@ -283,7 +283,7 @@ exceptions:
     before dropping back to UID 1000.
 provenance:
   previousTag: v0.3.29
-  includedThrough: 28c0d0210a4b0e75df27a6886978f96ff9a5ad53
+  includedThrough: a1b0e204598a99bff843c197dc5440ff7d715e2f
   commits:
   - fc8c8e5171e23a98509db37407ec1458b7647931
   - 6d91d09844fd4bd214de9f47c0295bbbb3540c01
@@ -382,4 +382,7 @@ provenance:
   - 2ca5d83da2ce93407e07f6b082856d889da9296c
   - 3f1ec7334e5a28fda0d6b6ecf8737c6abce536e7
   - 28c0d0210a4b0e75df27a6886978f96ff9a5ad53
-  compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.29...28c0d0210a4b0e75df27a6886978f96ff9a5ad53
+  - 8fa68fac6187154405c4212a5f7457cab231c0b0
+  - d2053342856a82905d5ee3f00879e0547cb22909
+  - a1b0e204598a99bff843c197dc5440ff7d715e2f
+  compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.29...a1b0e204598a99bff843c197dc5440ff7d715e2f
