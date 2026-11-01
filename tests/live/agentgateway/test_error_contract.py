@@ -210,6 +210,7 @@ class ErrorContractTest(unittest.IsolatedAsyncioTestCase):
                         connection.putrequest("POST", path)
                         connection.putheader("content-type", "application/json")
                         connection.putheader("x-neurwerk-authorization", f"Bearer {credential}")
+                        connection.putheader("x-neurwerk-credential-mode", "global")
                         connection.putheader("x-request-id", "caller-spoof")
                         connection.putheader("x-request-id", "second-spoof")
                         payload = json.dumps(BODY).encode()

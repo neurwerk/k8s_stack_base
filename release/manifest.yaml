@@ -1,11 +1,11 @@
 apiVersion: platform.neurwerk.com/v1alpha1
 kind: PlatformRelease
 metadata:
-  name: v0.3.30
+  name: v0.3.31
 spec:
-  version: 0.3.30
-  releaseDate: '2026-10-31'
-  summary: Gateway credential controls, reliability fixes and optional monitoring and private access
+  version: 0.3.31
+  releaseDate: '2026-11-01'
+  summary: Require explicit model credential selection and support per-model allowed modes
   trust:
     signerIdentity: platform-release
     algorithm: ssh-ed25519
@@ -286,7 +286,7 @@ spec:
     charts:
     - path: charts/agentgateway
       name: infra-agentgateway
-      version: 4.0.1
+      version: 4.0.2
       appVersion: 1.6.0
       dependencyLock:
         digest: sha256:ef5fd87240e231990e45578f9deb65e6a6f947ba8a8b846cf13954882299cb3a

@@ -1,6 +1,6 @@
-version: 0.3.30
-releaseDate: '2026-10-31'
-summary: Gateway credential controls, reliability fixes and optional monitoring and private access
+version: 0.3.31
+releaseDate: '2026-11-01'
+summary: Require explicit model credential selection and support per-model allowed modes
 helmOutputs:
   releases/keycloak/server.yaml:
   - kind: Secret

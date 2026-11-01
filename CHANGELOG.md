@@ -9,6 +9,10 @@ upgrade path.
 
 ## [Unreleased]
 
+## [0.3.31] - 2026-11-01
+
+- Require explicit credential modes for LLM inference, with per-model allowed modes. MCP and model discovery remain header-optional.
+
 ## [0.3.30] - 2026-10-31
 
 ### Fixes and improvements

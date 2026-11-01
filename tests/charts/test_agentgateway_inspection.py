@@ -157,7 +157,11 @@ class ApprovedOidcTests(unittest.TestCase):
         jwt.update(claims)
         context = {
             "jwt": jwt, "extauthz": {},
-            "request": {"path": path, "method": method, "headers": {"authorization": "Bearer synthetic"}},
+            "request": {"path": path, "method": method, "headers": {
+                "authorization": "Bearer synthetic",
+                **({} if path.startswith("/mcp/") else {
+                    "x-neurwerk-credential-mode": "none" if path.startswith("/bindings/local/") else "global"}),
+            }},
         }
         if not self.evaluate(self.expression, context):
             return False
@@ -176,6 +180,8 @@ class ApprovedOidcTests(unittest.TestCase):
             "permissions": jwt["resource_access"]["agentgateway"]["roles"],
             "policy_revision": re.search(r'policy_revision == "([a-f0-9]+)"', expression).group(1),
             "path": path, "method": method, "standard_oidc": True, "provider_headers": [],
+            **({} if path.startswith("/mcp/") else {
+                "provider_credential_source": "none" if path.startswith("/bindings/local/") else "global"}),
         }}
         return self.evaluate(expression, context)
 

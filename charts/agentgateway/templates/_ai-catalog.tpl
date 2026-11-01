@@ -29,13 +29,13 @@
 {{- $route := dict "id" $id "url" (printf "https://%s:%d" $.Values.aiGateway.proxy.hostname (int $.Values.aiGateway.proxy.publicPort)) "entry_mode" "forward_proxy" "caller_auth_modes" (list "proxy_basic") }}
 {{- $routes = append $routes $route }}{{- $_ := set $endpoints $id $route }}
 {{- end }}
+{{- range $model := $binding.models }}
 {{- $modes := list }}
-{{- range $source := $binding.credentialSources }}
+{{- range $source := $model.credentialSources }}
 {{- $permissions := list }}
 {{- if eq $source "global" }}{{ $permissions = list (printf "provider:%s:global-use" $binding.providerId) }}{{ end }}
 {{- $modes = append $modes (dict "source" $source "required_permissions" $permissions) }}
 {{- end }}
-{{- range $model := $binding.models }}
 {{- $profileIds := $binding.profiles }}
 {{- if $binding.discovery }}{{ $profileIds = append $profileIds "openai-model-discovery-v1" }}{{ end }}
 {{- $destination := dict "id" $model.name "kind" "model" "display_name" $model.displayName "endpoint_ids" $endpointIds "profile_ids" $profileIds "required_permissions" (get $binding.modelBindings $model.name).required_permissions "credential_modes" $modes "provider_id" $binding.providerId }}

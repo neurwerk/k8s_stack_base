@@ -131,17 +131,17 @@ spec:
   virtualModel:
     conditional:
       targets:
-        {{- if $binding.localReroute }}
+        {{- if and $binding.localReroute (has "global" $model.configuredCredentialSources) }}
         - when: {{ printf `metadata.neurwerk_admission.provider_credential_source == "global" && extproc["neurwerk.request_context"].dispatch_destination_id == %q && extproc["neurwerk.request_context"].dispatch_binding_id == %q` $binding.localReroute $binding.localRerouteBackend.binding_id | squote }}
           modelRef: {name: {{ $name }}-local-reroute}
         {{- end }}
-        {{- range $source := $binding.configuredCredentialSources | default $binding.credentialSources }}
+        {{- range $source := $model.configuredCredentialSources }}
         - when: {{ printf `metadata.neurwerk_admission.provider_credential_source == %q && extproc["neurwerk.request_context"].dispatch_destination_id == %q && extproc["neurwerk.request_context"].dispatch_binding_id == %q` $source $model.name $binding.id | squote }}
           modelRef:
             name: {{ $name }}-{{ $source }}
         {{- end }}
 {{- end }}
-{{- range $source := $binding.configuredCredentialSources | default $binding.credentialSources }}
+{{- range $source := $model.configuredCredentialSources }}
 ---
 apiVersion: agentgateway.dev/v1alpha1
 kind: AgentgatewayModel
@@ -196,7 +196,7 @@ spec:
       - field: model
         expression: {{ $model.upstreamModel | toJson | squote }}
 {{- end }}
-{{- if $binding.localReroute }}
+{{- if and $binding.localReroute (has "global" $model.configuredCredentialSources) }}
 {{- $target := $binding.localRerouteBackend }}
 ---
 apiVersion: agentgateway.dev/v1alpha1

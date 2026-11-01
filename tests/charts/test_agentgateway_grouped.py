@@ -41,6 +41,32 @@ def catalog(result):
 class GroupedGatewayTests(unittest.TestCase):
     evaluate = inspection.ApprovedOidcTests.evaluate
 
+    def test_model_modes_limit_catalog_and_native_targets(self):
+        values = binding_values()
+        binding = values["external-api-providers"][0]
+        binding["models"] = [
+            {"name": "global-chat", "upstreamModel": "global-upstream", "credentialSources": ["global"]},
+            {"name": "override-chat", "upstreamModel": "override-upstream", "credentialSources": ["override"]},
+        ]
+        values["authKeycloak"]["agentgatewayClientRoles"].extend(
+            ["model:global-chat:invoke", "model:override-chat:invoke"])
+        rendered = render("agentgateway", values)
+        owner = next(entry for entry in catalog(rendered)["external-api-providers"] if entry["id"] == "openai")
+        for model, allowed in [("global-chat", "global"), ("override-chat", "override")]:
+            destination = next(item for item in owner["destinations"] if item["id"] == model)
+            self.assertEqual([mode["source"] for mode in destination["credential_modes"]], [allowed])
+            virtual = next(doc for doc in documents(rendered) if doc["kind"] == "AgentgatewayModel"
+                           and "virtualModel" in doc["spec"] and doc["spec"]["match"]["model"] == model)
+            targets = virtual["spec"]["virtualModel"]["conditional"]["targets"]
+            for source in ["global", "override"]:
+                context = {"metadata": {"neurwerk_admission": {"provider_credential_source": source}},
+                           "extproc": {"neurwerk.request_context": {
+                               "dispatch_destination_id": model, "dispatch_binding_id": "openai"}}}
+                self.assertEqual(any(CredentialModeTests.value(target["when"], context) for target in targets),
+                                 source == allowed)
+        binding["models"][0]["credentialSources"] = ["none"]
+        self.assertNotEqual(render("agentgateway", values, check=False).returncode, 0)
+
     def test_studio_cors_is_exact_and_attached_to_every_external_route(self):
         values = capacity_values(65)
         values["frontendStudio"] = {"studio": {"hostname": "studio.example.test"}}
@@ -215,7 +241,8 @@ class GroupedGatewayTests(unittest.TestCase):
                 (["authorization", "x-api-key"], {"authorization": 1, "x-api-key": 1}, False),
                 (["x-api-key"], {"x-api-key": 1}, False),
             ]:
-                identity.update(provider_headers=headers, provider_header_counts=counts)
+                identity.update(provider_headers=headers, provider_header_counts=counts,
+                                provider_credential_source="override" if headers else "global")
                 context = {"jwt": {}, "metadata": {"neurwerk_identity": identity}}
                 self.assertEqual(self.evaluate(route, context), admitted)
                 frozen = program.evaluate({"metadata": json_to_cel(context["metadata"])})
@@ -311,7 +338,7 @@ class GroupedGatewayTests(unittest.TestCase):
             if shared is not None:
                 self.assertEqual(shared, normalized)
             shared = normalized
-            self.assertEqual(len(traffic["transformation"]["conditional"]), 6)
+            self.assertEqual(len(traffic["transformation"]["conditional"]), 7)
             for branch in traffic["transformation"]["conditional"]:
                 self.assertLessEqual(len(branch["condition"]), 16384)
                 for direction in ["request", "response"]:
@@ -355,12 +382,13 @@ class CredentialModeTests(unittest.TestCase):
                 for key, value in headers.items()
             }),
             "uuid": lambda: celtypes.StringType("synthetic-request"),
+            "substring": lambda value, start: celtypes.StringType(value[int(start):]),
         })
         result = program.evaluate({key: json_to_cel(value) for key, value in context.items()})
         return json.loads(json.dumps(result, cls=CELJSONEncoder))
 
     def chain(self, lines, *, binding="openai", discovery=False, roles=None, rendered=None, dedicated=True,
-              operation="chat/completions"):
+              oidc=False, operation="chat/completions"):
         rendered = rendered or self.rendered
         mcp = binding == "mcp-context7"
         path = "/mcp/context7" if mcp else f"/bindings/{binding}/v1/" + (
@@ -376,7 +404,10 @@ class CredentialModeTests(unittest.TestCase):
         if dedicated:
             headers["x-neurwerk-authorization"] = "Bearer synthetic-platform"
         context = {
-            "jwt": {}, "extauthz": {
+            "jwt": ({"sub": "synthetic-user", "azp": "agentgateway", "resource_access": {
+                "agentgateway": {"roles": roles if roles is not None else [
+                    "llm:invoke", "model:example-chat:invoke", "model:local-chat:invoke",
+                    "provider:openai:global-use", "mcp:context7:invoke"]}}} if oidc else {}), "extauthz": {
                 "contract_version": 1, "principal_id": "synthetic-user", "request_id": "synthetic-request",
                 "credential_id": "synthetic-key", "credential_kind": "personal", "account_email": None,
                 "permissions": roles if roles is not None else [
@@ -435,7 +466,11 @@ class CredentialModeTests(unittest.TestCase):
             "spec"]["traffic"]["jwtAuthentication"]["location"]["expression"]
         self.assertEqual(self.value(expression, {"request": {"headers": {
             "x-neurwerk-credential-mode": "global", "authorization": "Bearer synthetic-oidc",
+            "x-neurwerk-authorization": "invalid-platform-key",
         }}}), "")
+        self.assertEqual(self.value(expression, {"request": {"headers": {
+            "x-neurwerk-credential-mode": "global", "authorization": "Bearer synthetic-oidc",
+        }}}), "synthetic-oidc")
 
     def test_global_none_stripping_and_frozen_dispatch(self):
         for binding, mode in [("openai", "global"), ("local", "none"), ("mcp-context7", "none")]:
@@ -522,19 +557,31 @@ class CredentialModeTests(unittest.TestCase):
         self.assertFalse(self.chain([("x-neurwerk-credential-mode", "override"),
                                     ("Cookie", "synthetic=value")], discovery=True)[0])
 
-    def test_absent_mode_retains_legacy_selection_and_discovery_denial(self):
-        for binding, extra, source in [
-            ("openai", [], "global"), ("openai", [("authorization", "Bearer synthetic-provider")], "override"),
-            ("local", [], "none"), ("mcp-context7", [], "none"),
-            ("openai", [("Cookie", "synthetic=value")], "global"),
-            ("openai", [("authorization", "Bearer synthetic-provider"), ("Cookie", "synthetic=value")], "override"),
-            ("mcp-context7", [("Cookie", "synthetic=value")], "none"),
-        ]:
-            admitted, context = self.chain(extra, binding=binding)
+    def test_absent_mode_is_denied_only_for_model_calls(self):
+        for binding, extra in [("openai", []), ("local", []),
+                               ("openai", [("authorization", "Bearer synthetic-provider")])]:
+            self.assertFalse(self.chain(extra, binding=binding)[0])
+        for binding, discovery in [("mcp-context7", False), ("openai", True)]:
+            admitted, _ = self.chain([], binding=binding, discovery=discovery)
             self.assertTrue(admitted)
-            self.assertEqual(context["metadata"]["neurwerk_admission"]["provider_credential_source"], source)
-            self.assertNotIn("cookie", context["request"]["headers"])
         self.assertFalse(self.chain([("authorization", "Bearer synthetic-provider")], discovery=True)[0])
+
+    def test_oidc_mode_keeps_identity_for_discovery_and_strips_it_for_inference(self):
+        for discovery in [False, True]:
+            admitted, context = self.chain([
+                ("authorization", "Bearer synthetic-oidc"),
+                ("x-neurwerk-credential-mode", "global"),
+            ], dedicated=False, oidc=True, discovery=discovery)
+            self.assertTrue(admitted)
+            self.assertEqual(context["metadata"]["neurwerk_identity"]["provider_credential_source"], "global")
+            self.assertEqual("authorization" in context["request"]["headers"], discovery)
+        self.assertFalse(self.chain([("authorization", "Bearer synthetic-oidc"),
+                                     ("x-neurwerk-credential-mode", "override")],
+                                    dedicated=False, oidc=True)[0])
+        self.assertTrue(self.chain([("authorization", "Bearer synthetic-oidc")],
+                                   binding="mcp-context7", dedicated=False, oidc=True)[0])
+        self.assertTrue(self.chain([("authorization", "Bearer synthetic-oidc")],
+                                   discovery=True, dedicated=False, oidc=True)[0])
 
     def test_exact_anthropic_header_and_codex_oauth_are_preserved(self):
         for lines, expected in [
@@ -554,7 +601,7 @@ class CredentialModeTests(unittest.TestCase):
         codex.pop("localReroute")
         values["external-subscription-providers"] = [codex]
         rendered = render("agentgateway", values)
-        for selector in [[], [("x-neurwerk-credential-mode", "override")]]:
+        for selector in [[("x-neurwerk-credential-mode", "override")]]:
             admitted, context = self.chain([
                 *selector, ("authorization", "Bearer synthetic.oauth.token"),
                 ("chatgpt-account-id", "synthetic-account"), ("openai-beta", "responses=experimental"),

@@ -157,6 +157,7 @@ provider header and accidentally choose a global account instead. */}}
 {{- if or (ne $row.provider $binding.provider) (ne (trimSuffix "/" $row.baseURL) (trimSuffix "/" $binding.upstreamURL)) (ne ($row.authSecret | default "") ($binding.authSecret | default "")) }}{{ fail "catalog model provider, upstream and global credential must match its binding" }}{{ end -}}
 {{- else if ne (toJson $row.local) "true" }}{{ fail "local bindings require explicitly local catalog models" }}{{ end -}}
 {{- $model := dict "name" $id "upstreamModel" $row.model "displayName" ($row.label | default $id) "piiEnabled" ($row.piiEnabled | default true) "contentTracingEnabled" ($row.contentTracingEnabled | default false) "attachments" ($row.attachments | default ($binding.attachments | default dict)) -}}
+{{- if hasKey $row "credentialSources" }}{{ $_ := set $model "credentialSources" $row.credentialSources }}{{ end -}}
 {{- if hasKey $row "piiEnabled" }}{{ $_ := set $model "piiEnabled" $row.piiEnabled }}{{ end -}}
 {{- if hasKey $row "supportsImages" }}{{ $_ := set $model "supportsImages" $row.supportsImages }}{{ end -}}
 {{- $selectedModels = append $selectedModels $model -}}
@@ -165,7 +166,7 @@ provider header and accidentally choose a global account instead. */}}
 {{- $models := list -}}{{- $aliases := dict -}}{{- $modelBindings := dict -}}
 {{- range $model := $selectedModels -}}
 {{- range $key, $_ := $model -}}
-{{- if not (has $key (list "name" "upstreamModel" "displayName" "piiEnabled" "contentTracingEnabled" "attachments" "supportsImages")) }}{{ fail (printf "unsupported binding model field %s" $key) }}{{ end -}}
+{{- if not (has $key (list "name" "upstreamModel" "displayName" "piiEnabled" "contentTracingEnabled" "attachments" "supportsImages" "credentialSources")) }}{{ fail (printf "unsupported binding model field %s" $key) }}{{ end -}}
 {{- end -}}
 {{- $name := $model.name | default "" -}}{{- $upstream := $model.upstreamModel | default "" -}}
 {{- if not (regexMatch `^[A-Za-z0-9][A-Za-z0-9._/-]{0,127}$` $name) }}{{ fail "binding model name must be a canonical permission-safe ID" }}{{ end -}}
@@ -178,6 +179,13 @@ provider header and accidentally choose a global account instead. */}}
 {{- if hasKey $destinations $name }}{{ fail "each canonical model must belong to exactly one provider/upstream binding" }}{{ end -}}
 {{- $_ := set $destinations $name true -}}
 {{- $normalized := mergeOverwrite (dict "piiEnabled" true "contentTracingEnabled" false "attachments" (deepCopy ($binding.attachments | default dict)) "displayName" $name) (deepCopy $model) -}}
+{{- if hasKey $model "credentialSources" -}}
+{{- $allowed := $model.credentialSources -}}
+{{- if or (not (kindIs "slice" $allowed)) (empty $allowed) (gt (len $allowed) 2) (ne (len $allowed) (len (uniq $allowed))) }}{{ fail "model credentialSources must be a nonempty unique list" }}{{ end -}}
+{{- range $source := $allowed -}}
+{{- if not (has $source $sources) }}{{ fail "model credentialSources must be a subset of binding credentialSources" }}{{ end -}}
+{{- end -}}
+{{- end -}}
 {{- if or (not (kindIs "string" $normalized.displayName)) (empty $normalized.displayName) (gt (len $normalized.displayName) 128) }}{{ fail "binding model displayName must be a nonempty string of at most 128 characters" }}{{ end -}}
 {{- range $flag := list "piiEnabled" "contentTracingEnabled" -}}
 {{- if not (kindIs "bool" (get $normalized $flag)) }}{{ fail "binding model PII/tracing flags must be booleans" }}{{ end -}}
@@ -232,6 +240,15 @@ provider header and accidentally choose a global account instead. */}}
 {{- $_ := set $binding "configuredCredentialSources" $sources -}}
 {{- $credential := include "infra-agentgateway.globalCredential" (dict "root" $ "name" $binding.authSecret) | fromJson -}}
 {{- if not $credential.available }}{{ $_ := set $binding "credentialSources" (without $sources "global") }}{{ end -}}
+{{- end -}}
+{{- range $model := $binding.models -}}
+{{- $allowed := $model.credentialSources | default $sources -}}
+{{- $_ := set $model "configuredCredentialSources" $allowed -}}
+{{- $effectiveModes := list -}}
+{{- range $source := $binding.credentialSources -}}
+{{- if has $source $allowed }}{{ $effectiveModes = append $effectiveModes $source }}{{ end -}}
+{{- end -}}
+{{- $_ := set $model "credentialSources" $effectiveModes -}}
 {{- end -}}
 {{- if or (gt (len (toJson $modelBindings)) 16384) (gt (len (toJson $attachment)) 14000) }}{{ fail "v6 binding exceeds native metadata expression limits" }}{{ end -}}
 {{- $effective = append $effective $binding -}}
