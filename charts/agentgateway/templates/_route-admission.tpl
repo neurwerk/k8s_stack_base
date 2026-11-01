@@ -103,6 +103,11 @@ type(metadata.neurwerk_identity.principal_id) == string && size(metadata.neurwer
 {{- $conditions = append $conditions (printf "(%s)" (include "infra-agentgateway.routeOperationCondition" (dict "binding" $.binding "entry" $.entry "operation" .))) -}}
 {{- end -}}
 ({{ include "infra-agentgateway.routeIdentityAuthorization" . }}) && ({{ join " || " $conditions }}) &&
+{{- if ne (.binding.kind | default "model") "mcp" }}
+{{- if eq .entry.mode "api" }}
+has(metadata.neurwerk_identity.provider_credential_source) && metadata.neurwerk_identity.provider_credential_source != null &&
+{{- end }}
+{{- end }}
 {{- if .binding.local }}
 size(metadata.neurwerk_identity.provider_headers) == 0 &&
 ({{ include "infra-agentgateway.routeCredentialSource" .binding }}) == "none"

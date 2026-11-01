@@ -289,6 +289,7 @@ def _request(config: Config, payload: dict, *, api_key: str, spoof: bool = False
     headers = {
         "Accept": "text/event-stream" if payload.get("stream") else "application/json",
         "X-Neurwerk-Authorization": f"Bearer {api_key}",
+        "X-Neurwerk-Credential-Mode": "global",
         "Content-Type": "application/json",
         "User-Agent": "neurwerk-live-acceptance/1",
     }

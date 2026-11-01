@@ -112,7 +112,7 @@ class AdmissionTest(unittest.TestCase):
                     policies["transformations"] = transformations(traffic["transformation"])
                 # Observe trusted metadata after gateway stripping and route admission.
                 backend_policies = {"transformations": {"request": {"set": {
-                    "x-test-frozen-source": 'has(metadata.neurwerk_admission) ? metadata.neurwerk_admission.provider_credential_source : metadata.neurwerk_identity.provider_credential_source',
+                    "x-test-frozen-source": 'has(metadata.neurwerk_admission) ? metadata.neurwerk_admission.provider_credential_source : (has(metadata.neurwerk_identity.provider_credential_source) && metadata.neurwerk_identity.provider_credential_source != null ? metadata.neurwerk_identity.provider_credential_source : "absent")',
                 }}}}
                 routes.append({"gateways": name, "policies": policies, "backends": [{
                     "host": f"127.0.0.1:{server.server_port}", "policies": backend_policies,
@@ -153,8 +153,11 @@ class AdmissionTest(unittest.TestCase):
                         selector = "X-Neurwerk-Credential-Mode"
                         bearer = ("Authorization", "Bearer incidental")
                         cases = [
-                            ("openai", [], 200, "global"),
-                            ("openai", [bearer], 200, "override"),
+                            ("openai", [], 403, None),
+                            ("openai", [bearer], 403, None),
+                            ("local", [], 403, None),
+                            ("mcp", [], 200, "none"),
+                            ("openai", [(selector, "global")], 200, "global"),
                             ("openai", [(selector, "global"), bearer], 200, "global"),
                             ("local", [(selector, " \tnone\t "), bearer], 200, "none"),
                             ("mcp", [(selector, "none"), bearer], 200, "none"),
@@ -172,6 +175,7 @@ class AdmissionTest(unittest.TestCase):
                             ("openai", [(selector, "")], 403, None),
                             ("discovery", [(selector, " \toverride ")], 200, "override"),
                             ("discovery", [(selector, "global"), bearer], 200, "global"),
+                            ("discovery", [], 200, None),
                             ("discovery", [bearer], 403, None),
                         ]
                         cases = [(*case, {}) for case in cases] + [
@@ -215,11 +219,14 @@ class AdmissionTest(unittest.TestCase):
                                 self.assertEqual(len(upstream_calls), int(expected == 200))
                                 if expected == 200:
                                     sent = {key.lower(): value for key, value in upstream_calls[0][1].items()}
-                                    self.assertEqual(sent["x-test-frozen-source"], source)
+                                    self.assertEqual(sent["x-test-frozen-source"], source or "absent")
                                     self.assertNotIn("x-agentgateway-auth-context", sent)
                                     self.assertNotIn("proxy-authorization", sent)
                                     if name == "discovery":
-                                        self.assertEqual(sent[selector.lower()], source)
+                                        if source is None:
+                                            self.assertNotIn(selector.lower(), sent)
+                                        else:
+                                            self.assertEqual(sent[selector.lower()], source)
                                         self.assertIn("x-neurwerk-authorization", sent)
                                         self.assertNotIn("authorization", sent)
                                     else:
