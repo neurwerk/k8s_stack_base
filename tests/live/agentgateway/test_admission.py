@@ -153,9 +153,12 @@ class AdmissionTest(unittest.TestCase):
                         selector = "X-Neurwerk-Credential-Mode"
                         bearer = ("Authorization", "Bearer incidental")
                         cases = [
-                            ("openai", [], 200, "global"),
-                            ("openai", [bearer], 200, "override"),
+                            ("openai", [], 403, None),
+                            ("openai", [bearer], 403, None),
+                            ("local", [], 403, None),
+                            ("mcp", [], 403, None),
                             ("openai", [(selector, "global"), bearer], 200, "global"),
+                            ("openai", [(selector, "global")], 200, "global"),
                             ("local", [(selector, " \tnone\t "), bearer], 200, "none"),
                             ("mcp", [(selector, "none"), bearer], 200, "none"),
                             ("mcp", [(selector, "global")], 403, None),
@@ -172,6 +175,7 @@ class AdmissionTest(unittest.TestCase):
                             ("openai", [(selector, "")], 403, None),
                             ("discovery", [(selector, " \toverride ")], 200, "override"),
                             ("discovery", [(selector, "global"), bearer], 200, "global"),
+                            ("discovery", [], 403, None),
                             ("discovery", [bearer], 403, None),
                         ]
                         cases = [(*case, {}) for case in cases] + [

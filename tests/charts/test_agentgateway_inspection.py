@@ -157,7 +157,10 @@ class ApprovedOidcTests(unittest.TestCase):
         jwt.update(claims)
         context = {
             "jwt": jwt, "extauthz": {},
-            "request": {"path": path, "method": method, "headers": {"authorization": "Bearer synthetic"}},
+            "request": {"path": path, "method": method, "headers": {
+                "authorization": "Bearer synthetic",
+                "x-neurwerk-credential-mode": "none" if path.startswith("/mcp/") or path.startswith("/bindings/local/") else "global",
+            }},
         }
         if not self.evaluate(self.expression, context):
             return False
@@ -176,6 +179,7 @@ class ApprovedOidcTests(unittest.TestCase):
             "permissions": jwt["resource_access"]["agentgateway"]["roles"],
             "policy_revision": re.search(r'policy_revision == "([a-f0-9]+)"', expression).group(1),
             "path": path, "method": method, "standard_oidc": True, "provider_headers": [],
+            "provider_credential_source": "none" if path.startswith("/mcp/") or path.startswith("/bindings/local/") else "global",
         }}
         return self.evaluate(expression, context)
 
@@ -222,7 +226,8 @@ class ApprovedOidcTests(unittest.TestCase):
             "jwt": {}, "extauthz": {"contract_version": 1, "principal_id": "service-user",
                 "credential_id": "key-id", "credential_kind": "managed", "permissions": self.roles},
             "request": {"path": "/bindings/openai/v1/chat/completions", "method": "POST",
-                        "headers": {"x-neurwerk-authorization": "Bearer synthetic"}},
+                         "headers": {"x-neurwerk-authorization": "Bearer synthetic",
+                                     "x-neurwerk-credential-mode": "global"}},
         }))
 
     def test_invalid_approvals_are_rejected_at_render(self):
@@ -371,7 +376,8 @@ class EndpointRoutingTests(unittest.TestCase):
                 "contract_version": 1, "request_id": "test-request", "principal_id": "test-user",
                 "credential_id": "test-key", "credential_kind": "personal", "permissions": ["llm:invoke"],
             }, "request": {"path": path, "host": "chatgpt.com", "method": "POST", "headers": {
-                "authorization": "Bearer provider-synthetic", "x-neurwerk-authorization": "Bearer platform-synthetic",
+                 "authorization": "Bearer provider-synthetic", "x-neurwerk-authorization": "Bearer platform-synthetic",
+                 **({"x-neurwerk-credential-mode": "override"} if listener == "api-bindings" else {}),
              }}}
             context["source"] = {"connectHeaders": {}}
             expression = traffic["authorization"]["policy"]["matchExpressions"][0]

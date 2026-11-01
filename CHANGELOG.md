@@ -9,6 +9,9 @@ upgrade path.
 
 ## [Unreleased]
 
+- Require one valid `X-Neurwerk-Credential-Mode` on every gateway API model, MCP and model-discovery call. OIDC bearer identity remains supported; inspected proxy Basic is unchanged.
+- Pin Studio API and Web `0.21.2`; coordinate updated client callers before adoption.
+
 ## [0.3.30] - 2026-10-31
 
 ### Fixes and improvements

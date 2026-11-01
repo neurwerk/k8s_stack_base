@@ -44,7 +44,7 @@ spec:
         expression: >-
           ("x-neurwerk-authorization" in request.headers
           ? (size(request.headers.raw()["x-neurwerk-authorization"]) == 1 && request.headers["x-neurwerk-authorization"].startsWith("Bearer ") ? request.headers["x-neurwerk-authorization"].substring(7) : "")
-          : (!("x-neurwerk-credential-mode" in request.headers) && "authorization" in request.headers && size(request.headers.raw()["authorization"]) == 1 && request.headers["authorization"].startsWith("Bearer ") ? request.headers["authorization"].substring(7) : ""))
+          : ("authorization" in request.headers && size(request.headers.raw()["authorization"]) == 1 && request.headers["authorization"].startsWith("Bearer ") ? request.headers["authorization"].substring(7) : ""))
       providers:
         - issuer: {{ printf "https://%s/realms/%s" $.Values.authKeycloak.hostname $.Values.authKeycloak.realm | quote }}
           audiences: {{ $.Values.infraAgentgatewayWrapper.jwtAuth.allowedAudiences | toJson }}
@@ -96,18 +96,18 @@ spec:
             !("upgrade" in request.headers)
             {{- if not $proxy }}
             && ("x-neurwerk-authorization" in request.headers ? size(request.headers.raw()["x-neurwerk-authorization"]) == 1 : has(jwt.sub))
-            && (!("x-neurwerk-credential-mode" in request.headers) ||
+            && "x-neurwerk-credential-mode" in request.headers &&
             (size(request.headers.raw()["x-neurwerk-credential-mode"]) == 1 &&
             request.headers["x-neurwerk-credential-mode"].matches("^[ \\t]*(global|none|override)[ \\t]*$") &&
-            "x-neurwerk-authorization" in request.headers &&
             !("proxy-authorization" in request.headers) &&
             !("cookie" in request.headers) &&
             (({{ include "infra-agentgateway.selectedCredentialSource" $ }}) == "override" ?
+            !(has(jwt.sub) && !("x-neurwerk-authorization" in request.headers)) &&
             ["authorization", "x-api-key", "x-goog-api-key", "api-key"].all(h, !(h in request.headers) ||
             (size(request.headers.raw()[h]) == 1 && request.headers[h].matches(h == "authorization" ? "^[Bb][Ee][Aa][Rr][Ee][Rr] +[A-Za-z0-9._~+/-]+=*$" : "^[A-Za-z0-9._~+/-]+=*$"))) :
             (!["x-api-key", "x-goog-api-key", "api-key"].exists(h, h in request.headers) &&
             (!("authorization" in request.headers) || (size(request.headers.raw()["authorization"]) == 1 &&
-            request.headers["authorization"].matches("^[Bb][Ee][Aa][Rr][Ee][Rr] +[A-Za-z0-9._~+/-]+=*$")))))))
+            request.headers["authorization"].matches("^[Bb][Ee][Aa][Rr][Ee][Rr] +[A-Za-z0-9._~+/-]+=*$"))))))
             {{- end }}
             {{- if $proxy }}
             && request.host in {{ list (first $listener.bindings).host (printf "%s:443" (first $listener.bindings).host) | toJson }}
@@ -118,8 +118,8 @@ spec:
     transformation:
       conditional:
         {{- if not $proxy }}
-        {{- range $variant := list "oidc" "dedicated" "selected" }}
-        - condition: {{ printf `request.method == "GET" && (%s) && %s(has(jwt.sub) && !("x-neurwerk-authorization" in request.headers)) && %s("x-neurwerk-credential-mode" in request.headers)` $discoveryPath (ternary "" "!" (eq $variant "oidc")) (ternary "" "!" (eq $variant "selected")) | squote }}
+        {{- range $variant := list "oidc" "selected" }}
+        - condition: {{ printf `request.method == "GET" && (%s) && %s(has(jwt.sub) && !("x-neurwerk-authorization" in request.headers))` $discoveryPath (ternary "" "!" (eq $variant "oidc")) | squote }}
           policy:
             request:
               metadata:
@@ -128,10 +128,8 @@ spec:
               set:
                 - name: x-request-id
                   value: 'metadata.neurwerk_identity.request_id'
-                {{- if eq $variant "selected" }}
                 - name: x-neurwerk-credential-mode
                   value: 'metadata.neurwerk_identity.provider_credential_source'
-                {{- end }}
               remove:
                 {{- if ne $variant "oidc" }}
                 - authorization
@@ -169,7 +167,7 @@ spec:
         {{- if not $proxy }}{{ $condition = printf `%s && %s(has(jwt.sub) && !("x-neurwerk-authorization" in request.headers))` $condition (ternary "" "!" (eq $variant "oidc")) }}{{ end }}
         {{- if not $proxy }}
         {{- $strip := printf `("x-neurwerk-credential-mode" in request.headers && (%s) in ["global", "none"])` (include "infra-agentgateway.selectedCredentialSource" $) }}
-        {{- $condition = printf `%s && %s%s` $condition (ternary "" "!" (eq $variant "selected-strip")) $strip }}
+        {{- if ne $variant "oidc" }}{{ $condition = printf `%s && %s%s` $condition (ternary "" "!" (eq $variant "selected-strip")) $strip }}{{ end }}
         {{- end }}
         - condition: {{ $condition | squote }}
           policy:
