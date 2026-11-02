@@ -14,6 +14,7 @@ spec:
     stableUpgrade: supported
     upgradesFromAlphaRevisions:
     - 25ee6c19e0921f78c4cd2e0ffb2c2abf48f9a54c
+    - 0d2a31614776a1c85e693d9e6620849faa5b2e19
     downgrade: unsupported
     recovery: forward-fix
   packages:
@@ -110,7 +111,7 @@ spec:
         source: oci://ghcr.io/prometheus-community/charts/kube-prometheus-stack
     - path: releases/agentgateway/inspection-trust
       status: included
-      reason: Optional public-root snapshot publication after inspection PKI using verified Tooling 0.16.0;
+      reason: Optional public-root snapshot publication after inspection PKI using verified Tooling 0.15.6;
         disabled by default. Initial publication precedes Studio trust readiness; subsequent promotion
         requires every serving Studio replica to load the staged version.
       chartPrefixes:
@@ -120,8 +121,8 @@ spec:
         version: 0.1.1
         source: releases/agentgateway/inspection-pki
       - name: k8s-stack-tooling
-        version: 0.16.0
-        source: https://github.com/neurwerk/k8s_stack_tooling/releases/tag/v0.16.0
+        version: 0.15.6
+        source: https://github.com/neurwerk/k8s_stack_tooling/releases/tag/v0.15.6
     - path: releases/keycloak/active-directory
       status: included
       reason: Optional Active Directory federation; existing installations require a reviewed single-owner
@@ -302,7 +303,7 @@ spec:
       version: 0.1.1
     - path: charts/agentgateway/inspection-trust
       name: agentgateway-inspection-trust
-      version: 0.1.4
+      version: 0.1.3
       appVersion: 0.12.0
     - path: charts/agentgateway-extproc
       name: agentgateway-extproc
@@ -900,6 +901,7 @@ spec:
       pinned: true
       eligibility: included
       origins:
+      - charts/agentgateway/inspection-trust/values.yaml
       - charts/glitchtip/values.yaml
       - charts/keycloak/addon-access/values.yaml
       - charts/keycloak/addon-oidc/values.yaml
@@ -918,11 +920,6 @@ spec:
       eligibility: included
       origins:
       - charts/maintenance/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-tooling:0.16.0@sha256:dbc2857ea6acb3c0624e8a73fa3d55477e7cbca54b47a1286ceca3de4245eb26
-      pinned: true
-      eligibility: included
-      origins:
-      - charts/agentgateway/inspection-trust/values.yaml
     - reference: ghcr.io/stakater/reloader:v1.4.21
       pinned: true
       eligibility: included
@@ -1068,110 +1065,11 @@ spec:
       node: 24.20.0
       lua: 5.4.9
   provenance:
-    previousTag: v0.3.29
-    includedThrough: 49ea7209b0c6cd777ecd2ae4f1eff4286512fdfd
+    previousTag: v0.3.30
+    includedThrough: c89bfbb255645ed3cd7fcabf8f382eb0a09ed2e3
     commits:
-    - fc8c8e5171e23a98509db37407ec1458b7647931
-    - 6d91d09844fd4bd214de9f47c0295bbbb3540c01
-    - 88de92038f1b36b9053be56214edc6060d26ab48
-    - 0745aab6c3bbdf469aa988d98b3f707b1e6264dc
-    - d869547e23a39b97ae7612c402bd6389277721d1
-    - de6a62ee94a2c7b4f3c62bc66c6cc90a46251314
-    - d72471ec31a049ab7be7655cc548146308cc8d05
-    - 4fae341eba28a5dde63d3797a2263efead9bc7d0
-    - a9e5c81ccd5ddfa573bacf5299f1f7db5a81acf6
-    - e84dead5e509210f556ee6bc7e929033a74d9b28
-    - fab177b366758b4632641cc5b57d4bb534533502
-    - 3decbeab0ebae7844ba610b32f0eb0181328168e
-    - 6be4c3c2e588e98ce08f3efae97e812f3566d32d
-    - 1dd06184f7a65f618fc4a912d9995b0aa0435172
-    - 375629ee939d0e4d7579f6a0f274ebcf4a43f35f
-    - 744add338886eff7fb660d04817cb382965b4ccc
-    - a4ccfd6973e6d8d9fc02f7d7fae7bc76f3c8e75f
-    - 43cb419dead68fa779585e31a2f08a220ce339d1
-    - f6d529730cfadcd3402626aea3f094af23497b57
-    - cbeb2f809687b3776a72610f00a13447a1cea5b1
-    - 8ae12c484b719bb69ee14aec46f328a300da92a4
-    - 428d55c6ca045a5f7919ba7aeaae07ef7694f737
-    - 7cfb2aee6792aaeec8c4566506ad1655f9b41ad1
-    - 58e19c1170624cf02f3a7b237b89dd96b326e765
-    - c081ae3a62340415c8656197ad6dc368644f8b17
-    - 0163f40e413502bbfa7e7a27b5c8236e078b53ab
-    - 9d73048dba21b9251ace7ccaf9aaa6811aa9b6d4
-    - 0bac4ab64ec63ccf3013c839a2bd05994a92dcb7
-    - a1dae467d772fd37eaee918afccf16edbebff8d7
-    - 65ebd66677749e10f13e3081e403a17c8e13ce8b
-    - 76229c9b0188690cfd2c11b83f8b8ba8b3c39023
-    - 841553cac83dece64574b648e76665ff501f38be
-    - cd940236faa5c8f3c939d7f2503677846da87b5b
-    - 04aab998c850d5df858a33bd863233bae0c8595b
-    - 9e112efa0e9b468b7c015b462b7bbac7fe48c733
-    - e670c75bf5d43abd25315932e694f444e0da1e70
-    - e64acb2daee4c516cf60957f425f50b14456ca0f
-    - 1dcd762d0d107844ffe0be576976cfa12366a1f8
-    - 243c7fadd7e7ca479a02d13040371fd79d4ec19b
-    - 04d5b8cef485f7d2a5e43e2b916211d90eab291c
-    - 0cb8b604954f0743bffa098e893eb80aab23d038
-    - daf932a17636f1739d862b0bf0ecfd989e763861
-    - f55aa5554865c5bfa5bfe0e2b49b063465d5f942
-    - 1d3cd942590673fba76608b2d41d2fc12fe746db
-    - 79b9812a488f75b40dded505d7e4415dc003371a
-    - 1e7355dc67b70ad9a88ab40b01e57abf2016f53f
-    - ac3dc3e8c6db2dd65c577fdad6177b3cfd851d05
-    - 3aa6a24138e83c9367378afdd3f4134a04bade1a
-    - 75005e193bef16e9ac749e2c9e8aa6b7ce9945d7
-    - 8b00fece3538baeaa7f6261c0f46aea6225ed173
-    - 161196f6b76d2b3af8ff511151526165d9f2e96b
-    - 096cfaad94c7ec01bcbca69b752177b43834f152
-    - f45290145a35104e36a53b71512ada6d0425c237
-    - 799c4379bdefafc28cb692e20c7e54c59454c202
-    - 3b91012e166d778a7ae48216baced63606d58039
-    - c96ec31d16e71a0d7d168eb739eac4aa3885e018
-    - 6dd9a6e1b90adfc6f6732131ce50a5149c338f8f
-    - 59a8fcbeefc6437ba28f8604624f30ee8ea81afe
-    - d89e3db57f4387f75c8caaa0b24fb97bbbbfe352
-    - 8bc9aac7679adbff00d2b7f7bf8306ca41dfe3da
-    - 2bc6c795d51b2f9065613e1e247b1d12e0cacef6
-    - 8473555005111ba253a862420e1db672fae6ede3
-    - 1033499fd5f6d4c72f120a8066714f08e00cb26c
-    - c7fb9f2f86d57811f3581ab9d95ddcdf68bae3c5
-    - f75b20e541ee79079dee8655bc7e3fa396211971
-    - e996f1c8ca58f694f61833a5a99ba46d1d800793
-    - 6c97017a1a9bc6b505199a49268590afc665e320
-    - 9e8177cb6d33c8775240cb22205c1d17b65cf147
-    - 9df774da0e8ee36d0a8a40bd8e6a6908232a7370
-    - e23c47b3f5dd42d9b01015fcf655744816ad0c57
-    - 107151420e0583eeef32e7059bb67d7b7226a9f0
-    - acb1baf744035cf211fc3fdd7568969991ecb775
-    - ca90a8a6d963311662b67154e92d3eee80caa469
-    - 920e0b712dd2a1d2861c230973418fd90320ebb0
-    - 0a00f2569f7f7e6ab600bc50eae51d8c838f7573
-    - c1695a18fa274bfa26e52801bdb5f7eecc869f3e
-    - e4112b32d526cfd4d790846ad8d4520af987aa06
-    - 019f03de6940b62c86adcfadc61b04d3c54aca54
-    - 20efc7490e29bce2288bf7b73211735f26acd961
-    - 76f536d769b09bd0fd63185ebd2787148dd2b0f4
-    - bcce5fb003c74b3fd84e8e8977f9a839f0f665ce
-    - 2b34857e2c476a0edd514af338a8558a227a98b2
-    - d886f6570907b16935c457aa9eabe14409099c69
-    - 4344035cde7e536cc73df74b53265affc6f3c0c1
-    - 139522572f4c9273a76f2a1912f866eb67f61318
-    - ed934a28b41c72a7a6cea93390ee26ad9f852dd0
-    - 0faaa8026bb7138b0387b67601a8e3d54202f300
-    - 1bea577c470a2fecda554534303e9e659acf24fe
-    - 0ce9809d50fe66e9c4b50b26c75f60f8b9b523dc
-    - 5960dcd11ad6174dde15b5f5c7ed5d78e62da58e
-    - 408bc9095e04073142fa83e93c5d70db40b3b68d
-    - ec44f5cd7a75cb8d6f10c82182ca4e60a7646f70
-    - 8ec61f90b29d4fdb77b06c7e748706f61e8fdccf
-    - cacf19b2cbfc80142c69168241fe9e5e9a9dc474
-    - 2ca5d83da2ce93407e07f6b082856d889da9296c
-    - 3f1ec7334e5a28fda0d6b6ecf8737c6abce536e7
-    - 28c0d0210a4b0e75df27a6886978f96ff9a5ad53
-    - 8fa68fac6187154405c4212a5f7457cab231c0b0
-    - d2053342856a82905d5ee3f00879e0547cb22909
-    - a1b0e204598a99bff843c197dc5440ff7d715e2f
-    - ed87414195ed998e1f0760b3f22c75f7f177fb34
-    - 25ee6c19e0921f78c4cd2e0ffb2c2abf48f9a54c
-    - 49ea7209b0c6cd777ecd2ae4f1eff4286512fdfd
-    compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.29...49ea7209b0c6cd777ecd2ae4f1eff4286512fdfd
+    - 047c7a124079abc428b7115fadcdf7d6f4a3f749
+    - 0d2a31614776a1c85e693d9e6620849faa5b2e19
+    - d26f582881c748355453ff6cafdde120c545401d
+    - c89bfbb255645ed3cd7fcabf8f382eb0a09ed2e3
+    compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.30...c89bfbb255645ed3cd7fcabf8f382eb0a09ed2e3

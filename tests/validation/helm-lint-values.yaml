@@ -15,7 +15,7 @@ agentgateway:
     trust:
       enabled: true
       # Use the verified runtime pin: release image inventory also renders this file.
-      image: ghcr.io/neurwerk/k8s-stack-tooling:0.16.0@sha256:dbc2857ea6acb3c0624e8a73fa3d55477e7cbca54b47a1286ceca3de4245eb26
+      image: ghcr.io/neurwerk/k8s-stack-tooling:0.15.6@sha256:2cfe62109c8067e08a81f422733e6673ef3eb0ee11066f72e7316878a76013db
       operation: promote
       roots:
         - id: r1
