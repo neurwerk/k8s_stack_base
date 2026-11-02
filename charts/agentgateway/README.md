@@ -41,11 +41,8 @@ external-api-providers:
         contentTracingEnabled: false
 ```
 
-The base URL is `https://gateway.example.test/bindings/example-api/v1`.
-Use `X-Neurwerk-Authorization: Bearer <Neurwerk key or Keycloak token>` for identity
-and the provider's credential header for override access. A supplied provider
-credential never falls back to global billing. Global/local OIDC clients can
-send only `Authorization: Bearer <Keycloak token>`.
+Default access uses `https://gateway.example.test/bindings/example-api/v1` with `Authorization: Bearer <Neurwerk key or eligible Keycloak access token>`.
+Override access uses `/override/bindings/example-api/v1` with identity in `Authorization-Neurwerk` and provider credentials in their native header. Override requests never fall back to global billing.
 
 Each model requires `llm:invoke` and `model:<name>:invoke`. Global mode additionally
 requires `provider:<providerId>:global-use`. Selection does not grant permission.
