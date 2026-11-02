@@ -7,7 +7,7 @@
 {{- $policyName := include "infra-agentgateway.mcpResourceName" (dict "id" $serverName "component" "policy") }}
 {{- $permission := printf "mcp:%s:invoke" .name }}
 {{- $binding := dict "id" (printf "mcp-%s" .name) "prefix" "/mcp" "kind" "mcp" "providerId" nil "local" true "credentialSources" (list "none") "requiredPermission" $permission "operations" (list (dict "profile" "mcp-streamable-http-v1" "id" "exchange" "paths" (list (printf "/%s" .name)))) }}
-{{- $entry := dict "mode" "api" }}
+{{- $entry := dict "mode" "api" "prefix" "/mcp" }}
 {{- $context := dict "binding" $binding "entry" $entry "operation" (first $binding.operations) }}
 {{- $authorization := include "infra-agentgateway.routeAuthorization" (dict "root" $ "binding" $binding "entry" $entry) }}
 {{- $piiEnabled := true }}

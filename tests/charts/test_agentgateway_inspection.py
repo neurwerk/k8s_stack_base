@@ -152,7 +152,7 @@ class ApprovedOidcTests(unittest.TestCase):
 
     def admitted(self, client="addon-one", path="/bindings/openai/v1/chat/completions",
                  audience="agentgateway", roles=None, method="POST", **claims):
-        jwt = {"sub": "test-user", "azp": client, "aud": audience,
+        jwt = {"sub": "test-user", "typ": "Bearer", "azp": client, "aud": audience,
                "resource_access": {"agentgateway": {"roles": self.roles if roles is None else roles}}}
         jwt.update(claims)
         context = {
@@ -180,8 +180,7 @@ class ApprovedOidcTests(unittest.TestCase):
             "permissions": jwt["resource_access"]["agentgateway"]["roles"],
             "policy_revision": re.search(r'policy_revision == "([a-f0-9]+)"', expression).group(1),
             "path": path, "method": method, "standard_oidc": True, "provider_headers": [],
-            **({} if path.startswith("/mcp/") else {
-                "provider_credential_source": "none" if path.startswith("/bindings/local/") else "global"}),
+            "provider_credential_source": "none" if path.startswith(("/bindings/local/", "/mcp/")) else "global",
         }}
         return self.evaluate(expression, context)
 
@@ -212,7 +211,7 @@ class ApprovedOidcTests(unittest.TestCase):
                        {"roles": []}, {"roles": "llm:invoke"},
                        {"roles": [r for r in self.roles if r != "llm:invoke"]},
                        {"roles": [r for r in self.roles if r != "provider:openai:global-use"]},
-                       {"resource_access": {}},
+                        {"resource_access": {}}, {"typ": "ID"}, {"typ": None},
                        {"path": "/mcp/context7", "roles": ["llm:invoke"]}]:
             with self.subTest(claims=claims):
                 self.assertFalse(self.admitted(**claims))
@@ -307,7 +306,7 @@ class ApprovedOidcTests(unittest.TestCase):
             self.assertEqual(self.evaluate(expression, {"jwt": {}, "metadata": {"neurwerk_identity": {
                 "contract_version": 1, "policy_revision": revision, "entry_mode": "api",
                 "principal_id": "test-user", "permissions": roles, "provider_headers": [],
-                "path": path, "method": "POST",
+                "path": path, "method": "POST", "provider_credential_source": "none",
             }}}), expected)
 
 
@@ -377,7 +376,7 @@ class EndpointRoutingTests(unittest.TestCase):
                 "contract_version": 1, "request_id": "test-request", "principal_id": "test-user",
                 "credential_id": "test-key", "credential_kind": "personal", "permissions": ["llm:invoke"],
             }, "request": {"path": path, "host": "chatgpt.com", "method": "POST", "headers": {
-                "authorization": "Bearer provider-synthetic", "x-neurwerk-authorization": "Bearer platform-synthetic",
+                "authorization": "Bearer provider-synthetic", "authorization-neurwerk": "Bearer platform-synthetic",
              }}}
             context["source"] = {"connectHeaders": {}}
             expression = traffic["authorization"]["policy"]["matchExpressions"][0]
@@ -395,7 +394,7 @@ class EndpointRoutingTests(unittest.TestCase):
                         "contract_version": 1, "entry_mode": "api" if entry == "api" else "forward_proxy",
                         "credential_context_version": "1", "credential_id": "test-key",
                         "credential_kind": "personal", "permissions": ["llm:invoke"],
-                        "standard_oidc": False, "provider_headers": ["authorization"],
+                        "standard_oidc": False, "provider_headers": ["authorization"], "provider_credential_source": "override",
                         "provider_header_counts": {"authorization": 1}, "path": path, "method": "POST",
                         "policy_revision": re.search(r'policy_revision == "([a-f0-9]+)"', processing["authorization"]["policy"]["matchExpressions"][0]).group(1)}
             admitted = env.program(env.compile(metadata)).evaluate(
@@ -470,7 +469,7 @@ class EndpointRoutingTests(unittest.TestCase):
                 self.assertTrue(all(match["type"] == "PathPrefix" for match in matches))
                 self.assertEqual(len(prefixes), len(set(prefixes)))
                 self.assertNotIn("/", prefixes)
-                self.assertEqual("/bindings" in prefixes, legacy)
+                self.assertEqual(any(prefix.startswith("/bindings/") for prefix in prefixes), legacy)
                 self.assertEqual("/mcp" in prefixes, mcp)
                 for left in prefixes:
                     self.assertFalse(any(right != left and right.startswith(left + "/") for right in prefixes))
@@ -499,7 +498,7 @@ class EndpointRoutingTests(unittest.TestCase):
                         expression = policy["authorization"]["policy"]["matchExpressions"][0]
                         identity = {"contract_version": 1, "entry_mode": "api", "principal_id": "test-user",
                                     "permissions": ["llm:invoke", f"mcp:{name}:invoke"], "provider_headers": [],
-                                    "policy_revision": catalog["policy_revision"]}
+                                    "policy_revision": catalog["policy_revision"], "provider_credential_source": "none"}
                         for method in ["POST", "GET", "DELETE"]:
                             for candidate, expected in [(path, True), (f"/bindings/mcp-{name}/mcp", False),
                                                         (path + "/", False), (path + "/extra", False)]:
@@ -545,7 +544,7 @@ class InspectedGatewayTests(unittest.TestCase):
         self.assertEqual([entry["name"] for entry in listeners], ["api-bindings"])
         self.assertNotIn("infra-agentgateway-auth-ag-policy", result.stdout)
         route = resource(result, "HTTPRoute", "infra-agentgateway-external-httproute")
-        self.assertEqual([rule["matches"][0]["path"]["value"] for rule in route["spec"]["rules"]], ["/bindings"])
+        self.assertTrue(all(match["path"]["value"].startswith("/bindings/") for rule in route["spec"]["rules"] for match in rule["matches"]))
         self.assertNotEqual(render("agentgateway", {"aiGateway": {"enabled": False}}, check=False).returncode, 0)
 
     def test_identity_is_separate_from_provider_credentials(self):
@@ -555,7 +554,7 @@ class InspectedGatewayTests(unittest.TestCase):
         values["authKeycloak"]["agentgatewayClientRoles"].append("mcp:context7:invoke")
         rendered = render("agentgateway", values)
         for listener, header, source, path in [
-            ("api-bindings", "x-neurwerk-authorization", "request.headers", "/validate/neurwerk"),
+            ("api-bindings", "authorization", "request.headers", "/validate/neurwerk"),
             ("inspect-openai", "proxy-authorization", "source.connectHeaders", "/validate/proxy"),
             ("inspect-anthropic", "proxy-authorization", "source.connectHeaders", "/validate/proxy"),
             ("inspect-google", "proxy-authorization", "source.connectHeaders", "/validate/proxy"),
@@ -563,20 +562,20 @@ class InspectedGatewayTests(unittest.TestCase):
         ]:
             traffic = resource(rendered, "AgentgatewayPolicy", f"ai-admission-{listener}")["spec"]["traffic"]
             if listener == "api-bindings":
-                self.assertIn("x-neurwerk-authorization", traffic["jwtAuthentication"]["location"]["expression"])
-                self.assertIn('size(request.headers.raw()["authorization"]) == 1', traffic["jwtAuthentication"]["location"]["expression"])
+                self.assertIn("authorization-neurwerk", traffic["jwtAuthentication"]["location"]["expression"])
+                self.assertIn(']) == 1', traffic["jwtAuthentication"]["location"]["expression"])
             else:
                 self.assertNotIn("jwtAuthentication", traffic)
             auth = traffic["extAuth"]["conditional"][0]["policy"]["http"]
             self.assertEqual(auth["path"], json.dumps(path))
             self.assertEqual(auth["allowedRequestHeaders"], ["content-type"])
             self.assertEqual(set(auth["addRequestHeaders"]), {header, "x-request-id"})
-            self.assertIn(f'size({source}.raw()["{header}"]) == 1', auth["addRequestHeaders"][header])
+            self.assertIn(f'{source}.raw()', auth["addRequestHeaders"][header])
             for expression in traffic["authorization"]["policy"]["matchExpressions"]:
                 if listener == "api-bindings":
                     self.assertNotIn("source.connectHeaders", expression)
                 else:
-                    self.assertIn('!("x-neurwerk-credential-mode" in source.connectHeaders)', expression)
+                    self.assertNotIn('x-neurwerk-credential-mode', expression)
             for conditional in traffic["transformation"]["conditional"]:
                 for direction in ("request", "response"):
                     self.assertEqual(conditional["policy"][direction]["set"][0],
@@ -590,10 +589,7 @@ class InspectedGatewayTests(unittest.TestCase):
                     continue  # Discovery retains only the original platform credential for Bridge verification.
                 self.assertIn("x-neurwerk-authorization", request["remove"])
                 self.assertIn("proxy-authorization", request["remove"])
-                if '&& (has(jwt.sub)' in conditional["condition"]:
-                    self.assertIn("authorization", request["remove"])
-                else:
-                    self.assertNotIn("authorization", request["remove"])
+                self.assertIn("authorization-neurwerk", request["remove"])
         self.assertNotIn("infra-agentgateway-auth-ag-policy", self.enabled.stdout)
 
     def test_fixed_upstreams_models_and_no_global_fallback(self):
@@ -673,7 +669,7 @@ class InspectedGatewayTests(unittest.TestCase):
         self.assertEqual(endpoints["api-openai"]["url"], "https://agentgateway.lint.example/bindings/openai/v1")
         self.assertEqual(endpoints["api-openai"]["caller_auth_modes"], ["neurwerk_bearer", "oidc_bearer"])
         destination = next(entry for owner in catalog_owners(catalog) for entry in owner["destinations"] if entry["id"] == "example-chat")
-        self.assertEqual(set(destination["endpoint_ids"]), {"api-openai", "forward-proxy"})
+        self.assertEqual(set(destination["endpoint_ids"]), {"api-openai", "api-openai-override", "forward-proxy"})
         modes = {entry["source"]: entry for entry in destination["credential_modes"]}
         self.assertEqual(modes["global"]["required_permissions"], ["provider:openai:global-use"])
         self.assertEqual(modes["override"]["required_permissions"], [])
@@ -687,6 +683,9 @@ class InspectedGatewayTests(unittest.TestCase):
         for field, value in db["add"].items():
             self.assertEqual(tracing[field], value)
             self.assertNotIn("permissions", value)
+            if field in {"neurwerk.stripped_credential_headers", "neurwerk.ignored_proxy_credential_headers", "neurwerk.credential_strip_reason"}:
+                self.assertIn(".filter(h,", value)
+                continue
             for raw_headers in ["request.headers", "response.headers", "source.connectHeaders"]:
                 self.assertNotIn(raw_headers, value)
         self.assertIn('"unknown"', db["add"]["neurwerk.billing_classification"])
@@ -770,13 +769,14 @@ class InspectedGatewayTests(unittest.TestCase):
         traffic = resource(self.enabled, "AgentgatewayPolicy", "ai-admission-api-bindings")["spec"]["traffic"]
         processing = resource(self.enabled, "AgentgatewayPolicy", "ai-openai-api-processing")["spec"]["traffic"]
         context = processing["extProc"]["conditional"][0]["policy"]["metadataContext"]["neurwerk.destination_policy"]["request_context"]
-        self.assertIn('"authorization" in metadata.neurwerk_identity.provider_headers ? "override" : "global"', context)
+        self.assertIn('"provider_credential_source": (metadata.neurwerk_identity.provider_credential_source)', context)
         self.assertNotIn("request.headers", context)
         self.assertNotIn("response", context)
         gate = traffic["authorization"]["policy"]["matchExpressions"][0]
         self.assertNotIn("request.path", gate)
         self.assertNotIn("provider:openai:global-use", gate)
         route = processing["authorization"]["policy"]["matchExpressions"][0]
+        self.assertIn('metadata.neurwerk_identity.provider_credential_source == "global"', route)
         self.assertIn('"provider:openai:global-use" in metadata.neurwerk_identity.permissions', route)
         self.assertIn('metadata.neurwerk_identity.provider_header_counts[h] == 1', route)
 
@@ -792,7 +792,7 @@ class InspectedGatewayTests(unittest.TestCase):
 
     def test_google_only_admits_exact_model_operation_paths(self):
         traffic = resource(self.enabled, "AgentgatewayPolicy", "ai-admission-inspect-google")["spec"]["traffic"]
-        self.assertEqual(len(traffic["transformation"]["conditional"]), 1)
+        self.assertEqual(len(traffic["transformation"]["conditional"]), 2)
         processing = resource(self.enabled, "AgentgatewayPolicy", "ai-google-proxy-processing")["spec"]["traffic"]
         variants = processing["transformation"]["conditional"]
         self.assertEqual(len(variants), 2)

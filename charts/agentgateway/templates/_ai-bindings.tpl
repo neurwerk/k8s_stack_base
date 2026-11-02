@@ -4,28 +4,6 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 app.kubernetes.io/part-of: infra-agentgateway
 {{- end -}}
 
-{{/* Presence, not validity or provider response, freezes override selection. */}}
-{{- define "infra-agentgateway.aiCredentialSource" -}}
-{{- if .local -}}
-"none"
-{{- else -}}
-{{- $missing := ternary "global" "override" (has "global" .credentialSources) -}}
-{{- printf `(has(jwt.sub) && !("x-neurwerk-authorization" in request.headers)) ? %q : (%q in request.headers ? "override" : %q)` $missing .credentialHeader $missing -}}
-{{- end -}}
-{{- end -}}
-
-{{/* Only approved credential locations participate; never discard a wrong
-provider header and accidentally choose a global account instead. */}}
-{{- define "infra-agentgateway.aiCredentialAuthorization" -}}
-{{- if .local -}}
-{{- `!["authorization", "x-api-key", "x-goog-api-key", "api-key"].exists(h, h in request.headers && !(h == "authorization" && has(jwt.sub) && !("x-neurwerk-authorization" in request.headers)))` -}}
-{{- else -}}
-{{- $global := "true" -}}
-{{- if has "global" .credentialSources }}{{ $global = printf `%q in (has(jwt.sub) ? jwt.resource_access.agentgateway.roles : extauthz.permissions)` (printf "provider:%s:global-use" .providerId) }}{{ end -}}
-{{- printf `(["authorization", "x-api-key", "x-goog-api-key", "api-key"].all(h, h == %q || !(h in request.headers) || (h == "authorization" && has(jwt.sub) && !("x-neurwerk-authorization" in request.headers)))) && ((has(jwt.sub) && !("x-neurwerk-authorization" in request.headers)) ? (%t && (%s) && !["x-api-key", "x-goog-api-key", "api-key"].exists(h, h in request.headers)) : (%q in request.headers ? %t : (%s)))` .credentialHeader (has "global" .credentialSources) $global .credentialHeader (has "override" .credentialSources) $global -}}
-{{- end -}}
-{{- end -}}
-
 {{/* Validated effective bindings feed native routing, v6 admission and Studio. */}}
 {{- define "infra-agentgateway.aiBindings" -}}
 {{- if not (hasKey . "_gatewayBindings") -}}
@@ -101,7 +79,7 @@ provider header and accidentally choose a global account instead. */}}
 {{- if hasKey $routes.api "path" }}{{ $_ := set $binding "apiPath" $routes.api.path }}{{ end -}}
 {{- $_ := set $binding "local" (eq (toJson $binding.credentialSources) `["none"]`) -}}
 {{- if or (not (kindIs "string" $binding.displayName)) (empty $binding.displayName) (gt (len $binding.displayName) 128) }}{{ fail "provider displayName must be a nonempty string of at most 128 characters" }}{{ end -}}
-{{- $_ := set $binding "discovery" (and $binding.api (ne $binding.group "external-subscription-providers")) -}}
+{{- $_ := set $binding "discovery" $binding.api -}}
 {{- range $flag := list "api" "inspect" "local" -}}
 {{- if not (kindIs "bool" (get $binding $flag)) }}{{ fail "binding api/inspect/local must be booleans" }}{{ end -}}
 {{- end -}}
@@ -162,7 +140,7 @@ provider header and accidentally choose a global account instead. */}}
 {{- if hasKey $row "supportsImages" }}{{ $_ := set $model "supportsImages" $row.supportsImages }}{{ end -}}
 {{- $selectedModels = append $selectedModels $model -}}
 {{- end -}}
-{{- if or (not (kindIs "slice" $selectedModels)) (empty $selectedModels) (gt (len $selectedModels) 32) }}{{ fail "binding models must select 1-32 canonical models" }}{{ end -}}
+{{- if or (not (kindIs "slice" $selectedModels)) (empty $selectedModels) (gt (len $selectedModels) 100) }}{{ fail "binding models must select 1-100 canonical models" }}{{ end -}}
 {{- $models := list -}}{{- $aliases := dict -}}{{- $modelBindings := dict -}}
 {{- range $model := $selectedModels -}}
 {{- range $key, $_ := $model -}}
@@ -211,6 +189,7 @@ provider header and accidentally choose a global account instead. */}}
 {{- $prefix := printf "/bindings/%s" $id -}}
 {{- if hasKey $binding "apiPath" -}}
 {{- if or (not (kindIs "string" $binding.apiPath)) (not (regexMatch `^(/[a-z0-9][a-z0-9-]*)+$` $binding.apiPath)) (gt (len $binding.apiPath) 128) (hasSuffix "/v1" $binding.apiPath) (hasPrefix "/bindings" $binding.apiPath) }}{{ fail "binding apiPath must be a bounded absolute lowercase path without /v1, trailing slash or reserved /bindings prefix" }}{{ end -}}
+{{- if or (eq $binding.apiPath "/override") (hasPrefix "/override/" $binding.apiPath) (eq $binding.apiPath "/mcp") (hasPrefix "/mcp/" $binding.apiPath) }}{{ fail "binding API paths cannot use reserved /override or /mcp prefixes" }}{{ end -}}
 {{- $prefix = $binding.apiPath -}}
 {{- end -}}
 {{- if $binding.api -}}
@@ -250,7 +229,16 @@ provider header and accidentally choose a global account instead. */}}
 {{- end -}}
 {{- $_ := set $model "credentialSources" $effectiveModes -}}
 {{- end -}}
-{{- if or (gt (len (toJson $modelBindings)) 16384) (gt (len (toJson $attachment)) 14000) }}{{ fail "v6 binding exceeds native metadata expression limits" }}{{ end -}}
+{{- $apiEntries := list -}}
+{{- if $binding.api -}}
+{{- range $source := $sources -}}
+{{- $override := and (eq $source "override") (not (has "openai-codex-responses-v1" $binding.profiles)) -}}
+{{- $name := ternary "api-override" "api" $override -}}
+{{- $entryPrefix := ternary (printf "/override%s" $prefix) $prefix $override -}}
+{{- $apiEntries = append $apiEntries (dict "name" $name "id" (printf "api-%s%s" $id (ternary "-override" "" $override)) "mode" "api" "listener" "api-bindings" "prefix" $entryPrefix "source" $source "identityHeader" (ternary "authorization-neurwerk" "authorization" (eq $source "override"))) -}}
+{{- end -}}
+{{- end -}}
+{{- $_ := set $binding "apiEntries" $apiEntries -}}
 {{- $effective = append $effective $binding -}}
 {{- end -}}
 {{- end -}}
@@ -299,7 +287,7 @@ provider header and accidentally choose a global account instead. */}}
 
 {{- define "infra-agentgateway.aiRevision" -}}
 {{- if not (hasKey . "_gatewayRevision") -}}
-{{- $revision := dict "credentialModeHeaderVersion" 1 "identityTelemetryVersion" 2 "admissionVersion" 6 "catalogVersion" 3 "bindings" (include "infra-agentgateway.aiBindings" . | fromJsonArray) "approvedOidcClients" .Values.aiGateway.approvedOidcClients "profiles" (.Files.Get "catalog/ai-profiles.yaml" | fromYaml) "models" (include "infra-agentgateway.effectiveModels" . | fromYamlArray) "mcp" (include "infra-agentgateway.effectiveMcpServers" . | fromYamlArray) -}}
+{{- $revision := dict "endpointAuthVersion" 1 "identityTelemetryVersion" 2 "admissionVersion" 6 "catalogVersion" 3 "bindings" (include "infra-agentgateway.aiBindings" . | fromJsonArray) "approvedOidcClients" .Values.aiGateway.approvedOidcClients "profiles" (.Files.Get "catalog/ai-profiles.yaml" | fromYaml) "models" (include "infra-agentgateway.effectiveModels" . | fromYamlArray) "mcp" (include "infra-agentgateway.effectiveMcpServers" . | fromYamlArray) -}}
 {{- $_ := set . "_gatewayRevision" ($revision | toJson | sha256sum) -}}
 {{- end -}}
 {{- get . "_gatewayRevision" -}}
