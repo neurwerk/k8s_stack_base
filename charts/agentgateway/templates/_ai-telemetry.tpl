@@ -1,8 +1,11 @@
 {{- define "infra-agentgateway.aiTelemetry" -}}
 {{- $fields := dict -}}
-{{- $_ := set $fields "neurwerk.stripped_credential_headers" `has(metadata.neurwerk_identity.stripped_credential_headers) ? metadata.neurwerk_identity.stripped_credential_headers : null` -}}
+{{- $ignored := `has(metadata.neurwerk_identity.stripped_credential_headers) ? metadata.neurwerk_identity.stripped_credential_headers : ["authorization", "authorization-neurwerk", "proxy-authorization", "x-neurwerk-authorization", "x-neurwerk-credential-mode", "x-api-key", "x-goog-api-key", "api-key"].filter(h, h in request.headers && (h in ["x-neurwerk-authorization", "x-neurwerk-credential-mode"] || size(request.headers.raw()[h]) != 1 || request.headers[h].contains(",")))` -}}
+{{- $_ := set $fields "neurwerk.stripped_credential_headers" $ignored -}}
+{{- $proxyIgnored := `has(source.connectHeaders) ? ["proxy-authorization", "x-neurwerk-authorization", "x-neurwerk-credential-mode", "authorization-neurwerk", "authorization"].filter(h, h in source.connectHeaders && (h != "proxy-authorization" || size(source.connectHeaders.raw()[h]) != 1 || source.connectHeaders[h].contains(","))) : []` -}}
+{{- $_ := set $fields "neurwerk.ignored_proxy_credential_headers" $proxyIgnored -}}
 {{- $_ := set $fields "neurwerk.credential_mode" `has(metadata.neurwerk_identity.provider_credential_source) ? metadata.neurwerk_identity.provider_credential_source : null` -}}
-{{- $_ := set $fields "neurwerk.credential_strip_reason" `has(metadata.neurwerk_identity.provider_credential_source) && metadata.neurwerk_identity.provider_credential_source != null ? "explicit_credential_mode" : null` -}}
+{{- $_ := set $fields "neurwerk.credential_strip_reason" (printf `size(%s) + size(%s) > 0 ? "warning: ignored credential headers" : null` $ignored $proxyIgnored) -}}
 {{- range $field := list "request_id" "entry_mode" "destination_kind" "provider_id" "binding_id" "protocol_profile" "operation_id" "provider_credential_source" "policy_revision" "credential_id" "credential_kind" -}}
 {{- $_ := set $fields (printf "neurwerk.%s" $field) (printf "has(metadata.neurwerk_admission) && has(metadata.neurwerk_admission.%s) ? metadata.neurwerk_admission.%s : null" $field $field) -}}
 {{- end -}}

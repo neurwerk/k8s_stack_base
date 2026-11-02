@@ -1,6 +1,19 @@
-{{/* Called only after raw cardinality and the SP/HTAB-bounded vocabulary check. */}}
-{{- define "infra-agentgateway.selectedCredentialSource" -}}
-(request.headers["x-neurwerk-credential-mode"].matches("^[ \\t]*global[ \\t]*$") ? "global" : request.headers["x-neurwerk-credential-mode"].matches("^[ \\t]*none[ \\t]*$") ? "none" : "override")
+{{- define "infra-agentgateway.identityHeader" -}}
+{{- $paths := list `request.path.startsWith("/override/")` -}}
+{{- range include "infra-agentgateway.aiBindings" . | fromJsonArray -}}
+{{- range .apiEntries -}}
+{{- if and (eq .source "override") (not (hasPrefix "/override/" .prefix)) }}{{ $paths = append $paths (printf "request.path.startsWith(%q)" (printf "%s/" .prefix)) }}{{ end -}}
+{{- end -}}
+{{- end -}}
+(({{ join " || " $paths | default "false" }}) ? "authorization-neurwerk" : "authorization")
+{{- end -}}
+
+{{- define "infra-agentgateway.validBearer" -}}
+({{ . }} in request.headers && size(request.headers.raw()[{{ . }}]) == 1 && request.headers[{{ . }}].matches("^[Bb][Ee][Aa][Rr][Ee][Rr] [A-Za-z0-9._~+/-]+=*$"))
+{{- end -}}
+
+{{- define "infra-agentgateway.validProvider" -}}
+({{ . | toJson }} in request.headers && size(request.headers.raw()[{{ . | toJson }}]) == 1 && request.headers[{{ . | toJson }}].matches({{ ternary "^[Bb][Ee][Aa][Rr][Ee][Rr] [A-Za-z0-9._~+/-]+=*$" "^[A-Za-z0-9._~+/-]+=*$" (eq . "authorization") | toJson }}))
 {{- end -}}
 
 {{/* All request-varying inputs are frozen before credential removal. */}}
@@ -14,19 +27,11 @@
 "permissions": has(jwt.sub) ? jwt.resource_access.agentgateway.roles : extauthz.permissions,
 "account_email": has(jwt.sub) ? (has(jwt.email) ? jwt.email : null) : extauthz.account_email,
 "entry_mode": {{ .mode | toJson }}, "path": request.path, "method": request.method,
-"standard_oidc": has(jwt.sub) && !("x-neurwerk-authorization" in request.headers),
-{{- if eq .mode "api" }}
-"provider_credential_source": "x-neurwerk-credential-mode" in request.headers ? {{ include "infra-agentgateway.selectedCredentialSource" . }} : null,
-"stripped_credential_headers": "x-neurwerk-credential-mode" in request.headers ?
-{{- if .discovery }}
-["authorization", "x-api-key", "x-goog-api-key", "api-key"].filter(h, h in request.headers)
-{{- else }}
-(["x-neurwerk-credential-mode"] + (({{ include "infra-agentgateway.selectedCredentialSource" . }}) in ["global", "none"] && "authorization" in request.headers ? ["authorization"] : []))
-{{- end }} : [],
-{{- end }}
-"provider_headers": ["authorization", "x-api-key", "x-goog-api-key", "api-key"].filter(h,
-h in request.headers && !(h == "authorization" && (has(jwt.sub) && !("x-neurwerk-authorization" in request.headers)
-{{- if eq .mode "api" }} || ("x-neurwerk-credential-mode" in request.headers && ({{ include "infra-agentgateway.selectedCredentialSource" . }}) in ["global", "none"]){{- end }}))),
+"standard_oidc": has(jwt.sub),
+"provider_credential_source": {{ .source | toJson }},
+"stripped_credential_headers": ["x-neurwerk-authorization", "x-neurwerk-credential-mode", "proxy-authorization", "authorization-neurwerk", "authorization", "x-api-key", "x-goog-api-key", "api-key"].filter(h, h in request.headers && h != {{ .identityHeader | toJson }} && h != {{ .preserve | toJson }})
+{{- if eq .mode "forward_proxy" }} + ["x-neurwerk-authorization", "x-neurwerk-credential-mode", "authorization-neurwerk", "authorization"].filter(h, h in source.connectHeaders){{ end }},
+"provider_headers": {{ if .preserve }}[{{ .preserve | toJson }}]{{ else }}[]{{ end }},
 "provider_header_counts": {
 {{- range $index, $header := list "authorization" "x-api-key" "x-goog-api-key" "api-key" }}
 {{ if $index }},{{ end }}{{ $header | toJson }}: {{ $header | toJson }} in request.headers ? size(request.headers.raw()[{{ $header | toJson }}]) : 0
@@ -44,8 +49,8 @@ h in request.headers && !(h == "authorization" && (has(jwt.sub) && !("x-neurwerk
 "entry_mode": {{ .entry.mode | toJson }},
 "destination_kind": {{ $binding.kind | default "model" | toJson }},
 "provider_id": {{ $binding.providerId | toJson }}, "binding_id": {{ $binding.id | toJson }},
-{{- if and (eq .entry.mode "api") (hasKey $binding "apiPath") }}
-"api_path_prefix": {{ $binding.prefix | toJson }},
+{{- if and (eq .entry.mode "api") (ne ($binding.kind | default "model") "mcp") }}
+"api_path_prefix": {{ .entry.prefix | toJson }},
 {{- end }}
 "protocol_profile": {{ .operation.profile | toJson }}, "operation_id": {{ .operation.id | toJson }},
 "provider_credential_source": ({{ include "infra-agentgateway.routeCredentialSource" $binding }}),
@@ -53,22 +58,13 @@ h in request.headers && !(h == "authorization" && (has(jwt.sub) && !("x-neurwerk
 {{- end -}}
 
 {{- define "infra-agentgateway.routeCredentialSource" -}}
-(has(metadata.neurwerk_identity.provider_credential_source) && metadata.neurwerk_identity.provider_credential_source != null ?
-metadata.neurwerk_identity.provider_credential_source : (
-{{- if .local -}}
-"none"
-{{- else -}}
-{{- $missing := ternary "global" "override" (has "global" .credentialSources) -}}
-metadata.neurwerk_identity.standard_oidc ? {{ $missing | toJson }} :
-({{ .credentialHeader | toJson }} in metadata.neurwerk_identity.provider_headers ? "override" : {{ $missing | toJson }})
-{{- end -}}
-))
+metadata.neurwerk_identity.provider_credential_source
 {{- end -}}
 
 {{- define "infra-agentgateway.routeOperationCondition" -}}
 {{- $paths := list -}}
 {{- range $path := ternary (.operation.proxyPaths | default .operation.paths) .operation.paths (eq .entry.mode "forward_proxy") -}}
-{{- if eq $.entry.mode "api" }}{{ $path = printf "%s%s" $.binding.prefix $path }}{{ end -}}
+{{- if eq $.entry.mode "api" }}{{ $path = printf "%s%s" $.entry.prefix $path }}{{ end -}}
 {{- $paths = append $paths $path -}}
 {{- end -}}
 metadata.neurwerk_identity.path in {{ $paths | toJson }} &&
@@ -106,6 +102,7 @@ type(metadata.neurwerk_identity.principal_id) == string && size(metadata.neurwer
 {{- if ne (.binding.kind | default "model") "mcp" }}
 {{- if eq .entry.mode "api" }}
 has(metadata.neurwerk_identity.provider_credential_source) && metadata.neurwerk_identity.provider_credential_source != null &&
+metadata.neurwerk_identity.provider_credential_source == {{ .entry.source | toJson }} &&
 {{- end }}
 {{- end }}
 {{- if .binding.local }}

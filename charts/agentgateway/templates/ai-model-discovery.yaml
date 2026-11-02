@@ -13,11 +13,13 @@ spec:
     port: 80
 {{- range $binding := $bindings }}
 {{- if $binding.discovery }}
+{{- range $entry := $binding.apiEntries }}
+{{- $routeName := printf "ai-%s%s-model-discovery" $binding.id (ternary "-override" "" (eq $entry.name "api-override")) }}
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  name: ai-{{ $binding.id }}-model-discovery
+  name: {{ $routeName }}
   namespace: infra-agentgateway
 spec:
   parentRefs:
@@ -25,35 +27,35 @@ spec:
   rules:
     - matches:
         - method: GET
-          path: {type: Exact, value: {{ printf "%s/v1/models" $binding.prefix | quote }}}
+          path: {type: Exact, value: {{ printf "%s/v1/models" $entry.prefix | quote }}}
       filters:
         - type: URLRewrite
           urlRewrite:
             path:
               type: ReplaceFullPath
-              replaceFullPath: {{ printf "/gateway/model-discovery/%s/models" $binding.id | quote }}
+              replaceFullPath: {{ printf "/gateway/model-discovery/%s/models" $entry.id | quote }}
       backendRefs:
         - {group: agentgateway.dev, kind: AgentgatewayBackend, name: ai-model-discovery-backend}
     - matches:
         - method: GET
-          path: {type: PathPrefix, value: {{ printf "%s/v1/models/" $binding.prefix | quote }}}
+          path: {type: PathPrefix, value: {{ printf "%s/v1/models/" $entry.prefix | quote }}}
       filters:
         - type: URLRewrite
           urlRewrite:
             path:
               type: ReplacePrefixMatch
-              replacePrefixMatch: {{ printf "/gateway/model-discovery/%s/models" $binding.id | quote }}
+              replacePrefixMatch: {{ printf "/gateway/model-discovery/%s/models" $entry.id | quote }}
       backendRefs:
         - {group: agentgateway.dev, kind: AgentgatewayBackend, name: ai-model-discovery-backend}
 ---
 apiVersion: agentgateway.dev/v1alpha1
 kind: AgentgatewayPolicy
 metadata:
-  name: ai-{{ $binding.id }}-model-discovery-processing
+  name: {{ $routeName }}-processing
   namespace: infra-agentgateway
 spec:
   targetRefs:
-    - {group: gateway.networking.k8s.io, kind: HTTPRoute, name: ai-{{ $binding.id }}-model-discovery}
+    - {group: gateway.networking.k8s.io, kind: HTTPRoute, name: {{ $routeName }}}
   traffic:
     phase: PostRouting
     authorization:
@@ -63,15 +65,13 @@ spec:
           - >-
             {{- include "infra-agentgateway.routeIdentityAuthorization" (dict "root" $ "binding" $binding "entry" (dict "mode" "api")) | nindent 12 }} &&
             metadata.neurwerk_identity.method == "GET" &&
-            (metadata.neurwerk_identity.path == {{ printf "%s/v1/models" $binding.prefix | toJson }} ||
-            (metadata.neurwerk_identity.path.startsWith({{ printf "%s/v1/models/" $binding.prefix | toJson }}) &&
-            metadata.neurwerk_identity.path != {{ printf "%s/v1/models/" $binding.prefix | toJson }})) &&
-            (has(metadata.neurwerk_identity.provider_credential_source) && metadata.neurwerk_identity.provider_credential_source != null ?
-            (metadata.neurwerk_identity.provider_credential_source in {{ $binding.credentialSources | toJson }} &&
-            metadata.neurwerk_identity.provider_headers.all(h, h == {{ $binding.credentialHeader | toJson }} && metadata.neurwerk_identity.provider_header_counts[h] == 1) &&
+            (metadata.neurwerk_identity.path == {{ printf "%s/v1/models" $entry.prefix | toJson }} ||
+            (metadata.neurwerk_identity.path.startsWith({{ printf "%s/v1/models/" $entry.prefix | toJson }}) &&
+            metadata.neurwerk_identity.path != {{ printf "%s/v1/models/" $entry.prefix | toJson }})) &&
+            metadata.neurwerk_identity.provider_credential_source == {{ $entry.source | toJson }} &&
             (metadata.neurwerk_identity.provider_credential_source != "global" ||
-            {{ printf "provider:%s:global-use" $binding.providerId | toJson }} in metadata.neurwerk_identity.permissions)) :
-            size(metadata.neurwerk_identity.provider_headers) == 0)
+            {{ printf "provider:%s:global-use" $binding.providerId | toJson }} in metadata.neurwerk_identity.permissions)
+{{- end }}
 {{- end }}
 {{- end }}
 {{- end }}

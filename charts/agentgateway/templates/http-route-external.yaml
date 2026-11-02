@@ -3,8 +3,8 @@
 {{- if eq $hostname "place.holder" }}{{ fail "place.holder cannot be used for an external Gateway" }}{{ end }}
 {{- $prefixes := list }}
 {{- range $binding := include "infra-agentgateway.aiBindings" . | fromJsonArray }}
-{{- if $binding.api }}
-{{- $prefixes = append $prefixes (ternary $binding.prefix "/bindings" (hasKey $binding "apiPath")) }}
+{{- range $entry := $binding.apiEntries }}
+{{- $prefixes = append $prefixes $entry.prefix }}
 {{- end }}
 {{- end }}
 {{- if (index .Values "mcp-servers").enabled }}
@@ -31,8 +31,7 @@ spec:
     accessControlAllowOriginList: [{{ printf "https://%s" $studioHostname | quote }}]
     accessControlAllowMethods: [GET, POST, DELETE, OPTIONS]
     accessControlAllowHeaders:
-      - X-Neurwerk-Authorization
-      - X-Neurwerk-Credential-Mode
+      - Authorization-Neurwerk
       - Content-Type
       - Authorization
       - X-Api-Key

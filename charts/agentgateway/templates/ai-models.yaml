@@ -1,13 +1,9 @@
 {{- if .Values.aiGateway.enabled }}
 {{- $revision := include "infra-agentgateway.aiRevision" . }}
 {{- range $binding := include "infra-agentgateway.aiBindings" . | fromJsonArray }}
-{{- $entries := list }}
-{{- if $binding.api }}{{ $entries = append $entries (dict "name" "api" "mode" "api" "listener" "api-bindings" "prefix" $binding.prefix) }}{{ end }}
+{{- $entries := $binding.apiEntries }}
 {{- if $binding.inspect }}{{ $entries = append $entries (dict "name" "proxy" "mode" "forward_proxy" "listener" (printf "inspect-%s" $binding.id) "prefix" "/") }}{{ end }}
-{{- $pii := dict }}
-{{- range $model := $binding.models }}{{ $_ := set $pii $model.name $model.piiEnabled }}{{ end }}
-{{- $inner := merge (dict "contract_version" "4.1" "destination_kind" "model" "models" $pii) $binding.attachmentPolicy }}
-{{- $innerExpression := printf `%s.merge({"principal_id": metadata.neurwerk_identity.principal_id, "credential_context_version": metadata.neurwerk_identity.credential_context_version, "credential_id": metadata.neurwerk_identity.credential_id, "credential_kind": metadata.neurwerk_identity.credential_kind})` ($inner | toJson) }}
+{{- $innerExpression := include "infra-agentgateway.destinationPolicyExpression" $binding }}
 {{- if gt (len $innerExpression) 16384 }}{{ fail "v6 destination_policy exceeds native metadata limit" }}{{ end }}
 {{- range $entry := $entries }}
 ---
@@ -77,7 +73,7 @@ spec:
                 request_context: >-
                   {{- include "infra-agentgateway.routeAdmissionContext" $context | nindent 18 }}
                 destination_policy: {{ $innerExpression | squote }}
-                model_bindings: {{ $binding.modelBindings | toJson | squote }}
+                model_bindings: {{ include "infra-agentgateway.modelBindingsExpression" $binding | squote }}
                 reroute_targets: {{ $binding.rerouteTargets | toJson | squote }}
             processingOptions:
               requestHeaderMode: Send

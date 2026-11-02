@@ -16,17 +16,18 @@
 {{- $endpoints := dict }}{{- $destinationKeys := dict }}{{- $entryIds := dict }}
 {{- range $binding := $bindings }}
 {{- $_ := set $entryIds $binding.id true }}
-{{- $routes := list }}{{- $endpointIds := list }}{{- $destinations := list }}
+{{- $routes := list }}{{- $destinations := list }}
 {{- if $binding.api }}
 {{- $_ := required "API catalog endpoints require infraAgentgatewayWrapper.hostname" $.Values.infraAgentgatewayWrapper.hostname }}
-{{- $id := printf "api-%s" $binding.id }}
-{{- $endpointIds = append $endpointIds $id }}
-{{- $route := dict "id" $id "url" (printf "%s%s/v1" $origin $binding.prefix) "entry_mode" "api" "caller_auth_modes" (list "neurwerk_bearer" "oidc_bearer") "credential_mode_header" "X-Neurwerk-Credential-Mode" }}
+{{- range $entry := $binding.apiEntries }}
+{{- $id := $entry.id }}
+{{- $route := dict "id" $id "url" (printf "%s%s/v1" $origin $entry.prefix) "entry_mode" "api" "caller_auth_modes" (list "neurwerk_bearer" "oidc_bearer") "identity_header" (ternary "Authorization-Neurwerk" "Authorization" (eq $entry.source "override")) "provider_credential_source" $entry.source }}
 {{- $routes = append $routes $route }}{{- $_ := set $endpoints $id $route }}
 {{- end }}
+{{- end }}
 {{- if $binding.inspect }}
-{{- $id := "forward-proxy" }}{{- $endpointIds = append $endpointIds $id }}
-{{- $route := dict "id" $id "url" (printf "https://%s:%d" $.Values.aiGateway.proxy.hostname (int $.Values.aiGateway.proxy.publicPort)) "entry_mode" "forward_proxy" "caller_auth_modes" (list "proxy_basic") }}
+{{- $id := "forward-proxy" }}
+{{- $route := dict "id" $id "url" (printf "https://%s:%d" $.Values.aiGateway.proxy.hostname (int $.Values.aiGateway.proxy.publicPort)) "entry_mode" "forward_proxy" "caller_auth_modes" (list "proxy_basic") "identity_header" "Proxy-Authorization" "provider_credential_source" "override" }}
 {{- $routes = append $routes $route }}{{- $_ := set $endpoints $id $route }}
 {{- end }}
 {{- range $model := $binding.models }}
@@ -38,7 +39,9 @@
 {{- end }}
 {{- $profileIds := $binding.profiles }}
 {{- if $binding.discovery }}{{ $profileIds = append $profileIds "openai-model-discovery-v1" }}{{ end }}
-{{- $destination := dict "id" $model.name "kind" "model" "display_name" $model.displayName "endpoint_ids" $endpointIds "profile_ids" $profileIds "required_permissions" (get $binding.modelBindings $model.name).required_permissions "credential_modes" $modes "provider_id" $binding.providerId }}
+{{- $modelEndpoints := list }}
+{{- range $route := $routes }}{{ if has $route.provider_credential_source $model.credentialSources }}{{ $modelEndpoints = append $modelEndpoints $route.id }}{{ end }}{{ end }}
+{{- $destination := dict "id" $model.name "kind" "model" "display_name" $model.displayName "endpoint_ids" $modelEndpoints "profile_ids" $profileIds "required_permissions" (get $binding.modelBindings $model.name).required_permissions "credential_modes" $modes "provider_id" $binding.providerId }}
 {{- $destinations = append $destinations $destination }}{{- $_ := set $destinationKeys (printf "model:%s" $model.name) true }}
 {{- end }}
 {{- $owner := dict "id" $binding.id "provider_id" $binding.providerId "display_name" $binding.displayName "routes" $routes "destinations" $destinations }}
@@ -57,7 +60,7 @@
 {{- $id := printf "mcp-%s" $server.name }}
 {{- if hasKey $entryIds $id }}{{ fail "catalog entry IDs must be globally unique" }}{{ end }}
 {{- $_ := set $entryIds $id true }}
-{{- $route := dict "id" $id "url" (printf "%s/mcp/%s" $origin $server.name) "entry_mode" "api" "caller_auth_modes" (list "neurwerk_bearer" "oidc_bearer") "credential_mode_header" "X-Neurwerk-Credential-Mode" }}
+{{- $route := dict "id" $id "url" (printf "%s/mcp/%s" $origin $server.name) "entry_mode" "api" "caller_auth_modes" (list "neurwerk_bearer" "oidc_bearer") "identity_header" "Authorization" "provider_credential_source" "none" }}
 {{- $destination := dict "id" $server.name "kind" "mcp" "display_name" ($server.displayName | default $server.name) "endpoint_ids" (list $id) "profile_ids" (list "mcp-streamable-http-v1") "required_permissions" (list "llm:invoke" (printf "mcp:%s:invoke" $server.name)) "credential_modes" (list (dict "source" "none" "required_permissions" (list))) "provider_id" nil }}
 {{- $key := printf "mcp:%s" $server.name }}
 {{- if hasKey $destinationKeys $key }}{{ fail "duplicate catalog destination" }}{{ end }}

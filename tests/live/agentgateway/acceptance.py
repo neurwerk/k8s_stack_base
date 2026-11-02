@@ -12,7 +12,7 @@ all of these environment variables are present and valid:
 * LIVE_ACCEPTANCE_API_KEY=<API key; environment only, never printed>
 
 The URL selects an openai-chat-completions-v1 binding. The Neurwerk key uses
-X-Neurwerk-Authorization; the gateway owns global upstream credentials.
+Authorization; the gateway owns global upstream credentials.
 
 Invoke from the base repository with ``make live-acceptance``. The command reads
 only the current kubectl context, the non-secret
@@ -128,6 +128,7 @@ def load_config(environ: Mapping[str, str]) -> Config:
         or parsed.query
         or parsed.fragment
         or not BINDING_BASE_PATH_RE.fullmatch(parsed.path)
+        or parsed.path.startswith("/override/")
         or port is not None and not 1 <= port <= 65535
     ):
         raise AcceptanceError(
@@ -288,8 +289,7 @@ def _request(config: Config, payload: dict, *, api_key: str, spoof: bool = False
     body = json.dumps(payload, separators=(",", ":")).encode("utf-8")
     headers = {
         "Accept": "text/event-stream" if payload.get("stream") else "application/json",
-        "X-Neurwerk-Authorization": f"Bearer {api_key}",
-        "X-Neurwerk-Credential-Mode": "global",
+        "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
         "User-Agent": "neurwerk-live-acceptance/1",
     }

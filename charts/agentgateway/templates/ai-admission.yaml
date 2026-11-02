@@ -1,26 +1,40 @@
 {{- if .Values.aiGateway.enabled }}
 {{- $bindings := include "infra-agentgateway.aiBindings" . | fromJsonArray }}
 {{- $revision := include "infra-agentgateway.aiRevision" . }}
-{{- $apiBindings := list }}
 {{- $listeners := list }}
+{{- $apiBindings := list }}
+{{- $apiEntries := list }}
 {{- range $binding := $bindings }}
 {{- if $binding.api }}{{ $apiBindings = append $apiBindings $binding }}{{ end }}
-{{- if $binding.inspect }}{{ $listeners = append $listeners (dict "name" (printf "inspect-%s" $binding.id) "mode" "forward_proxy" "bindings" (list $binding)) }}{{ end }}
+{{- range $binding.apiEntries }}{{ $apiEntries = append $apiEntries (merge (deepCopy .) (dict "credentialHeader" $binding.credentialHeader)) }}{{ end }}
+{{- if $binding.inspect }}
+{{- $listeners = append $listeners (dict "name" (printf "inspect-%s" $binding.id) "mode" "forward_proxy" "host" $binding.host "entries" (list (dict "prefix" "/" "source" "override" "identityHeader" "proxy-authorization" "credentialHeader" $binding.credentialHeader))) }}
 {{- end }}
+{{- end }}
+{{- $apiEntries = append $apiEntries (dict "prefix" "/mcp" "source" "none" "identityHeader" "authorization" "credentialHeader" "") }}
 {{- if (index .Values "mcp-servers").enabled }}
 {{- range $server := include "infra-agentgateway.effectiveMcpServers" . | fromYamlArray }}
 {{- if or (not $server.contextforge) (has $server.name (index $.Values "mcp-servers").contextforgeRoutesEnabled) }}
-{{- $apiBindings = append $apiBindings (dict "id" (printf "mcp-%s" $server.name) "prefix" "/mcp" "kind" "mcp" "providerId" nil "local" true "credentialSources" (list "none") "credentialHeader" "" "requiredPermission" (printf "mcp:%s:invoke" $server.name) "operations" (list (dict "profile" "mcp-streamable-http-v1" "id" "exchange" "paths" (list (printf "/%s" $server.name))))) }}
+{{- $apiBindings = append $apiBindings (dict "id" (printf "mcp-%s" $server.name)) }}
 {{- end }}
 {{- end }}
 {{- end }}
-{{- $listeners = prepend $listeners (dict "name" "api-bindings" "mode" "api" "bindings" $apiBindings) }}
+{{- $groups := dict }}
+{{- range $entry := $apiEntries }}
+{{- $key := printf "%s-%s" $entry.source $entry.credentialHeader }}
+{{- if eq $entry.source "none" }}{{ $key = "none" }}{{ end }}
+{{- if eq $entry.source "global" }}{{ $key = "global" }}{{ end }}
+{{- if not (hasKey $groups $key) }}{{ $_ := set $groups $key (merge (dict "paths" list) (deepCopy $entry)) }}{{ end }}
+{{- $group := get $groups $key }}
+{{- $_ := set $group "paths" (append $group.paths (printf "%s/" $entry.prefix)) }}
+{{- end }}
+{{- $grouped := list }}
+{{- range $key := keys $groups | sortAlpha }}{{ $grouped = append $grouped (get $groups $key) }}{{ end }}
+{{- $listeners = prepend $listeners (dict "name" "api-bindings" "mode" "api" "entries" $grouped) }}
 {{- $approvedOidc := include "infra-agentgateway.approvedOidcAuthorization" (dict "root" . "bindings" $apiBindings) }}
-{{- $discoveryPath := `request.path.endsWith("/v1/models") || request.path.contains("/v1/models/")` }}
+{{- $identityHeader := include "infra-agentgateway.identityHeader" . }}
 {{- range $listener := $listeners }}
 {{- $proxy := eq $listener.mode "forward_proxy" }}
-{{- $credential := ternary "proxy-authorization" "x-neurwerk-authorization" $proxy }}
-{{- $headers := ternary "source.connectHeaders" "request.headers" $proxy }}
 ---
 apiVersion: agentgateway.dev/v1alpha1
 kind: AgentgatewayPolicy
@@ -38,13 +52,8 @@ spec:
     jwtAuthentication:
       mode: Permissive
       location:
-        # Standard OIDC clients send only Authorization; override-provider calls
-        # use the separate Neurwerk header. Expression extraction never removes
-        # provider Authorization. The admitted branch strips employee credentials.
         expression: >-
-          ("x-neurwerk-authorization" in request.headers
-          ? (size(request.headers.raw()["x-neurwerk-authorization"]) == 1 && request.headers["x-neurwerk-authorization"].startsWith("Bearer ") ? request.headers["x-neurwerk-authorization"].substring(7) : "")
-          : ("authorization" in request.headers && size(request.headers.raw()["authorization"]) == 1 && request.headers["authorization"].startsWith("Bearer ") ? request.headers["authorization"].substring(7) : ""))
+          {{ include "infra-agentgateway.validBearer" $identityHeader }} ? request.headers[{{ $identityHeader }}].substring(7) : ""
       providers:
         - issuer: {{ printf "https://%s/realms/%s" $.Values.authKeycloak.hostname $.Values.authKeycloak.realm | quote }}
           audiences: {{ $.Values.infraAgentgatewayWrapper.jwtAuth.allowedAudiences | toJson }}
@@ -67,11 +76,14 @@ spec:
               name: infra-agentgateway-extauth-apikey-bridge-backend
             http:
               path: {{ ternary `"/validate/proxy"` `"/validate/neurwerk"` $proxy | squote }}
-              # Employee identity comes only from the dedicated header.
               allowedRequestHeaders: [content-type]
               addRequestHeaders:
                 x-request-id: 'uuid()'
-                {{ $credential }}: {{ printf `%q in %s && size(%s.raw()[%q]) == 1 ? %s[%q] : ""` $credential $headers $headers $credential $headers $credential | squote }}
+                {{- if $proxy }}
+                proxy-authorization: '"proxy-authorization" in source.connectHeaders && size(source.connectHeaders.raw()["proxy-authorization"]) == 1 ? source.connectHeaders["proxy-authorization"] : ""'
+                {{- else }}
+                authorization: {{ printf `%s ? "Bearer " + request.headers[%s].substring(7) : ""` (include "infra-agentgateway.validBearer" $identityHeader) $identityHeader | squote }}
+                {{- end }}
               responseMetadata:
                 request_id: 'response.headers["x-request-id"]'
                 {{- range $field := list "contract_version" "principal_id" "permissions" "credential_id" "credential_kind" "account_email" }}
@@ -83,6 +95,7 @@ spec:
         matchExpressions:
           - >-
             ((has(jwt.sub) && type(jwt.sub) == string && size(jwt.sub) > 0 &&
+            has(jwt.typ) && jwt.typ == "Bearer" &&
             has(jwt.azp) && (jwt.azp == "agentgateway" ||
             (jwt.azp == {{ $.Values.authKeycloak.studioClientId | default "studio" | toJson }} && has(jwt.realm_access.roles) && "studio-user" in jwt.realm_access.roles){{ if not $proxy }} || {{ $approvedOidc }}{{ end }}) &&
             has(jwt.resource_access.agentgateway.roles) && type(jwt.resource_access.agentgateway.roles) == list &&
@@ -92,121 +105,56 @@ spec:
             extauthz.credential_kind in ["personal", "managed"] &&
             type(extauthz.permissions) == list && size(extauthz.permissions) <= 256 &&
             extauthz.permissions.all(p, type(p) == string && size(p) > 0 && size(p) <= 256 && extauthz.permissions.filter(q, q == p).size() == 1) &&
-            "llm:invoke" in extauthz.permissions)) &&
-            !("upgrade" in request.headers)
-            {{- if not $proxy }}
-            && ("x-neurwerk-authorization" in request.headers ? size(request.headers.raw()["x-neurwerk-authorization"]) == 1 : has(jwt.sub))
-            && (!("x-neurwerk-credential-mode" in request.headers) ||
-            (size(request.headers.raw()["x-neurwerk-credential-mode"]) == 1 &&
-            request.headers["x-neurwerk-credential-mode"].matches("^[ \\t]*(global|none|override)[ \\t]*$") &&
-            ("x-neurwerk-authorization" in request.headers || has(jwt.sub)) &&
-            ("x-neurwerk-authorization" in request.headers || ({{ include "infra-agentgateway.selectedCredentialSource" $ }}) != "override") &&
-            !("proxy-authorization" in request.headers) &&
-            !("cookie" in request.headers) &&
-            (({{ include "infra-agentgateway.selectedCredentialSource" $ }}) == "override" ?
-            ["authorization", "x-api-key", "x-goog-api-key", "api-key"].all(h, !(h in request.headers) ||
-            (size(request.headers.raw()[h]) == 1 && request.headers[h].matches(h == "authorization" ? "^[Bb][Ee][Aa][Rr][Ee][Rr] +[A-Za-z0-9._~+/-]+=*$" : "^[A-Za-z0-9._~+/-]+=*$"))) :
-            (!["x-api-key", "x-goog-api-key", "api-key"].exists(h, h in request.headers) &&
-            (!("authorization" in request.headers) || (size(request.headers.raw()["authorization"]) == 1 &&
-            request.headers["authorization"].matches("^[Bb][Ee][Aa][Rr][Ee][Rr] +[A-Za-z0-9._~+/-]+=*$")))))))
-            {{- end }}
+            "llm:invoke" in extauthz.permissions)) && !("upgrade" in request.headers)
             {{- if $proxy }}
-            && request.host in {{ list (first $listener.bindings).host (printf "%s:443" (first $listener.bindings).host) | toJson }}
-            && !("x-neurwerk-credential-mode" in request.headers)
-            && !("x-neurwerk-credential-mode" in source.connectHeaders)
+            && request.host in {{ list $listener.host (printf "%s:443" $listener.host) | toJson }}
             {{- end }}
-    {{- if $listener.bindings }}
     transformation:
       conditional:
-        {{- if not $proxy }}
-        {{- range $variant := list "oidc" "oidc-selected" "dedicated" "selected" }}
-        - condition: {{ printf `request.method == "GET" && (%s) && %s(has(jwt.sub) && !("x-neurwerk-authorization" in request.headers)) && %s("x-neurwerk-credential-mode" in request.headers)` $discoveryPath (ternary "" "!" (has $variant (list "oidc" "oidc-selected"))) (ternary "" "!" (has $variant (list "selected" "oidc-selected"))) | squote }}
-          policy:
-            request:
-              metadata:
-                neurwerk_identity: >-
-                  {{- include "infra-agentgateway.sharedIdentity" (dict "mode" $listener.mode "revision" $revision "discovery" true) | nindent 18 }}
-              set:
-                - name: x-request-id
-                  value: 'metadata.neurwerk_identity.request_id'
-                {{- if has $variant (list "selected" "oidc-selected") }}
-                - name: x-neurwerk-credential-mode
-                  value: 'metadata.neurwerk_identity.provider_credential_source'
-                {{- end }}
-              remove:
-                {{- if not (has $variant (list "oidc" "oidc-selected")) }}
-                - authorization
-                {{- else }}
-                - x-neurwerk-authorization
-                {{- end }}
-                - proxy-authorization
-                - cookie
-                - x-user-id
-                - x-auth-user
-                - x-auth-app
-                - x-auth-permissions
-                - x-agentgateway-permissions
-                - x-agentgateway-auth-context
-                - x-contextforge-account-email
-                - x-remote-allowed
-                - x-route-class
-                - x-api-key
-                - x-goog-api-key
-                {{- if eq $variant "selected" }}
-                - api-key
-                {{- end }}
-            response:
-              set:
-                - name: x-request-id
-                  value: 'metadata.neurwerk_identity.request_id'
-              remove: [authorization, proxy-authorization, x-neurwerk-authorization, x-api-key, x-goog-api-key, set-cookie, x-agentgateway-auth-context, x-neurwerk-credential-mode]
-        {{- end }}
-        {{- end }}
-        {{- $variants := list "dedicated" }}
-        {{- if not $proxy }}{{ $variants = list "oidc" "dedicated" "selected-strip" }}{{ end }}
-        {{- range $variant := $variants }}
-        {{- $condition := "true" }}
-        {{- if not $proxy }}{{ $condition = printf `!(request.method == "GET" && (%s))` $discoveryPath }}{{ end }}
-        {{- if not $proxy }}{{ $condition = printf `%s && %s(has(jwt.sub) && !("x-neurwerk-authorization" in request.headers))` $condition (ternary "" "!" (eq $variant "oidc")) }}{{ end }}
-        {{- if not $proxy }}
-        {{- $strip := printf `("x-neurwerk-credential-mode" in request.headers && (%s) in ["global", "none"])` (include "infra-agentgateway.selectedCredentialSource" $) }}
-        {{- if ne $variant "oidc" }}{{ $condition = printf `%s && %s%s` $condition (ternary "" "!" (eq $variant "selected-strip")) $strip }}{{ end }}
+        {{- range $entry := $listener.entries }}
+        {{- $path := "true" }}
+        {{- if not $proxy }}{{ $path = printf `%s.exists(p, request.path.startsWith(p))` ($entry.paths | toJson) }}{{ end }}
+        {{- $discovery := `request.method == "GET" && (request.path.endsWith("/v1/models") || request.path.contains("/v1/models/"))` }}
+        {{- range $variant := list "discovery" "provider" "strip" }}
+        {{- if and (eq $variant "provider") (ne $entry.source "override") }}{{ continue }}{{ end }}
+        {{- $preserve := "" }}
+        {{- $condition := $path }}
+        {{- if eq $variant "discovery" }}
+        {{- if $proxy }}{{ continue }}{{ end }}
+        {{- $condition = printf "%s && (%s)" $path $discovery }}
+        {{- else }}
+        {{- if not $proxy }}{{ $condition = printf "%s && !(%s)" $path $discovery }}{{ end }}
+        {{- $valid := "false" }}
+        {{- if eq $entry.source "override" }}{{ $valid = include "infra-agentgateway.validProvider" $entry.credentialHeader }}{{ end }}
+        {{- $condition = printf "%s && %s(%s)" $condition (ternary "" "!" (eq $variant "provider")) $valid }}
+        {{- if eq $variant "provider" }}{{ $preserve = $entry.credentialHeader }}{{ end }}
         {{- end }}
         - condition: {{ $condition | squote }}
           policy:
             request:
               metadata:
                 neurwerk_identity: >-
-                  {{- include "infra-agentgateway.sharedIdentity" (dict "mode" $listener.mode "revision" $revision) | nindent 18 }}
+                  {{- include "infra-agentgateway.sharedIdentity" (dict "mode" $listener.mode "revision" $revision "source" $entry.source "identityHeader" $entry.identityHeader "preserve" $preserve) | nindent 18 }}
               set:
                 - name: x-request-id
                   value: 'metadata.neurwerk_identity.request_id'
-              remove:
-                - x-neurwerk-authorization
-                - proxy-authorization
-                - cookie
-                - x-user-id
-                - x-auth-user
-                - x-auth-app
-                - x-auth-permissions
-                - x-agentgateway-permissions
-                - x-agentgateway-auth-context
-                - x-contextforge-account-email
-                - x-remote-allowed
-                - x-route-class
-                {{- if or (eq $variant "oidc") (eq $variant "selected-strip") }}
-                - authorization
+                {{- if eq $variant "discovery" }}
+                - name: authorization
+                  value: {{ printf `"Bearer " + request.headers[%q].substring(7)` $entry.identityHeader | squote }}
                 {{- end }}
-                {{- if not $proxy }}
-                - x-neurwerk-credential-mode
+              remove:
+                {{- range $header := list "authorization" "authorization-neurwerk" "x-neurwerk-authorization" "x-neurwerk-credential-mode" "proxy-authorization" "cookie" "x-api-key" "x-goog-api-key" "api-key" "x-user-id" "x-auth-user" "x-auth-app" "x-auth-permissions" "x-agentgateway-permissions" "x-agentgateway-auth-context" "x-contextforge-account-email" }}
+                {{- if and (ne $header $preserve) (not (and (eq $variant "discovery") (eq $header "authorization"))) }}
+                - {{ $header }}
+                {{- end }}
                 {{- end }}
             response:
               set:
                 - name: x-request-id
                   value: 'metadata.neurwerk_identity.request_id'
-              remove: [authorization, proxy-authorization, x-neurwerk-authorization, x-api-key, x-goog-api-key, set-cookie, x-agentgateway-auth-context, x-neurwerk-credential-mode]
+              remove: [authorization, authorization-neurwerk, proxy-authorization, x-neurwerk-authorization, x-api-key, x-goog-api-key, api-key, set-cookie, x-agentgateway-auth-context, x-neurwerk-credential-mode]
         {{- end }}
-    {{- end }}
+        {{- end }}
 ---
 apiVersion: agentgateway.dev/v1alpha1
 kind: AgentgatewayPolicy
@@ -218,6 +166,9 @@ spec:
     - {group: gateway.networking.k8s.io, kind: Gateway, name: infra-agentgateway-gateway, sectionName: {{ $listener.name }}}
   traffic:
     phase: PostRouting
+    headerModifiers:
+      request:
+        remove: [x-user-id, x-auth-user, x-auth-app, x-auth-permissions, x-agentgateway-permissions, x-agentgateway-auth-context, x-contextforge-account-email, x-remote-allowed, x-route-class]
     authorization:
       action: Allow
       policy:
