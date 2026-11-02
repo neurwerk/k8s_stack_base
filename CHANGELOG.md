@@ -9,6 +9,12 @@ upgrade path.
 
 ## [Unreleased]
 
+## [0.3.32] - 2026-11-02
+
+- Select gateway identity and provider credentials by endpoint, replacing legacy credential-mode headers with default, override and dedicated Codex routes.
+- Add route-specific model discovery and support realistic 100-model catalogs within native metadata limits; ignore unsupported credential headers without weakening required authentication or allowing personal-to-global fallback.
+- Adopt the matching gateway services and setup prerequisite in the release manifest; coordinate caller changes in one maintenance window as described in [the migration notes](release/migrations/v0.3.32.md).
+
 ## [0.3.31] - 2026-11-01
 
 - Require explicit credential modes for LLM inference, with per-model allowed modes. MCP and model discovery remain header-optional.

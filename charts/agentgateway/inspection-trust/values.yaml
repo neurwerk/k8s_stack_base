@@ -5,9 +5,9 @@ agentgateway:
     rootIds: [r1]
     trust:
       enabled: false
-      # Verified Tooling 0.15.6 publisher; update its validation guard and the shared
+      # Verified publisher; update its validation guard and the shared
       # Helm validation fixture together when adopting another verified release.
-      image: ghcr.io/neurwerk/k8s-stack-tooling:0.15.6@sha256:2cfe62109c8067e08a81f422733e6673ef3eb0ee11066f72e7316878a76013db
+      image: ghcr.io/neurwerk/k8s-stack-tooling:0.16.0@sha256:dbc2857ea6acb3c0624e8a73fa3d55477e7cbca54b47a1286ceca3de4245eb26
       # initialize creates the first complete publication before Studio advertises
       # it. Thereafter stage, roll Studio to required_version, then promote.
       operation: stage

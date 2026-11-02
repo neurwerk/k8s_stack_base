@@ -32,7 +32,7 @@ openrouterCatalog:
 
 # ── Chart own values ────────────────────────────────────────────────────────
 authKeycloakApiKeyBridge:
-  bridgeImage: ghcr.io/neurwerk/k8s-stack-keycloak-api-key-bridge:0.11.0@sha256:34e1649536a2cd5c25422f6b4369e7e4826dc73dff4db0e65a17faacd0b03859
+  bridgeImage: ghcr.io/neurwerk/k8s-stack-keycloak-api-key-bridge:0.12.0@sha256:52e7f4e0c86275d74625096ab935ace90f2df1b0b82c16adb39bdfd890b6f6d0
   # Add-ons can register managed keys separately; Base requires none by default.
   managedRegistrations: []
   hostname: ""

@@ -1,11 +1,11 @@
 apiVersion: platform.neurwerk.com/v1alpha1
 kind: PlatformRelease
 metadata:
-  name: v0.3.31
+  name: v0.3.32
 spec:
-  version: 0.3.31
-  releaseDate: '2026-11-01'
-  summary: Require explicit model credential selection and support per-model allowed modes
+  version: 0.3.32
+  releaseDate: '2026-11-02'
+  summary: Endpoint-selected gateway authentication and route-specific model discovery
   trust:
     signerIdentity: platform-release
     algorithm: ssh-ed25519
@@ -36,8 +36,8 @@ spec:
       chartPrefixes: []
       prerequisites:
       - name: openbao-stack-setup
-        version: 0.8.4
-        source: https://github.com/neurwerk/k8s_stack_tooling/commit/89734e057c1a58b0836d0205760169a0c7a0d85f
+        version: 0.8.5
+        source: https://github.com/neurwerk/k8s_stack_tooling/commit/7f111808203cc7503cc7750981db22021f13355b
     - path: releases/glitchtip/postgres
       status: included
       reason: Optional dedicated GlitchTip database using the existing operations PostgreSQL; requires
@@ -55,8 +55,8 @@ spec:
         version: 0.15.6
         source: https://github.com/neurwerk/k8s_stack_tooling/releases/tag/v0.15.6
       - name: openbao-stack-setup
-        version: 0.8.4
-        source: https://github.com/neurwerk/k8s_stack_tooling/commit/89734e057c1a58b0836d0205760169a0c7a0d85f
+        version: 0.8.5
+        source: https://github.com/neurwerk/k8s_stack_tooling/commit/7f111808203cc7503cc7750981db22021f13355b
     - path: releases/glitchtip/secret-sync/initial-owner
       status: included
       reason: Optional initial local organization-owner credentials for native provisioning; never delivered
@@ -64,8 +64,8 @@ spec:
       chartPrefixes: []
       prerequisites:
       - name: openbao-stack-setup
-        version: 0.8.4
-        source: https://github.com/neurwerk/k8s_stack_tooling/commit/89734e057c1a58b0836d0205760169a0c7a0d85f
+        version: 0.8.5
+        source: https://github.com/neurwerk/k8s_stack_tooling/commit/7f111808203cc7503cc7750981db22021f13355b
     - path: releases/glitchtip/adapter-access
       status: included
       reason: Optional reader credentials, internal CA distribution and scoped access; import the verified
@@ -73,8 +73,8 @@ spec:
       chartPrefixes: []
       prerequisites:
       - name: openbao-stack-setup
-        version: 0.8.4
-        source: https://github.com/neurwerk/k8s_stack_tooling/commit/89734e057c1a58b0836d0205760169a0c7a0d85f
+        version: 0.8.5
+        source: https://github.com/neurwerk/k8s_stack_tooling/commit/7f111808203cc7503cc7750981db22021f13355b
     - path: releases/glitchtip/tailscale-access
       status: included
       reason: Optional egress allowance for only the managed GlitchTip UI proxy. Requires the existing
@@ -110,7 +110,7 @@ spec:
         source: oci://ghcr.io/prometheus-community/charts/kube-prometheus-stack
     - path: releases/agentgateway/inspection-trust
       status: included
-      reason: Optional public-root snapshot publication after inspection PKI using verified Tooling 0.15.6;
+      reason: Optional public-root snapshot publication after inspection PKI using verified Tooling 0.16.0;
         disabled by default. Initial publication precedes Studio trust readiness; subsequent promotion
         requires every serving Studio replica to load the staged version.
       chartPrefixes:
@@ -120,8 +120,8 @@ spec:
         version: 0.1.1
         source: releases/agentgateway/inspection-pki
       - name: k8s-stack-tooling
-        version: 0.15.6
-        source: https://github.com/neurwerk/k8s_stack_tooling/releases/tag/v0.15.6
+        version: 0.16.0
+        source: https://github.com/neurwerk/k8s_stack_tooling/releases/tag/v0.16.0
     - path: releases/keycloak/active-directory
       status: included
       reason: Optional Active Directory federation; existing installations require a reviewed single-owner
@@ -138,8 +138,8 @@ spec:
         version: 0.2.0
         source: https://github.com/neurwerk/k8s_stack_tooling/commit/50b0c29c60482033bc0ceac58ca5a68733e5b075
       - name: openbao-stack-setup
-        version: 0.8.4
-        source: https://github.com/neurwerk/k8s_stack_tooling/commit/89734e057c1a58b0836d0205760169a0c7a0d85f
+        version: 0.8.5
+        source: https://github.com/neurwerk/k8s_stack_tooling/commit/7f111808203cc7503cc7750981db22021f13355b
     - path: releases/docling/secret-sync/internal
       status: included
       reason: Optional CPU API-key delivery; provision operator credentials before startup, without an
@@ -147,8 +147,8 @@ spec:
       chartPrefixes: []
       prerequisites:
       - name: openbao-stack-setup
-        version: 0.8.4
-        source: https://github.com/neurwerk/k8s_stack_tooling/commit/89734e057c1a58b0836d0205760169a0c7a0d85f
+        version: 0.8.5
+        source: https://github.com/neurwerk/k8s_stack_tooling/commit/7f111808203cc7503cc7750981db22021f13355b
     - path: releases/docling/secret-sync
       status: included
       reason: Optional remote-mode credential delivery; provision the API key and inference token before
@@ -156,8 +156,8 @@ spec:
       chartPrefixes: []
       prerequisites:
       - name: openbao-stack-setup
-        version: 0.8.4
-        source: https://github.com/neurwerk/k8s_stack_tooling/commit/89734e057c1a58b0836d0205760169a0c7a0d85f
+        version: 0.8.5
+        source: https://github.com/neurwerk/k8s_stack_tooling/commit/7f111808203cc7503cc7750981db22021f13355b
     - path: releases/docling/reloader
       status: included
       reason: Optional Docling namespace watch and rotation RBAC; compose only after its namespace exists.
@@ -174,8 +174,8 @@ spec:
       - charts/docling
       prerequisites:
       - name: openbao-stack-setup
-        version: 0.8.4
-        source: https://github.com/neurwerk/k8s_stack_tooling/commit/89734e057c1a58b0836d0205760169a0c7a0d85f
+        version: 0.8.5
+        source: https://github.com/neurwerk/k8s_stack_tooling/commit/7f111808203cc7503cc7750981db22021f13355b
     - path: releases/namespaces/maintenance
       status: included
       reason: Operator-tested optional maintenance; enable only when selected by the client.
@@ -207,8 +207,8 @@ spec:
       chartPrefixes: []
       prerequisites:
       - name: openbao-stack-setup
-        version: 0.8.4
-        source: https://github.com/neurwerk/k8s_stack_tooling/commit/89734e057c1a58b0836d0205760169a0c7a0d85f
+        version: 0.8.5
+        source: https://github.com/neurwerk/k8s_stack_tooling/commit/7f111808203cc7503cc7750981db22021f13355b
     - path: releases/tailscale/access
       status: included
       reason: Optional separately owned API TCP transport; disabled and suspended by default pending explicit
@@ -230,8 +230,8 @@ spec:
       chartPrefixes: []
       prerequisites:
       - name: openbao-stack-setup
-        version: 0.8.4
-        source: https://github.com/neurwerk/k8s_stack_tooling/commit/89734e057c1a58b0836d0205760169a0c7a0d85f
+        version: 0.8.5
+        source: https://github.com/neurwerk/k8s_stack_tooling/commit/7f111808203cc7503cc7750981db22021f13355b
     - path: releases/contextforge/oauth-apps
       status: included
       reason: Provider application credential delivery is selected only with approved registrations; all
@@ -239,8 +239,8 @@ spec:
       chartPrefixes: []
       prerequisites:
       - name: openbao-stack-setup
-        version: 0.8.4
-        source: https://github.com/neurwerk/k8s_stack_tooling/commit/89734e057c1a58b0836d0205760169a0c7a0d85f
+        version: 0.8.5
+        source: https://github.com/neurwerk/k8s_stack_tooling/commit/7f111808203cc7503cc7750981db22021f13355b
   prerequisites:
   - name: flux
     version: 2.9.4
@@ -249,8 +249,8 @@ spec:
     version: 0.0.5
     source: oci://ghcr.io/clickhouse/clickhouse-operator-helm
   - name: openbao-stack-setup
-    version: 0.8.4
-    source: https://github.com/neurwerk/k8s_stack_tooling/commit/89734e057c1a58b0836d0205760169a0c7a0d85f
+    version: 0.8.5
+    source: https://github.com/neurwerk/k8s_stack_tooling/commit/7f111808203cc7503cc7750981db22021f13355b
   - name: gateway-api-experimental
     version: 1.6.0
     source: https://github.com/kubernetes-sigs/gateway-api/releases/tag/v1.6.0
@@ -286,7 +286,7 @@ spec:
     charts:
     - path: charts/agentgateway
       name: infra-agentgateway
-      version: 4.0.2
+      version: 5.0.0
       appVersion: 1.6.0
       dependencyLock:
         digest: sha256:ef5fd87240e231990e45578f9deb65e6a6f947ba8a8b846cf13954882299cb3a
@@ -302,12 +302,12 @@ spec:
       version: 0.1.1
     - path: charts/agentgateway/inspection-trust
       name: agentgateway-inspection-trust
-      version: 0.1.3
+      version: 0.1.4
       appVersion: 0.12.0
     - path: charts/agentgateway-extproc
       name: agentgateway-extproc
-      version: 2.0.20
-      appVersion: 0.20.1
+      version: 2.0.21
+      appVersion: 0.20.2
     - path: charts/cert-manager/approval-policy
       name: infra-cert-manager-approval-policy
       version: 1.2.9
@@ -421,8 +421,8 @@ spec:
       appVersion: 26.7.2
     - path: charts/keycloak-api-key-bridge
       name: auth-keycloak-api-key-bridge
-      version: 2.0.4
-      appVersion: 0.11.0
+      version: 2.0.5
+      appVersion: 0.12.0
     - path: charts/kube-prometheus-stack
       name: monitor-kube-prometheus-stack
       version: 1.1.2
@@ -438,7 +438,7 @@ spec:
           sha256: b344a03d0006aba69a8c20ae1ff0354ac7687bdf72c3611c4f330b59a22b7548
     - path: charts/langfuse
       name: monitor-langfuse
-      version: 2.0.30
+      version: 2.0.31
       appVersion: 4.28.1
       dependencyLock:
         digest: sha256:68156b8f74aa153f2e33eb76f6ac11e9277c1a8fe8073c3f37da8834a97292cc
@@ -533,15 +533,15 @@ spec:
       appVersion: v1.20.3
     - path: charts/studio/api
       name: studio-api
-      version: 2.0.9
-      appVersion: 0.21.1
+      version: 2.0.10
+      appVersion: 0.22.0
     - path: charts/studio/shared
       name: studio-shared
       version: 1.0.0
     - path: charts/studio/web
       name: studio
-      version: 1.0.40
-      appVersion: 0.21.1
+      version: 1.0.41
+      appVersion: 0.22.0
     - path: charts/tailscale/access
       name: tailscale-access
       version: 0.1.0
@@ -859,13 +859,13 @@ spec:
       eligibility: included
       origins:
       - charts/contextforge/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.20.1@sha256:37400b1ad893f4437953c21420ddefe869d93c2975972ed63f40a3d51a626456
+    - reference: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.20.2@sha256:38e51b218804586b2012cc1d1915c943d306fb6af5cdb09642fe43ca1da8be86
       pinned: true
       eligibility: included
       origins:
       - charts/agentgateway-extproc/values.yaml
       - charts/langfuse/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-keycloak-api-key-bridge:0.11.0@sha256:34e1649536a2cd5c25422f6b4369e7e4826dc73dff4db0e65a17faacd0b03859
+    - reference: ghcr.io/neurwerk/k8s-stack-keycloak-api-key-bridge:0.12.0@sha256:52e7f4e0c86275d74625096ab935ace90f2df1b0b82c16adb39bdfd890b6f6d0
       pinned: true
       eligibility: included
       origins:
@@ -886,12 +886,12 @@ spec:
       origins:
       - charts/pii-engine-model-sync/values.yaml
       - charts/pii-engine/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-studio-api:0.21.1@sha256:c7b2a5ca2f87ed1057873482bb26d5cb58c06099ac99d7546d19ca1480827400
+    - reference: ghcr.io/neurwerk/k8s-stack-studio-api:0.22.0@sha256:12c3cf4da58e2ecba1f9669a85df0c5f0c34e23c8b6080ed1faa36e91cbf8851
       pinned: true
       eligibility: included
       origins:
       - charts/studio/api/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-studio-web:0.21.1@sha256:bcaec335da6e98e20d51ddcd1e37b05085c56eb74849d858e31b6853e490d741
+    - reference: ghcr.io/neurwerk/k8s-stack-studio-web:0.22.0@sha256:c0c6dc97d767ac8da2ab119d540189711f6b1b8d320b9ff0f9c6bb80615ee073
       pinned: true
       eligibility: included
       origins:
@@ -900,7 +900,6 @@ spec:
       pinned: true
       eligibility: included
       origins:
-      - charts/agentgateway/inspection-trust/values.yaml
       - charts/glitchtip/values.yaml
       - charts/keycloak/addon-access/values.yaml
       - charts/keycloak/addon-oidc/values.yaml
@@ -919,6 +918,11 @@ spec:
       eligibility: included
       origins:
       - charts/maintenance/values.yaml
+    - reference: ghcr.io/neurwerk/k8s-stack-tooling:0.16.0@sha256:dbc2857ea6acb3c0624e8a73fa3d55477e7cbca54b47a1286ceca3de4245eb26
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/agentgateway/inspection-trust/values.yaml
     - reference: ghcr.io/stakater/reloader:v1.4.21
       pinned: true
       eligibility: included
