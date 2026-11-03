@@ -1,0 +1,97 @@
+{{- if and .Values.glitchtip.enabled .Values.glitchtip.adapter.enabled .Values.glitchtip.adapter.monitoring.port }}
+{{- $monitoring := .Values.glitchtip.adapter.monitoring }}
+{{- $source := printf "namespace=%q,service=\"glitchtip-adapter\",endpoint=\"metrics\"" .Release.Namespace }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: glitchtip-adapter
+  labels:
+    {{- include "glitchtip.labels" . | nindent 4 }}
+    app.kubernetes.io/component: adapter
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "glitchtip.labels" . | nindent 4 }}
+    app.kubernetes.io/component: adapter
+  ports:
+    - {name: metrics, port: {{ $monitoring.port }}, targetPort: metrics, protocol: TCP}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: glitchtip-adapter
+  labels:
+    {{- include "glitchtip.labels" . | nindent 4 }}
+    release: monitor-kube-prometheus-stack
+spec:
+  selector:
+    matchLabels:
+      {{- include "glitchtip.labels" . | nindent 6 }}
+      app.kubernetes.io/component: adapter
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: 30s
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: glitchtip-adapter
+  labels:
+    {{- include "glitchtip.labels" . | nindent 4 }}
+    release: monitor-kube-prometheus-stack
+spec:
+  groups:
+    - name: reporting-adapter
+      interval: 30s
+      rules:
+        - alert: ReportingAdapterUnavailable
+          expr: (max(up{ {{- $source -}} }) or vector(0)) == 0
+          for: {{ $monitoring.alertFor }}
+          labels:
+            severity: critical
+            alert_scope: application
+            namespace: {{ .Release.Namespace }}
+            application: glitchtip-adapter
+          annotations:
+            summary: Application reporting adapter is unavailable
+            description: Check the adapter Pod, ServiceMonitor and metrics scrape path. Application failures may not reach GlitchTip.
+        {{- range $scope := .Values.glitchtip.adapter.scopes }}
+        - alert: ReportingAdapterPollingStalled
+          expr: >-
+            (time() - (max(reporting_adapter_last_poll_success_timestamp_seconds{ {{- $source -}},scope={{ $scope.id | quote }} }) or vector(0)) > {{ $monitoring.pollStaleSeconds }})
+            and on() (max(up{ {{- $source -}} }) == 1)
+          for: {{ $monitoring.alertFor }}
+          labels:
+            severity: critical
+            alert_scope: application
+            namespace: {{ $.Release.Namespace }}
+            application: glitchtip-adapter
+            scope: {{ $scope.id | quote }}
+          annotations:
+            summary: Application reporting polling has stalled
+            description: {{ printf "Scope %s has no recent successful OpenSearch poll. Check reader access, adapter logs and the pending outbox." $scope.id | quote }}
+        {{- end }}
+        - alert: ReportingAdapterDeliveryDelayed
+          expr: max(reporting_adapter_oldest_pending_age_seconds{ {{- $source -}} }) > {{ $monitoring.pendingAgeSeconds }}
+          for: {{ $monitoring.alertFor }}
+          labels:
+            severity: critical
+            alert_scope: application
+            namespace: {{ .Release.Namespace }}
+            application: glitchtip-adapter
+          annotations:
+            summary: Application reporting delivery is delayed
+            description: Pending events are waiting too long for GlitchTip delivery. Check ingestion connectivity and adapter logs; preserve the durable outbox.
+        - alert: ReportingAdapterPolicyRejected
+          expr: min(reporting_adapter_policy_valid{ {{- $source -}} }) == 0
+          for: {{ $monitoring.alertFor }}
+          labels:
+            severity: warning
+            alert_scope: application
+            namespace: {{ .Release.Namespace }}
+            application: glitchtip-adapter
+          annotations:
+            summary: Application reporting policy was rejected
+            description: The adapter is using its last valid policy. Correct the configured policy and review the adapter's safe rejection diagnostics.
+{{- end }}

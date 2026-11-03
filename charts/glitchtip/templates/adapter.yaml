@@ -3,6 +3,14 @@
 {{- $_ := required "glitchtip.adapter.image must be the reviewed published Tooling image" $adapter.image }}
 {{- $_ := required "glitchtip.adapter.initialStartAt is required for initial activation" $adapter.initialStartAt }}
 {{- $_ := required "glitchtip.adapter.scopes must explicitly select log sources" $adapter.scopes }}
+{{- $studioURL := $adapter.studioURL }}
+{{- $studioHostname := ((.Values.frontendStudio | default dict).studio | default dict).hostname | default "" }}
+{{- if and (not $studioURL) $studioHostname (ne $studioHostname "place.holder") }}
+{{- if not (regexMatch `^[a-zA-Z0-9]([a-zA-Z0-9.-]*[a-zA-Z0-9])?$` $studioHostname) }}
+{{- fail "frontendStudio.studio.hostname must be a hostname for adapter log links" }}
+{{- end }}
+{{- $studioURL = printf "https://%s" $studioHostname }}
+{{- end }}
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -55,6 +63,11 @@ spec:
             - {name: ADAPTER_GLITCHTIP_INGEST_BASE_URL, value: {{ printf "http://glitchtip.%s.svc.cluster.local:8000" .Release.Namespace | quote }}}
             - {name: ADAPTER_ENVIRONMENT, value: {{ $adapter.environment | quote }}}
             - {name: ADAPTER_SCOPES_FILE, value: /etc/adapter/scopes.json}
+            - {name: ADAPTER_REPORTING_POLICY_FILE, value: /etc/adapter-policy/policy.json}
+            {{- if $studioURL }}
+            - {name: ADAPTER_STUDIO_URL, value: {{ $studioURL | quote }}}
+            {{- end }}
+            - {name: ADAPTER_METRICS_PORT, value: {{ $adapter.monitoring.port | quote }}}
             - {name: ADAPTER_STATE_PATH, value: /var/lib/opensearch-glitchtip/state.sqlite3}
             - {name: ADAPTER_INITIAL_START_AT, value: {{ $adapter.initialStartAt | quote }}}
             - {name: ADAPTER_POLL_SECONDS, value: {{ $adapter.pollSeconds | quote }}}
@@ -70,12 +83,17 @@ spec:
             {{- if $adapter.glitchtipCAConfigMap }}
             - {name: ADAPTER_GLITCHTIP_CA_FILE, value: /etc/glitchtip-ca/ca.crt}
             {{- end }}
+          {{- if $adapter.monitoring.port }}
+          ports:
+            - {name: metrics, containerPort: {{ $adapter.monitoring.port }}, protocol: TCP}
+          {{- end }}
           resources:
             {{- toYaml $adapter.resources | nindent 12 }}
           volumeMounts:
             - {name: state, mountPath: /var/lib/opensearch-glitchtip}
             - {name: tmp, mountPath: /tmp}
             - {name: scopes, mountPath: /etc/adapter, readOnly: true}
+            - {name: reporting-policy, mountPath: /etc/adapter-policy, readOnly: true}
             - {name: opensearch-ca, mountPath: /etc/opensearch-ca, readOnly: true}
             {{- if $adapter.glitchtipCAConfigMap }}
             - {name: glitchtip-ca, mountPath: /etc/glitchtip-ca, readOnly: true}
@@ -87,6 +105,8 @@ spec:
           emptyDir: {sizeLimit: 64Mi}
         - name: scopes
           configMap: {name: glitchtip-adapter-scopes}
+        - name: reporting-policy
+          configMap: {name: glitchtip-adapter-reporting-policy}
         - name: opensearch-ca
           configMap: {name: {{ $adapter.opensearchCAConfigMap }}}
         {{- if $adapter.glitchtipCAConfigMap }}

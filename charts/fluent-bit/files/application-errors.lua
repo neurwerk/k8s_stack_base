@@ -1,4 +1,4 @@
--- Only fixed application and failure categories leave the log pipeline as labels.
+-- Metric labels use fixed application/failure categories and Kubernetes container names.
 local applications = {
     ["infra-agentgateway"] = "agentgateway",
     ["monitor-agentgateway-extproc"] = "agentgateway-extproc",
@@ -25,6 +25,14 @@ end
 
 local function contains(value, fragment)
     return value:find(fragment, 1, true) ~= nil
+end
+
+local function error_value(value)
+    local value_text = text(value):match("^%s*(.-)%s*$")
+    if value_text == "null" or value_text == "none" or value_text == '""' then
+        return ""
+    end
+    return value_text
 end
 
 local levels = {
@@ -54,15 +62,11 @@ end
 
 local function classify(record, application)
     local message = text(record.message or record.msg or record.log)
-    local prefix = message:gsub("^%d%d%d%d%-%d%d%-%d%d[t ]%d%d:%d%d:%d%d[^%s]*%s+", "")
-    prefix = prefix:gsub("^%[%d+%]%s*", "")
-    local level = text(record.level or record.levelname or record.severity)
-    if level == "" then
-        level = prefix:match("^(%a+)[%s:]") or ""
-    end
-    local error_text = text(record.error)
+    local level = log_level(record)
+    local error_text = error_value(record.error)
     if type(record.error) == "table" then
-        error_text = text(record.error.type) .. " " .. text(record.error.code) .. " " .. text(record.error.message)
+        error_text = (error_value(record.error.type) .. " " .. error_value(record.error.code)
+            .. " " .. error_value(record.error.message)):match("^%s*(.-)%s*$")
     end
     local diagnostic = message .. " " .. error_text
     local status_value = record["http.status"] or record.status_code or record.statusCode or record.status
@@ -72,11 +76,11 @@ local function classify(record, application)
     end
     status = status or tonumber(message:match("http%.status=(%d%d%d)%f[%D]"))
         or tonumber(message:match('http/%d[%.%d]*"%s+(%d%d%d)%f[%D]'))
-    local failure = level == "error" or level == "fatal" or level == "panic"
-    local warning = level == "warn" or level == "warning"
-    local transport_error = message:match('%serror="([^"]*)"') or message:match('%serror=([^%s]+)')
-    local has_error = error_text ~= "" or (transport_error ~= nil and transport_error ~= ""
-        and transport_error ~= '""' and transport_error ~= "null" and transport_error ~= "none")
+    local failure = level == "ERROR" or level == "FATAL"
+    local warning = level == "WARNING"
+    local transport_error = (" " .. message):match('%serror="([^"]*)"')
+        or (" " .. message):match('%serror=([^%s,;]+)')
+    local has_error = error_text ~= "" or error_value(transport_error) ~= ""
 
     -- DocumentDB deliberately rejects this Atlas-only capability probe with
     -- CommandNotFound so compatible clients can continue against a non-Atlas server.
@@ -87,9 +91,9 @@ local function classify(record, application)
         return nil
     end
 
-    -- These are caller outcomes, not application failures.
-    if (status and status >= 400 and status < 500 and status ~= 408)
-        or contains(diagnostic, "request blocked by policy")
+    -- Only known caller outcomes are excluded. A 4xx alone may describe a
+    -- dependency authentication failure rather than an expected caller denial.
+    if contains(diagnostic, "request blocked by policy")
         or contains(diagnostic, "request blocked by data policy")
         or contains(diagnostic, "reason=engine_invalid_request")
         or contains(diagnostic, "reason=engine_request_too_large") then
@@ -152,6 +156,7 @@ function application_error(tag, timestamp, record)
     -- Never accept metric fields supplied in application JSON.
     record._stack_error_namespace = nil
     record._stack_error_application = nil
+    record._stack_error_container = nil
     record._stack_error_kind = nil
     record._stack_error_timestamp = nil
     local metadata = record.kubernetes
@@ -176,10 +181,12 @@ function application_error(tag, timestamp, record)
     if type(seconds) ~= "number" or seconds <= 0 or seconds > os.time() + 60 then
         return 2, timestamp, record
     end
-    local key = application .. ":" .. kind
+    local container = type(metadata.container_name) == "string" and metadata.container_name or ""
+    local key = namespace .. ":" .. application .. ":" .. container .. ":" .. kind
     last_seen[key] = math.max(last_seen[key] or 0, seconds)
     record._stack_error_namespace = namespace
     record._stack_error_application = application
+    record._stack_error_container = container
     record._stack_error_kind = kind
     record.stack_log.failure_type = kind
     record._stack_error_timestamp = last_seen[key]

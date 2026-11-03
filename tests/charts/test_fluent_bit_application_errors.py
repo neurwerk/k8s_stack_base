@@ -13,6 +13,56 @@ CLASSIFIER = ROOT / "charts/fluent-bit/files/application-errors.lua"
 
 
 class FluentBitApplicationErrorTests(unittest.TestCase):
+    def test_empty_error_fields_do_not_classify_success_or_hide_failure(self) -> None:
+        fixture = f"""
+dofile({json.dumps(str(CLASSIFIER))})
+local timestamp = {{sec = os.time(), nsec = 123}}
+for _, case in ipairs({{
+    {{{{level = "debug", message = "request completed error=null, duration=1ms"}}, false}},
+    {{{{level = "debug", message = 'request completed error="", duration=1ms'}}, false}},
+    {{{{level = "debug", message = "request completed", error = "null"}}, false}},
+    {{{{level = "debug", message = "request completed", error = {{}}}}, false}},
+    {{{{level = "error", message = "request failed error=null, duration=1ms"}}, "application_error"}},
+    {{{{level = "error", message = "connection refused", error = ""}}, "connection_error"}},
+    {{{{level = "debug", message = 'request error="connection refused", duration=1ms'}}, "connection_error"}},
+}}) do
+    local record = {{
+        log = "original record",
+        application = case[1],
+        kubernetes = {{namespace_name = "infra-agentgateway", container_name = "agentgateway"}},
+    }}
+    local code, output_time, output = application_error("kube.test", timestamp, record)
+    assert((output._stack_error_kind or false) == case[2], case[1].message)
+    assert(code == 2 and output_time == timestamp and output.log == "original record")
+    assert(output.stack_log.level == string.upper(case[1].level))
+end
+"""
+        subprocess.run(
+            ["lua", "-"], input=fixture, text=True, check=True, capture_output=True
+        )
+
+    def test_dependency_403_is_preserved_and_known_caller_denial_is_not_an_error(self) -> None:
+        fixture = f"""
+dofile({json.dumps(str(CLASSIFIER))})
+for _, case in ipairs({{
+    {{{{level = "error", message = "MCP dependency authentication rejected", status_code = 403}}, "application_error"}},
+    {{{{level = "error", message = "upstream request rejected http.status=403 error=forbidden"}}, "application_error"}},
+    {{{{level = "error", message = "request blocked by policy", status_code = 403}}, false}},
+    {{{{level = "info", message = '"GET /private HTTP/1.1" 403'}}, false}},
+}}) do
+    local record = {{
+        application = case[1],
+        kubernetes = {{namespace_name = "infra-agentgateway", container_name = "agentgateway"}},
+    }}
+    application_error("kube.test", os.time(), record)
+    assert((record._stack_error_kind or false) == case[2], case[1].message)
+    assert(record.stack_log.level == string.upper(case[1].level))
+end
+"""
+        subprocess.run(
+            ["lua", "-"], input=fixture, text=True, check=True, capture_output=True
+        )
+
     def test_native_severity_and_existing_application_prefixes(self) -> None:
         fixture = f"""
 dofile({json.dumps(str(CLASSIFIER))})

@@ -68,7 +68,7 @@ class GlitchTipTests(unittest.TestCase):
         self.assertEqual(deployment["spec"]["strategy"], {"type": "Recreate"})
         container = pod["containers"][0]
         self.assertEqual(container["command"], ["opensearch-glitchtip-adapter"])
-        service = resource(result, "Service")
+        service = resource(result, "Service", "glitchtip")
         http_port = next(port["port"] for port in service["spec"]["ports"] if port["name"] == "http")
         ingest_url = next(item["value"] for item in container["env"] if item["name"] == "ADAPTER_GLITCHTIP_INGEST_BASE_URL")
         self.assertEqual(ingest_url, f"http://{service['metadata']['name']}.{namespace}.svc.cluster.local:{http_port}")
@@ -80,7 +80,16 @@ class GlitchTipTests(unittest.TestCase):
             "ADAPTER_OPENSEARCH_USERNAME", "ADAPTER_OPENSEARCH_PASSWORD", "ADAPTER_GLITCHTIP_DSN",
         })
         policy = resource(result, "NetworkPolicy", "glitchtip-adapter")["spec"]
-        self.assertEqual(policy["ingress"], [])
+        self.assertEqual(policy["ingress"], [{
+            "from": [{
+                "namespaceSelector": {"matchLabels": {"kubernetes.io/metadata.name": "monitor-kube-prometheus-stack"}},
+                "podSelector": {"matchLabels": {
+                    "app.kubernetes.io/name": "prometheus",
+                    "operator.prometheus.io/name": "monitor-kube-prometheus-st",
+                }},
+            }],
+            "ports": [{"protocol": "TCP", "port": "metrics"}],
+        }])
         self.assertEqual(len(policy["egress"]), 3)
         self.assertEqual(
             [port["port"] for rule in policy["egress"] for port in rule["ports"]],

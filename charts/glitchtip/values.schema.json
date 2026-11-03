@@ -96,7 +96,7 @@
         },
         "adapter": {
           "type": "object", "additionalProperties": false,
-          "required": ["enabled", "image", "credentialsSecret", "environment", "initialStartAt", "pollSeconds", "overlapSeconds", "settleSeconds", "scopes", "opensearchURL", "opensearchCAConfigMap", "glitchtipCAConfigMap", "storage", "resources"],
+          "required": ["enabled", "image", "credentialsSecret", "environment", "initialStartAt", "pollSeconds", "overlapSeconds", "settleSeconds", "scopes", "reportingPolicy", "studioURL", "monitoring", "opensearchURL", "opensearchCAConfigMap", "glitchtipCAConfigMap", "storage", "resources"],
           "properties": {
             "enabled": {"type": "boolean"},
             "image": {"type": "string"},
@@ -107,6 +107,27 @@
             "overlapSeconds": {"type": "integer", "minimum": 0, "maximum": 86400},
             "settleSeconds": {"type": "integer", "minimum": 0, "maximum": 3600},
             "scopes": {"type": "array", "maxItems": 32, "items": {"$ref": "#/definitions/scope"}},
+            "reportingPolicy": {
+              "type": "object", "additionalProperties": false,
+              "required": ["version", "defaults", "products", "overrides"],
+              "properties": {
+                "version": {"const": 1},
+                "defaults": {"$ref": "#/definitions/policyLayer"},
+                "products": {"$ref": "#/definitions/policyLayer"},
+                "overrides": {"$ref": "#/definitions/policyLayer"}
+              }
+            },
+            "studioURL": {"type": "string", "pattern": "^$|^https://[a-zA-Z0-9]([a-zA-Z0-9.-]*[a-zA-Z0-9])?(:[0-9]{1,5})?/?$"},
+            "monitoring": {
+              "type": "object", "additionalProperties": false,
+              "required": ["port", "pollStaleSeconds", "pendingAgeSeconds", "alertFor"],
+              "properties": {
+                "port": {"type": "integer", "minimum": 0, "maximum": 65535},
+                "pollStaleSeconds": {"type": "integer", "minimum": 60, "maximum": 86400},
+                "pendingAgeSeconds": {"type": "integer", "minimum": 60, "maximum": 86400},
+                "alertFor": {"type": "string", "pattern": "^[1-9][0-9]*[smh]$"}
+              }
+            },
             "opensearchURL": {"type": "string", "pattern": "^https://[a-zA-Z0-9.-]+:9200$"},
             "opensearchCAConfigMap": {"type": "string", "minLength": 1},
             "glitchtipCAConfigMap": {"type": "string"},
@@ -126,6 +147,7 @@
     }
   },
   "definitions": {
+    "policyLayer": {"type": "array", "maxItems": 256, "items": {"type": "object"}},
     "slug": {"type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"},
     "namedIdentity": {
       "type": "object", "additionalProperties": false,
