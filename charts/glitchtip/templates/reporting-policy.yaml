@@ -1,0 +1,10 @@
+{{- if and .Values.glitchtip.enabled .Values.glitchtip.adapter.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: glitchtip-adapter-reporting-policy
+  labels:
+    {{- include "glitchtip.labels" . | nindent 4 }}
+data:
+  policy.json: {{ .Values.glitchtip.adapter.reportingPolicy | toJson | quote }}
+{{- end }}

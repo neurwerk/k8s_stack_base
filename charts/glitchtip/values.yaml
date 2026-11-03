@@ -62,7 +62,7 @@ glitchtip:
       limits: {cpu: 500m, memory: 1Gi}
   adapter:
     enabled: false
-    image: ghcr.io/neurwerk/k8s-stack-tooling:0.15.6@sha256:2cfe62109c8067e08a81f422733e6673ef3eb0ee11066f72e7316878a76013db
+    image: ghcr.io/neurwerk/k8s-stack-tooling:0.17.0@sha256:31a90d97dae46f4f44570af8db9bc2624c69dee8358447bafea1289e65272ab4
     credentialsSecret: glitchtip-adapter
     environment: production
     # Required for first activation. Existing state owns subsequent cursors.
@@ -73,6 +73,23 @@ glitchtip:
     # The adapter validates namespace/container and stable app/service labels.
     # No query/PPL input is accepted by this chart.
     scopes: []
+    # Passed unchanged to Tooling; it owns rule validation and ID-based merging.
+    # Empty layers retain conservative fallback grouping. Add only reviewed formats.
+    # Reloaded each poll after projection; the normal reloader may also restart it.
+    reportingPolicy:
+      version: 1
+      defaults: []
+      products: []
+      overrides: []
+    # HTTPS origin; empty uses frontendStudio.studio.hostname when configured.
+    # Links are event diagnostic metadata, not a native email rendering guarantee.
+    studioURL: ""
+    monitoring:
+      # Zero disables metrics, scraping and reporting-health alerts.
+      port: 9090
+      pollStaleSeconds: 300
+      pendingAgeSeconds: 900
+      alertFor: 2m
     opensearchURL: https://opensearch-v3-master.monitor-opensearch.svc.cluster.local:9200
     opensearchCAConfigMap: glitchtip-opensearch-ca
     # Optional additional CA for the DSN endpoint; system trust otherwise.

@@ -99,6 +99,7 @@ fluent-bit:
           Regex               _stack_error_kind .+
           Add_Label           application_namespace $_stack_error_namespace
           Add_Label           application $_stack_error_application
+          Add_Label           application_container $_stack_error_container
           Add_Label           error_kind $_stack_error_kind
           Flush_Interval_Sec  5
 
@@ -115,6 +116,7 @@ fluent-bit:
           Regex               _stack_error_kind .+
           Add_Label           application_namespace $_stack_error_namespace
           Add_Label           application $_stack_error_application
+          Add_Label           application_container $_stack_error_container
           Add_Label           error_kind $_stack_error_kind
           Flush_Interval_Sec  5
 

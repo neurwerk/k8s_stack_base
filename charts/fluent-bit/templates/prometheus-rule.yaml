@@ -18,9 +18,9 @@ spec:
         - alert: ApplicationErrorObserved
           # A timestamp catches the first event even before a counter has a baseline.
           expr: >-
-            max by (application_namespace, application, error_kind)
+            max by (application_namespace, application, application_container, error_kind)
             (stack_application_error_last_seen_seconds)
-            and (time() - max by (application_namespace, application, error_kind)
+            and (time() - max by (application_namespace, application, application_container, error_kind)
             (stack_application_error_last_seen_seconds) < 300)
           labels:
             severity: warning

@@ -42,6 +42,10 @@ monitorKubePrometheusStack:
       # Log-derived errors have a dedicated route so notification policy changes
       # do not delay critical application availability alerts.
       applicationErrors:
+        # After verifying GlitchTip delivery and email, list IDs from the same
+        # glitchtip.adapter.scopes supplied to both charts. Only those exact
+        # namespace/application/container/failure-type combinations are muted.
+        verifiedGlitchtipScopeIds: []
         groupWait: 30s
         groupInterval: 5m
         repeatInterval: 1h
