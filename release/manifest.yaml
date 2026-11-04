@@ -1,11 +1,11 @@
 apiVersion: platform.neurwerk.com/v1alpha1
 kind: PlatformRelease
 metadata:
-  name: v0.3.32
+  name: v0.3.33
 spec:
-  version: 0.3.32
-  releaseDate: '2026-11-02'
-  summary: Endpoint-selected gateway authentication and route-specific model discovery
+  version: 0.3.33
+  releaseDate: '2026-11-04'
+  summary: Trusted MCP identity, Codex discovery and configurable application reporting
   trust:
     signerIdentity: platform-release
     algorithm: ssh-ed25519
@@ -13,8 +13,8 @@ spec:
   compatibility:
     stableUpgrade: supported
     upgradesFromAlphaRevisions:
-    - 25ee6c19e0921f78c4cd2e0ffb2c2abf48f9a54c
-    - 0d2a31614776a1c85e693d9e6620849faa5b2e19
+    - 713c1894c484f2544b5ffa157d6694d0eb384176
+    - 509a3194251c72d920fb2db6ff513c0340fc682d
     downgrade: unsupported
     recovery: forward-fix
   packages:
@@ -1070,16 +1070,13 @@ spec:
       node: 24.20.0
       lua: 5.4.9
   provenance:
-    previousTag: v0.3.30
-    includedThrough: 21ce57d8138550c33d667842586d3f1f95851711
+    previousTag: v0.3.32
+    includedThrough: 509a3194251c72d920fb2db6ff513c0340fc682d
     commits:
-    - 047c7a124079abc428b7115fadcdf7d6f4a3f749
-    - 0d2a31614776a1c85e693d9e6620849faa5b2e19
-    - d26f582881c748355453ff6cafdde120c545401d
-    - c89bfbb255645ed3cd7fcabf8f382eb0a09ed2e3
-    - ce4d0c1809843cc1e151c863fc0f4e9acde6a3ef
-    - 22f191d9a80bd1429a009a0259b207e0a6068f3a
-    - 66a9f7545810cce9167ced68ace62ec7a7d08067
-    - 584b15c7cdb1578da4d570f451dc9553f5ebeeb0
-    - 21ce57d8138550c33d667842586d3f1f95851711
-    compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.30...21ce57d8138550c33d667842586d3f1f95851711
+    - 16e64f21d1e2a148e6382c263e3ba8948aa6326e
+    - 6dd2faf8ec8be4a3c3b91e35fa73656c26db2c07
+    - 7f6d653255fba198837904e4c8689916a891ec27
+    - 713c1894c484f2544b5ffa157d6694d0eb384176
+    - f74be661304261edd7a7f850d0a7c780bb3ac963
+    - 509a3194251c72d920fb2db6ff513c0340fc682d
+    compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.32...509a3194251c72d920fb2db6ff513c0340fc682d

@@ -9,6 +9,14 @@ upgrade path.
 
 ## [Unreleased]
 
+## [0.3.33] - 2026-11-04
+
+- Preserve trusted MCP identity after stripping caller-supplied headers and include enabled subscription providers in Codex discovery.
+- Add configurable reporting policies, readable event metadata, Studio log links and reporting-pipeline health alerts; conservative defaults continue counting error events.
+- Correct harmless `error=null` classification, preserve dependency-authentication failures and allow scoped application-error email ownership without muting service-health alerts.
+- Adopt the extProc `0.20.3` notice fix and reporting adapter Tooling `0.17.0`.
+- Allow a brief API Key Bridge restart during adoption; preserve existing credentials and reporting state as described in [the migration notes](release/migrations/v0.3.33.md).
+
 ## [0.3.32] - 2026-11-02
 
 - Select gateway identity and provider credentials by endpoint, replacing legacy credential-mode headers with default, override and dedicated Codex routes.
