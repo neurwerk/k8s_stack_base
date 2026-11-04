@@ -7,7 +7,7 @@
 {{- $registrations := .Values.authKeycloakApiKeyBridge.managedRegistrations | default list }}
 {{- $managedFiles := list }}
 {{- $oidcBindings := dict }}
-{{- range $group := list "self-hosted-api-providers" "external-api-providers" }}
+{{- range $group := list "self-hosted-api-providers" "external-api-providers" "external-subscription-providers" }}
 {{- range index $.Values $group | default list }}
 {{- if and .enabled .routes.api.enabled }}
 {{- $id := .id }}

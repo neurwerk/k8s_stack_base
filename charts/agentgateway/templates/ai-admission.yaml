@@ -168,7 +168,7 @@ spec:
     phase: PostRouting
     headerModifiers:
       request:
-        remove: [x-user-id, x-auth-user, x-auth-app, x-auth-permissions, x-agentgateway-permissions, x-agentgateway-auth-context, x-contextforge-account-email, x-remote-allowed, x-route-class]
+        remove: [x-user-id, x-auth-user, x-auth-app, x-auth-permissions, x-agentgateway-permissions, x-agentgateway-auth-context, x-remote-allowed, x-route-class]
     authorization:
       action: Allow
       policy:
