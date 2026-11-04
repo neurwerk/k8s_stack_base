@@ -22,6 +22,7 @@ aiGateway:
   approvedOidcClients: []
 self-hosted-api-providers: []
 external-api-providers: []
+external-subscription-providers: []
 
 # Platform-owned OpenRouter entries derive the complete role catalog.
 openrouterCatalog:

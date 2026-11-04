@@ -298,12 +298,23 @@ class GroupedGatewayTests(unittest.TestCase):
         values = binding_values()
         values["self-hosted-api-providers"][0]["routes"]["api"]["path"] = "/local/api"
         values["external-api-providers"][1]["enabled"] = False
+        codex = {
+            "id": "codex", "enabled": True, "providerId": "openai",
+            "upstreamURL": "https://chatgpt.com/backend-api/codex",
+            "credentialSources": ["override"], "profiles": ["openai-codex-responses-v1"],
+            "routes": {"api": {"enabled": True}, "inspected": {"enabled": False}},
+            "models": [{"name": "codex-chat", "upstreamModel": "codex-upstream"}],
+        }
+        values["external-subscription-providers"] = [codex]
+        values["authKeycloak"]["agentgatewayClientRoles"].append("model:codex-chat:invoke")
         values["aiGateway"]["approvedOidcClients"] = [
             {"clientId": "addon-one", "bindings": ["openai"]},
             {"clientId": "addon-two", "bindings": ["local"]},
+            {"clientId": "addon-three", "bindings": ["codex"]},
         ]
         rendered = render("agentgateway", values)
-        for binding, prefix in [("openai", "/bindings/openai"), ("local", "/local/api")]:
+        for binding, prefix in [("openai", "/bindings/openai"), ("local", "/local/api"),
+                                ("codex", "/bindings/codex")]:
             route = resource(rendered, "HTTPRoute", f"ai-{binding}-model-discovery")
             first, second = route["spec"]["rules"]
             self.assertEqual(first["matches"][0]["path"]["value"], prefix + "/v1/models")
@@ -317,12 +328,21 @@ class GroupedGatewayTests(unittest.TestCase):
             self.assertNotIn("model:model/", expression)
         bridge = render("keycloak-api-key-bridge", values)
         mapping = json.loads(env_value(bridge, "KEYCLOAK_API_KEY_BRIDGE_GATEWAY_CALLER_OIDC_CLIENTS_BY_BINDING"))
-        self.assertEqual(mapping, {"openai": ["addon-one"], "local": ["addon-two"], "openrouter": []})
+        self.assertEqual(mapping, {"openai": ["addon-one"], "local": ["addon-two"], "openrouter": [],
+                                   "codex": ["addon-three"]})
         env = resource(bridge, "Deployment", "auth-keycloak-api-key-bridge-deployment")["spec"]["template"]["spec"]["containers"][0]["env"]
         self.assertFalse(any(item["name"] in {
             "KEYCLOAK_API_KEY_BRIDGE_GATEWAY_CALLER_OIDC_BINDINGS",
             "KEYCLOAK_API_KEY_BRIDGE_GATEWAY_DISCOVERY_BINDINGS",
         } for item in env))
+        for enabled, api_enabled in [(False, True), (True, False)]:
+            with self.subTest(enabled=enabled, api_enabled=api_enabled):
+                codex["enabled"] = enabled
+                codex["routes"]["api"]["enabled"] = api_enabled
+                bridge = render("keycloak-api-key-bridge", values)
+                mapping = json.loads(env_value(
+                    bridge, "KEYCLOAK_API_KEY_BRIDGE_GATEWAY_CALLER_OIDC_CLIENTS_BY_BINDING"))
+                self.assertEqual(mapping, {"openai": ["addon-one"], "local": ["addon-two"], "openrouter": []})
 
     def test_capacity_and_constant_shared_policy(self):
         for count in [9, 33, 256]:
@@ -419,7 +439,8 @@ class CredentialModeTests(unittest.TestCase):
         return json.loads(json.dumps(result, cls=CELJSONEncoder))
 
     def chain(self, lines, *, binding="openai", discovery=False, roles=None, rendered=None, dedicated=True,
-              oidc=False, operation="chat/completions", source=None, codex=False, token_type="Bearer"):
+              oidc=False, operation="chat/completions", source=None, codex=False, token_type="Bearer",
+              extproc_mutation=None):
         rendered = rendered or self.rendered
         mcp = binding == "mcp-context7"
         source = source or ("none" if mcp or binding == "local" else "global")
@@ -473,29 +494,68 @@ class CredentialModeTests(unittest.TestCase):
         for name in transform.get("remove", []):
             headers.pop(name, None)
         inherited = resource(rendered, "AgentgatewayPolicy", "ai-route-default-deny-api-bindings")["spec"]["traffic"]
-        for name in inherited["headerModifiers"]["request"]["remove"]:
-            headers.pop(name, None)
         suffix = "-override" if source == "override" and not codex else ""
         name = ("mcp-context7-policy" if mcp else f"ai-{binding}{suffix}-model-discovery-processing"
                 if discovery else f"ai-{binding}-api{suffix}-processing")
         route = resource(rendered, "AgentgatewayPolicy", name)["spec"]["traffic"]
         admitted = self.value(route["authorization"]["policy"]["matchExpressions"][0], context)
         if admitted and not discovery:
-            transform = route["transformation"]
-            if "conditional" in transform:
-                transform = next(branch["policy"] for branch in transform["conditional"]
-                                 if self.value(branch["condition"], context))
-            expression = transform["request"]["metadata"]["neurwerk_admission"]
-            context["metadata"]["neurwerk_admission"] = self.value(expression, context)
             # The extProc contract receives the same frozen source after both sensitive
             # headers are gone; it must not infer source from the remaining headers.
             extproc = route["extProc"]
             if "conditional" in extproc:
                 extproc = next(branch["policy"] for branch in extproc["conditional"]
                                if self.value(branch["condition"], context))
-            self.assertEqual(self.value(extproc["metadataContext"]["neurwerk.destination_policy"]["request_context"], context),
-                             context["metadata"]["neurwerk_admission"])
+            request_context = self.value(
+                extproc["metadataContext"]["neurwerk.destination_policy"]["request_context"], context)
+            # httpproxy.rs applies extProc before transformation and header modifiers
+            # within PostRouting. Model trusted response mutations at that boundary.
+            if extproc_mutation is not None:
+                extproc_mutation(headers)
+            transform = route["transformation"]
+            if "conditional" in transform:
+                transform = next(branch["policy"] for branch in transform["conditional"]
+                                 if self.value(branch["condition"], context))
+            for name, expression in transform["request"].get("metadata", {}).items():
+                context["metadata"][name] = self.value(expression, context)
+            for action in transform["request"].get("set", []):
+                headers[action["name"]] = self.value(action["value"], context)
+            for name in transform["request"].get("remove", []):
+                headers.pop(name, None)
+            self.assertEqual(request_context, context["metadata"]["neurwerk_admission"])
+        if admitted:
+            modifiers = route.get("headerModifiers", inherited.get("headerModifiers", {}))
+            for name in modifiers.get("request", {}).get("remove", []):
+                headers.pop(name, None)
         return admitted, context
+
+    def test_contextforge_identity_is_sanitized_then_preserved_after_extproc(self):
+        header = "x-contextforge-account-email"
+        # Every listener branch must sanitize caller identity, including branches
+        # outside the MCP route exercised below.
+        for policy in documents(self.rendered):
+            if policy["kind"] != "AgentgatewayPolicy":
+                continue
+            traffic = policy["spec"].get("traffic", {})
+            if traffic.get("phase") != "PreRouting":
+                continue
+            for branch in traffic.get("transformation", {}).get("conditional", []):
+                self.assertIn(header, branch["policy"]["request"]["remove"], policy["metadata"]["name"])
+
+        for oidc in [False, True]:
+            for trusted_email in [None, "trusted@example.test"]:
+                with self.subTest(oidc=oidc, trusted_email=trusted_email):
+                    def mutate(headers):
+                        self.assertNotIn(header, headers, "caller identity reached extProc")
+                        if trusted_email is not None:
+                            headers[header] = trusted_email
+
+                    admitted, context = self.chain([
+                        ("X-ContextForge-Account-Email", "spoofed@example.test"),
+                        (header, "second-spoof@example.test"),
+                    ], binding="mcp-context7", oidc=oidc, extproc_mutation=mutate)
+                    self.assertTrue(admitted)
+                    self.assertEqual(context["request"]["headers"].get(header), trusted_email)
 
     def test_legacy_headers_are_ignored_without_identity_fallback(self):
         for lines in [
