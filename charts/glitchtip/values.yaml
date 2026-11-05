@@ -62,7 +62,7 @@ glitchtip:
       limits: {cpu: 500m, memory: 1Gi}
   adapter:
     enabled: false
-    image: ghcr.io/neurwerk/k8s-stack-tooling:0.17.0@sha256:31a90d97dae46f4f44570af8db9bc2624c69dee8358447bafea1289e65272ab4
+    image: ghcr.io/neurwerk/k8s-stack-tooling:0.18.0@sha256:a2731a49f01b81ba3028567955952b556f75c43508eb0896d3bacf69c712afb8
     credentialsSecret: glitchtip-adapter
     environment: production
     # Required for first activation. Existing state owns subsequent cursors.
@@ -78,7 +78,45 @@ glitchtip:
     # Reloaded each poll after projection; the normal reloader may also restart it.
     reportingPolicy:
       version: 1
-      defaults: []
+      defaults:
+        - id: agentgateway-stateless-mcp-get
+          source_format: agentgateway-mcp-v1
+          priority: 100
+          match:
+            service: [agentgateway]
+            failure_type: [application_error]
+            json.gateway: [infra-agentgateway/infra-agentgateway-gateway]
+            json.listener: [api-bindings]
+            json.http.method: [GET]
+            json.http.status: ['405']
+            json.http.path: [/mcp/brave, /mcp/context7, /mcp/github, /mcp/glitchtip]
+            json.protocol: [mcp]
+            json.reason: [MCP]
+            json.error: ['mcp: method not allowed; must be GET, POST, or DELETE']
+          group_by: [json.http.path, json.route, json.http.host, json.reason, json.error]
+          action: log_only
+          explanation: Reviewed stateless MCP optional-stream rejection; unfamiliar diagnostics remain reportable.
+        - id: agentgateway-mcp-authorization
+          source_format: agentgateway-mcp-v1
+          match:
+            service: [agentgateway]
+            failure_type: [application_error]
+            json.http.status: ['403']
+            json.reason: [Authorization]
+            json.error: [authorization failed]
+          group_by: [json.jwt.sub, json.http.path, json.http.method, json.route, json.http.host, json.reason, json.error]
+          title: 'MCP {json.http.path}: authorization rejected (403)'
+          explanation: Repeated authorization failures for the same caller and destination; all semantic diagnostics remain part of the signature.
+        - id: librechat-mcp-authentication
+          match:
+            service: [librechat]
+            failure_type: [application_error]
+            json.code: [MCP_AUTHENTICATION_REJECTED]
+            json.statusCode: [403]
+          group_by: [json.serverName, json.userId, json.request_method, json.request_path, json.code, json.statusCode, json.message, json.stack]
+          drop_fields: [timestamp, requestId, request_id]
+          title: 'LibreChat MCP {json.serverName}: authentication rejected ({json.statusCode})'
+          explanation: Repeated explicit destination failures for the same caller; targetless retry messages retain exact grouping.
       products: []
       overrides: []
     # HTTPS origin; empty uses frontendStudio.studio.hostname when configured.
