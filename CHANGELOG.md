@@ -11,7 +11,10 @@ upgrade path.
 
 ## [0.3.34] - 2026-11-05
 
-
+- Exclude reviewed stateless MCP GET/405 noise from GlitchTip reporting, including complete credential identity pairs, while retaining unfamiliar diagnostics and other failures.
+- Group repeated MCP authorization failures by caller and destination while preserving credential distinctions; group explicit LibreChat MCP authentication failures without collapsing destination-less errors.
+- Adopt Tooling `0.18.1` and extProc `0.20.4`, fixing exact `codemode=false` compatibility and discouraging model-generated PII notices.
+- Preserve reporting state during the brief service restart; see [the upgrade notes](release/migrations/v0.3.34.md).
 
 ## [0.3.33] - 2026-11-04
 
