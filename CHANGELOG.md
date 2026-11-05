@@ -9,6 +9,10 @@ upgrade path.
 
 ## [Unreleased]
 
+## [0.3.34] - 2026-11-05
+
+
+
 ## [0.3.33] - 2026-11-04
 
 - Preserve trusted MCP identity after stripping caller-supplied headers and include enabled subscription providers in Codex discovery.

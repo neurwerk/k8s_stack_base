@@ -1,6 +1,6 @@
-version: 0.3.33
-releaseDate: '2026-11-04'
-summary: Trusted MCP identity, Codex discovery and configurable application reporting
+version: 0.3.34
+releaseDate: '2026-11-05'
+summary: MCP reporting noise reduction and query compatibility fixes
 helmOutputs:
   releases/keycloak/server.yaml:
   - kind: Secret
@@ -13,9 +13,7 @@ trust:
   fingerprint: SHA256:+rDcofrsfRE3ElJJxnUVoB3gmoEzZJUrisDqLZMHimw
 compatibility:
   stableUpgrade: supported
-  upgradesFromAlphaRevisions:
-  - 713c1894c484f2544b5ffa157d6694d0eb384176
-  - 509a3194251c72d920fb2db6ff513c0340fc682d
+  upgradesFromAlphaRevisions: []
   downgrade: unsupported
   recovery: forward-fix
 packages:
@@ -284,13 +282,11 @@ exceptions:
   reason: The reviewed upstream DocumentDB local image requires passwordless sudo to prepare runtime directories
     before dropping back to UID 1000.
 provenance:
-  previousTag: v0.3.32
-  includedThrough: 509a3194251c72d920fb2db6ff513c0340fc682d
+  previousTag: v0.3.33
+  includedThrough: 2ffe44d01fb970cdd413afdb58d88ec752a7de0d
   commits:
-  - 16e64f21d1e2a148e6382c263e3ba8948aa6326e
-  - 6dd2faf8ec8be4a3c3b91e35fa73656c26db2c07
-  - 7f6d653255fba198837904e4c8689916a891ec27
-  - 713c1894c484f2544b5ffa157d6694d0eb384176
-  - f74be661304261edd7a7f850d0a7c780bb3ac963
-  - 509a3194251c72d920fb2db6ff513c0340fc682d
-  compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.32...509a3194251c72d920fb2db6ff513c0340fc682d
+  - 79a001fb64ab797af0c684fe7c6fa46f5ea27e21
+  - d490922d59ef9913d6d96f9a43a1826a88fa458f
+  - 5911de3bc5095c9c8c3edef648254ba8206c477f
+  - 2ffe44d01fb970cdd413afdb58d88ec752a7de0d
+  compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.33...2ffe44d01fb970cdd413afdb58d88ec752a7de0d
