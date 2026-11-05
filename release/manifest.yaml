@@ -46,15 +46,15 @@ spec:
       chartPrefixes: []
     - path: releases/glitchtip/app
       status: included
-      reason: Optional GlitchTip 6.2.6 with verified adapter Tooling 0.18.0 and provisioning Tooling 0.15.6;
+      reason: Optional GlitchTip 6.2.6 with verified adapter Tooling 0.18.1 and provisioning Tooling 0.15.6;
         disabled by default. Provision native identities before DSN handoff and adapter activation. Management
         UI uses Tailscale TCP/TLS only; public routing exposes one selected status page.
       chartPrefixes:
       - charts/glitchtip
       prerequisites:
       - name: k8s-stack-tooling
-        version: 0.18.0
-        source: https://github.com/neurwerk/k8s_stack_tooling/releases/tag/v0.18.0
+        version: 0.18.1
+        source: https://github.com/neurwerk/k8s_stack_tooling/releases/tag/v0.18.1
       - name: openbao-stack-setup
         version: 0.8.5
         source: https://github.com/neurwerk/k8s_stack_tooling/commit/7f111808203cc7503cc7750981db22021f13355b
@@ -307,8 +307,8 @@ spec:
       appVersion: 0.12.0
     - path: charts/agentgateway-extproc
       name: agentgateway-extproc
-      version: 2.0.22
-      appVersion: 0.20.3
+      version: 2.0.23
+      appVersion: 0.20.4
     - path: charts/cert-manager/approval-policy
       name: infra-cert-manager-approval-policy
       version: 1.2.9
@@ -386,7 +386,7 @@ spec:
       appVersion: '1.0'
     - path: charts/glitchtip
       name: glitchtip
-      version: 0.1.10
+      version: 0.1.11
       appVersion: 6.2.6
     - path: charts/keycloak/addon-access
       name: keycloak-addon-access
@@ -439,7 +439,7 @@ spec:
           sha256: b344a03d0006aba69a8c20ae1ff0354ac7687bdf72c3611c4f330b59a22b7548
     - path: charts/langfuse
       name: monitor-langfuse
-      version: 2.0.32
+      version: 2.0.33
       appVersion: 4.28.1
       dependencyLock:
         digest: sha256:68156b8f74aa153f2e33eb76f6ac11e9277c1a8fe8073c3f37da8834a97292cc
@@ -860,7 +860,7 @@ spec:
       eligibility: included
       origins:
       - charts/contextforge/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.20.3@sha256:9d47a16249b0ec27cbc6e5c0ee7997ada9123e1323cbfc5a0f04062ac73ce679
+    - reference: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.20.4@sha256:d9c0000a6a7ed1f6c748eea850707812354d267d4da53d50ea0eece44561c591
       pinned: true
       eligibility: included
       origins:
@@ -920,7 +920,7 @@ spec:
       eligibility: included
       origins:
       - charts/maintenance/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-tooling:0.18.0@sha256:a2731a49f01b81ba3028567955952b556f75c43508eb0896d3bacf69c712afb8
+    - reference: ghcr.io/neurwerk/k8s-stack-tooling:0.18.1@sha256:8c8d360f2cb9d7bc5d147e66dcbba2a743700eac32678f4f61a4388b3db676df
       pinned: true
       eligibility: included
       origins:

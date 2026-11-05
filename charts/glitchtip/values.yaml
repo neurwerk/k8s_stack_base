@@ -62,7 +62,7 @@ glitchtip:
       limits: {cpu: 500m, memory: 1Gi}
   adapter:
     enabled: false
-    image: ghcr.io/neurwerk/k8s-stack-tooling:0.18.0@sha256:a2731a49f01b81ba3028567955952b556f75c43508eb0896d3bacf69c712afb8
+    image: ghcr.io/neurwerk/k8s-stack-tooling:0.18.1@sha256:8c8d360f2cb9d7bc5d147e66dcbba2a743700eac32678f4f61a4388b3db676df
     credentialsSecret: glitchtip-adapter
     environment: production
     # Required for first activation. Existing state owns subsequent cursors.
