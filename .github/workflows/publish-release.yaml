@@ -64,9 +64,12 @@ jobs:
 
       - name: Set up uv
         uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version-file: release-tooling/.tool-versions
+          python-version: "3.12"
 
       - name: Install Python
-        run: uv python install 3.12
+        run: uv python install "$UV_PYTHON"
 
       - name: Reverify tag, provenance, ancestry, and release contract
         id: contract

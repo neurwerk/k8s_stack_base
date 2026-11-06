@@ -30,7 +30,7 @@ YELLOW := \033[33m
 CYAN   := \033[36m
 RESET  := \033[0m
 
-.PHONY: help tools helm-lint helm-lint-only helm-validate rendered-check kustomize-validate kube-linter chart-check security-check platform-check release-manifest release-check release-notes check streaming-acceptance live-acceptance live-postgres-acceptance pre-commit-install helm-deps deps-verify
+.PHONY: help tools helm-lint helm-lint-only helm-validate rendered-check kustomize-validate kube-linter lock-check chart-check security-check platform-check release-manifest release-check release-notes check streaming-acceptance live-acceptance live-postgres-acceptance pre-commit-install helm-deps deps-verify
 
 help: ## Show this help
 	@printf "$(CYAN)Available targets:$(RESET)\n"
@@ -141,10 +141,14 @@ security-check: ## Run offline acceptance-runner safety tests
 	fi
 	@$(PYTHON3) -m unittest discover -s tests/security/static -p 'test_*.py' -v
 
-chart-check: ## Run chart-specific rendered contract tests
+lock-check: ## Verify the Python lockfile is current without changing it
+	@if [ -z "$(UV)" ]; then printf "$(RED)uv is required$(RESET)\n"; exit 1; fi
+	@$(UV) lock --check
+
+chart-check: lock-check ## Run chart-specific rendered contract tests
 	@$(UV) run --frozen python -m unittest discover -s tests/charts -p 'test_*.py' -v
 
-platform-check: ## Verify the generated platform release contract
+platform-check: lock-check ## Verify the generated platform release contract
 	@if [ -z "$(UV)" ]; then printf "$(RED)uv is required$(RESET)\n"; exit 1; fi
 	@PLATFORM_RELEASE_TEST_TAG="$(TAG)" $(UV) run --frozen python -m unittest discover -s tests/platform -p 'test_*.py' -v
 
@@ -159,7 +163,7 @@ release-notes: ## Write release notes; pass OUTPUT=<path>
 	@if [ -z "$(OUTPUT)" ]; then printf "$(RED)OUTPUT is required$(RESET)\n"; exit 1; fi
 	@$(UV) run --frozen python scripts/platform_release.py notes --output "$(OUTPUT)"
 
-check: tools helm-lint rendered-check kustomize-validate chart-check security-check platform-check ## Run full local validation suite
+check: lock-check tools helm-lint rendered-check kustomize-validate chart-check security-check platform-check ## Run full local validation suite
 
 streaming-acceptance: ## Run opt-in local streaming regression; see tests/live/agentgateway/README.md
 	@$(PYTHON3) tests/live/agentgateway/test_streaming.py
