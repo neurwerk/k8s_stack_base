@@ -23,6 +23,8 @@ spec:
       namespace: auth-keycloak-api-key-bridge
     - name: postgres-operations
       namespace: infra-postgres-operations
+    - name: kube-prometheus-stack
+      namespace: monitor-kube-prometheus-stack
   chart:
     spec:
       chart: ./charts/agentgateway

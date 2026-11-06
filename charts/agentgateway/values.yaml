@@ -39,10 +39,8 @@ infraAgentgatewayWrapper:
         # Never derive this value from caller-supplied identity headers.
         langfuse.user.id: 'has(jwt.sub) ? jwt.sub : (has(extauthz.principal_id) ? extauthz.principal_id : "")'
 
-        # Prefer session headers, then request-body identifiers.
-        langfuse.session.id: 'default(request.headers["x-session-id"], default(request.headers["x-conversation-id"], default(string(json(request.body).session_id), default(string(json(request.body).sessionId), default(string(json(request.body).conversationId), default(string(json(request.truncatedBody).session_id), default(string(json(request.truncatedBody).sessionId), default(string(json(request.truncatedBody).conversationId), ""))))))))'
-
-
+        # The template scopes detected agent sessions to the verified principal,
+        # falling back to the trusted request ID when no session is available.
         # The template supplies model input/output, including tools, under the
         # selected model's content-tracing policy.
 
@@ -243,7 +241,16 @@ agentgateway:
 
   controller:
     image:
+      registry: cr.agentgateway.dev
+      repository: controller
+      tag: v1.7.0@sha256:87c1363bf0cbc7fdb375866e592294114c8763097d2d0c9fc45fcb1fe00a4ab8
       pullPolicy: IfNotPresent
+
+  proxy:
+    image:
+      registry: cr.agentgateway.dev
+      repository: agentgateway
+      tag: v1.7.0@sha256:60216aafb03d37f94e952ff3d51d2f630a65b10ecaebdc0a864882f92610c45b
 
   # Scrape controller and data-plane metrics.
   monitoring:

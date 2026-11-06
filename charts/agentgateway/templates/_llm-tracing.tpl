@@ -16,6 +16,22 @@ toJson({"messages": llm.prompt}.merge(default(
   })[0], {})))
 {{- end -}}
 
+{{/* Agent session headers describe grouping, never identity. */}}
+{{- define "infra-agentgateway.llmTraceSession" -}}
+(has(metadata.neurwerk_identity) && has(metadata.neurwerk_identity.principal_id)
+  ? metadata.neurwerk_identity.principal_id
+  : has(metadata.neurwerk_admission) && has(metadata.neurwerk_admission.principal_id)
+    ? metadata.neurwerk_admission.principal_id : null).with(principal,
+  default(request.agent.session, "").with(session,
+  type(principal) == string && size(principal) > 0 &&
+  type(session) == string && size(session) > 0
+    ? "agent:" + sha256.encode(toJson([principal, session]))
+    : has(metadata.neurwerk_identity) && has(metadata.neurwerk_identity.request_id)
+      ? metadata.neurwerk_identity.request_id
+      : has(metadata.neurwerk_admission) && has(metadata.neurwerk_admission.request_id)
+        ? metadata.neurwerk_admission.request_id : null))
+{{- end -}}
+
 {{- define "infra-agentgateway.llmTraceOutput" -}}
 (has(llm.requestModel) ? toJson({
   "messages": default(llm.completion, []).map(c, {"role": "assistant", "content": c}),

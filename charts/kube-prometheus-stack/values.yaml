@@ -77,6 +77,26 @@ kube-prometheus-stack:
   # Clean up operator object names to avoid double-prefixing
   cleanPrometheusOperatorObjectNames: true
 
+  prometheusOperator:
+    image:
+      registry: quay.io
+      repository: prometheus-operator/prometheus-operator
+      tag: v0.94.2
+      sha: c7edf0379b7271ef1705dce258d2bb73820e299cc95559369e9f6fc3321639ec
+    prometheusConfigReloader:
+      image:
+        registry: quay.io
+        repository: prometheus-operator/prometheus-config-reloader
+        tag: v0.94.2
+        sha: a1897c67478bc23434534e91ad3855280771196b1daf17144db9dbcb655bef71
+    admissionWebhooks:
+      patch:
+        image:
+          registry: ghcr.io
+          repository: jkroepke/kube-webhook-certgen
+          tag: "1.11.1"
+          sha: 8009b04f9873f7279b5adee37fdd03b6a9aa7b6751d4f69fde2683010e41cd1f
+
   # Default rules (alerts + recording rules)
   defaultRules:
     create: true
@@ -85,6 +105,11 @@ kube-prometheus-stack:
   prometheus:
     enabled: true
     prometheusSpec:
+      image:
+        registry: quay.io
+        repository: prometheus/prometheus
+        tag: v3.16.0-distroless
+        sha: 9764044e09eb2c9e1abdb12d0f0188d4efb7384b0262d3c080f0fc59045c89ba
       # PodMonitor/ServiceMonitor discovery — match our release label
       podMonitorSelectorNilUsesHelmValues: false
       serviceMonitorSelectorNilUsesHelmValues: false
@@ -94,6 +119,11 @@ kube-prometheus-stack:
   alertmanager:
     enabled: true
     alertmanagerSpec:
+      image:
+        registry: quay.io
+        repository: prometheus/alertmanager
+        tag: v0.34.2
+        sha: 39d8bb3966c694a124428a3a88fbcffd40bd069129ecd47c059f8a3f17c55f3b
       useExistingSecret: true
       configSecret: monitor-kube-prometheus-stack-alertmanager-config
       # Do not merge arbitrary AlertmanagerConfig resources into the platform
@@ -109,6 +139,11 @@ kube-prometheus-stack:
   # ── Grafana ───────────────────────────────────────────────────────────────
   grafana:
     enabled: false
+    image:
+      registry: docker.io
+      repository: grafana/grafana
+      tag: 13.3.0-distroless
+      sha: 540b8afb775bf34aefce417e4329039daa5d44b6f2fbda6881397b1b247ca7df
     # The wrapper supplies ConfigMap-only Roles in each trusted dashboard
     # namespace instead of the subchart's cluster-wide ConfigMap/Secret role.
     rbac:
@@ -120,6 +155,11 @@ kube-prometheus-stack:
     # Automatically import GitOps-managed dashboards from the two trusted
     # namespaces. The sidecars process ConfigMaps only.
     sidecar:
+      image:
+        registry: quay.io
+        repository: kiwigrid/k8s-sidecar
+        tag: "2.14.3"
+        sha: 52d311dcedd587421a236c4d6c621f05614c40a51386e955e0699dca97ec0880
       dashboards:
         enabled: true
         label: grafana_dashboard
@@ -136,7 +176,18 @@ kube-prometheus-stack:
   # ── kube-state-metrics (dependency subchart) ───────────────────────────────
   kube-state-metrics:
     enabled: true
+    image:
+      registry: registry.k8s.io
+      repository: kube-state-metrics/kube-state-metrics
+      tag: v2.20.0
+      sha: sha256:42cfe3723a5f058171c627537fb57a3ea0f26e4380fa18555a95cb1a1b4cfc5b
 
   # ── prometheus-node-exporter (dependency subchart) ─────────────────────────
   prometheus-node-exporter:
     enabled: true
+    image:
+      registry: quay.io
+      repository: prometheus/node-exporter
+      tag: v1.12.1-distroless
+      distroless: false # The exact tag already selects the distroless image.
+      digest: sha256:8c9bac11973b94b59be88d6e11fee4429aa743c8846cdc75d65b18db33f6a106

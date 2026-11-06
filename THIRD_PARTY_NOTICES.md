@@ -20,20 +20,20 @@ digests; `release/manifest.yaml` records each archive's SHA-256 digest.
 | [`LICENSES/Groundhog-MIT.txt`](LICENSES/Groundhog-MIT.txt) | Exact [groundhog2k `postgres-1.6.3` license](https://github.com/groundhog2k/helm-charts/blob/postgres-1.6.3/LICENSE) |
 | [`LICENSES/Valkey-Helm-BSD-3-Clause.txt`](LICENSES/Valkey-Helm-BSD-3-Clause.txt) | Exact [Valkey Helm `valkey-0.9.4` license](https://github.com/valkey-io/valkey-helm/blob/valkey-0.9.4/LICENSE) |
 | [`LICENSES/OpenBao-MPL-2.0.txt`](LICENSES/OpenBao-MPL-2.0.txt) | Exact [OpenBao Helm `openbao-0.29.1` license](https://github.com/openbao/openbao-helm/blob/openbao-0.29.1/LICENSE) |
-| [`LICENSES/AgentGateway-ATTRIBUTION.txt`](LICENSES/AgentGateway-ATTRIBUTION.txt) | Copyright attribution from [AgentGateway `v1.6.0`](https://github.com/agentgateway/agentgateway/blob/v1.6.0/LICENSE) |
-| [`LICENSES/Grafana-Helm-Charts-ATTRIBUTION.txt`](LICENSES/Grafana-Helm-Charts-ATTRIBUTION.txt) | Copyright attribution from [Grafana Helm Charts `grafana-9.0.0`](https://github.com/grafana/helm-charts/blob/grafana-9.0.0/LICENSE) |
+| [`LICENSES/AgentGateway-ATTRIBUTION.txt`](LICENSES/AgentGateway-ATTRIBUTION.txt) | Copyright attribution from [AgentGateway `v1.7.0`](https://github.com/agentgateway/agentgateway/blob/v1.7.0/LICENSE) |
+| [`LICENSES/Grafana-Helm-Charts-ATTRIBUTION.txt`](LICENSES/Grafana-Helm-Charts-ATTRIBUTION.txt) | Copyright attribution from [Grafana Community Helm Charts `grafana-14.4.0`](https://github.com/grafana-community/helm-charts/blob/grafana-14.4.0/LICENSE) |
 | [`LICENSES/OpenSearch-Helm-Charts-NOTICE.txt`](LICENSES/OpenSearch-Helm-Charts-NOTICE.txt) | Exact OpenSearch Helm Charts NOTICE used by [`opensearch-3.8.0`](https://github.com/opensearch-project/helm-charts/blob/opensearch-3.8.0/NOTICE.txt) and [`opensearch-dashboards-3.8.0`](https://github.com/opensearch-project/helm-charts/blob/opensearch-dashboards-3.8.0/NOTICE.txt) |
 
 ## Direct Archives
 
 | Vendored archive | Exact upstream source | Offline license and notice |
 | --- | --- | --- |
-| `charts/agentgateway/charts/agentgateway-1.6.0.tgz` | [agentgateway `v1.6.0`](https://github.com/agentgateway/agentgateway/tree/v1.6.0) | Apache-2.0; AgentGateway attribution |
+| `charts/agentgateway/charts/agentgateway-1.7.0.tgz` | [agentgateway `v1.7.0`](https://github.com/agentgateway/agentgateway/tree/v1.7.0) | Apache-2.0; AgentGateway attribution |
 | `charts/cert-manager/approver-policy/charts/cert-manager-approver-policy-v0.25.1.tgz` | [approver-policy `v0.25.1`](https://github.com/cert-manager/approver-policy/tree/v0.25.1) | Apache-2.0 |
 | `charts/cert-manager/controller/charts/cert-manager-v1.20.2.tgz` | [cert-manager `v1.20.2`](https://github.com/cert-manager/cert-manager/tree/v1.20.2) | Apache-2.0 |
 | `charts/external-secrets/charts/external-secrets-2.9.0.tgz` | [external-secrets chart `2.9.0` at source tag `v2.10.0`](https://github.com/external-secrets/external-secrets/tree/v2.10.0/deploy/charts/external-secrets) | Apache-2.0 |
 | `charts/fluent-bit/charts/fluent-bit-0.48.9.tgz` | [Fluent Helm Charts `fluent-bit-0.48.9`](https://github.com/fluent/helm-charts/tree/fluent-bit-0.48.9/charts/fluent-bit) | Apache-2.0 |
-| `charts/kube-prometheus-stack/charts/kube-prometheus-stack-72.4.0.tgz` | [Prometheus Community Helm Charts `kube-prometheus-stack-72.4.0`](https://github.com/prometheus-community/helm-charts/tree/kube-prometheus-stack-72.4.0/charts/kube-prometheus-stack) | Apache-2.0 |
+| `charts/kube-prometheus-stack/charts/kube-prometheus-stack-92.21.2.tgz` | [Prometheus Community Helm Charts `kube-prometheus-stack-92.21.2`](https://github.com/prometheus-community/helm-charts/tree/kube-prometheus-stack-92.21.2/charts/kube-prometheus-stack) | Apache-2.0 |
 | `charts/langfuse/charts/langfuse-2.1.0.tgz` | [Langfuse Kubernetes `langfuse-2.1.0`](https://github.com/langfuse/langfuse-k8s/tree/langfuse-2.1.0/charts/langfuse) | Langfuse MIT |
 | `charts/openbao/charts/openbao-0.29.1.tgz` | [OpenBao Helm `openbao-0.29.1`](https://github.com/openbao/openbao-helm/tree/openbao-0.29.1/charts/openbao) | OpenBao MPL-2.0 |
 | `charts/opensearch/app/charts/opensearch-3.8.0.tgz` | [OpenSearch Helm Charts `opensearch-3.8.0`](https://github.com/opensearch-project/helm-charts/tree/opensearch-3.8.0/charts/opensearch) | Apache-2.0; OpenSearch NOTICE |
@@ -49,11 +49,11 @@ archive-internal paths, not additional repository files.
 | Parent archive | Embedded component | Exact source | Offline license and notice |
 | --- | --- | --- | --- |
 | External Secrets 2.9.0 | `external-secrets/charts/bitwarden-sdk-server`, `v0.6.0` | Declared OCI dependency in the [exact chart source](https://github.com/external-secrets/external-secrets/blob/v2.10.0/deploy/charts/external-secrets/Chart.yaml) | Apache-2.0 under the External Secrets repository license |
-| kube-prometheus-stack 72.4.0 | `kube-prometheus-stack/charts/crds`, `0.0.0` | Included in [kube-prometheus-stack `72.4.0`](https://github.com/prometheus-community/helm-charts/tree/kube-prometheus-stack-72.4.0/charts/kube-prometheus-stack) | Apache-2.0 |
-| kube-prometheus-stack 72.4.0 | `kube-prometheus-stack/charts/grafana`, `9.0.0` | [Grafana Helm Charts `grafana-9.0.0`](https://github.com/grafana/helm-charts/tree/grafana-9.0.0/charts/grafana) | Apache-2.0; Grafana Helm Charts attribution |
-| kube-prometheus-stack 72.4.0 | `kube-prometheus-stack/charts/kube-state-metrics`, `5.33.1` | [Prometheus Community Helm Charts `kube-state-metrics-5.33.1`](https://github.com/prometheus-community/helm-charts/tree/kube-state-metrics-5.33.1/charts/kube-state-metrics) | Apache-2.0 |
-| kube-prometheus-stack 72.4.0 | `kube-prometheus-stack/charts/prometheus-node-exporter`, `4.46.0` | [Prometheus Community Helm Charts `prometheus-node-exporter-4.46.0`](https://github.com/prometheus-community/helm-charts/tree/prometheus-node-exporter-4.46.0/charts/prometheus-node-exporter) | Apache-2.0 |
-| kube-prometheus-stack 72.4.0 | `kube-prometheus-stack/charts/prometheus-windows-exporter`, `0.10.0` | [Prometheus Community Helm Charts `prometheus-windows-exporter-0.10.0`](https://github.com/prometheus-community/helm-charts/tree/prometheus-windows-exporter-0.10.0/charts/prometheus-windows-exporter) | Apache-2.0 |
+| kube-prometheus-stack 92.21.2 | `kube-prometheus-stack/charts/crds`, `0.0.0` | Included in [kube-prometheus-stack `92.21.2`](https://github.com/prometheus-community/helm-charts/tree/kube-prometheus-stack-92.21.2/charts/kube-prometheus-stack) | Apache-2.0 |
+| kube-prometheus-stack 92.21.2 | `kube-prometheus-stack/charts/grafana`, `14.4.0` | [Grafana Community Helm Charts `grafana-14.4.0`](https://github.com/grafana-community/helm-charts/tree/grafana-14.4.0/charts/grafana) | Apache-2.0; Grafana Helm Charts attribution |
+| kube-prometheus-stack 92.21.2 | `kube-prometheus-stack/charts/kube-state-metrics`, `9.0.0` | [Prometheus Community Helm Charts `kube-state-metrics-9.0.0`](https://github.com/prometheus-community/helm-charts/tree/kube-state-metrics-9.0.0/charts/kube-state-metrics) | Apache-2.0 |
+| kube-prometheus-stack 92.21.2 | `kube-prometheus-stack/charts/prometheus-node-exporter`, `4.60.1` | [Prometheus Community Helm Charts `prometheus-node-exporter-4.60.1`](https://github.com/prometheus-community/helm-charts/tree/prometheus-node-exporter-4.60.1/charts/prometheus-node-exporter) | Apache-2.0 |
+| kube-prometheus-stack 92.21.2 | `kube-prometheus-stack/charts/prometheus-windows-exporter`, `0.14.0` | [Prometheus Community Helm Charts `prometheus-windows-exporter-0.14.0`](https://github.com/prometheus-community/helm-charts/tree/prometheus-windows-exporter-0.14.0/charts/prometheus-windows-exporter) | Apache-2.0 |
 | Langfuse 2.1.0 | `langfuse/charts/postgresql` (`postgres`), `1.6.3` | [groundhog2k `postgres-1.6.3`](https://github.com/groundhog2k/helm-charts/tree/postgres-1.6.3/charts/postgres) | Groundhog MIT |
 | Langfuse 2.1.0 | `langfuse/charts/redis` (`valkey`), `0.9.4` | [Valkey Helm `valkey-0.9.4`](https://github.com/valkey-io/valkey-helm/tree/valkey-0.9.4/valkey) | Valkey Helm BSD-3-Clause |
 | Langfuse 2.1.0 | `langfuse/charts/s3` (`seaweedfs`), `4.23.0` | [SeaweedFS chart `4.23.0`](https://github.com/seaweedfs/seaweedfs/tree/master/k8s/charts/seaweedfs) | Apache-2.0 |

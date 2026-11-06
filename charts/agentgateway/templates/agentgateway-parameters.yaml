@@ -129,7 +129,7 @@ spec:
     {{- $_ := set $add "langfuse.observation.input" (printf `has(mcp.tool.arguments) && (%s) ? flattenRecursive(mcp.tool.arguments) : null` $traceEnabled) }}
     {{- $_ := set $add "langfuse.observation.output" (printf `has(mcp.tool.result) && (%s) ? flattenRecursive(mcp.tool.result) : null` $traceEnabled) }}
     {{- $_ := set $add "gen_ai.usage.cost" `has(llm.cost) ? double(llm.cost.total) : null` }}
-    {{- $_ := set $add "langfuse.session.id" `has(metadata.neurwerk_identity) && has(metadata.neurwerk_identity.request_id) ? metadata.neurwerk_identity.request_id : has(metadata.neurwerk_admission) && has(metadata.neurwerk_admission.request_id) ? metadata.neurwerk_admission.request_id : null` }}
+    {{- $_ := set $add "langfuse.session.id" (include "infra-agentgateway.llmTraceSession" .) }}
     {{- $_ := set $add "langfuse.observation.metadata.requested_model" `extproc != null && "neurwerk.request_context" in extproc && has(extproc["neurwerk.request_context"].requested_model) ? extproc["neurwerk.request_context"].requested_model : null` }}
     {{- $_ := set $fields "add" $add }}
       tracing:
