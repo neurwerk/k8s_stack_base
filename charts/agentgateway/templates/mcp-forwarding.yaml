@@ -58,6 +58,14 @@ spec:
           podSelector:
             matchLabels: {app.kubernetes.io/name: studio-api, app.kubernetes.io/instance: frontend-studio-api}
       ports: [{protocol: TCP, port: 15000}]
+    - from:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: monitor-kube-prometheus-stack}
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus
+              operator.prometheus.io/name: monitor-kube-prometheus-st
+      ports: [{protocol: TCP, port: metrics}]
   egress:
     - to:
         - namespaceSelector:
