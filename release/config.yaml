@@ -106,7 +106,7 @@ packages:
       version: 0.24.0
       source: oci://quay.io/jetstack/charts/trust-manager
     - name: kube-prometheus-stack
-      version: 72.4.0
+      version: 92.21.2
       source: oci://ghcr.io/prometheus-community/charts/kube-prometheus-stack
   - path: releases/agentgateway/inspection-trust
     status: included
@@ -257,10 +257,10 @@ prerequisites:
   version: 1.20.2
   source: https://github.com/cert-manager/cert-manager/releases/tag/v1.20.2
 - name: prometheus-operator-crds
-  version: 72.4.0
+  version: 92.21.2
   source: oci://ghcr.io/prometheus-community/charts/kube-prometheus-stack
 - name: agentgateway-crds
-  version: 1.6.0
+  version: 1.7.0
   source: oci://cr.agentgateway.dev/charts/agentgateway-crds
 - name: external-secrets-crds
   version: 2.9.0

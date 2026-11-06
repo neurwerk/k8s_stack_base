@@ -4,7 +4,7 @@ kube-prometheus-stack:
   kubelet:
     serviceMonitor:
       metricRelabelings:
-        # Helm replaces this list; retain the upstream 72.4.0 storage-bucket filter.
+        # Helm replaces this list; retain the upstream storage-bucket filter.
         - action: drop
           sourceLabels: [__name__, le]
           regex: '(csi_operations|storage_operation_duration)_seconds_bucket;(0.25|2.5|15|25|120|600)(\.0)?'

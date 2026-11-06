@@ -1,7 +1,7 @@
 """Opt-in native correlation regression with the installed extProc under review.
 
-Run with AGENTGATEWAY_BIN and the extProc checkout's `uv run --frozen --extra dev
-python <base>/tests/live/agentgateway/test_error_contract.py` environment. All
+Run from Base with AGENTGATEWAY_BIN and the reviewed extProc checkout as described
+in README.md. All
 servers are disposable loopback fixtures; the bridge is a synthetic HTTP peer.
 """
 
@@ -53,7 +53,7 @@ def configuration(rendered, gateway_port, auth_port, provider_port, processor_po
     admission = resource(rendered, "AgentgatewayPolicy", "ai-admission-api-bindings")["spec"]["traffic"]
     auth = admission["extAuth"]["conditional"][0]
     http = auth["policy"]["http"]
-    processing = resource(rendered, "AgentgatewayPolicy", "ai-openai-api-processing")["spec"]["traffic"]["extProc"]
+    processing = resource(rendered, "AgentgatewayPolicy", "ai-openai-api-processing")["spec"]["traffic"]["extProc"]["conditional"]
     transformations = copy.deepcopy(admission["transformation"]["conditional"])
     # Kubernetes headers are name/value lists; native configuration uses maps.
     for branch in transformations:
@@ -82,15 +82,16 @@ def configuration(rendered, gateway_port, auth_port, provider_port, processor_po
         "routes": [{
             "gateways": ["contract"], "matches": [{"path": {"exact": PATH}}],
             "backends": [{"host": f"127.0.0.1:{provider_port}"}],
-            "policies": {"extProc": {
+            "policies": {"extProc": {"conditional": [{
+                "condition": branch["condition"],
                 "host": f"127.0.0.1:{processor_port}",
                 "failureMode": "failClosed",
-                "metadataContext": processing["metadataContext"],
+                "metadataContext": branch["policy"]["metadataContext"],
                 "processingOptions": {
                     key: value[0].lower() + value[1:] if isinstance(value, str) else value
-                    for key, value in processing["processingOptions"].items()
+                    for key, value in branch["policy"]["processingOptions"].items()
                 },
-            }},
+            } for branch in processing]}},
         }],
     }
 
@@ -113,9 +114,9 @@ class ErrorContractTest(unittest.IsolatedAsyncioTestCase):
 
             def do_POST(self):
                 request_id = self.headers["x-request-id"]
-                credential = self.headers.get("x-neurwerk-authorization")
+                credential = self.headers.get("authorization")
                 auth_calls.append((request_id, credential))
-                if credential == "Bearer denied":
+                if credential not in {"Bearer allowed", "Bearer forbidden"}:
                     status = 401
                     body = {"detail": "Invalid or expired key", "error": {
                         "message": "Invalid or expired key", "code": "authentication_failed",
@@ -178,7 +179,7 @@ class ErrorContractTest(unittest.IsolatedAsyncioTestCase):
         await server.start()
         peers, threads, connections = [], [], []
         process = None
-        with tempfile.TemporaryDirectory(prefix="gateway-error-contract-") as temporary:
+        with tempfile.TemporaryDirectory(prefix="gateway-error-contract-", dir=os.environ.get("TMPDIR", "/tmp/opencode")) as temporary:
             log_path = Path(temporary) / "gateway.log"
             try:
                 for handler in (Bridge, Provider):
@@ -190,8 +191,10 @@ class ErrorContractTest(unittest.IsolatedAsyncioTestCase):
                 gateway_port = port()
                 config = configuration(rendered, gateway_port, peers[0].server_port,
                                        peers[1].server_port, processor_port)
+                config_path = Path(temporary) / "config.json"
+                config_path.write_text(json.dumps(config))
                 with log_path.open("w") as log:
-                    process = subprocess.Popen([str(binary.resolve()), "-c", json.dumps(config)],
+                    process = subprocess.Popen([str(binary.resolve()), "-f", str(config_path)],
                                                stdout=log, stderr=log, stdin=subprocess.DEVNULL,
                                                env={"PATH": os.defpath, "HOME": temporary})
                     for _ in range(100):
@@ -209,8 +212,7 @@ class ErrorContractTest(unittest.IsolatedAsyncioTestCase):
                         connections.append(connection)
                         connection.putrequest("POST", path)
                         connection.putheader("content-type", "application/json")
-                        connection.putheader("x-neurwerk-authorization", f"Bearer {credential}")
-                        connection.putheader("x-neurwerk-credential-mode", "global")
+                        connection.putheader("Authorization", f"Bearer {credential}")
                         connection.putheader("x-request-id", "caller-spoof")
                         connection.putheader("x-request-id", "second-spoof")
                         payload = json.dumps(BODY).encode()

@@ -15,7 +15,7 @@ import unittest
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 
-SHA256 = "496ed27e6a96b55a9ad7cabe5c2be7172511f44a3cb113e533d22bf93a7f079d"
+SHA256 = "1b2fc01a2de29ca113bbb6258b5cae7b1eb3c724071c09d687a449132f2f42f8"
 HEADER = "x-agentgateway-auth-context"
 FIRST = b"data: first\n\n"
 LAST = b"data: last\n\n"
@@ -27,7 +27,7 @@ class StreamingTest(unittest.TestCase):
         supplied = os.environ.get("AGENTGATEWAY_BIN")
         self.assertTrue(
             supplied,
-            "SETUP: set AGENTGATEWAY_BIN to the verified official 1.6.0 Linux "
+            "SETUP: set AGENTGATEWAY_BIN to the verified official 1.7.0 Linux "
             "amd64 executable; see tests/live/agentgateway/README.md (no skip).",
         )
         binary = Path(supplied).resolve()

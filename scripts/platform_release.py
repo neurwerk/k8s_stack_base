@@ -344,11 +344,19 @@ def toolchain_inventory() -> dict[str, str]:
 def compose_image(value: dict[str, Any]) -> str | None:
     repository = value.get("repository")
     tag = value.get("tag")
-    if not isinstance(repository, str) or not repository or tag in (None, ""):
+    digest = value.get("digest") or value.get("sha")
+    if not isinstance(repository, str) or not repository:
+        return None
+    if tag in (None, "") and not digest:
         return None
     registry = value.get("registry")
     prefix = f"{registry.rstrip('/')}/" if isinstance(registry, str) and registry else ""
-    return f"{prefix}{repository}:{tag}"
+    reference = f"{prefix}{repository}"
+    if tag not in (None, ""):
+        reference += f":{tag}"
+    if isinstance(digest, str) and digest:
+        reference += "@" + (digest if ":" in digest else f"sha256:{digest}")
+    return reference
 
 
 def compose_repository_images(value: dict[str, Any]) -> Iterable[str]:

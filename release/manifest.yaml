@@ -105,7 +105,7 @@ spec:
         version: 0.24.0
         source: oci://quay.io/jetstack/charts/trust-manager
       - name: kube-prometheus-stack
-        version: 72.4.0
+        version: 92.21.2
         source: oci://ghcr.io/prometheus-community/charts/kube-prometheus-stack
     - path: releases/agentgateway/inspection-trust
       status: included
@@ -257,10 +257,10 @@ spec:
     version: 1.20.2
     source: https://github.com/cert-manager/cert-manager/releases/tag/v1.20.2
   - name: prometheus-operator-crds
-    version: 72.4.0
+    version: 92.21.2
     source: oci://ghcr.io/prometheus-community/charts/kube-prometheus-stack
   - name: agentgateway-crds
-    version: 1.6.0
+    version: 1.7.0
     source: oci://cr.agentgateway.dev/charts/agentgateway-crds
   - name: external-secrets-crds
     version: 2.9.0
@@ -285,17 +285,17 @@ spec:
     charts:
     - path: charts/agentgateway
       name: infra-agentgateway
-      version: 5.0.1
-      appVersion: 1.6.0
+      version: 5.1.0
+      appVersion: 1.7.0
       dependencyLock:
-        digest: sha256:ef5fd87240e231990e45578f9deb65e6a6f947ba8a8b846cf13954882299cb3a
+        digest: sha256:08cd4895c0e3b08ec6974dea5acf5c62b8d1b417aa302f8f6103ad5014b04c87
         dependencies:
         - name: agentgateway
           repository: oci://cr.agentgateway.dev/charts
-          version: 1.6.0
+          version: 1.7.0
         archives:
-        - path: charts/agentgateway/charts/agentgateway-1.6.0.tgz
-          sha256: 61b97c2a34d6e0f1e2024a58804001c159dbc40a0f72173e70e8df767088c007
+        - path: charts/agentgateway/charts/agentgateway-1.7.0.tgz
+          sha256: 88d5226eb65af483bb49dbb3e14081e373cfa683b7bbf82a8609d01381cf8748
     - path: charts/agentgateway/inspection-pki
       name: agentgateway-inspection-pki
       version: 0.1.1
@@ -424,17 +424,17 @@ spec:
       appVersion: 0.12.0
     - path: charts/kube-prometheus-stack
       name: monitor-kube-prometheus-stack
-      version: 1.1.3
-      appVersion: 0.82.2
+      version: 2.0.0
+      appVersion: 0.94.2
       dependencyLock:
-        digest: sha256:52ccce9875b52ce65fb7e2e05455cc672e2ddac98d7c5b2d94ff99ec174af431
+        digest: sha256:f43da17012d72c38c668f885c0be2937b93637e7aea26dc2d20796e11d284b0c
         dependencies:
         - name: kube-prometheus-stack
           repository: oci://ghcr.io/prometheus-community/charts
-          version: 72.4.0
+          version: 92.21.2
         archives:
-        - path: charts/kube-prometheus-stack/charts/kube-prometheus-stack-72.4.0.tgz
-          sha256: b344a03d0006aba69a8c20ae1ff0354ac7687bdf72c3611c4f330b59a22b7548
+        - path: charts/kube-prometheus-stack/charts/kube-prometheus-stack-92.21.2.tgz
+          sha256: 5ee4dc1695ec4784544a5d667530ad86bc89743031ec4e900652cb94bbd788aa
     - path: charts/langfuse
       name: monitor-langfuse
       version: 2.0.33
@@ -761,7 +761,12 @@ spec:
       name: trust-manager
       chart: ./charts/trust-manager
     images:
-    - reference: cr.agentgateway.dev/controller:v1.6.0
+    - reference: cr.agentgateway.dev/agentgateway:v1.7.0@sha256:60216aafb03d37f94e952ff3d51d2f630a65b10ecaebdc0a864882f92610c45b
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/agentgateway/values.yaml
+    - reference: cr.agentgateway.dev/controller:v1.7.0@sha256:87c1363bf0cbc7fdb375866e592294114c8763097d2d0c9fc45fcb1fe00a4ab8
       pinned: true
       eligibility: included
       origins:
@@ -786,6 +791,11 @@ spec:
       eligibility: included
       origins:
       - charts/glitchtip/values.yaml
+    - reference: docker.io/grafana/grafana:13.3.0-distroless@sha256:540b8afb775bf34aefce417e4329039daa5d44b6f2fbda6881397b1b247ca7df
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/kube-prometheus-stack/values.yaml
     - reference: docker.io/langfuse/langfuse-worker:4.28.1
       pinned: true
       eligibility: included
@@ -858,6 +868,11 @@ spec:
       eligibility: included
       origins:
       - charts/contextforge/values.yaml
+    - reference: ghcr.io/jkroepke/kube-webhook-certgen:1.11.1@sha256:8009b04f9873f7279b5adee37fdd03b6a9aa7b6751d4f69fde2683010e41cd1f
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/kube-prometheus-stack/values.yaml
     - reference: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.20.4@sha256:d9c0000a6a7ed1f6c748eea850707812354d267d4da53d50ea0eece44561c591
       pinned: true
       eligibility: included
@@ -993,37 +1008,42 @@ spec:
       eligibility: included
       origins:
       - charts/trust-manager/values.yaml
+    - reference: quay.io/kiwigrid/k8s-sidecar:2.14.3@sha256:52d311dcedd587421a236c4d6c621f05614c40a51386e955e0699dca97ec0880
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/kube-prometheus-stack/values.yaml
     - reference: quay.io/openbao/openbao:2.6.1
       pinned: true
       eligibility: included
       origins:
       - charts/openbao/values.yaml
-    - reference: quay.io/prometheus-operator/prometheus-operator:v0.82.2
+    - reference: quay.io/prometheus-operator/prometheus-config-reloader:v0.94.2@sha256:a1897c67478bc23434534e91ad3855280771196b1daf17144db9dbcb655bef71
       pinned: true
       eligibility: included
       origins:
       - charts/kube-prometheus-stack/values.yaml
-    - reference: quay.io/prometheus/alertmanager:v0.28.1
+    - reference: quay.io/prometheus-operator/prometheus-operator:v0.94.2@sha256:c7edf0379b7271ef1705dce258d2bb73820e299cc95559369e9f6fc3321639ec
       pinned: true
       eligibility: included
       origins:
       - charts/kube-prometheus-stack/values.yaml
-    - reference: quay.io/prometheus/node-exporter:v1.9.1
+    - reference: quay.io/prometheus/alertmanager:v0.34.2@sha256:39d8bb3966c694a124428a3a88fbcffd40bd069129ecd47c059f8a3f17c55f3b
       pinned: true
       eligibility: included
       origins:
       - charts/kube-prometheus-stack/values.yaml
-    - reference: quay.io/prometheus/prometheus:v3.3.1
+    - reference: quay.io/prometheus/node-exporter:v1.12.1-distroless@sha256:8c9bac11973b94b59be88d6e11fee4429aa743c8846cdc75d65b18db33f6a106
       pinned: true
       eligibility: included
       origins:
       - charts/kube-prometheus-stack/values.yaml
-    - reference: registry.k8s.io/ingress-nginx/kube-webhook-certgen:v1.5.3
+    - reference: quay.io/prometheus/prometheus:v3.16.0-distroless@sha256:9764044e09eb2c9e1abdb12d0f0188d4efb7384b0262d3c080f0fc59045c89ba
       pinned: true
       eligibility: included
       origins:
       - charts/kube-prometheus-stack/values.yaml
-    - reference: registry.k8s.io/kube-state-metrics/kube-state-metrics:v2.15.0
+    - reference: registry.k8s.io/kube-state-metrics/kube-state-metrics:v2.20.0@sha256:42cfe3723a5f058171c627537fb57a3ea0f26e4380fa18555a95cb1a1b4cfc5b
       pinned: true
       eligibility: included
       origins:

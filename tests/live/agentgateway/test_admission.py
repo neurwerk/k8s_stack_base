@@ -1,4 +1,4 @@
-"""Opt-in raw-wire admission and full transformation chain on pinned native 1.6.0.
+"""Opt-in raw-wire admission and full transformation chain on pinned native 1.7.0.
 
 Synthetic Bridge and upstream only: no JWT verification, extProc or provider API.
 """
@@ -37,7 +37,7 @@ def transformations(value):
 
 
 class AdmissionTest(unittest.TestCase):
-    def test_raw_modes_and_full_native_transformation_chain(self):
+    def test_raw_credentials_and_full_native_transformation_chain(self):
         binary = Path(os.environ.get("AGENTGATEWAY_BIN", ""))
         self.assertTrue(binary.is_file() and os.access(binary, os.X_OK), "SETUP: supply AGENTGATEWAY_BIN")
         self.assertEqual(hashlib.sha256(binary.read_bytes()).hexdigest(), SHA256)
@@ -51,7 +51,7 @@ class AdmissionTest(unittest.TestCase):
             "credential_id": "synthetic-key", "credential_kind": "personal", "account_email": None,
             "permissions": values["authKeycloak"]["agentgatewayClientRoles"],
         }
-        upstream_calls = []
+        upstream_calls, auth_calls = [], []
 
         class Handler(BaseHTTPRequestHandler):
             def log_message(self, *_):
@@ -63,7 +63,8 @@ class AdmissionTest(unittest.TestCase):
 
             def do_GET(self):
                 if self.path in ["/validate/neurwerk", "/validate/proxy"]:
-                    valid = (self.headers.get("x-neurwerk-authorization") == "Bearer synthetic-platform"
+                    auth_calls.append((self.path, dict(self.headers)))
+                    valid = (self.headers.get("authorization") == "Bearer synthetic-platform"
                              if self.path == "/validate/neurwerk" else
                              self.headers.get("proxy-authorization") == "Basic c3ludGhldGljOnN5bnRoZXRpYw==")
                     self.send_response(200 if valid else 403)
@@ -87,7 +88,9 @@ class AdmissionTest(unittest.TestCase):
             gateways, routes, ports = {}, [], {}
             for name, route_name in [
                 ("openai", "ai-openai-api-processing"), ("local", "ai-local-api-processing"),
+                ("override", "ai-openai-api-override-processing"),
                 ("mcp", "mcp-context7-policy"), ("discovery", "ai-openai-model-discovery-processing"),
+                ("discovery-override", "ai-openai-override-model-discovery-processing"),
                 ("inspected", "ai-openai-proxy-processing"),
             ]:
                 selected_pre = (resource(rendered, "AgentgatewayPolicy", "ai-admission-inspect-openai")["spec"]["traffic"]
@@ -136,8 +139,10 @@ class AdmissionTest(unittest.TestCase):
             }
             with tempfile.TemporaryDirectory(prefix="gateway-admission-", dir=os.environ.get("TMPDIR", "/tmp/opencode")) as temporary:
                 log_path = Path(temporary) / "gateway.log"
+                config_path = Path(temporary) / "config.json"
+                config_path.write_text(json.dumps(config))
                 with log_path.open("w") as log:
-                    process = subprocess.Popen([str(binary.resolve()), "-c", json.dumps(config)], stdout=log, stderr=log,
+                    process = subprocess.Popen([str(binary.resolve()), "-f", str(config_path)], stdout=log, stderr=log,
                                                env={"PATH": os.defpath, "HOME": temporary})
                     try:
                         for _ in range(100):
@@ -151,47 +156,68 @@ class AdmissionTest(unittest.TestCase):
                             self.fail("gateway not ready: " + log_path.read_text())
 
                         selector = "X-Neurwerk-Credential-Mode"
-                        bearer = ("Authorization", "Bearer incidental")
+                        platform = ("Authorization", "Bearer synthetic-platform")
+                        override = ("Authorization-Neurwerk", "Bearer synthetic-platform")
+                        provider = ("Authorization", "Bearer synthetic-provider")
+                        paths = {
+                            "openai": "/bindings/openai/v1/chat/completions",
+                            "local": "/bindings/local/v1/chat/completions",
+                            "override": "/override/bindings/openai/v1/chat/completions",
+                            "mcp": "/mcp/context7",
+                            "discovery": "/bindings/openai/v1/models",
+                            "discovery-override": "/override/bindings/openai/v1/models",
+                            "inspected": "/v1/chat/completions",
+                        }
                         cases = [
                             ("openai", [], 403, None),
-                            ("openai", [bearer], 403, None),
                             ("local", [], 403, None),
-                            ("mcp", [], 200, "none"),
-                            ("openai", [(selector, "global")], 200, "global"),
-                            ("openai", [(selector, "global"), bearer], 200, "global"),
-                            ("local", [(selector, " \tnone\t "), bearer], 200, "none"),
-                            ("mcp", [(selector, "none"), bearer], 200, "none"),
-                            ("mcp", [(selector, "global")], 403, None),
-                            ("openai", [(selector, "override"), bearer], 200, "override"),
-                            ("openai", [(selector, "override"), bearer, ("Cookie", "synthetic=value")], 403, None),
-                            ("openai", [(selector, "override")], 403, None),
-                            ("openai", [(selector, "none")], 403, None),
-                            ("openai", [(selector, "global"), ("x-api-key", "synthetic")], 403, None),
-                            ("openai", [(selector, "global"), ("Authorization", "Basic incidental")], 403, None),
-                            ("openai", [(selector, "global"), bearer, bearer], 403, None),
-                            ("openai", [(selector, "global"), (selector.lower(), "global")], 403, None),
-                            ("openai", [(selector, "global,global")], 403, None),
-                            ("openai", [(selector, "Global")], 403, None),
-                            ("openai", [(selector, "")], 403, None),
-                            ("discovery", [(selector, " \toverride ")], 200, "override"),
-                            ("discovery", [(selector, "global"), bearer], 200, "global"),
-                            ("discovery", [], 200, None),
-                            ("discovery", [bearer], 403, None),
+                            ("mcp", [], 403, None),
+                            ("openai", [platform], 200, "global"),
+                            ("local", [platform], 200, "none"),
+                            ("mcp", [platform], 200, "none"),
+                            ("openai", [override], 403, None),
+                            ("openai", [("x-neurwerk-authorization", platform[1])], 403, None),
+                            ("openai", [("Authorization", "Basic incidental")], 403, None),
+                            ("openai", [("Authorization", "Bearer malformed token")], 403, None),
+                            ("openai", [("Authorization", "")], 403, None),
+                            ("openai", [platform, platform], 403, None),
+                            ("openai", [("Authorization", platform[1] + "," + platform[1])], 403, None),
+                            ("openai", [platform, (selector, "override,global"), (selector.lower(), "")], 200, "global"),
+                            ("openai", [platform, override, override, ("x-api-key", "ignored"), ("Cookie", "ignored")], 200, "global"),
+                            ("override", [override, provider], 200, "override"),
+                            ("override", [provider], 403, None),
+                            ("override", [override], 403, None),
+                            ("override", [override, provider, provider], 403, None),
+                            ("override", [override, ("Authorization", "Bearer malformed token")], 403, None),
+                            ("override", [override, ("Authorization", provider[1] + "," + provider[1])], 403, None),
+                            ("override", [override, override, provider], 403, None),
+                            ("override", [("Authorization-Neurwerk", "Bearer malformed token"), provider], 403, None),
+                            ("override", [("x-neurwerk-authorization", platform[1]), provider], 403, None),
+                            ("override", [override, provider, (selector, "global"), ("x-api-key", "ignored"), ("Cookie", "ignored")], 200, "override"),
+                            ("discovery", [platform], 200, "global"),
+                            ("discovery", [], 403, None),
+                            ("discovery-override", [override], 200, "override"),
+                            ("discovery-override", [override, provider], 200, "override"),
+                            ("discovery-override", [provider], 403, None),
                         ]
-                        cases = [(*case, {}) for case in cases] + [
-                            ("inspected", [], 200, "global", {}),
-                            ("inspected", [bearer], 200, "override", {}),
-                            ("inspected", [(selector, "global"), bearer], 403, None, {}),
-                            ("inspected", [bearer], 403, None, {selector: "global"}),
-                            ("inspected", [bearer], 403, None, {selector: ""}),
+                        cases = [(*case, {}, None) for case in cases] + [
+                            ("inspected", [], 403, None, {}, None),
+                            ("inspected", [provider], 200, "override", {}, None),
+                            ("inspected", [provider, provider], 403, None, {}, None),
+                            ("inspected", [(selector, "global"), provider], 200, "override", {selector: "global"}, None),
+                            ("inspected", [provider], 403, None, {"Proxy-Authorization": "Basic invalid"}, None),
+                            ("inspected", [provider], 403, None, {"proxy-authorization": "Basic c3ludGhldGljOnN5bnRoZXRpYw=="}, None),
+                            ("openai", [platform], 403, None, {}, "provider:openai:global-use"),
+                            ("override", [override, provider], 200, "override", {}, "provider:openai:global-use"),
+                            ("mcp", [platform], 403, None, {}, "mcp:context7:invoke"),
+                            ("local", [platform], 403, None, {}, "llm:invoke"),
                         ]
-                        for name, lines, expected, source, connect_headers in cases:
-                            with self.subTest(name=name, lines=lines):
+                        for name, lines, expected, source, connect_headers, denied_permission in cases:
+                            with self.subTest(name=name, lines=lines, denied_permission=denied_permission):
                                 upstream_calls.clear()
-                                path = ("/v1/chat/completions" if name == "inspected" else
-                                        "/mcp/context7" if name == "mcp" else
-                                        "/bindings/openai/v1/models" if name == "discovery" else
-                                        f"/bindings/{name}/v1/chat/completions")
+                                auth_calls.clear()
+                                identity["permissions"] = [permission for permission in values["authKeycloak"]["agentgatewayClientRoles"]
+                                                           if permission != denied_permission]
                                 conn = http.client.HTTPConnection("127.0.0.1", config["binds"][0]["port"]
                                                                   if name == "inspected" else ports[name], timeout=5)
                                 try:
@@ -201,9 +227,8 @@ class AdmissionTest(unittest.TestCase):
                                         })
                                         # CONNECT may succeed; rejection belongs to the tunneled request.
                                         conn.connect()
-                                    conn.putrequest("GET" if name == "discovery" else "POST", path, skip_host=True)
+                                    conn.putrequest("GET" if name.startswith("discovery") else "POST", paths[name], skip_host=True)
                                     conn.putheader("Host", "provider.example.test")
-                                    conn.putheader("x-neurwerk-authorization", "Bearer synthetic-platform")
                                     conn.putheader("x-agentgateway-auth-context", '{"provider_credential_source":"spoof"}')
                                     for header, value in lines:
                                         # Separate putheader calls produce actual repeated wire lines.
@@ -219,20 +244,19 @@ class AdmissionTest(unittest.TestCase):
                                 self.assertEqual(len(upstream_calls), int(expected == 200))
                                 if expected == 200:
                                     sent = {key.lower(): value for key, value in upstream_calls[0][1].items()}
-                                    self.assertEqual(sent["x-test-frozen-source"], source or "absent")
-                                    self.assertNotIn("x-agentgateway-auth-context", sent)
-                                    self.assertNotIn("proxy-authorization", sent)
-                                    if name == "discovery":
-                                        if source is None:
-                                            self.assertNotIn(selector.lower(), sent)
-                                        else:
-                                            self.assertEqual(sent[selector.lower()], source)
-                                        self.assertIn("x-neurwerk-authorization", sent)
-                                        self.assertNotIn("authorization", sent)
+                                    self.assertEqual(sent["x-test-frozen-source"], source)
+                                    for header in ["x-agentgateway-auth-context", "proxy-authorization", "authorization-neurwerk",
+                                                   "x-neurwerk-authorization", selector.lower(), "x-api-key", "cookie"]:
+                                        self.assertNotIn(header, sent)
+                                    self.assertEqual(len(auth_calls), 1)
+                                    bridge = {key.lower(): value for key, value in auth_calls[0][1].items()}
+                                    if name == "inspected":
+                                        self.assertEqual(bridge["proxy-authorization"], "Basic c3ludGhldGljOnN5bnRoZXRpYw==")
+                                        self.assertNotIn("authorization", bridge)
                                     else:
-                                        self.assertNotIn(selector.lower(), sent)
-                                        self.assertNotIn("x-neurwerk-authorization", sent)
-                                        self.assertEqual("authorization" in sent, source == "override")
+                                        self.assertEqual(bridge["authorization"], platform[1])
+                                    self.assertEqual(sent.get("authorization"), platform[1] if name.startswith("discovery")
+                                                     else provider[1] if source == "override" else None)
                     finally:
                         process.terminate()
                         try:

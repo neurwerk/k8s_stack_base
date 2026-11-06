@@ -80,6 +80,48 @@ class ReleaseContractTest(unittest.TestCase):
         }
         self.assertEqual(list(platform_release._manifest_images(config)), [image])
 
+    def test_image_inventory_keeps_digests_and_operator_created_images(self) -> None:
+        digest = "a" * 64
+        qualified = f"sha256:{digest}"
+        controller = f"registry.test/controller:1.2.3@{qualified}"
+        values = {
+            "controller": {"image": {
+                "registry": "registry.test", "repository": "controller",
+                "tag": "1.2.3", "sha": digest,
+            }},
+            "configReloader": {"image": {
+                "repository": "registry.test/reloader", "tag": "1.2.3", "sha": qualified,
+            }},
+            "exporter": {"image": {
+                "repository": "registry.test/exporter", "digest": qualified,
+            }},
+            "sidecar": {"image": {
+                "repository": "registry.test/sidecar", "tag": "2.3.4", "digest": qualified,
+            }},
+            "legacy": {"image": {"repository": "registry.test/legacy", "tag": "3.4.5"}},
+        }
+        origin = "charts/monitoring/values.yaml"
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path = root / origin
+            path.parent.mkdir(parents=True)
+            path.write_text(yaml.safe_dump(values))
+            with (
+                mock.patch.object(platform_release, "ROOT", root),
+                mock.patch.object(platform_release, "rendered_image_inventory",
+                                  return_value={controller: {origin}}),
+            ):
+                inventory = platform_release.image_inventory({"packages": {}})
+        self.assertEqual({item["reference"] for item in inventory}, {
+            controller,
+            f"registry.test/reloader:1.2.3@{qualified}",
+            f"registry.test/exporter@{qualified}",
+            f"registry.test/sidecar:2.3.4@{qualified}",
+            "registry.test/legacy:3.4.5",
+        })
+        self.assertEqual(len(inventory), 5)
+        self.assertTrue(all(item["pinned"] and item["origins"] == [origin] for item in inventory))
+
     def test_compact_notes_preserve_only_selected_authored_body(self) -> None:
         body = (
             "- Fix addon MCP authentication with internal routing.\n"
