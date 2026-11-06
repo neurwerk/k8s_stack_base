@@ -50,7 +50,7 @@ glitchtip:
     # First stage with adapter disabled. Save/verify the DSN through stack-setup,
     # then disable provisioning before enabling the adapter (no readiness cycle).
     enabled: false
-    image: ghcr.io/neurwerk/k8s-stack-tooling:0.15.6@sha256:2cfe62109c8067e08a81f422733e6673ef3eb0ee11066f72e7316878a76013db
+    image: ghcr.io/neurwerk/k8s-stack-tooling:0.18.3@sha256:fa30429bb143f0176867741dcf55eae422d69157b5f033e9d007745dd3639d79
     initialOwnerSecret: glitchtip-owner
     # Native schema: organization/project {slug,name}, team {slug},
     # alert {name,alertRecipients:[{recipientType:email}],timespanMinutes?};
@@ -62,7 +62,7 @@ glitchtip:
       limits: {cpu: 500m, memory: 1Gi}
   adapter:
     enabled: false
-    image: ghcr.io/neurwerk/k8s-stack-tooling:0.18.1@sha256:8c8d360f2cb9d7bc5d147e66dcbba2a743700eac32678f4f61a4388b3db676df
+    image: ghcr.io/neurwerk/k8s-stack-tooling:0.18.3@sha256:fa30429bb143f0176867741dcf55eae422d69157b5f033e9d007745dd3639d79
     credentialsSecret: glitchtip-adapter
     environment: production
     # Required for first activation. Existing state owns subsequent cursors.

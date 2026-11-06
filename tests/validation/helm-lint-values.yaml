@@ -15,7 +15,7 @@ agentgateway:
     trust:
       enabled: true
       # Use the verified runtime pin: release image inventory also renders this file.
-      image: ghcr.io/neurwerk/k8s-stack-tooling:0.15.6@sha256:2cfe62109c8067e08a81f422733e6673ef3eb0ee11066f72e7316878a76013db
+      image: ghcr.io/neurwerk/k8s-stack-tooling:0.18.3@sha256:fa30429bb143f0176867741dcf55eae422d69157b5f033e9d007745dd3639d79
       operation: promote
       roots:
         - id: r1
@@ -44,7 +44,7 @@ addonAccess:
   platformAdminRole: example-admin
 k8sTools:
   # Synthetic render of the new chart only; do not update existing consumers.
-  image: ghcr.io/neurwerk/k8s-stack-tooling:0.15.6@sha256:2cfe62109c8067e08a81f422733e6673ef3eb0ee11066f72e7316878a76013db
+  image: ghcr.io/neurwerk/k8s-stack-tooling:0.18.3@sha256:fa30429bb143f0176867741dcf55eae422d69157b5f033e9d007745dd3639d79
 docling:
   enabled: true
   apiKeySecretRef: {name: docling-api, key: api-key}
