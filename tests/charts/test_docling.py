@@ -31,7 +31,7 @@ class DoclingTests(unittest.TestCase):
                 self.assertNotIn("monitor-agentgateway-extproc-docling-secret", disabled)
                 self.assertEqual(env_value(result, "EXTPROC_MAX_REQUEST_BYTES"), "5242880")
                 self.assertEqual(env_value(result, "EXTPROC_GRPC_MAX_RECEIVE_MESSAGE_BYTES"), "6356992")
-                self.assertEqual(env_value(result, "EXTPROC_GRPC_MAXIMUM_CONCURRENT_RPCS"), "4")
+                self.assertEqual(env_value(result, "EXTPROC_GRPC_MAXIMUM_CONCURRENT_RPCS"), "64")
                 self.assertIn("memory: 256Mi", disabled)
                 self.assertIn("memory: 512Mi", disabled)
             else:
@@ -163,7 +163,7 @@ class DoclingTests(unittest.TestCase):
             "DOCLING__MAX_RESPONSE_BYTES": "16777216",
             "MAX_REQUEST_BYTES": "67108864",
             "GRPC_MAX_RECEIVE_MESSAGE_BYTES": "68222976",
-            "GRPC_MAXIMUM_CONCURRENT_RPCS": "4",
+            "GRPC_MAXIMUM_CONCURRENT_RPCS": "64",
             "ENGINE__TIMEOUT": "615",
         }.items():
             self.assertEqual(env_value(extproc, f"EXTPROC_{name}"), value, name)

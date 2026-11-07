@@ -83,7 +83,7 @@ monitorAgentgatewayExtproc:
   maxTransformedRequestBytes: "10485760"
   grpcMaxReceiveMessageBytes: "6356992"
   # Application stream admission per process; native gRPC reserves rejection headroom.
-  grpcMaximumConcurrentRpcs: 4
+  grpcMaximumConcurrentRpcs: 64
   shutdownGraceSeconds: 300
 
   # ── Adapter logging ───────────────────────────────────────────────────────
