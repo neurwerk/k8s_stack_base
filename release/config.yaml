@@ -1,6 +1,6 @@
-version: 0.3.34
-releaseDate: '2026-11-05'
-summary: MCP reporting noise reduction and query compatibility fixes
+version: 0.3.35
+releaseDate: '2026-11-07'
+summary: Gateway and monitoring upgrades with verified component releases
 helmOutputs:
   releases/keycloak/server.yaml:
   - kind: Secret
@@ -45,9 +45,9 @@ packages:
     chartPrefixes: []
   - path: releases/glitchtip/app
     status: included
-    reason: Optional GlitchTip 6.2.6 with verified adapter and provisioning Tooling 0.18.3;
-      disabled by default. Provision native identities before DSN handoff and adapter activation. Management
-      UI uses Tailscale TCP/TLS only; public routing exposes one selected status page.
+    reason: Optional GlitchTip 6.2.6 with verified adapter and provisioning Tooling 0.18.3; disabled by
+      default. Provision native identities before DSN handoff and adapter activation. Management UI uses
+      Tailscale TCP/TLS only; public routing exposes one selected status page.
     chartPrefixes:
     - charts/glitchtip
     prerequisites:
@@ -282,11 +282,15 @@ exceptions:
   reason: The reviewed upstream DocumentDB local image requires passwordless sudo to prepare runtime directories
     before dropping back to UID 1000.
 provenance:
-  previousTag: v0.3.33
-  includedThrough: 2ffe44d01fb970cdd413afdb58d88ec752a7de0d
+  previousTag: v0.3.34
+  includedThrough: 0bd18849e3e959b36c690580c4ed053df0e6b4ad
   commits:
-  - 79a001fb64ab797af0c684fe7c6fa46f5ea27e21
-  - d490922d59ef9913d6d96f9a43a1826a88fa458f
-  - 5911de3bc5095c9c8c3edef648254ba8206c477f
-  - 2ffe44d01fb970cdd413afdb58d88ec752a7de0d
-  compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.33...2ffe44d01fb970cdd413afdb58d88ec752a7de0d
+  - 4d467479326f1ce9ab04d65183f7c954395b038c
+  - 5faa9b7f925e3409776ae8756775a8f285bba559
+  - 1612450e26c129053dd26e5a4b2661226691c53d
+  - e98601fcac3170811bab8aa9977997798befa7e9
+  - fd8dd319a020c16482c1f7d93fd2166276adf129
+  - 3f517f697e3234dc589c7748b8f8b0b4524b9e44
+  - 2a1b88ec18b6b3468797e21d511f8893bed3669b
+  - 0bd18849e3e959b36c690580c4ed053df0e6b4ad
+  compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.34...0bd18849e3e959b36c690580c4ed053df0e6b4ad
