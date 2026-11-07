@@ -9,6 +9,13 @@ upgrade path.
 
 ## [Unreleased]
 
+## [0.3.35] - 2026-11-07
+
+- Upgrade AgentGateway and its CRDs to `1.7.0` with coordinated monitoring updates, including kube-prometheus-stack `92.21.2`, and group Langfuse sessions by verified principal and detected session.
+- Adopt verified PII Engine `0.15.4`, extProc `0.20.5`, API Key Bridge `0.12.1`, Studio `0.22.1`, and shared Tooling `0.18.3` across application and auxiliary consumers; require published setup `0.8.6`.
+- Restore Prometheus access to ContextForge provider metrics and align pinned validation tools and lock checks.
+- Use a coordinated maintenance window and follow the [AgentGateway upgrade procedure](docs/operations/agentgateway-upgrade.md): update the separately owned monitoring and gateway CRDs in order, then allow the gateway request-log database migration to complete before reopening traffic. Preserve persistent data; recovery is forward-fix and downgrades are unsupported.
+
 ## [0.3.34] - 2026-11-05
 
 - Exclude reviewed stateless MCP GET/405 noise from GlitchTip reporting, including complete credential identity pairs, while retaining unfamiliar diagnostics and other failures.
