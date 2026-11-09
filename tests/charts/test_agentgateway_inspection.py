@@ -637,7 +637,8 @@ class InspectedGatewayTests(unittest.TestCase):
                 self.assertEqual(branch["condition"], transformation["condition"])
                 self.assertEqual(metadata["request_context"], transformation["policy"]["request"]["metadata"]["neurwerk_admission"])
                 for model in json.loads(metadata["model_bindings"]).values():
-                    self.assertEqual(set(model), {"upstream_model", "required_permissions", "content_tracing_enabled"})
+                    self.assertEqual(set(model), {"upstream_model", "required_permissions", "content_tracing_enabled", "normalize_stream_created"})
+                    self.assertIs(model["normalize_stream_created"], False)
                 self.assertNotIn("uuid()", json.dumps(metadata))
                 self.assertNotIn("request.headers", metadata["request_context"])
 

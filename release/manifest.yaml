@@ -285,7 +285,7 @@ spec:
     charts:
     - path: charts/agentgateway
       name: infra-agentgateway
-      version: 5.1.1
+      version: 5.1.2
       appVersion: 1.7.0
       dependencyLock:
         digest: sha256:08cd4895c0e3b08ec6974dea5acf5c62b8d1b417aa302f8f6103ad5014b04c87
@@ -305,8 +305,8 @@ spec:
       appVersion: 0.12.0
     - path: charts/agentgateway-extproc
       name: agentgateway-extproc
-      version: 2.0.25
-      appVersion: 0.20.5
+      version: 2.0.26
+      appVersion: 0.20.6
     - path: charts/cert-manager/approval-policy
       name: infra-cert-manager-approval-policy
       version: 1.2.9
@@ -877,8 +877,12 @@ spec:
       pinned: true
       eligibility: included
       origins:
-      - charts/agentgateway-extproc/values.yaml
       - charts/langfuse/values.yaml
+    - reference: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.20.6@sha256:d8414e526b777ecc2f14da897273ad2fe12c40d74a64377ba817ef92727ec1b0
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/agentgateway-extproc/values.yaml
     - reference: ghcr.io/neurwerk/k8s-stack-keycloak-api-key-bridge:0.12.1@sha256:9acdb239c5f06f27e61fdfb9f4d05f3c28bbec54f180e0763974c8090376d790
       pinned: true
       eligibility: included
