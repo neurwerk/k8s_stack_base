@@ -1,6 +1,6 @@
-version: 0.3.35
-releaseDate: '2026-11-07'
-summary: Gateway and monitoring upgrades with verified component releases
+version: 0.3.36
+releaseDate: '2026-11-09'
+summary: Configurable self-hosted Chat timestamps and stream admission defaults
 helmOutputs:
   releases/keycloak/server.yaml:
   - kind: Secret
@@ -282,15 +282,10 @@ exceptions:
   reason: The reviewed upstream DocumentDB local image requires passwordless sudo to prepare runtime directories
     before dropping back to UID 1000.
 provenance:
-  previousTag: v0.3.34
-  includedThrough: 0bd18849e3e959b36c690580c4ed053df0e6b4ad
+  previousTag: v0.3.35
+  includedThrough: 56ce014cd32ebef68b203043a3c502adc14314c5
   commits:
-  - 4d467479326f1ce9ab04d65183f7c954395b038c
-  - 5faa9b7f925e3409776ae8756775a8f285bba559
-  - 1612450e26c129053dd26e5a4b2661226691c53d
-  - e98601fcac3170811bab8aa9977997798befa7e9
-  - fd8dd319a020c16482c1f7d93fd2166276adf129
-  - 3f517f697e3234dc589c7748b8f8b0b4524b9e44
-  - 2a1b88ec18b6b3468797e21d511f8893bed3669b
-  - 0bd18849e3e959b36c690580c4ed053df0e6b4ad
-  compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.34...0bd18849e3e959b36c690580c4ed053df0e6b4ad
+  - 4929160e89d8bac23a8ea75537ee69db4364a616
+  - 43caf85e505ac1a9be23effa16cc648580c4a4b2
+  - 56ce014cd32ebef68b203043a3c502adc14314c5
+  compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.35...56ce014cd32ebef68b203043a3c502adc14314c5

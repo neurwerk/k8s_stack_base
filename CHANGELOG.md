@@ -9,6 +9,10 @@ upgrade path.
 
 ## [Unreleased]
 
+## [0.3.36] - 2026-11-09
+
+
+
 ## [0.3.35] - 2026-11-07
 
 - Upgrade AgentGateway and its CRDs to `1.7.0` with coordinated monitoring updates, including kube-prometheus-stack `92.21.2`, and group Langfuse sessions by verified principal and detected session.
