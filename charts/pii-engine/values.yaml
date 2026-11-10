@@ -98,7 +98,12 @@ monitorPiiEngine:
       analyzerEntities: []
       maskOnReroute: true
       hashWindowHours: 24
-      entityPolicies: []
+      # Shared MCP source rules apply even when ordinary PII scanning is off.
+      # Override with pass, block, or reroute to an approved canonical local ID
+      # in routeClass. Omitted MCP_TOOL_DEFAULT still blocks in the Engine.
+      entityPolicies:
+        - entityType: MCP_TOOL_DEFAULT
+          action: block
       ner:
         strategy: multilingual
         generalModel: multilingual-pii

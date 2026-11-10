@@ -31,7 +31,13 @@ monitorPiiEngine:
       # local fallback unless a client explicitly trusts that target.
       maskOnReroute: true
       hashWindowHours: 24
-      entityPolicies: []
+      # Shared across model bindings, independently of ordinary PII scanning.
+      # MCP_TOOL_* rules support pass, block, or existing authorized local
+      # reroute targets (canonical destination IDs in routeClass).
+      # Omitted MCP_TOOL_DEFAULT still blocks in the Engine.
+      entityPolicies:
+        - entityType: MCP_TOOL_DEFAULT
+          action: block
       ner:
         # The multilingual-only bundle is the default optional upgrade. Keep
         # perLanguage aliases configured for clients using the four-model bundle.

@@ -17,7 +17,7 @@
 {{- if not (hasKey $presets $id) -}}{{- fail (printf "unknown MCP preset %q; use mcp.catalog.custom for client definitions" $id) -}}{{- end -}}
 {{- if not (kindIs "map" $selection) -}}{{- fail "MCP preset selection must be a map" -}}{{- end -}}
 {{- range $field, $_ := $selection -}}
-{{- if not (has $field (list "enabled" "displayName" "piiEnabled" "contentTracingEnabled" "contextforge" "registration" "checks" "credential" "host")) -}}
+{{- if not (has $field (list "enabled" "displayName" "sourceClass" "piiEnabled" "contentTracingEnabled" "contextforge" "registration" "checks" "credential" "host")) -}}
 {{- fail (printf "MCP preset selection field %q is unsupported" $field) -}}
 {{- end -}}
 {{- end -}}
@@ -36,9 +36,13 @@
 {{- fail "MCP catalog entries require explicit boolean enabled" -}}
 {{- end -}}
 {{- range $field, $_ := $entry -}}
-{{- if not (has $field (list "enabled" "name" "displayName" "piiEnabled" "contentTracingEnabled" "contextforge" "registration" "checks" "credential" "host" "workload" "path" "port" "protocol" "tls" "upstreamAuth")) -}}
+{{- if not (has $field (list "enabled" "name" "displayName" "sourceClass" "piiEnabled" "contentTracingEnabled" "contextforge" "registration" "checks" "credential" "host" "workload" "path" "port" "protocol" "tls" "upstreamAuth")) -}}
 {{- fail (printf "MCP catalog field %q is unsupported; credentials must use Secret references" $field) -}}
 {{- end -}}
+{{- end -}}
+{{- if hasKey $entry "sourceClass" -}}
+{{- if not (kindIs "string" $entry.sourceClass) -}}{{- fail "MCP sourceClass must be a string" -}}{{- end -}}
+{{- if or (gt (len $entry.sourceClass) 64) (not (regexMatch `^MCP_TOOL_[A-Z0-9_]+$` $entry.sourceClass)) -}}{{- fail "MCP sourceClass must match ^MCP_TOOL_[A-Z0-9_]+$ and contain at most 64 characters" -}}{{- end -}}
 {{- end -}}
 {{- if $entry.enabled -}}
 {{- $server := mergeOverwrite (dict "piiEnabled" true "contentTracingEnabled" false) (deepCopy $entry) -}}

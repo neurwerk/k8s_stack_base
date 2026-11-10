@@ -3,6 +3,9 @@
   "type": "object",
   "not": {"required": ["mcp"]},
   "definitions": {
+    "mcpSourceClass": {
+      "type": "string", "maxLength": 64, "pattern": "^MCP_TOOL_[A-Z0-9_]+$"
+    },
     "metadataLimit": {"type": ["integer", "null"], "minimum": 1, "maximum": 9007199254740991},
     "metadataCapability": {"enum": ["supported", "unsupported", "unknown"]},
     "metadataTimestamp": {
@@ -97,7 +100,30 @@
     "self-hosted-api-providers": {"$ref": "#/definitions/providers"},
     "external-api-providers": {"$ref": "#/definitions/providers"},
     "external-subscription-providers": {"$ref": "#/definitions/providers"},
-    "mcp-servers": {"type": "object", "not": {"required": ["servers"]}},
+    "mcp-servers": {
+      "type": "object", "not": {"required": ["servers"]},
+      "properties": {
+        "catalog": {
+          "type": "object",
+          "properties": {
+            "presets": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object",
+                "properties": {"sourceClass": {"$ref": "#/definitions/mcpSourceClass"}}
+              }
+            },
+            "custom": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {"sourceClass": {"$ref": "#/definitions/mcpSourceClass"}}
+              }
+            }
+          }
+        }
+      }
+    },
     "aiGateway": {
       "type": "object", "additionalProperties": false,
       "properties": {
