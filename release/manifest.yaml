@@ -285,7 +285,7 @@ spec:
     charts:
     - path: charts/agentgateway
       name: infra-agentgateway
-      version: 5.1.1
+      version: 5.1.3
       appVersion: 1.7.0
       dependencyLock:
         digest: sha256:08cd4895c0e3b08ec6974dea5acf5c62b8d1b417aa302f8f6103ad5014b04c87
