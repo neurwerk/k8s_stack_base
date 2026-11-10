@@ -413,6 +413,35 @@ class GroupedGatewayTests(unittest.TestCase):
 class CredentialModeTests(unittest.TestCase):
     """Evaluate the rendered admission → stripping → route/dispatch chain."""
 
+    def test_local_stream_timestamp_setting_reaches_direct_and_rerouted_dispatch(self):
+        for enabled in (False, True):
+            values = binding_values()
+            values["external-api-providers"][0]["localReroute"] = "local-chat"
+            if enabled:
+                values["self-hosted-api-providers"][0]["normalizeStreamCreated"] = True
+            rendered = render("agentgateway", values)
+            for binding in ("local", "openai"):
+                policy = resource(rendered, "AgentgatewayPolicy", f"ai-{binding}-api-processing")
+                branches = policy["spec"]["traffic"]["extProc"]["conditional"]
+                for branch in branches:
+                    metadata = branch["policy"]["metadataContext"]["neurwerk.destination_policy"]
+                    models = self.value(metadata["model_bindings"], {})
+                    targets = self.value(metadata["reroute_targets"], {})
+                    if binding == "local":
+                        self.assertIs(models["local-chat"]["normalize_stream_created"], enabled)
+                    else:
+                        self.assertIs(models["example-chat"]["normalize_stream_created"], False)
+                        self.assertIs(targets["local-chat"]["normalize_stream_created"], enabled)
+
+    def test_stream_timestamp_setting_rejects_invalid_type_and_remote_backend(self):
+        for group, setting in (("self-hosted-api-providers", "true"),
+                               ("self-hosted-api-providers", 1),
+                               ("external-api-providers", True)):
+            values = binding_values()
+            values[group][0]["normalizeStreamCreated"] = setting
+            with self.subTest(group=group, setting=setting):
+                self.assertNotEqual(render("agentgateway", values, check=False).returncode, 0)
+
     @classmethod
     def setUpClass(cls):
         cls.values = binding_values()

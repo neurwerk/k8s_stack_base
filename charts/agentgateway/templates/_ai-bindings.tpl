@@ -28,7 +28,7 @@ app.kubernetes.io/part-of: infra-agentgateway
 {{- range $entry := $providers -}}
 {{- if not (kindIs "map" $entry) }}{{ fail "provider entries must be maps" }}{{ end -}}
 {{- range $key, $_ := $entry -}}
-{{- if not (has $key (list "id" "enabled" "displayName" "providerId" "provider" "upstreamURL" "credentialSources" "authSecret" "routes" "billingMode" "profiles" "models" "catalogModels" "localReroute" "attachments")) }}{{ fail (printf "unsupported provider field %s" $key) }}{{ end -}}
+{{- if not (has $key (list "id" "enabled" "displayName" "providerId" "provider" "upstreamURL" "credentialSources" "authSecret" "routes" "billingMode" "profiles" "models" "catalogModels" "localReroute" "normalizeStreamCreated" "attachments")) }}{{ fail (printf "unsupported provider field %s" $key) }}{{ end -}}
 {{- end -}}
 {{- $copy := deepCopy $entry -}}
 {{- $_ := set $copy "group" $group -}}
@@ -52,7 +52,7 @@ app.kubernetes.io/part-of: infra-agentgateway
 {{- range $entry := $entries -}}
 {{- if not (kindIs "map" $entry) }}{{ fail "aiGateway bindings must be maps" }}{{ end -}}
 {{- range $key, $_ := $entry -}}
-{{- if not (has $key (list "id" "enabled" "displayName" "providerId" "provider" "upstreamURL" "credentialSources" "authSecret" "routes" "billingMode" "profiles" "models" "catalogModels" "localReroute" "attachments" "group")) }}{{ fail (printf "unsupported provider field %s" $key) }}{{ end -}}
+{{- if not (has $key (list "id" "enabled" "displayName" "providerId" "provider" "upstreamURL" "credentialSources" "authSecret" "routes" "billingMode" "profiles" "models" "catalogModels" "localReroute" "normalizeStreamCreated" "attachments" "group")) }}{{ fail (printf "unsupported provider field %s" $key) }}{{ end -}}
 {{- end -}}
 {{- if not (kindIs "bool" $entry.enabled) }}{{ fail "aiGateway bindings require explicit boolean enabled" }}{{ end -}}
 {{- $id := $entry.id | default "" -}}
@@ -78,6 +78,9 @@ app.kubernetes.io/part-of: infra-agentgateway
 {{- $_ := set $binding "inspect" $routes.inspected.enabled -}}
 {{- if hasKey $routes.api "path" }}{{ $_ := set $binding "apiPath" $routes.api.path }}{{ end -}}
 {{- $_ := set $binding "local" (eq (toJson $binding.credentialSources) `["none"]`) -}}
+{{- if not (hasKey $binding "normalizeStreamCreated") }}{{ $_ := set $binding "normalizeStreamCreated" false }}{{ end -}}
+{{- if not (kindIs "bool" $binding.normalizeStreamCreated) }}{{ fail "normalizeStreamCreated must be boolean" }}{{ end -}}
+{{- if and $binding.normalizeStreamCreated (or (not $binding.local) (not (has "openai-chat-completions-v1" $binding.profiles))) }}{{ fail "normalizeStreamCreated requires a self-hosted Chat backend" }}{{ end -}}
 {{- if or (not (kindIs "string" $binding.displayName)) (empty $binding.displayName) (gt (len $binding.displayName) 128) }}{{ fail "provider displayName must be a nonempty string of at most 128 characters" }}{{ end -}}
 {{- $_ := set $binding "discovery" $binding.api -}}
 {{- range $flag := list "api" "inspect" "local" -}}
@@ -174,7 +177,7 @@ app.kubernetes.io/part-of: infra-agentgateway
 {{- end -}}
 {{- $_ := set $normalized "model" $upstream -}}{{- $_ := set $normalized "local" $binding.local -}}
 {{- $models = append $models $normalized -}}
-{{- $_ := set $modelBindings $name (dict "upstream_model" $upstream "required_permissions" $permissions "content_tracing_enabled" $normalized.contentTracingEnabled) -}}
+{{- $_ := set $modelBindings $name (dict "upstream_model" $upstream "required_permissions" $permissions "content_tracing_enabled" $normalized.contentTracingEnabled "normalize_stream_created" $binding.normalizeStreamCreated) -}}
 {{- end -}}
 {{- $context := deepCopy $ -}}
 {{- $_ := set $context.Values.openrouterCatalog "enabled" false -}}
@@ -248,7 +251,7 @@ app.kubernetes.io/part-of: infra-agentgateway
 {{- range $binding := $effective -}}
 {{- if $binding.local -}}
 {{- range $model := $binding.models -}}
-{{- $_ := set $localTargets $model.name (dict "binding_id" $binding.id "upstream_model" $model.upstreamModel "required_permissions" (get $binding.modelBindings $model.name).required_permissions "content_tracing_enabled" $model.contentTracingEnabled "upstreamURL" $binding.upstreamURL "provider" $binding.provider) -}}
+{{- $_ := set $localTargets $model.name (dict "binding_id" $binding.id "upstream_model" $model.upstreamModel "required_permissions" (get $binding.modelBindings $model.name).required_permissions "content_tracing_enabled" $model.contentTracingEnabled "normalize_stream_created" $binding.normalizeStreamCreated "upstreamURL" $binding.upstreamURL "provider" $binding.provider) -}}
 {{- end -}}
 {{- end -}}
 {{- end -}}

@@ -12,9 +12,9 @@ Keep the actual expression bounded, not the expanded runtime metadata map. */}}
 {{- range $permission := $model.required_permissions -}}
 {{- $permissions = append $permissions (ternary "null" (toJson $permission) (eq $permission (printf "model:%s:invoke" $name))) -}}
 {{- end -}}
-{{- $rows = append $rows (printf `names[%d]:[%s,[%s],%s,%s,%d]` $index (toJson $model.upstream_model) (join "," $permissions) (toJson $model.content_tracing_enabled) (toJson ($model.allowed_reroutes | default list)) $index) -}}
+{{- $rows = append $rows (printf `names[%d]:[%s,[%s],%s,%s,%d,%s]` $index (toJson $model.upstream_model) (join "," $permissions) (toJson $model.content_tracing_enabled) (toJson ($model.allowed_reroutes | default list)) $index (toJson $model.normalize_stream_created)) -}}
 {{- end -}}
-{{- $expression := printf `%s.with(names, {%s}.mapValues(v, {"upstream_model": v[0], "required_permissions": v[1].map(p, p == null ? "model:" + names[v[4]] + ":invoke" : p), "content_tracing_enabled": v[2], "allowed_reroutes": v[3]}))` (toJson $names) (join "," $rows) -}}
+{{- $expression := printf `%s.with(names, {%s}.mapValues(v, {"upstream_model": v[0], "required_permissions": v[1].map(p, p == null ? "model:" + names[v[4]] + ":invoke" : p), "content_tracing_enabled": v[2], "allowed_reroutes": v[3], "normalize_stream_created": v[5]}))` (toJson $names) (join "," $rows) -}}
 {{- if gt (len $expression) 16384 }}{{ fail "model bindings exceed native 16384-character expression limit" }}{{ end -}}
 {{- $expression -}}
 {{- end -}}

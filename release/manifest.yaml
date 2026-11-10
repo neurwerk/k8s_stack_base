@@ -1,11 +1,11 @@
 apiVersion: platform.neurwerk.com/v1alpha1
 kind: PlatformRelease
 metadata:
-  name: v0.3.35
+  name: v0.3.36
 spec:
-  version: 0.3.35
-  releaseDate: '2026-11-07'
-  summary: Gateway and monitoring upgrades with verified component releases
+  version: 0.3.36
+  releaseDate: '2026-11-09'
+  summary: Configurable self-hosted Chat timestamps and stream admission defaults
   trust:
     signerIdentity: platform-release
     algorithm: ssh-ed25519
@@ -285,7 +285,7 @@ spec:
     charts:
     - path: charts/agentgateway
       name: infra-agentgateway
-      version: 5.1.1
+      version: 5.1.2
       appVersion: 1.7.0
       dependencyLock:
         digest: sha256:08cd4895c0e3b08ec6974dea5acf5c62b8d1b417aa302f8f6103ad5014b04c87
@@ -305,8 +305,8 @@ spec:
       appVersion: 0.12.0
     - path: charts/agentgateway-extproc
       name: agentgateway-extproc
-      version: 2.0.24
-      appVersion: 0.20.5
+      version: 2.0.26
+      appVersion: 0.20.6
     - path: charts/cert-manager/approval-policy
       name: infra-cert-manager-approval-policy
       version: 1.2.9
@@ -877,8 +877,12 @@ spec:
       pinned: true
       eligibility: included
       origins:
-      - charts/agentgateway-extproc/values.yaml
       - charts/langfuse/values.yaml
+    - reference: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.20.6@sha256:d8414e526b777ecc2f14da897273ad2fe12c40d74a64377ba817ef92727ec1b0
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/agentgateway-extproc/values.yaml
     - reference: ghcr.io/neurwerk/k8s-stack-keycloak-api-key-bridge:0.12.1@sha256:9acdb239c5f06f27e61fdfb9f4d05f3c28bbec54f180e0763974c8090376d790
       pinned: true
       eligibility: included
@@ -1079,15 +1083,10 @@ spec:
       node: 24.20.0
       lua: 5.4.9
   provenance:
-    previousTag: v0.3.34
-    includedThrough: 0bd18849e3e959b36c690580c4ed053df0e6b4ad
+    previousTag: v0.3.35
+    includedThrough: 56ce014cd32ebef68b203043a3c502adc14314c5
     commits:
-    - 4d467479326f1ce9ab04d65183f7c954395b038c
-    - 5faa9b7f925e3409776ae8756775a8f285bba559
-    - 1612450e26c129053dd26e5a4b2661226691c53d
-    - e98601fcac3170811bab8aa9977997798befa7e9
-    - fd8dd319a020c16482c1f7d93fd2166276adf129
-    - 3f517f697e3234dc589c7748b8f8b0b4524b9e44
-    - 2a1b88ec18b6b3468797e21d511f8893bed3669b
-    - 0bd18849e3e959b36c690580c4ed053df0e6b4ad
-    compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.34...0bd18849e3e959b36c690580c4ed053df0e6b4ad
+    - 4929160e89d8bac23a8ea75537ee69db4364a616
+    - 43caf85e505ac1a9be23effa16cc648580c4a4b2
+    - 56ce014cd32ebef68b203043a3c502adc14314c5
+    compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.35...56ce014cd32ebef68b203043a3c502adc14314c5
