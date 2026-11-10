@@ -2,6 +2,7 @@
 glitchtip:
   name: glitchtip
   displayName: GlitchTip
+  sourceClass: MCP_TOOL_GLITCHTIP
   credential: {owner: shared, required: true, method: gateway-header, header: Authorization}
   checks:
     - name: Check connection
@@ -31,6 +32,7 @@ glitchtip:
 context7:
   name: context7
   displayName: Context7
+  sourceClass: MCP_TOOL_CONTEXT7
   credential: {owner: shared, required: false, method: gateway-header, header: CONTEXT7_API_KEY}
   checks:
     - name: Check connection
@@ -48,6 +50,7 @@ context7:
 brave:
   name: brave
   displayName: Brave Search
+  sourceClass: MCP_TOOL_BRAVE
   credential: {owner: shared, required: true, method: upstream-env}
   checks:
     - name: Check connection
@@ -81,6 +84,7 @@ brave:
 github:
   name: github
   displayName: GitHub
+  sourceClass: MCP_TOOL_GITHUB
   credential: {owner: individual, required: true, method: oauth}
   checks:
     - name: Check connection

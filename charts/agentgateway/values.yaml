@@ -133,7 +133,9 @@ mcp-servers:
   # Each entry accepts piiEnabled and contentTracingEnabled. Omission defaults
   # both to true. Only an explicit boolean false disables that behavior; tracing
   # true is compatibility retention, not a privacy-safe default. piiEnabled
-  # false still uses protocol-only extProc and never disables auth or routing.
+  # false still uses fail-closed extProc and never disables source labels,
+  # auth or routing. Optional sourceClass is an identity label, not a permission:
+  # ^MCP_TOOL_[A-Z0-9_]+$, at most 64 characters; omission uses MCP_TOOL_DEFAULT.
   # Static server IDs may be canonical dotted DNS subdomains. Workload-backed IDs
   # must be one DNS label because the exact ID is embedded without an alias in
   # Kubernetes Service and container names.

@@ -38,7 +38,8 @@ spec:
 ---
 # Gateway authentication freezes identity; this route owns destination admission.
 # AgentGateway's MCP parser and the
-# fail-closed route extProc own protocol validation; piiEnabled controls analysis.
+# fail-closed route extProc own protocol validation; piiEnabled controls PII
+# scanning, never source classification or downstream source enforcement.
 apiVersion: agentgateway.dev/v1alpha1
 kind: AgentgatewayPolicy
 metadata:
@@ -80,6 +81,7 @@ spec:
             {"contract_version": 1, "destination_kind": "mcp",
             "principal_id": metadata.neurwerk_identity.principal_id,
             "destination_id": {{ .name | toJson }}, "pii_enabled": {{ $piiEnabled }},
+            "source_class": {{ .sourceClass | default "MCP_TOOL_DEFAULT" | toJson }},
             "content_tracing_enabled": {{ .contentTracingEnabled | default false }}
             {{- if .contextforge }}, "contextforge": true,
             "account_email": metadata.neurwerk_identity.account_email

@@ -285,7 +285,7 @@ spec:
     charts:
     - path: charts/agentgateway
       name: infra-agentgateway
-      version: 5.1.4
+      version: 5.2.0
       appVersion: 1.7.0
       dependencyLock:
         digest: sha256:08cd4895c0e3b08ec6974dea5acf5c62b8d1b417aa302f8f6103ad5014b04c87
@@ -305,8 +305,8 @@ spec:
       appVersion: 0.12.0
     - path: charts/agentgateway-extproc
       name: agentgateway-extproc
-      version: 2.0.26
-      appVersion: 0.20.6
+      version: 2.0.27
+      appVersion: 0.21.0
     - path: charts/cert-manager/approval-policy
       name: infra-cert-manager-approval-policy
       version: 1.2.9
@@ -437,7 +437,7 @@ spec:
           sha256: 5ee4dc1695ec4784544a5d667530ad86bc89743031ec4e900652cb94bbd788aa
     - path: charts/langfuse
       name: monitor-langfuse
-      version: 2.0.34
+      version: 2.0.35
       appVersion: 4.28.1
       dependencyLock:
         digest: sha256:68156b8f74aa153f2e33eb76f6ac11e9277c1a8fe8073c3f37da8834a97292cc
@@ -492,12 +492,12 @@ spec:
           sha256: d932c62d60743f2837c7b9a4248ef7719c3049fe11b2dd8d44bc6ede43641a0e
     - path: charts/pii-engine
       name: pii-engine
-      version: 1.1.8
-      appVersion: 0.15.4
+      version: 1.2.0
+      appVersion: 0.16.0
     - path: charts/pii-engine-model-sync
       name: pii-engine-model-sync
-      version: 1.0.15
-      appVersion: 0.15.4
+      version: 1.0.16
+      appVersion: 0.16.0
     - path: charts/postgres/addon
       name: infra-postgres-addon
       version: 0.1.3
@@ -532,15 +532,15 @@ spec:
       appVersion: v1.20.3
     - path: charts/studio/api
       name: studio-api
-      version: 2.0.12
-      appVersion: 0.22.2
+      version: 2.0.13
+      appVersion: 0.23.0
     - path: charts/studio/shared
       name: studio-shared
       version: 1.0.0
     - path: charts/studio/web
       name: studio
-      version: 1.0.43
-      appVersion: 0.22.2
+      version: 1.0.44
+      appVersion: 0.23.0
     - path: charts/tailscale/access
       name: tailscale-access
       version: 0.1.0
@@ -873,16 +873,12 @@ spec:
       eligibility: included
       origins:
       - charts/kube-prometheus-stack/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.20.5@sha256:8798e1e13e788497fbefa455f37f55ed88c60f3045ecc61354008cd340da7506
-      pinned: true
-      eligibility: included
-      origins:
-      - charts/langfuse/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.20.6@sha256:d8414e526b777ecc2f14da897273ad2fe12c40d74a64377ba817ef92727ec1b0
+    - reference: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.21.0@sha256:5ebcc0d27fd6270020b97f8266edbe2ae895e34b123a79323aa99e3830c8f80f
       pinned: true
       eligibility: included
       origins:
       - charts/agentgateway-extproc/values.yaml
+      - charts/langfuse/values.yaml
     - reference: ghcr.io/neurwerk/k8s-stack-keycloak-api-key-bridge:0.12.1@sha256:9acdb239c5f06f27e61fdfb9f4d05f3c28bbec54f180e0763974c8090376d790
       pinned: true
       eligibility: included
@@ -898,18 +894,18 @@ spec:
       eligibility: included
       origins:
       - charts/opensearch/dashboards/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-pii-engine:0.15.4@sha256:4bf0e4d409fa2ee102428cb918458afbf5794bdacbb9d1eb697c20e5bc4b9366
+    - reference: ghcr.io/neurwerk/k8s-stack-pii-engine:0.16.0@sha256:f722c65e81987b6eb9e249f25995c0a9a0dd5a93be95881f0269bb7943b5165b
       pinned: true
       eligibility: included
       origins:
       - charts/pii-engine-model-sync/values.yaml
       - charts/pii-engine/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-studio-api:0.22.2@sha256:84b319a8fe22abea18d35532d2a078a3f5d4a77e73a34a185f77e1520f19c6af
+    - reference: ghcr.io/neurwerk/k8s-stack-studio-api:0.23.0@sha256:192bce1f67df1fccc9cd5f1c63fdbb4a5235fc95e5d5f01c7ed5dc4bd671fb25
       pinned: true
       eligibility: included
       origins:
       - charts/studio/api/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-studio-web:0.22.2@sha256:ae5a4f7e1f9ccd7c8fb017b11f0e297058dd34d918e8a25c2bd3125130ffdf96
+    - reference: ghcr.io/neurwerk/k8s-stack-studio-web:0.23.0@sha256:7233eaeb2d0262538444ff3b4bb824f59597e353467994f6ef5f9315375c4727
       pinned: true
       eligibility: included
       origins:

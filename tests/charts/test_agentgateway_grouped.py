@@ -41,6 +41,70 @@ def catalog(result):
 class GroupedGatewayTests(unittest.TestCase):
     evaluate = inspection.ApprovedOidcTests.evaluate
 
+    def test_mcp_source_metadata_is_trusted_and_independent_of_pii_scanning(self):
+        values = binding_values()
+        values["mcp-servers"] = {
+            "enabled": True, "approvedHosts": ["tools.example.test"],
+            "contextforgeRoutesEnabled": ["context7"],
+            "catalog": {
+                "presets": {"context7": {"enabled": True, "piiEnabled": False,
+                                          "sourceClass": "MCP_TOOL_DOCS"}},
+                "custom": [
+                    {"name": "unmapped", "enabled": True, "host": "tools.example.test", "piiEnabled": False},
+                    {"name": "mapped", "enabled": True, "host": "tools.example.test", "piiEnabled": False,
+                     "sourceClass": "MCP_TOOL_" + "A" * 55},
+                ],
+            },
+        }
+        expected = {"context7": "MCP_TOOL_DOCS", "unmapped": "MCP_TOOL_DEFAULT",
+                    "mapped": "MCP_TOOL_" + "A" * 55}
+        values["authKeycloak"]["agentgatewayClientRoles"].extend(f"mcp:{name}:invoke" for name in expected)
+        rendered = render("agentgateway", values)
+        for name, source_class in expected.items():
+            with self.subTest(destination=name):
+                processing = resource(rendered, "AgentgatewayPolicy", f"mcp-{name}-policy")["spec"]["traffic"]["extProc"]
+                self.assertEqual(processing["failureMode"], "FailClosed")
+                policy = CredentialModeTests.value(
+                    processing["metadataContext"]["neurwerk.destination_policy"]["destination_policy"],
+                    {"metadata": {"neurwerk_identity": {"principal_id": "synthetic-user", "account_email": None}},
+                     "request": {"headers": {"source_class": "MCP_TOOL_FORGED"}}},
+                )
+                self.assertEqual(policy["source_class"], source_class)
+                self.assertEqual(policy["destination_id"], name)
+                self.assertIs(policy["pii_enabled"], False)
+
+    def test_shipped_mcp_presets_have_identity_labels(self):
+        values = binding_values()
+        labels = {"glitchtip": "MCP_TOOL_GLITCHTIP", "context7": "MCP_TOOL_CONTEXT7",
+                  "brave": "MCP_TOOL_BRAVE", "github": "MCP_TOOL_GITHUB"}
+        presets = {name: {"enabled": True} for name in labels}
+        presets["glitchtip"]["registration"] = {"upstream_url": "https://errors.example.test/mcp"}
+        presets["github"]["registration"] = {"oauth": {
+            "client_id": "synthetic-app", "redirect_uri": "https://studio.example.test/oauth/callback"}}
+        values["mcp-servers"] = {"enabled": True, "contextforgeRoutesEnabled": list(labels),
+                                 "catalog": {"presets": presets}}
+        values["authKeycloak"]["agentgatewayClientRoles"].extend(f"mcp:{name}:invoke" for name in labels)
+        rendered = render("agentgateway", values)
+        for name, label in labels.items():
+            processing = resource(rendered, "AgentgatewayPolicy", f"mcp-{name}-policy")["spec"]["traffic"]["extProc"]
+            policy = CredentialModeTests.value(
+                processing["metadataContext"]["neurwerk.destination_policy"]["destination_policy"],
+                {"metadata": {"neurwerk_identity": {"principal_id": "synthetic-user", "account_email": None}}},
+            )
+            self.assertEqual(policy["source_class"], label)
+
+    def test_mcp_source_class_rejects_invalid_preset_and_custom_values(self):
+        for source_class in (None, "", "MCP_TOOL_", "MCP_TOOL_lower", "MCP_TOOL_A-B",
+                             "MCP_TOOL_A\n", "MCP_TOOL_" + "A" * 56, 7):
+            for kind in ("presets", "custom"):
+                with self.subTest(source_class=source_class, kind=kind):
+                    entry = {"enabled": True, "sourceClass": source_class}
+                    catalog = {"presets": {"context7": entry}} if kind == "presets" else {
+                        "custom": [{"name": "synthetic", "host": "tools.example.test", **entry}]}
+                    result = render("agentgateway", {"mcp-servers": {"catalog": catalog}}, check=False)
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertIn("sourceClass", result.stderr)
+
     def test_model_modes_limit_catalog_and_native_targets(self):
         values = binding_values()
         binding = values["external-api-providers"][0]
