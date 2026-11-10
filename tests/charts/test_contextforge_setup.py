@@ -296,6 +296,59 @@ class SetupPublicationTests(unittest.TestCase):
             mutations = [call for call in calls if call[0] != "GET"]
             self.assertEqual(mutations, [("PUT", "/servers/" + spec["server_id"], {"associated_tools": [tool["id"]]})] if tools else [])
 
+    def test_fresh_oauth_registration_preserves_exact_realm_issuer_without_updates(self):
+        issuer = "https://identity.example.com/realms/Example/"
+        spec = definition()
+        spec["oauth"].update(issuer=issuer, token_url="https://identity.example.com/realms/Example/protocol/openid-connect/token",
+                             client_id="example-app", redirect_uri="https://studio.example.com/oauth/callback",
+                             scopes=["openid"], client_secret_ref={"name": "contextforge-oauth-apps", "key": spec["id"]})
+        gateways, servers, writes = [], [], []
+
+        def request(method, path, body=None):
+            if method == "POST":
+                writes.append((path, copy.deepcopy(body)))
+                common = {"teamId": "team", "ownerEmail": "admin@example.com", "createdBy": "admin@example.com",
+                          "visibility": "public", "enabled": True}
+                if path == "/gateways":
+                    gateways.append(common | {"id": "a" * 32, "name": body["name"], "description": body["description"],
+                        "url": body["url"], "transport": body["transport"], "status": "active", "gatewayMode": "cache",
+                        "authType": "oauth", "oauthConfig": copy.deepcopy(body["oauth_config"])})
+                elif path == "/servers":
+                    server = body["server"]
+                    servers.append(common | {"id": server["id"], "name": server["name"], "description": server["description"],
+                        "oauthEnabled": False, "associatedToolIds": [], "associatedResources": [],
+                        "associatedPrompts": [], "associatedA2aAgents": []})
+                else:
+                    self.fail("Unexpected native creation")
+            elif method == "GET":
+                if path.startswith("/gateways?"):
+                    return gateways
+                if path.startswith("/servers?"):
+                    return servers
+                if path == "/servers/" + spec["server_id"]:
+                    return servers[0]
+                return []
+            else:
+                self.fail("Native registration must not update or refresh")
+
+        api = Mock(request=request)
+        with patch.object(registrations.Path, "read_text", return_value="synthetic-app-secret"):
+            result = registrations.reconcile_one(api, spec, "team", "admin@example.com")
+        self.assertEqual(writes[0][0], "/gateways")
+        self.assertEqual(writes[0][1]["oauth_config"], registrations.native_oauth(spec) | {"client_secret": "synthetic-app-secret"})
+        self.assertEqual(writes[0][1]["oauth_config"]["issuer"], issuer)
+        self.assertEqual(result["gateway_id"], "a" * 32)
+        self.assertEqual(result["server_id"], spec["server_id"])
+        self.assertEqual(result["state"], "pending-discovery")
+        self.assertEqual(len(writes), 2)
+        self.assertEqual(registrations.reconcile_one(api, spec, "team", "admin@example.com"), result)
+        self.assertEqual(len(writes), 2)
+        for conflicting_issuer in (None, "", "https://identity.example.com/realms/other"):
+            gateways[0]["oauthConfig"]["issuer"] = conflicting_issuer
+            with self.assertRaises(registrations.SetupError):
+                registrations.reconcile_one(api, spec, "team", "admin@example.com")
+            self.assertEqual(len(writes), 2)
+
     def test_tool_conflict_precedes_server_mutation(self):
         spec = definition()
         gateway = {"id": "a" * 32, "name": "neurwerk-contextforge-example", "url": spec["upstream_url"]}

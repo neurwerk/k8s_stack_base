@@ -38,6 +38,33 @@ def native_values():
 
 
 class McpCredentialsTests(unittest.TestCase):
+    def test_optional_oauth_issuer_is_preserved_exactly_in_native_catalog(self):
+        for issuer in (None, "https://identity.example.com/realms/Example/", "https://identity.example.com:8443/realms/Example"):
+            with self.subTest(issuer=issuer):
+                values = managed_values()
+                oauth = values["mcp-servers"]["catalog"]["presets"]["github"]["registration"]["oauth"]
+                if issuer is not None:
+                    oauth["issuer"] = issuer
+                output = render("agentgateway", values)
+                data = resource(output, "ConfigMap", "infra-agentgateway-mcp-catalog")["data"]
+                registration = next(entry for entry in json.loads(data["registrations.json"]) if entry["id"] == "github")
+                if issuer is None:
+                    self.assertNotIn("issuer", registration["oauth"])
+                else:
+                    self.assertEqual(registration["oauth"]["issuer"], issuer)
+
+    def test_oauth_issuer_rejects_invalid_explicit_values(self):
+        for issuer in (None, "", 123, True, [], {}, "http://identity.example.com/realms/example",
+                       "https://user:password@identity.example.com/realms/example",
+                       "https://identity.example.com/realms/example?query=value",
+                       "https://identity.example.com/realms/example#fragment",
+                       " https://identity.example.com/realms/example", "https://identity.example.com/realm name",
+                       "https://identity.example.com/../example", "https://identity.example.com/./example"):
+            with self.subTest(issuer=issuer):
+                values = managed_values()
+                values["mcp-servers"]["catalog"]["presets"]["github"]["registration"]["oauth"]["issuer"] = issuer
+                self.assertNotEqual(render("agentgateway", values, check=False).returncode, 0)
+
     def test_glitchtip_shared_token_is_opt_in_and_uses_verified_native_tls(self):
         default = render("agentgateway", {})
         self.assertNotIn("8104c910079d4a1a9ba4ddbfda0d08df", default.stdout)
