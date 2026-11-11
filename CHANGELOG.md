@@ -9,6 +9,8 @@ upgrade path.
 
 ## [Unreleased]
 
+## [0.3.38] - 2026-11-11
+
 - Pin ContextForge `1.1.1` and remove named-operator discovery, chart-owned MCP publication and the ignored OAuth publication input while preserving existing Studio-managed registrations and selections.
 - Adopt verified Studio API/Web `0.24.0` with OAuth callback issuer forwarding and explicit rejection of retired discovery mode, completing the source pairing for ContextForge `1.1.1`.
 - Require the [coordinated maintenance and preservation checks](docs/operations/contextforge-upgrade.md); these source changes do not establish live acceptance or authorize deployment.
