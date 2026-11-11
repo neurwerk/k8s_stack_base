@@ -1,6 +1,6 @@
-version: 0.3.37
-releaseDate: '2026-11-10'
-summary: MCP source protection and OAuth connection fixes
+version: 0.3.38
+releaseDate: '2026-11-11'
+summary: ContextForge upgrade, MCP policy fixes, native-first PDF extraction and response tool limits
 helmOutputs:
   releases/keycloak/server.yaml:
   - kind: Secret
@@ -282,18 +282,25 @@ exceptions:
   reason: The reviewed upstream DocumentDB local image requires passwordless sudo to prepare runtime directories
     before dropping back to UID 1000.
 provenance:
-  previousTag: v0.3.36
-  includedThrough: 4baae609a50ea0f72b765638faddd0e5412974bb
+  previousTag: v0.3.37
+  includedThrough: 7448d09abd7cc159e45f90e464092b9c028ebe53
   commits:
-  - 0ccbdbe58e78200dc59c0df0e2230b0e5b2a06f5
-  - 69671b566ee93dc2fa724c47813175bfcc3f6ad9
-  - be35c4f9cf566ff89282cc4505dc780ae9b3c651
-  - ac66a856d214ec729418ed55b380fc8713ede87c
-  - 2d96810ff954e2aa8050c3f8e726de66fcdaae22
-  - d6ea762a192596e4d74a7b8027c591e9042acc7f
-  - 43fee6db61b3817e0cd65a9f41c1145d9ae45c7f
-  - 49ba3957e218df83a124e0eeed9e7d6caabbb6a3
-  - 7dd33523e2d9c44abe8bc14348d53ad3dff82bbf
-  - 4ab2024bc43c882072675b09d17359a65c3ebc3c
-  - 4baae609a50ea0f72b765638faddd0e5412974bb
-  compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.36...4baae609a50ea0f72b765638faddd0e5412974bb
+  - 843d3f9491f2207ccc7a689bed3c41ff2168aaa8
+  - bd3fd8d004ee9c357bde0d47cfad3646677245db
+  - 87a9f41d01871f3202d24110171352a708ef222f
+  - 578c8dc35b10d881997fc169762ae02dafd9092d
+  - 1a226b35a6c3ac0e1d7b0889abddb179759cc54d
+  - fefb49d071f9d75e4efbf21e661593476be3a5fa
+  - 305c544bd55ed9a11b4f8d8e1ed290931b2026d0
+  - 9c3d60206a4f337ac69f921fd11d0b23d6201f85
+  - 8edd5d7a82d8fbd2cf8f2ffe13921dce9b349ffc
+  - 62d06452403f993e7c2fae597c5d649087d39214
+  - 1375a69f5edd6db3543c61fb99a5804c2cd373cd
+  - f2eae484ff6e9b667fa8ca11f775de499bd11502
+  - 3274ee6f6ee0e2c0d9ec6ddd59f1def5002b0c67
+  - 968ffb6d857cf2d1ae939519abfe458e23a00a9c
+  - a63fbc68fa9dc61e5efeef9c5590497eed00e92e
+  - 4953759364aa9e6f83d63f9a55c98dbba2618e9d
+  - 16fdf67f28e0d719bf207d9e036c9cde13ad4f2f
+  - 7448d09abd7cc159e45f90e464092b9c028ebe53
+  compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.37...7448d09abd7cc159e45f90e464092b9c028ebe53
