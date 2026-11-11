@@ -18,7 +18,7 @@ mcp-servers:
     enabled: false
 
 frontendStudio:
-  apiImage: "ghcr.io/neurwerk/k8s-stack-studio-api:0.23.1@sha256:cf2e68cac5673d8dd35344b24be611afd15775f64486c7c3c611bb1872d085fb"
+  apiImage: "ghcr.io/neurwerk/k8s-stack-studio-api:0.24.0@sha256:31010e399e92067fb3d839f76ed034429d6df71d76c9a0d94e61eeae4f91b97e"
   api:
     replicas: 1
     # Python and Uvicorn application logs; warnings and errors remain visible.
@@ -97,12 +97,6 @@ frontendStudio:
       # Any verified mcp-admin uses their own connection; no named operator binding.
       adminDiscovery:
         enabled: false
-      # Requires separately published/adopted Studio support and verified setup IDs.
-      operatorDiscovery:
-        enabled: false
-        operatorEmail: ""
-        operatorSubject: ""
-        roleName: neurwerk-mcp-discovery
       studioOrigin: ""
       catalogConfigMapName: mcp-catalog
       catalogKey: studio.json

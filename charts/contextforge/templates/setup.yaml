@@ -1,5 +1,7 @@
-{{- if and .Values.contextforge.enabled .Values.contextforge.setup.enabled }}
 {{- $setup := .Values.contextforge.setup }}
+{{- if dig "operatorDiscovery" "enabled" false $setup }}{{ fail "ContextForge operatorDiscovery has been removed; use Studio MCP setup" }}{{- end }}
+{{- if $setup.publishOAuthTools }}{{ fail "ContextForge publishOAuthTools has been removed; publish tools through Studio" }}{{- end }}
+{{- if and .Values.contextforge.enabled $setup.enabled }}
 {{- $proxy := .Values.contextforge.trustedProxy }}
 {{- if not $proxy.enabled }}{{ fail "ContextForge setup requires trustedProxy.enabled and private TLS" }}{{- end }}
 {{- if not (regexMatch "^[a-z][a-z0-9-]{0,47}$" $setup.teamName) }}{{ fail "ContextForge setup teamName must be a lowercase name/slug" }}{{- end }}
@@ -9,20 +11,13 @@
 {{- $member := required "ContextForge setup requires trustedProxy.defaultTeamMemberRole" $proxy.defaultTeamMemberRole }}
 {{- $owner := required "ContextForge setup requires ownerRoleName" $setup.ownerRoleName }}
 {{- if ne (len (uniq (list $global $member $owner))) 3 }}{{ fail "ContextForge setup role names must be distinct" }}{{- end }}
-{{- $operator := $setup.operatorDiscovery }}
 {{- $adminDiscovery := deepCopy $setup.adminDiscovery }}
 {{- $studioSetup := (index .Values "mcp-servers").studioSetup.enabled }}
+{{- if not $studioSetup }}{{ fail "ContextForge chart-owned publication has been removed; enable mcp-servers.studioSetup.enabled" }}{{- end }}
 {{- if $studioSetup }}{{- $_ := set $adminDiscovery "enabled" true }}{{- end }}
 {{- if not (kindIs "bool" $adminDiscovery.enabled) }}{{ fail "ContextForge adminDiscovery.enabled must be a boolean" }}{{- end }}
-{{- if and $adminDiscovery.enabled $operator.enabled }}{{ fail "Select adminDiscovery or legacy operatorDiscovery, not both" }}{{- end }}
 {{- if and $adminDiscovery.enabled (has "contextforge-tool-discovery" (list $global $member $owner)) }}{{ fail "ContextForge discovery role must be distinct" }}{{- end }}
 {{- if lt (int $setup.activeDeadlineSeconds) 120 }}{{ fail "ContextForge setup activeDeadlineSeconds must allow at least 120 seconds" }}{{- end }}
-{{- if not (kindIs "bool" $operator.enabled) }}{{ fail "ContextForge operatorDiscovery.enabled must be a boolean" }}{{- end }}
-{{- if $operator.enabled }}
-{{- $_ := required "ContextForge operatorDiscovery requires operatorEmail" $operator.operatorEmail }}
-{{- $_ := required "ContextForge operatorDiscovery requires operatorSubject" $operator.operatorSubject }}
-{{- if or (empty $operator.roleName) (has $operator.roleName (list $global $member $owner)) (eq $operator.operatorEmail $service) }}{{ fail "ContextForge operator must have a distinct identity and role" }}{{- end }}
-{{- end }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -39,7 +34,7 @@ metadata:
   labels:
     {{- include "contextforge.labels" . | nindent 4 }}
 data:
-  config.json: {{ dict "origin" (printf "https://%s.%s.svc.cluster.local:4444" .Release.Name .Release.Namespace) "teamName" $setup.teamName "serviceAccountEmail" $service "globalRoleName" $global "teamRoleName" $member "ownerRoleName" $owner "operatorDiscovery" $operator "adminDiscovery" $adminDiscovery "studioSetup" $studioSetup "nativeBudgetSeconds" (sub (int $setup.activeDeadlineSeconds) 60) "catalogHash" ((index .Values "mcp-servers").catalog | toJson | sha256sum) | toJson | quote }}
+  config.json: {{ dict "origin" (printf "https://%s.%s.svc.cluster.local:4444" .Release.Name .Release.Namespace) "teamName" $setup.teamName "serviceAccountEmail" $service "globalRoleName" $global "teamRoleName" $member "ownerRoleName" $owner "adminDiscovery" $adminDiscovery "studioSetup" $studioSetup "nativeBudgetSeconds" (sub (int $setup.activeDeadlineSeconds) 60) "catalogHash" ((index .Values "mcp-servers").catalog | toJson | sha256sum) | toJson | quote }}
   {{- (.Files.Glob "files/*.py").AsConfig | nindent 2 }}
 ---
 apiVersion: v1
