@@ -165,6 +165,8 @@ spec:
               value: {{ .Values.reasoning.maxFingerprints | quote }}
             - name: EXTPROC_MAX_RESPONSE_BYTES
               value: {{ .Values.monitorAgentgatewayExtproc.maxResponseBytes | quote }}
+            - name: EXTPROC_MAX_TOOL_CALLS_PER_RESPONSE
+              value: {{ .Values.monitorAgentgatewayExtproc.maxToolCallsPerResponse | quote }}
             - name: EXTPROC_MAX_TRANSFORMED_REQUEST_BYTES
               value: {{ .Values.monitorAgentgatewayExtproc.maxTransformedRequestBytes | quote }}
             - name: EXTPROC_GRPC_MAX_RECEIVE_MESSAGE_BYTES
