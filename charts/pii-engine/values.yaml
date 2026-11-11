@@ -4,7 +4,7 @@ reasoning:
   maxFingerprints: 4096
 
 monitorPiiEngine:
-  image: ghcr.io/neurwerk/k8s-stack-pii-engine:0.16.1@sha256:f6b1ee513ffbae418d84d99e1ebb0dbf721b080b776469aae434bba951c11bc4
+  image: ghcr.io/neurwerk/k8s-stack-pii-engine:0.16.2@sha256:ea646e227390c70e13236c715bdd5295960148bc07d6f028557fafd08e9ddc69
   # Local retains the existing baseline / verified transformer selection.
   analyzerBackend: local # local | remote-gliner | remote-kserve
   # null preserves legacy automatic baseline / transformer bundle selection.

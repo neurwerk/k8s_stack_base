@@ -21,7 +21,7 @@ monitorAgentgatewayExtproc:
     # Covers dependency failures and response failures after headers were sent.
     enabled: true
 
-  extprocImage: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.22.0@sha256:33993457ec0ed411de2862792cc75699363e5615960566c7c7568a0a30505285
+  extprocImage: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.22.1@sha256:54e2bb07eb5d615f223fd175574c9b559763848b0a759fb621df84527f4a13b8
 
   # Docling requires exactly two fixed replicas (no HPA while enabled).
   replicas: 2
@@ -80,6 +80,8 @@ monitorAgentgatewayExtproc:
   # envelope instead, even if an existing client still supplies these values.
   maxRequestBytes: "5242880"
   maxResponseBytes: "10485760"
+  # New calls per model response, across choices; history does not count (1–128).
+  maxToolCallsPerResponse: 32
   maxTransformedRequestBytes: "10485760"
   grpcMaxReceiveMessageBytes: "6356992"
   # Application stream admission per process; native gRPC reserves rejection headroom.
