@@ -305,8 +305,8 @@ spec:
       appVersion: 0.12.0
     - path: charts/agentgateway-extproc
       name: agentgateway-extproc
-      version: 2.0.28
-      appVersion: 0.21.1
+      version: 2.0.29
+      appVersion: 0.21.2
     - path: charts/cert-manager/approval-policy
       name: infra-cert-manager-approval-policy
       version: 1.2.9
@@ -437,7 +437,7 @@ spec:
           sha256: 5ee4dc1695ec4784544a5d667530ad86bc89743031ec4e900652cb94bbd788aa
     - path: charts/langfuse
       name: monitor-langfuse
-      version: 2.0.36
+      version: 2.0.37
       appVersion: 4.28.1
       dependencyLock:
         digest: sha256:68156b8f74aa153f2e33eb76f6ac11e9277c1a8fe8073c3f37da8834a97292cc
@@ -873,7 +873,7 @@ spec:
       eligibility: included
       origins:
       - charts/kube-prometheus-stack/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.21.1@sha256:88b3135f8f79cd1e10c0c43cd4e57ede55345d5e21be846d897a5e582fd07b3c
+    - reference: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.21.2@sha256:ac9d5aa3f68ec0772137d30eac6b91015527e6d591b5f3f41db9cfe24a35421a
       pinned: true
       eligibility: included
       origins:
