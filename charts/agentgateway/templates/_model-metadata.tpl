@@ -28,7 +28,7 @@ Keep the actual expression bounded, not the expanded runtime metadata map. */}}
 {{- if le (len $literal) 16384 -}}
 {{- $literal -}}
 {{- else -}}
-{{- $fields := keys .attachmentPolicy | sortAlpha -}}
+{{- $fields := keys (omit .attachmentPolicy "pdf_modes" "pdf_fallbacks" "pdf_max_rendered_pages") | sortAlpha -}}
 {{- $rows := dict -}}
 {{- range $model := .models -}}
 {{- $row := list $model.piiEnabled -}}
@@ -36,6 +36,11 @@ Keep the actual expression bounded, not the expanded runtime metadata map. */}}
 {{- $_ := set $rows $model.name $row -}}
 {{- end -}}
 {{- $parts := list `"models": rows.mapValues(v, v[0])` -}}
+{{- range $field := list "pdf_modes" "pdf_fallbacks" "pdf_max_rendered_pages" -}}
+{{- if hasKey $.attachmentPolicy $field -}}
+{{- $parts = append $parts (printf `%q: %s` $field (toJson (get $.attachmentPolicy $field))) -}}
+{{- end -}}
+{{- end -}}
 {{- range $index, $field := $fields -}}
 {{- $parts = append $parts (printf `%q: rows.mapValues(v, v[%d])` $field (add1 $index)) -}}
 {{- end -}}

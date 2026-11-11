@@ -73,6 +73,9 @@ the concrete routing branch, never names, groups, URLs or policy route classes. 
 {{- $imagePolicy := "enforce" -}}
 {{- $imageInspection := "document-only" -}}
 {{- $imageTextless := "block" -}}
+{{- $pdfMode := "" -}}
+{{- $pdfFallback := "" -}}
+{{- $pdfMaxPages := 0 -}}
 {{- if $typedVersion -}}
 {{- $attachments := $model.attachments -}}
 {{- if not (kindIs "map" $attachments) -}}
@@ -89,7 +92,7 @@ the concrete routing branch, never names, groups, URLs or policy route classes. 
 {{- fail (printf "model %q attachments.documents must be a map" $name) -}}
 {{- end -}}
 {{- range $field, $_ := $documents -}}
-{{- if ne $field "mode" -}}
+{{- if not (or (eq $field "mode") (and $version41 (eq $field "pdf"))) -}}
 {{- fail (printf "model %q attachments.documents contains unknown field %q" $name $field) -}}
 {{- end -}}
 {{- end -}}
@@ -99,6 +102,38 @@ the concrete routing branch, never names, groups, URLs or policy route classes. 
 {{- $documentMode = $documents.mode -}}
 {{- if not (and (kindIs "string" $documentMode) (has $documentMode (list "block" "extract-text"))) -}}
 {{- fail (printf "model %q attachments.documents.mode must be block or extract-text" $name) -}}
+{{- end -}}
+{{- if hasKey $documents "pdf" -}}
+{{- $pdf := $documents.pdf -}}
+{{- if not (kindIs "map" $pdf) -}}
+{{- fail (printf "model %q attachments.documents.pdf must be a map" $name) -}}
+{{- end -}}
+{{- if not (hasKey $pdf "mode") -}}
+{{- fail (printf "model %q attachments.documents.pdf requires mode" $name) -}}
+{{- end -}}
+{{- range $field, $_ := $pdf -}}
+{{- if not (has $field (list "mode" "fallback" "maxRenderedPages")) -}}
+{{- fail (printf "model %q attachments.documents.pdf contains unknown field %q" $name $field) -}}
+{{- end -}}
+{{- end -}}
+{{- $pdfMode = $pdf.mode -}}
+{{- if not (and (kindIs "string" $pdfMode) (has $pdfMode (list "block" "extract-text" "render-images" "native-first"))) -}}
+{{- fail (printf "model %q attachments.documents.pdf.mode must be block, extract-text, render-images, or native-first" $name) -}}
+{{- end -}}
+{{- if eq $pdfMode "native-first" -}}
+{{- if not (and (hasKey $pdf "fallback") (kindIs "string" $pdf.fallback) (has $pdf.fallback (list "extract-text" "render-images"))) -}}
+{{- fail (printf "model %q attachments.documents.pdf native-first requires explicit fallback extract-text or render-images" $name) -}}
+{{- end -}}
+{{- $pdfFallback = $pdf.fallback -}}
+{{- else if hasKey $pdf "fallback" -}}
+{{- fail (printf "model %q attachments.documents.pdf.fallback is only allowed with native-first" $name) -}}
+{{- end -}}
+{{- if hasKey $pdf "maxRenderedPages" -}}
+{{- if not (and (or (eq $pdfMode "render-images") (eq $pdfFallback "render-images")) (regexMatch `^[1-9][0-9]*$` (toJson $pdf.maxRenderedPages)) (le (int $pdf.maxRenderedPages) 20)) -}}
+{{- fail (printf "model %q attachments.documents.pdf.maxRenderedPages must be an integer from 1 to 20 with image rendering" $name) -}}
+{{- end -}}
+{{- $pdfMaxPages = int $pdf.maxRenderedPages -}}
+{{- end -}}
 {{- end -}}
 {{- end -}}
 {{- if hasKey $attachments "images" -}}
@@ -166,6 +201,21 @@ the concrete routing branch, never names, groups, URLs or policy route classes. 
 {{- end -}}
 {{- $local := and (eq (toJson $model.local) "true") (not $model.piiReroute) (eq (toJson $backend.enabled) "true") (kindIs "string" $backend.host) (not (empty $backend.host)) (kindIs "string" $model.model) (not (empty $model.model)) -}}
 {{- $images := and $local (eq (toJson $model.supportsImages) "true") -}}
+{{- if and (or (eq $pdfMode "render-images") (eq $pdfFallback "render-images")) (not (and (eq $documentMode "extract-text") (eq $imageMode "forward-normalized") (eq $forward "pii-unchecked") $images (not $pii))) -}}
+{{- fail (printf "model %q PDF %s requires default extract-text and unchecked normalized images on a concrete local vision model with PII disabled" $name $pdfMode) -}}
+{{- end -}}
+{{- if ne $pdfMode "" -}}
+{{- if not (hasKey $maps "pdf_modes") }}{{ $_ := set $maps "pdf_modes" (dict) }}{{ end -}}
+{{- $_ := set $maps.pdf_modes $name $pdfMode -}}
+{{- end -}}
+{{- if ne $pdfFallback "" -}}
+{{- if not (hasKey $maps "pdf_fallbacks") }}{{ $_ := set $maps "pdf_fallbacks" (dict) }}{{ end -}}
+{{- $_ := set $maps.pdf_fallbacks $name $pdfFallback -}}
+{{- end -}}
+{{- if gt $pdfMaxPages 0 -}}
+{{- if not (hasKey $maps "pdf_max_rendered_pages") }}{{ $_ := set $maps "pdf_max_rendered_pages" (dict) }}{{ end -}}
+{{- $_ := set $maps.pdf_max_rendered_pages $name $pdfMaxPages -}}
+{{- end -}}
 {{- if and (eq $mode "passthrough") (or $pii $face (hasKey $model "imageForwarding")) -}}
 {{- fail (printf "model %q passthrough requires piiEnabled:false, faceProtectionEnabled:false and no explicit imageForwarding" $name) -}}
 {{- end -}}
@@ -178,7 +228,7 @@ the concrete routing branch, never names, groups, URLs or policy route classes. 
 {{- if and (eq $version "3") (ne $forward "none") (not (and $.Values.docling.enabled (has $.Values.docling.inference.mode (list "internal-standard" "cpu" "private-vlm" "remote")))) -}}
 {{- fail (printf "model %q image forwarding requires enabled Docling internal-standard/cpu or private-vlm/remote mode" $name) -}}
 {{- end -}}
-{{- $needsExtraction := or (eq $documentMode "extract-text") (eq $imageMode "extract-text") (and (eq $imageMode "forward-normalized") (ne $imagePolicy "unchecked")) -}}
+{{- $needsExtraction := or (eq $documentMode "extract-text") (has $pdfMode (list "extract-text" "native-first")) (eq $imageMode "extract-text") (and (eq $imageMode "forward-normalized") (ne $imagePolicy "unchecked")) -}}
 {{- if and $version41 (eq $imageInspection "document-and-vision") (not (and $.Values.docling.enabled (has $.Values.docling.inference.mode (list "private-vlm" "remote")))) -}}
 {{- fail (printf "model %q document-and-vision inspection requires enabled Docling private-vlm or remote mode" $name) -}}
 {{- end -}}
