@@ -1,6 +1,5 @@
 """Pinned native API setup; only verified, non-secret output reaches Studio."""
 
-import hashlib
 import json
 import logging
 import os
@@ -16,7 +15,7 @@ import httpx
 import psycopg
 from psycopg.rows import dict_row
 
-from registrations import SetupError, matches_previous, reconcile, require
+from registrations import SetupError, reconcile, require
 
 MARKER = "neurwerk-contextforge/setup-v1"
 INVOKE = ["gateways.read", "servers.read", "servers.use", "tools.execute", "tools.read"]
@@ -102,8 +101,7 @@ def accounts(api, db, config, admin, previous):
             "Previously published Studio service identity changed")
     global_id = role(api, db, config["globalRoleName"], "global", [], admin, previous.get("global_role_id"))
     team_role_id = role(api, db, config["teamRoleName"], "team", INVOKE, admin, previous.get("team_role_id"))
-    managed = config.get("studioSetup", False)
-    owner_id = role(api, db, config["ownerRoleName"], "team", sorted(PROVISION + PUBLISH) if managed else PROVISION,
+    owner_id = role(api, db, config["ownerRoleName"], "team", sorted(PROVISION + PUBLISH),
                     admin, previous.get("owner_role_id"))
     # Include inactive teams: native POST otherwise silently reactivates them.
     teams = db.rows("SELECT id FROM email_teams WHERE name = %(name)s OR slug = %(name)s",
@@ -165,112 +163,16 @@ def accounts(api, db, config, admin, previous):
             "owner_role_id": owner_id, "service_account_email": service}
 
 
-def operator_account(api, db, config, admin, ids, previous):
-    """Grant one named existing member discovery, never repair revoked access."""
-    operator = config["operatorDiscovery"]
-    if not operator["enabled"]:
-        return {}
-    email = operator["operatorEmail"]
-    subject = operator["operatorSubject"]
-    require(email and subject and email not in (admin, config["serviceAccountEmail"]),
-            "Operator requires a distinct named identity and subject")
-    for key, value in (("operator_email", email), ("operator_subject", subject)):
-        require(not previous.get(key) or previous[key] == value, "Operator binding changed; explicit repair required")
-    exact(api.request("GET", "/auth/email/admin/users/" + quote(email, safe="")),
-          {"email": email, "is_admin": False, "is_active": True, "email_verified": True},
-          "Operator must already be active, verified and non-admin")
-    members = db.rows("SELECT team_id, role, is_active FROM email_team_members "
-                      "WHERE user_email = %(email)s", email=email)
-    require(members == [{"team_id": ids["team_id"], "role": "member", "is_active": True}],
-            "Operator must have only the fixed active member profile")
-    existing_role = db.rows("SELECT id FROM roles WHERE name = %(name)s AND scope = %(scope)s",
-                           name=operator["roleName"], scope="team")
-    binding = hashlib.sha256(json.dumps([email, subject]).encode()).hexdigest()
-    discovery_id = role(api, db, operator["roleName"], "team", ["gateways.update"], admin,
-                        previous.get("operator_role_id"), MARKER + "/operator/" + binding)
-    grants = db.rows("SELECT user_email, scope, scope_id, is_active, expires_at FROM user_roles "
-                     "WHERE role_id = %(role_id)s", role_id=discovery_id)
-    require(all(row == {"user_email": email, "scope": "team", "scope_id": ids["team_id"],
-                        "is_active": True, "expires_at": None} for row in grants) and len(grants) <= 1,
-            "Discovery role has foreign, duplicate or dormant grants")
-    baseline = {(ids["global_role_id"], "global", None), (ids["team_role_id"], "team", ids["team_id"])}
-    discovery = (discovery_id, "team", ids["team_id"])
-
-    def assignments():
-        rows = db.rows("SELECT role_id, scope, scope_id, is_active, expires_at FROM user_roles "
-                       "WHERE user_email = %(email)s", email=email)
-        require(all(r["is_active"] and r["expires_at"] is None for r in rows),
-                "Dormant or expiring operator grants; refusing to restore access")
-        found = {(r["role_id"], r["scope"], r["scope_id"]) for r in rows}
-        require(len(found) == len(rows) and baseline <= found <= baseline | {discovery},
-                "Unexpected or missing operator invocation grants")
-        return found
-
-    found = assignments()
-    if discovery not in found:
-        require(not existing_role and not previous.get("operator_role_id"),
-                "Existing operator role lacks assignment; refusing to restore")
-        api.request("POST", f"/rbac/users/{quote(email, safe='')}/roles",
-                    {"role_id": discovery_id, "scope": "team", "scope_id": ids["team_id"]})
-    require(assignments() == baseline | {discovery}, "Operator discovery assignment not confirmed")
-    return {"operator_email": email, "operator_subject": subject, "operator_role_id": discovery_id}
-
-
 def admin_discovery_role(api, db, config, admin, previous):
     """Create only the scoped role; Studio leases it to the verified calling admin."""
     if not config.get("adminDiscovery", {}).get("enabled", False):
         return {}
-    require(not config["operatorDiscovery"]["enabled"], "Discovery modes are mutually exclusive")
     # Do not silently leave a former named operator's permanent native grants behind.
     require(not previous.get("operator_role_id"),
             "Retire the legacy named operator role and projection before enabling admin discovery")
     rid = role(api, db, "contextforge-tool-discovery", "team", ["gateways.update"], admin,
                previous.get("admin_discovery_role_id"), MARKER + "/admin-discovery")
     return {"admin_discovery_role_id": rid, "admin_discovery_ready": "true"}
-
-
-def project(api, specs, studio, results, previous_data):
-    """Publish only verified projections; retain last good entries for exact approvals."""
-    old_mappings = {r["id"]: r for r in json.loads(previous_data.get("mappings.json", "[]"))}
-    old_studio = {r["id"]: r for r in json.loads(previous_data.get("studio.json", "[]"))}
-    by_spec = {r["id"]: r for r in specs}
-    by_studio = {r["id"]: r for r in studio}
-    require(len(studio) == len(by_studio) and set(by_studio) == set(by_spec),
-            "Studio and registration projections disagree")
-    entries, mappings, statuses = [], [], []
-    for result in results:
-        identity = result["id"]
-        spec = by_spec[identity]
-        entry = dict(by_studio[identity])
-        try:
-            if result["state"] != "error":
-                require(entry["server_id"] == result["server_id"], "Server projection conflict")
-                entry["gateway_id"] = result["gateway_id"]
-                # Reconciliation already verified every association of a pending
-                # server is empty; do not spend another call or lose safe Connect
-                # metadata merely because the remaining budget was exhausted.
-                tools = [] if result["state"] == "pending-discovery" else api.request(
-                    "GET", f"/servers/{entry['server_id']}/tools?include_inactive=false")
-                entry["tool_names"] = {tool["originalName"]: entry["id"] + "_" + tool["name"] for tool in tools}
-                expected = set(spec["approved_tools"]) if result["state"] == "published" else set()
-                require(len(entry["tool_names"]) == len(tools) and set(entry["tool_names"]) == expected,
-                        "Studio tool projection conflicts with approved tools")
-                entries.append(entry)
-                mappings.append(result)
-        except Exception as exc:
-            result = {"id": identity, "state": "error",
-                      "error_code": "verification-failed" if isinstance(exc, SetupError) else "provider-unavailable"}
-        if result["state"] == "error":
-            old = old_mappings.get(identity, {})
-            prior_entry = old_studio.get(identity, {})
-            # Checks/origins are Studio approvals too, not just native registrations.
-            def definition(value):
-                return {key: item for key, item in value.items() if key not in ("gateway_id", "tool_names")}
-            if matches_previous(spec, old) and definition(prior_entry) == definition(entry):
-                entries.append(old_studio[identity])
-                mappings.append(old)
-        statuses.append({key: result[key] for key in ("id", "state", "error_code")})
-    return entries, mappings, statuses
 
 
 def installed_projection(studio, results):
@@ -290,19 +192,6 @@ def installed_projection(studio, results):
         statuses.append({key: result[key] for key in ("id", "state", "error_code")})
     require(len(entries) == len(studio), "Studio and registration projections disagree")
     return entries, mappings, statuses
-
-
-def legacy_publication_guard(config, specs, studio, previous_data):
-    """Do not restart legacy connections consumers with an empty OAuth catalog."""
-    if config["operatorDiscovery"]["enabled"] or config.get("adminDiscovery", {}).get("enabled", False):
-        return
-    previous = json.loads(previous_data.get("studio.json", "[]"))
-    def individual(entries):
-        return any(entry["authentication_model"] == "individual-authentication" for entry in entries)
-    # Setup cannot read the consumer's Helm values. Conservatively protect any
-    # selected or previously published OAuth catalog while legacy mode is active.
-    require(not (individual(specs) or individual(previous)) or individual(studio),
-            "Publication withheld: legacy Studio connections require a safe OAuth entry; previous snapshot unchanged")
 
 
 def main():
@@ -326,42 +215,35 @@ def main():
             "Output ConfigMap ownership conflict")
     registrations = json.loads(source["data"]["registrations.json"])
     studio = json.loads(source["data"]["studio.json"])
-    managed = config.get("studioSetup", False)
-    require((source["data"].get("studioSetup") == "true") == managed,
+    require(config.get("studioSetup") is True and source["data"].get("studioSetup") == "true",
             "Waiting for the matching MCP setup ownership mode")
-    require(managed or output.get("data", {}).get("setup_mode") != "studio-v1",
-            "Studio publication cannot revert to chart-owned selections")
+    require(not output.get("data", {}).get("operator_role_id"),
+            "Unresolved legacy operator role; explicit access retirement required before setup")
+    require(not output.get("data") or output["data"].get("setup_mode") == "studio-v1",
+            "Chart-owned installation requires a reviewed in-place migration before Studio setup")
     require(isinstance(registrations, list) and len(registrations) <= 200,
             "Catalog must contain at most 200 native registrations")
     previous_mappings = {r["id"]: r for r in json.loads(output.get("data", {}).get("mappings.json", "[]"))}
     db = Database()
+    require(not db.rows("SELECT ur.role_id FROM user_roles ur JOIN roles r ON r.id = ur.role_id "
+                        "WHERE r.description LIKE %(marker)s", marker=MARKER + "/operator/%"),
+            "Legacy operator grants remain; explicit access retirement required before setup")
     print("Verifying native team, roles and Studio service identity", flush=True)
     ids = accounts(api, db, config, admin, output.get("data", {}))
-    # Keep the previous ID as revocation history, without publishing an eligible
-    # email/subject binding when disabled or invalid. A later rerun cannot recreate
-    # an entirely deleted role after a failed verification erased its binding.
-    if output.get("data", {}).get("operator_role_id"):
-        ids["operator_role_id"] = output["data"]["operator_role_id"]
     if output.get("data", {}).get("admin_discovery_role_id"):
         ids["admin_discovery_role_id"] = output["data"]["admin_discovery_role_id"]
-    # An operator-profile failure must not suppress ordinary Studio configuration.
+    # Failed admission never publishes administrator discovery readiness.
     try:
-        ids.update(operator_account(api, db, config, admin, ids, output.get("data", {})))
         ids.update(admin_discovery_role(api, db, config, admin, output.get("data", {})))
     except Exception:
-        print("Operator discovery unavailable; identity or grants need explicit operator repair", flush=True)
+        print("Administrator discovery unavailable; role needs explicit operator repair", flush=True)
     print("Reconciling approved native registrations", flush=True)
-    if managed:
-        service_api = API(config["origin"], {"x-contextforge-account-email": config["serviceAccountEmail"]},
-                          "/trust/ca.crt", api.deadline)
-        results = reconcile(api, registrations, ids["team_id"], admin, previous_mappings,
-                            studio=(service_api, config["serviceAccountEmail"]))
-        ids["setup_mode"] = "studio-v1"
-        studio, mappings, statuses = installed_projection(studio, results)
-    else:
-        results = reconcile(api, registrations, ids["team_id"], admin, previous_mappings)
-        studio, mappings, statuses = project(api, registrations, studio, results, output.get("data", {}))
-        legacy_publication_guard(config, registrations, studio, output.get("data", {}))
+    service_api = API(config["origin"], {"x-contextforge-account-email": config["serviceAccountEmail"]},
+                      "/trust/ca.crt", api.deadline)
+    results = reconcile(api, registrations, ids["team_id"], admin, previous_mappings,
+                        studio=(service_api, config["serviceAccountEmail"]))
+    ids["setup_mode"] = "studio-v1"
+    studio, mappings, statuses = installed_projection(studio, results)
     # Do not publish results for a catalog changed while this Job was running.
     require(kube.request("GET", source_path)["data"] == source["data"], "Catalog changed; retry setup")
     output["data"] = ids | {"studio.json": json.dumps(studio), "mappings.json": json.dumps(mappings),

@@ -9,6 +9,9 @@ upgrade path.
 
 ## [Unreleased]
 
+- Pin ContextForge `1.1.1` and remove named-operator discovery, chart-owned MCP publication and the ignored OAuth publication input while preserving existing Studio-managed registrations and selections.
+- Require the [coordinated maintenance and preservation checks](docs/operations/contextforge-upgrade.md); compatible published Studio images still need a separate verified pin update before deployment.
+
 ## [0.3.37] - 2026-11-10
 
 
