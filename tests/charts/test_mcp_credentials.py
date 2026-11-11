@@ -105,7 +105,7 @@ class McpCredentialsTests(unittest.TestCase):
         self.assertNotEqual(render("agentgateway", values, check=False).returncode, 0)
 
     def test_optional_shared_key_is_projected_without_a_secret_value(self):
-        output = render("agentgateway", {"mcp-servers": {"catalog": {"presets": {
+        output = render("agentgateway", {"mcp-servers": {"enabled": True, "studioSetup": {"enabled": True}, "catalog": {"presets": {
             "context7": {"enabled": True},
         }}}})
         catalog = resource(output, "ConfigMap", "infra-agentgateway-mcp-catalog")
@@ -117,7 +117,7 @@ class McpCredentialsTests(unittest.TestCase):
         self.assertNotIn("apiKey", catalog["data"]["studio.json"])
 
     def test_preset_cannot_change_credential_owner(self):
-        output = render("agentgateway", {"mcp-servers": {"catalog": {"presets": {
+        output = render("agentgateway", {"mcp-servers": {"enabled": True, "studioSetup": {"enabled": True}, "catalog": {"presets": {
             "context7": {"enabled": True, "credential": {
                 "owner": "individual", "required": True, "method": "oauth",
             }},

@@ -122,7 +122,7 @@ class ApprovedOidcTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         values = binding_values()
-        values["mcp-servers"] = {"enabled": True, "contextforgeRoutesEnabled": ["context7"],
+        values["mcp-servers"] = {"enabled": True, "studioSetup": {"enabled": True}, "contextforgeRoutesEnabled": ["context7"],
                          "catalog": {"presets": {"context7": {"enabled": True}}}}
         values["authKeycloak"]["agentgatewayClientRoles"].append("mcp:context7:invoke")
         values["aiGateway"]["approvedOidcClients"] = [
@@ -456,7 +456,7 @@ class EndpointRoutingTests(unittest.TestCase):
                         binding["routes"]["api"]["path"] = f"/{binding['id']}/api"
                 if mcp:
                     servers = ["brave", "context7", "github"]
-                    values["mcp-servers"] = {"enabled": True, "contextforgeRoutesEnabled": servers,
+                    values["mcp-servers"] = {"enabled": True, "studioSetup": {"enabled": True}, "contextforgeRoutesEnabled": servers,
                                      "catalog": {"presets": {name: {"enabled": True} for name in servers}}}
                     values["mcp-servers"]["catalog"]["presets"]["github"]["registration"] = {"oauth": {
                         "client_id": "example-app", "redirect_uri": "https://studio.example.com/oauth/callback"}}
@@ -549,7 +549,7 @@ class InspectedGatewayTests(unittest.TestCase):
 
     def test_identity_is_separate_from_provider_credentials(self):
         values = binding_values()
-        values["mcp-servers"] = {"enabled": True, "contextforgeRoutesEnabled": ["context7"],
+        values["mcp-servers"] = {"enabled": True, "studioSetup": {"enabled": True}, "contextforgeRoutesEnabled": ["context7"],
                          "catalog": {"presets": {"context7": {"enabled": True}}}}
         values["authKeycloak"]["agentgatewayClientRoles"].append("mcp:context7:invoke")
         rendered = render("agentgateway", values)

@@ -1,8 +1,7 @@
 contextforge:
   # Base installs the service by default; MCP providers remain unselected.
   enabled: true
-  # Official development snapshot with upstream #6773; its package version remains 1.0.11.
-  image: ghcr.io/ibm/mcp-context-forge:a10c655b9fc04d42d2029a565a25bad059409c77@sha256:d8da586d93d934ebe9d0a7d04234403a9a3eff1760c98bbb0e8d0b31931a6244
+  image: ghcr.io/ibm/mcp-context-forge:v1.1.1@sha256:16c7a8985c1a3528ba49fcab32951e06c9a41a171fc5c41d24b085283c4556a5
 
   # Configuration and External Secrets delivery must finish before installation.
   existingConfigMap: contextforge-runtime
@@ -39,17 +38,9 @@ contextforge:
     serviceAccountEmail: ""
     ownerRoleName: neurwerk-mcp-provisioner
     activeDeadlineSeconds: 600
-    # Deprecated compatibility input; setup never performs OAuth discovery.
-    publishOAuthTools: []
-    # Preferred role-based discovery; requires a separately adopted compatible Studio.
+    # Studio leases discovery to the verified calling administrator.
     adminDiscovery:
       enabled: false
-    # Enable only after a compatible Studio image is published and adopted.
-    operatorDiscovery:
-      enabled: false
-      operatorEmail: ""
-      operatorSubject: ""
-      roleName: neurwerk-mcp-discovery
     # Both API Service and post-DNAT server destinations, supplied by the client.
     kubernetesApiEgress: []
 

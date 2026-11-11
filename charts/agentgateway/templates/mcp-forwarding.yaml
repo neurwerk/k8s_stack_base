@@ -1,7 +1,9 @@
 {{- if (index .Values "mcp-servers").studioSetup.enabled }}
 {{- $forward := list }}
 {{- range include "infra-agentgateway.effectiveMcpServers" . | fromYamlArray }}
+{{- if .contextforge }}
 {{- if eq (.credential.method | default "none") "gateway-header" }}{{- $forward = append $forward . }}{{- end }}
+{{- end }}
 {{- end }}
 {{- if $forward }}
 apiVersion: agentgateway.dev/v1alpha1
