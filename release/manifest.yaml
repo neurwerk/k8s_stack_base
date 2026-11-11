@@ -306,7 +306,7 @@ spec:
     - path: charts/agentgateway-extproc
       name: agentgateway-extproc
       version: 2.0.29
-      appVersion: 0.21.2
+      appVersion: 0.21.3
     - path: charts/cert-manager/approval-policy
       name: infra-cert-manager-approval-policy
       version: 1.2.9
@@ -873,7 +873,7 @@ spec:
       eligibility: included
       origins:
       - charts/kube-prometheus-stack/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.21.2@sha256:ac9d5aa3f68ec0772137d30eac6b91015527e6d591b5f3f41db9cfe24a35421a
+    - reference: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.21.3@sha256:68464633663a95987a6984ce48797515331e5b3a7f789baab58cd3fc52b3027c
       pinned: true
       eligibility: included
       origins:
