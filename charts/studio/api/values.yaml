@@ -97,12 +97,6 @@ frontendStudio:
       # Any verified mcp-admin uses their own connection; no named operator binding.
       adminDiscovery:
         enabled: false
-      # Requires separately published/adopted Studio support and verified setup IDs.
-      operatorDiscovery:
-        enabled: false
-        operatorEmail: ""
-        operatorSubject: ""
-        roleName: neurwerk-mcp-discovery
       studioOrigin: ""
       catalogConfigMapName: mcp-catalog
       catalogKey: studio.json

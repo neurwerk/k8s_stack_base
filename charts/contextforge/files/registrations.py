@@ -11,10 +11,6 @@ class SetupError(Exception):
     """Only explicit, credential-free messages may reach Job logs."""
 
 
-class PendingDiscovery(SetupError):
-    """An empty OAuth server still needs operator discovery."""
-
-
 def config_hash(spec):
     # A resolved gateway ID is output, not a change to the approved definition.
     definition = {key: value for key, value in spec.items() if key != "gateway_id"}
@@ -68,7 +64,7 @@ def check_gateway(row, spec, team, owner, marker):
     owned(row, spec, team, owner, marker)
     require(re.fullmatch(r"[0-9a-f]{32}", row["id"]), "Invalid native gateway ID")
     require(not spec.get("gateway_id") or row["id"] == spec["gateway_id"], "Gateway ID conflict")
-    require(row.get("enabled") is True and (row.get("status") == "active" or spec.get("studio_managed"))
+    require(row.get("enabled") is True
             and row.get("gatewayMode") == "cache" and row.get("transport") == spec["transport"]
             and address(row["url"], True) == address(spec["upstream_url"], True),
             "Conflicting or inactive native gateway")
@@ -87,8 +83,8 @@ def check_gateway(row, spec, team, owner, marker):
                 and isinstance(actual.get("client_secret"), str) and actual["client_secret"],
                 "Conflicting OAuth app metadata; refusing to rotate or overwrite")
     else:
-        require(row.get("authType") in (None, "", "none") and empty(row.get("oauthConfig"))
-                and (row.get("reachable") is True or spec.get("studio_managed")), "Upstream authentication or reachability conflict")
+        require(row.get("authType") in (None, "", "none") and empty(row.get("oauthConfig")),
+                "Upstream authentication conflict")
 
 
 def tool_id(row, gateway, spec, team, owner):
@@ -106,7 +102,7 @@ def tool_id(row, gateway, spec, team, owner):
 def members(api, server, gateway, spec, team, owner, marker, server_owner=None):
     owned(server, spec, team, server_owner or owner, marker + "/" + gateway["id"])
     require(server.get("id") == spec["server_id"]
-            and (isinstance(server.get("enabled"), bool) if spec.get("studio_managed") else server.get("enabled") is True)
+            and isinstance(server.get("enabled"), bool)
             and server.get("oauthEnabled") is False and empty(server.get("oauthConfig"))
             and all(server.get(k) == [] for k in ("associatedResources", "associatedPrompts", "associatedA2aAgents")),
             "Conflicting server state or non-tool associations")
@@ -119,24 +115,6 @@ def members(api, server, gateway, spec, team, owner, marker, server_owner=None):
         require(api.request("GET", f"/servers/{spec['server_id']}/{kind}?include_inactive=true") == [],
                 "Non-tool server associations are unsupported")
     return set(ids)
-
-
-def approved(api, gateway, spec, team, owner):
-    rows = api.request("GET", f"/tools?gateway_id={gateway['id']}&include_inactive=true&limit=0")
-    ids = set()
-    missing = False
-    for name in spec["approved_tools"]:
-        matches = [row for row in rows if row.get("originalName") == name]
-        if not matches and spec.get("oauth"):
-            missing = True
-            continue
-        require(len(matches) == 1 and matches[0].get("enabled") is True,
-                "Approved tool missing, ambiguous or disabled")
-        ids.add(tool_id(matches[0], gateway, spec, team, owner))
-    if missing:
-        raise PendingDiscovery("Approved OAuth tool not yet discovered")
-    require(len(ids) == len(spec["approved_tools"]), "Duplicate approved tool IDs")
-    return ids
 
 
 def reconcile(api, specs, team, owner, previous=None, studio=None):
@@ -154,7 +132,7 @@ def reconcile(api, specs, team, owner, previous=None, studio=None):
                         "Previously published native mapping changed")
                 # Alias verification still rejects a replacement gateway with the same name.
                 spec = dict(spec, gateway_id=old["gateway_id"])
-            result = reconcile_one(api, spec, team, owner, studio=studio) if studio else reconcile_one(api, spec, team, owner)
+            result = reconcile_one(api, spec, team, owner, studio=studio)
         except Exception as exc:
             # No response bodies or exception messages may enter publication data.
             old = previous.get(spec["id"], {})
@@ -166,8 +144,10 @@ def reconcile(api, specs, team, owner, previous=None, studio=None):
 
 
 def reconcile_one(api, spec, team, owner, studio=None):
+    require(studio is not None and spec.get("studio_managed") is True and spec["visibility"] == "public",
+            "Studio requires a managed private-ingress server")
     alias = "neurwerk-contextforge-" + spec["id"]
-    marker = f"neurwerk-contextforge/{spec['provider']}/{spec['id']}/{spec['authentication_model']}"
+    marker = f"neurwerk-contextforge/{spec['provider']}/{spec['id']}/{spec['authentication_model']}/studio-v1"
     require(spec["authentication_model"] in {"no-authentication", "shared-authentication", "individual-authentication"},
             "Unsupported authentication model")
     require(bool(spec.get("oauth")) == (spec["authentication_model"] == "individual-authentication"),
@@ -185,11 +165,7 @@ def reconcile_one(api, spec, team, owner, studio=None):
     servers = [s for s in catalog(api, "servers") if s.get("id") == spec["server_id"] or s.get("name") == alias]
     require(len(servers) <= 1 and all(s["id"] == spec["server_id"] for s in servers), "Server alias or ID conflict")
     server = servers[0] if servers else None
-    server_api, server_owner = api, owner
-    if studio:
-        server_api, server_owner = studio
-        require(spec.get("studio_managed") and spec["visibility"] == "public", "Studio requires a managed private-ingress server")
-        marker += "/studio-v1"
+    server_api, server_owner = studio
     require(server is None or gateway is not None, "Server lost its gateway; refusing to replace")
     if gateway is None:
         payload = {"name": alias, "description": marker, "url": spec["upstream_url"],
@@ -212,30 +188,17 @@ def reconcile_one(api, spec, team, owner, studio=None):
         gateway = matches[0]
     check_gateway(gateway, spec, team, owner, marker)
     actual = members(api, server, gateway, spec, team, owner, marker, server_owner) if server else set()
-    pending = bool(studio)
-    if studio:
-        # Studio's database/native membership are authoritative after initialization.
-        desired = actual
-    else:
-        try:
-            desired = approved(api, gateway, spec, team, owner)
-        except PendingDiscovery:
-            require(not actual, "Previously published OAuth tools disappeared; operator repair required")
-            pending = True
-            desired = set()
+    # Studio's database/native membership are authoritative after initialization.
+    desired = actual
     if server is None:
         server_api.request("POST", "/servers", {"server": {"id": spec["server_id"], "name": alias,
                     "description": marker + "/" + gateway["id"], "associated_tools": sorted(desired),
                     "associated_resources": [], "associated_prompts": [], "associated_a2a_agents": [],
                     "oauth_enabled": False, "team_id": team, "visibility": spec["visibility"]},
                     "team_id": team, "visibility": spec["visibility"]})
-    elif actual != desired:
-        # Discovery is separate; only verified approved tools may fill an empty OAuth server.
-        require(not actual and spec.get("oauth"), "Tool membership conflict; operator repair required")
-        api.request("PUT", "/servers/" + spec["server_id"], {"associated_tools": sorted(desired)})
     server = api.request("GET", "/servers/" + spec["server_id"])
     require(members(api, server, gateway, spec, team, owner, marker, server_owner) == desired, "Server tool verification failed")
     return {"id": spec["id"], "gateway_id": gateway["id"], "server_id": spec["server_id"],
             "approved_config_hash": config_hash(spec),
-            **({"setup_mode": "studio-v1"} if studio else {}),
-            "state": "pending-discovery" if pending else "published", "error_code": None}
+            "setup_mode": "studio-v1",
+            "state": "pending-discovery", "error_code": None}

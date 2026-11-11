@@ -16,6 +16,7 @@ Follow the shared [platform upgrade procedure](https://github.com/neurwerk/docs/
 
 - [Upgrade to 0.3.27](../releases/upgrade-0.3.27.md) covers binding routes, setup prerequisites, inspection trust, and the LibreChat ownership crossover.
 - [Agentgateway 1.7 upgrade](agentgateway-upgrade.md) covers the coordinated monitoring/CRD upgrade and Langfuse session grouping.
+- [ContextForge upgrade](contextforge-upgrade.md) covers the coordinated Studio pairing, pre-migration maintenance stop and retained-data comparisons.
 - [AI endpoints](../endpoints.md) covers configured API prefixes, provider credentials, and inspected-proxy clients.
 - [Inspection PKI](../../charts/agentgateway/inspection-pki/README.md) and [trust publication](../../charts/agentgateway/inspection-trust/README.md) describe the separate inspection-root lifecycle.
 

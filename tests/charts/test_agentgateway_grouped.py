@@ -44,7 +44,7 @@ class GroupedGatewayTests(unittest.TestCase):
     def test_mcp_source_metadata_is_trusted_and_independent_of_pii_scanning(self):
         values = binding_values()
         values["mcp-servers"] = {
-            "enabled": True, "approvedHosts": ["tools.example.test"],
+            "enabled": True, "studioSetup": {"enabled": True}, "approvedHosts": ["tools.example.test"],
             "contextforgeRoutesEnabled": ["context7"],
             "catalog": {
                 "presets": {"context7": {"enabled": True, "piiEnabled": False,
@@ -81,7 +81,7 @@ class GroupedGatewayTests(unittest.TestCase):
         presets["glitchtip"]["registration"] = {"upstream_url": "https://errors.example.test/mcp"}
         presets["github"]["registration"] = {"oauth": {
             "client_id": "synthetic-app", "redirect_uri": "https://studio.example.test/oauth/callback"}}
-        values["mcp-servers"] = {"enabled": True, "contextforgeRoutesEnabled": list(labels),
+        values["mcp-servers"] = {"enabled": True, "studioSetup": {"enabled": True}, "contextforgeRoutesEnabled": list(labels),
                                  "catalog": {"presets": presets}}
         values["authKeycloak"]["agentgatewayClientRoles"].extend(f"mcp:{name}:invoke" for name in labels)
         rendered = render("agentgateway", values)
@@ -101,7 +101,7 @@ class GroupedGatewayTests(unittest.TestCase):
                     entry = {"enabled": True, "sourceClass": source_class}
                     catalog = {"presets": {"context7": entry}} if kind == "presets" else {
                         "custom": [{"name": "synthetic", "host": "tools.example.test", **entry}]}
-                    result = render("agentgateway", {"mcp-servers": {"catalog": catalog}}, check=False)
+                    result = render("agentgateway", {"mcp-servers": {"studioSetup": {"enabled": True}, "catalog": catalog}}, check=False)
                     self.assertNotEqual(result.returncode, 0)
                     self.assertIn("sourceClass", result.stderr)
 
@@ -334,7 +334,7 @@ class GroupedGatewayTests(unittest.TestCase):
         self.assertEqual(owner["destinations"][0]["credential_modes"], [])
         values["external-api-providers"][0]["credentialSources"] = ["override"]
         values["external-api-providers"][0].pop("authSecret")
-        values["mcp-servers"] = {"enabled": True, "contextforgeRoutesEnabled": ["context7"],
+        values["mcp-servers"] = {"enabled": True, "studioSetup": {"enabled": True}, "contextforgeRoutesEnabled": ["context7"],
                                  "catalog": {"presets": {"context7": {"enabled": True}}}}
         values["authKeycloak"]["agentgatewayClientRoles"].append("mcp:context7:invoke")
         result = catalog(render("agentgateway", values))
@@ -511,7 +511,7 @@ class CredentialModeTests(unittest.TestCase):
         cls.values = binding_values()
         cls.values["external-api-providers"][0]["localReroute"] = "local-chat"
         cls.values["mcp-servers"] = {
-            "enabled": True, "contextforgeRoutesEnabled": ["context7"],
+            "enabled": True, "studioSetup": {"enabled": True}, "contextforgeRoutesEnabled": ["context7"],
             "catalog": {"presets": {"context7": {"enabled": True}}},
         }
         cls.values["authKeycloak"]["agentgatewayClientRoles"].append("mcp:context7:invoke")

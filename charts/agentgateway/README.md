@@ -123,7 +123,7 @@ Select `mcp-servers.catalog.presets` or `mcp-servers.catalog.custom`. Current MC
 `/mcp/<canonical-server-id>`; callers need `llm:invoke` and `mcp:<id>:invoke`.
 Only stateless exchanges are supported.
 
-Use `mcp-servers.studioSetup.enabled` consistently across AgentGateway, ContextForge,
+Enable `mcp-servers.studioSetup.enabled` for ContextForge integrations consistently across AgentGateway, ContextForge,
 Studio and OpenBao. Context7 has an optional shared header key, Brave requires a
 shared upstream key, and GitHub uses each user's OAuth connection. Secrets stay
 in OpenBao/ESO; catalog and Helm inputs contain only non-secret references.

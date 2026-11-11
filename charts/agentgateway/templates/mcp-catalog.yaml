@@ -11,7 +11,7 @@
 {{- $_ := set $connection "checks" ($server.checks | default list) -}}
 {{- $_ := set $connection "upstream_url" $server.registration.upstream_url -}}
 {{- if $server.credential -}}{{- $_ := set $connection "credential" $server.credential -}}{{- end -}}
-{{- if (index $.Values "mcp-servers").studioSetup.enabled -}}
+{{- if not (index $.Values "mcp-servers").studioSetup.enabled -}}{{- fail "ContextForge chart-owned publication has been removed; enable mcp-servers.studioSetup.enabled" -}}{{- end -}}
 {{- if or (empty $server.credential) (not (regexMatch `^[a-z0-9][a-z0-9-]{0,47}$` $server.name)) -}}{{- fail "Studio MCP setup requires a credential policy and a lowercase integration ID of at most 48 characters" -}}{{- end -}}
 {{- if ne ($server.registration.visibility | default "public") "public" -}}{{- fail "Studio MCP setup requires public native visibility behind private ingress" -}}{{- end -}}
 {{- if eq $server.credential.method "gateway-header" -}}
@@ -19,7 +19,6 @@
 {{- $url := urlParse $server.registration.upstream_url -}}
 {{- $prefix := ternary "Bearer " "" (eq (lower $server.credential.header) "authorization") -}}
 {{- $_ := set $connection "forwarding" (dict "host" ($server.host | default $url.host) "header_prefix" $prefix) -}}
-{{- end -}}
 {{- end -}}
 {{- if $server.registration.oauth -}}
 {{- $authorization := urlParse $server.registration.oauth.authorization_url -}}
@@ -44,12 +43,10 @@
 {{- $_ := set $registration "permission" (printf "mcp:%s:invoke" $server.name) -}}
 {{- $_ := set $registration "public_route" (printf "/mcp/%s" $server.name) -}}
 {{- $_ := set $registration "content_trace" $server.contentTracingEnabled -}}
-{{- if (index $.Values "mcp-servers").studioSetup.enabled -}}
 {{- $_ := set $registration "studio_managed" true -}}
 {{- $_ := set $registration "credential" $server.credential -}}
 {{- if $connection.native_url -}}
 {{- $_ := set $registration "upstream_url" $connection.native_url -}}
-{{- end -}}
 {{- end -}}
 {{- $registrations = append $registrations $registration -}}
 {{- end -}}
