@@ -285,7 +285,7 @@ spec:
     charts:
     - path: charts/agentgateway
       name: infra-agentgateway
-      version: 5.3.0
+      version: 5.4.0
       appVersion: 1.7.0
       dependencyLock:
         digest: sha256:08cd4895c0e3b08ec6974dea5acf5c62b8d1b417aa302f8f6103ad5014b04c87
@@ -305,8 +305,8 @@ spec:
       appVersion: 0.12.0
     - path: charts/agentgateway-extproc
       name: agentgateway-extproc
-      version: 2.0.29
-      appVersion: 0.21.3
+      version: 2.1.0
+      appVersion: 0.22.0
     - path: charts/cert-manager/approval-policy
       name: infra-cert-manager-approval-policy
       version: 1.2.9
@@ -350,8 +350,8 @@ spec:
       version: 0.1.1
     - path: charts/docling
       name: docling
-      version: 0.4.7
-      appVersion: 1.33.0
+      version: 0.5.0
+      appVersion: 1.33.0-native.1
     - path: charts/external-secrets
       name: infra-external-secrets
       version: 1.0.2
@@ -437,7 +437,7 @@ spec:
           sha256: 5ee4dc1695ec4784544a5d667530ad86bc89743031ec4e900652cb94bbd788aa
     - path: charts/langfuse
       name: monitor-langfuse
-      version: 2.0.37
+      version: 2.0.38
       appVersion: 4.28.1
       dependencyLock:
         digest: sha256:68156b8f74aa153f2e33eb76f6ac11e9277c1a8fe8073c3f37da8834a97292cc
@@ -846,11 +846,6 @@ spec:
       eligibility: included
       origins:
       - charts/pii-engine/values.yaml
-    - reference: ghcr.io/docling-project/docling-serve-cpu:v1.33.0@sha256:546cf392145a0a578f23e4250663a37a5fb727fe6b57fd163e301584ad8bc18c
-      pinned: true
-      eligibility: included
-      origins:
-      - charts/docling/values.yaml
     - reference: ghcr.io/documentdb/documentdb/documentdb-local:pg18-0.116.0@sha256:01bb9408393fb6417cc32735f4566dee4b53bbab6df6b70c42797317da631f12
       pinned: true
       eligibility: included
@@ -873,7 +868,12 @@ spec:
       eligibility: included
       origins:
       - charts/kube-prometheus-stack/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.21.3@sha256:68464633663a95987a6984ce48797515331e5b3a7f789baab58cd3fc52b3027c
+    - reference: ghcr.io/neurwerk/docling-serve-cpu:1.33.0-native.1@sha256:c579c4a895af1c57980e02ade72f360873aa8d0058505e3049e0c58c131a7d96
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/docling/values.yaml
+    - reference: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.22.0@sha256:33993457ec0ed411de2862792cc75699363e5615960566c7c7568a0a30505285
       pinned: true
       eligibility: included
       origins:

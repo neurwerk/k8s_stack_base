@@ -9,7 +9,7 @@ documentAttachments:
 
 docling:
   enabled: false
-  image: ghcr.io/docling-project/docling-serve-cpu:v1.33.0@sha256:546cf392145a0a578f23e4250663a37a5fb727fe6b57fd163e301584ad8bc18c
+  image: ghcr.io/neurwerk/docling-serve-cpu:1.33.0-native.1@sha256:c579c4a895af1c57980e02ade72f360873aa8d0058505e3049e0c58c131a7d96
   # Existing namespace-local Secrets only; never put credentials in values.
   apiKeySecretRef: {name: "", key: ""}
   inference:
