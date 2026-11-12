@@ -4,7 +4,7 @@ reasoning:
   maxFingerprints: 4096
 
 monitorPiiEngine:
-  image: ghcr.io/neurwerk/k8s-stack-pii-engine:0.16.2@sha256:ea646e227390c70e13236c715bdd5295960148bc07d6f028557fafd08e9ddc69
+  image: ghcr.io/neurwerk/k8s-stack-pii-engine:0.17.0@sha256:56ebde11d9678d576fec62eb3325584b21bd2c8afea157bb139b6fc2d469a984
   # Local retains the existing baseline / verified transformer selection.
   analyzerBackend: local # local | remote-gliner | remote-kserve
   # null preserves legacy automatic baseline / transformer bundle selection.
@@ -101,6 +101,7 @@ monitorPiiEngine:
       # Shared MCP source rules apply even when ordinary PII scanning is off.
       # Override with pass, block, or reroute to an approved canonical local ID
       # in routeClass. Omitted MCP_TOOL_DEFAULT still blocks in the Engine.
+      modelSourcePolicies: {}
       entityPolicies:
         - entityType: MCP_TOOL_DEFAULT
           action: block

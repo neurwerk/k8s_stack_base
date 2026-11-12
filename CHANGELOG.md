@@ -9,6 +9,9 @@ upgrade path.
 
 ## [Unreleased]
 
+- Add exact-model MCP source overrides with compatible PII Engine `0.17.0`, extProc `0.23.0`, and Studio `0.25.0` images.
+- Upgrade Engine and its policy chart together before upgrading extProc and Studio; apply model-scoped client policies only with the compatible Engine ready. Preserve session restrictions by changing the client policy version when adopting changed rules.
+
 ## [0.3.38] - 2026-11-11
 
 - Pin ContextForge `1.1.1` and remove named-operator discovery, chart-owned MCP publication and the ignored OAuth publication input while preserving existing Studio-managed registrations and selections.
