@@ -13,6 +13,34 @@
     "monitorPiiEngine": {
       "type": "object",
       "properties": {
+        "policy": {
+          "type": "object",
+          "properties": {
+            "pii": {
+              "type": "object",
+              "properties": {
+                "modelSourcePolicies": {
+                  "type": "object", "maxProperties": 256,
+                  "propertyNames": {"type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]{0,127}$"},
+                  "additionalProperties": {
+                    "type": "array", "maxItems": 64,
+                    "items": {
+                      "type": "object", "additionalProperties": false,
+                      "required": ["entityType", "action"],
+                      "properties": {
+                        "entityType": {"type": "string", "maxLength": 64, "pattern": "^MCP_TOOL_[A-Z0-9_]+$"},
+                        "action": {"enum": ["pass", "block", "reroute"]},
+                        "routeClass": {"type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9_.:/-]+$"}
+                      },
+                      "if": {"required": ["routeClass"]},
+                      "then": {"properties": {"action": {"const": "reroute"}}}
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
         "nerCache": {"$ref": "#/definitions/nerCache"},
         "ner": {
           "oneOf": [
