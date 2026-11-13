@@ -1,7 +1,7 @@
 # IMAGE SOURCE: owned service
 # Built by the pii_engine repository and pinned here.
 monitorPiiEngine:
-  image: ghcr.io/neurwerk/k8s-stack-pii-engine:0.16.2@sha256:ea646e227390c70e13236c715bdd5295960148bc07d6f028557fafd08e9ddc69
+  image: ghcr.io/neurwerk/k8s-stack-pii-engine:0.17.0@sha256:56ebde11d9678d576fec62eb3325584b21bd2c8afea157bb139b6fc2d469a984
   resources:
     requests:
       cpu: 1000m
@@ -17,7 +17,7 @@ monitorPiiEngine:
     manifestSha256: a24eb93bc245e220f76ac010a57cf540a6399b2046b2782a07035ae660cc3926
     referencePath: /cache/desired-bundle.json
   modelSync:
-    image: ghcr.io/neurwerk/k8s-stack-pii-engine:0.16.2@sha256:ea646e227390c70e13236c715bdd5295960148bc07d6f028557fafd08e9ddc69
+    image: ghcr.io/neurwerk/k8s-stack-pii-engine:0.17.0@sha256:56ebde11d9678d576fec62eb3325584b21bd2c8afea157bb139b6fc2d469a984
     schedule: "*/15 * * * *"
     bucket: pii-models
     rgwTargetPort: 8080

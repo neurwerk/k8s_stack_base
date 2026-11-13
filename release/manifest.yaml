@@ -1,11 +1,11 @@
 apiVersion: platform.neurwerk.com/v1alpha1
 kind: PlatformRelease
 metadata:
-  name: v0.3.38
+  name: v0.3.39
 spec:
-  version: 0.3.38
-  releaseDate: '2026-11-11'
-  summary: ContextForge upgrade, MCP policy fixes, native-first PDF extraction and response tool limits
+  version: 0.3.39
+  releaseDate: '2026-11-12'
+  summary: Model-scoped MCP source policy with compatible Engine, extProc and Studio releases
   trust:
     signerIdentity: platform-release
     algorithm: ssh-ed25519
@@ -305,8 +305,8 @@ spec:
       appVersion: 0.12.0
     - path: charts/agentgateway-extproc
       name: agentgateway-extproc
-      version: 2.1.1
-      appVersion: 0.22.1
+      version: 2.1.2
+      appVersion: 0.23.0
     - path: charts/cert-manager/approval-policy
       name: infra-cert-manager-approval-policy
       version: 1.2.9
@@ -437,7 +437,7 @@ spec:
           sha256: 5ee4dc1695ec4784544a5d667530ad86bc89743031ec4e900652cb94bbd788aa
     - path: charts/langfuse
       name: monitor-langfuse
-      version: 2.0.39
+      version: 2.0.40
       appVersion: 4.28.1
       dependencyLock:
         digest: sha256:68156b8f74aa153f2e33eb76f6ac11e9277c1a8fe8073c3f37da8834a97292cc
@@ -492,12 +492,12 @@ spec:
           sha256: d932c62d60743f2837c7b9a4248ef7719c3049fe11b2dd8d44bc6ede43641a0e
     - path: charts/pii-engine
       name: pii-engine
-      version: 1.2.2
-      appVersion: 0.16.2
+      version: 1.2.3
+      appVersion: 0.17.0
     - path: charts/pii-engine-model-sync
       name: pii-engine-model-sync
-      version: 1.0.18
-      appVersion: 0.16.2
+      version: 1.0.19
+      appVersion: 0.17.0
     - path: charts/postgres/addon
       name: infra-postgres-addon
       version: 0.1.3
@@ -532,15 +532,15 @@ spec:
       appVersion: v1.20.3
     - path: charts/studio/api
       name: studio-api
-      version: 2.1.1
-      appVersion: 0.24.0
+      version: 2.1.2
+      appVersion: 0.25.0
     - path: charts/studio/shared
       name: studio-shared
       version: 1.0.0
     - path: charts/studio/web
       name: studio
-      version: 1.0.46
-      appVersion: 0.24.0
+      version: 1.0.47
+      appVersion: 0.25.0
     - path: charts/tailscale/access
       name: tailscale-access
       version: 0.1.0
@@ -873,7 +873,7 @@ spec:
       eligibility: included
       origins:
       - charts/docling/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.22.1@sha256:54e2bb07eb5d615f223fd175574c9b559763848b0a759fb621df84527f4a13b8
+    - reference: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.23.0@sha256:0f92ee40ee2a4304bc3d77f191c8104ba77f3eab3105bba99f7030d7f8cbaa54
       pinned: true
       eligibility: included
       origins:
@@ -894,18 +894,18 @@ spec:
       eligibility: included
       origins:
       - charts/opensearch/dashboards/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-pii-engine:0.16.2@sha256:ea646e227390c70e13236c715bdd5295960148bc07d6f028557fafd08e9ddc69
+    - reference: ghcr.io/neurwerk/k8s-stack-pii-engine:0.17.0@sha256:56ebde11d9678d576fec62eb3325584b21bd2c8afea157bb139b6fc2d469a984
       pinned: true
       eligibility: included
       origins:
       - charts/pii-engine-model-sync/values.yaml
       - charts/pii-engine/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-studio-api:0.24.0@sha256:31010e399e92067fb3d839f76ed034429d6df71d76c9a0d94e61eeae4f91b97e
+    - reference: ghcr.io/neurwerk/k8s-stack-studio-api:0.25.0@sha256:0051c7ab2502b9e87a18b984a3972928dfacb5a43063cb23ca84e0ef9a7a1ae5
       pinned: true
       eligibility: included
       origins:
       - charts/studio/api/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-studio-web:0.24.0@sha256:139184c5630199db4a416a61f5298b045db79c82a23eda80e0ba254aa62cc95d
+    - reference: ghcr.io/neurwerk/k8s-stack-studio-web:0.25.0@sha256:2510b8a58b67075ff03baf8a64944dfa9fe10af91b7191975da8ed47117ce16d
       pinned: true
       eligibility: included
       origins:
@@ -1079,25 +1079,9 @@ spec:
       node: 24.20.0
       lua: 5.4.9
   provenance:
-    previousTag: v0.3.37
-    includedThrough: 7448d09abd7cc159e45f90e464092b9c028ebe53
+    previousTag: v0.3.38
+    includedThrough: 54e7c22e8e68d05fe155cefa77aaeb80ba828eb0
     commits:
-    - 843d3f9491f2207ccc7a689bed3c41ff2168aaa8
-    - bd3fd8d004ee9c357bde0d47cfad3646677245db
-    - 87a9f41d01871f3202d24110171352a708ef222f
-    - 578c8dc35b10d881997fc169762ae02dafd9092d
-    - 1a226b35a6c3ac0e1d7b0889abddb179759cc54d
-    - fefb49d071f9d75e4efbf21e661593476be3a5fa
-    - 305c544bd55ed9a11b4f8d8e1ed290931b2026d0
-    - 9c3d60206a4f337ac69f921fd11d0b23d6201f85
-    - 8edd5d7a82d8fbd2cf8f2ffe13921dce9b349ffc
-    - 62d06452403f993e7c2fae597c5d649087d39214
-    - 1375a69f5edd6db3543c61fb99a5804c2cd373cd
-    - f2eae484ff6e9b667fa8ca11f775de499bd11502
-    - 3274ee6f6ee0e2c0d9ec6ddd59f1def5002b0c67
-    - 968ffb6d857cf2d1ae939519abfe458e23a00a9c
-    - a63fbc68fa9dc61e5efeef9c5590497eed00e92e
-    - 4953759364aa9e6f83d63f9a55c98dbba2618e9d
-    - 16fdf67f28e0d719bf207d9e036c9cde13ad4f2f
-    - 7448d09abd7cc159e45f90e464092b9c028ebe53
-    compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.37...7448d09abd7cc159e45f90e464092b9c028ebe53
+    - 3be7904b9dfb0e20570a19e149bc9de35acdb1a7
+    - 54e7c22e8e68d05fe155cefa77aaeb80ba828eb0
+    compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.38...54e7c22e8e68d05fe155cefa77aaeb80ba828eb0

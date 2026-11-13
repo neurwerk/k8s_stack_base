@@ -1,6 +1,13 @@
 {{- include "monitor-pii-engine.validateNer" . -}}
 {{- $canonical := ne (kindOf .Values.monitorPiiEngine.ner) "invalid" -}}
 {{- $policy := deepCopy .Values.monitorPiiEngine.policy -}}
+{{- range $model, $rules := $policy.pii.modelSourcePolicies -}}
+{{- $sources := dict -}}
+{{- range $rule := $rules -}}
+{{- if hasKey $sources $rule.entityType -}}{{- fail "model source policy is duplicated" -}}{{- end -}}
+{{- $_ := set $sources $rule.entityType true -}}
+{{- end -}}
+{{- end -}}
 {{- if $canonical -}}
 {{- $_ := unset $policy.pii "ner" -}}
 {{- end -}}

@@ -1,6 +1,6 @@
-version: 0.3.38
-releaseDate: '2026-11-11'
-summary: ContextForge upgrade, MCP policy fixes, native-first PDF extraction and response tool limits
+version: 0.3.39
+releaseDate: '2026-11-12'
+summary: Model-scoped MCP source policy with compatible Engine, extProc and Studio releases
 helmOutputs:
   releases/keycloak/server.yaml:
   - kind: Secret
@@ -282,25 +282,9 @@ exceptions:
   reason: The reviewed upstream DocumentDB local image requires passwordless sudo to prepare runtime directories
     before dropping back to UID 1000.
 provenance:
-  previousTag: v0.3.37
-  includedThrough: 7448d09abd7cc159e45f90e464092b9c028ebe53
+  previousTag: v0.3.38
+  includedThrough: 54e7c22e8e68d05fe155cefa77aaeb80ba828eb0
   commits:
-  - 843d3f9491f2207ccc7a689bed3c41ff2168aaa8
-  - bd3fd8d004ee9c357bde0d47cfad3646677245db
-  - 87a9f41d01871f3202d24110171352a708ef222f
-  - 578c8dc35b10d881997fc169762ae02dafd9092d
-  - 1a226b35a6c3ac0e1d7b0889abddb179759cc54d
-  - fefb49d071f9d75e4efbf21e661593476be3a5fa
-  - 305c544bd55ed9a11b4f8d8e1ed290931b2026d0
-  - 9c3d60206a4f337ac69f921fd11d0b23d6201f85
-  - 8edd5d7a82d8fbd2cf8f2ffe13921dce9b349ffc
-  - 62d06452403f993e7c2fae597c5d649087d39214
-  - 1375a69f5edd6db3543c61fb99a5804c2cd373cd
-  - f2eae484ff6e9b667fa8ca11f775de499bd11502
-  - 3274ee6f6ee0e2c0d9ec6ddd59f1def5002b0c67
-  - 968ffb6d857cf2d1ae939519abfe458e23a00a9c
-  - a63fbc68fa9dc61e5efeef9c5590497eed00e92e
-  - 4953759364aa9e6f83d63f9a55c98dbba2618e9d
-  - 16fdf67f28e0d719bf207d9e036c9cde13ad4f2f
-  - 7448d09abd7cc159e45f90e464092b9c028ebe53
-  compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.37...7448d09abd7cc159e45f90e464092b9c028ebe53
+  - 3be7904b9dfb0e20570a19e149bc9de35acdb1a7
+  - 54e7c22e8e68d05fe155cefa77aaeb80ba828eb0
+  compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.38...54e7c22e8e68d05fe155cefa77aaeb80ba828eb0
