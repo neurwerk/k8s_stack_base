@@ -34,7 +34,7 @@ An existing `studio-v1` installation keeps its registrations, accounts, tools, p
 
 ## Upgrade maintenance
 
-See [the current upgrade procedure](../../docs/operations/contextforge-upgrade.md) before adoption. The migration Job is a **pre-upgrade** hook, so Deployment `Recreate` does not stop the old application before migrations. Stop callers and Studio publication workers, drain in-flight operations and stop native application Pods before allowing the hook to run. Retain all databases, keys, credentials and stable IDs. Source changes alone do not authorize deployment or prove that a compatible Studio image has been published.
+The migration Job is a **pre-upgrade** hook, so Deployment `Recreate` does not stop the old application before migrations. Stop callers and Studio publication workers, drain in-flight operations and stop native application Pods before allowing the hook to run. Retain all databases, keys, credentials and stable IDs. Review compatibility and obtain deployment approval before future upgrades.
 
 ## Independently rerun bootstrap
 
