@@ -53,3 +53,11 @@ spec:
     - kind: ConfigMap
       name: studio-product-values
       valuesKey: values.yaml
+    - kind: ConfigMap
+      name: studio-mcp-pricing-values
+      valuesKey: values.yaml
+      optional: true
+  values:
+    frontendStudio:
+      usage:
+        enabled: true

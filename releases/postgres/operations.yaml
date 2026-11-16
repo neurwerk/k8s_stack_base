@@ -44,3 +44,6 @@ spec:
       name: addon-postgres-values
       valuesKey: values.yaml
       optional: true
+  values:
+    studio:
+      usageEnabled: true

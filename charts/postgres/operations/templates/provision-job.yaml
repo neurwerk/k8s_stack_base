@@ -5,7 +5,7 @@
 {{- if and $addonName (not (regexMatch `^[a-z][a-z0-9_]{0,62}$` $addonName)) -}}
 {{- fail "postgresOperationsAddon.name must be a simple PostgreSQL identifier" -}}
 {{- end -}}
-{{- if has $addonName (list "postgres" "template0" "template1" "operations_admin" "documentdb" "agentgateway" "langfuse" "postgres_langfuse" "postgres_langfuse_v4" "studio" "api_key_bridge") -}}
+{{- if has $addonName (list "postgres" "template0" "template1" "operations_admin" "documentdb" "agentgateway" "langfuse" "postgres_langfuse" "postgres_langfuse_v4" "studio" "studio_usage" "studio_usage_collector" "studio_usage_reader" "api_key_bridge") -}}
 {{- fail "postgresOperationsAddon.name conflicts with a Base-owned role or database" -}}
 {{- end -}}
 {{- if not (kindIs "bool" .Values.postgresOperationsAddon.adoptExisting) -}}
@@ -145,6 +145,46 @@ spec:
               REVOKE ALL ON DATABASE studio FROM PUBLIC;
               GRANT CONNECT, TEMPORARY ON DATABASE studio TO studio;
               {{- end }}
+              {{- if .Values.studio.usageEnabled }}
+              \getenv usage_collector_password STUDIO_USAGE_COLLECTOR_PASSWORD
+              \getenv usage_reader_password STUDIO_USAGE_READER_PASSWORD
+              DO $$$$
+              BEGIN
+                IF EXISTS (SELECT FROM pg_database WHERE datname='studio_usage') AND NOT EXISTS (
+                  SELECT FROM pg_database d JOIN pg_roles r ON r.oid=d.datdba
+                  JOIN pg_shdescription s ON s.objoid=d.oid AND s.classoid='pg_database'::regclass
+                  WHERE d.datname='studio_usage' AND r.rolname='studio_usage_collector'
+                    AND s.description='neurwerk-studio-usage-v1'
+                ) THEN
+                  RAISE EXCEPTION 'Reporting database has unexpected ownership';
+                END IF;
+                IF EXISTS (
+                  SELECT FROM pg_roles WHERE rolname IN ('studio_usage_collector','studio_usage_reader')
+                    AND (rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls)
+                ) OR EXISTS (
+                  SELECT FROM pg_auth_members m JOIN pg_roles r ON r.oid=m.member OR r.oid=m.roleid
+                  WHERE r.rolname IN ('studio_usage_collector','studio_usage_reader')
+                ) THEN
+                  RAISE EXCEPTION 'Reporting roles have unexpected privileges';
+                END IF;
+                IF NOT EXISTS (SELECT FROM pg_database WHERE datname='studio_usage')
+                  AND EXISTS (SELECT FROM pg_roles WHERE rolname IN ('studio_usage_collector','studio_usage_reader')) THEN
+                  RAISE EXCEPTION 'Reporting roles already exist without the owned database';
+                END IF;
+              END $$$$;
+              SELECT format('CREATE ROLE studio_usage_collector LOGIN PASSWORD %L', :'usage_collector_password')
+              WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname='studio_usage_collector') \gexec
+              SELECT format('CREATE ROLE studio_usage_reader LOGIN PASSWORD %L', :'usage_reader_password')
+              WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname='studio_usage_reader') \gexec
+              SELECT format('ALTER ROLE studio_usage_collector PASSWORD %L', :'usage_collector_password') \gexec
+              SELECT format('ALTER ROLE studio_usage_reader PASSWORD %L', :'usage_reader_password') \gexec
+              ALTER ROLE studio_usage_reader SET default_transaction_read_only = on;
+              SELECT 'CREATE DATABASE studio_usage OWNER studio_usage_collector'
+              WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname='studio_usage') \gexec
+              COMMENT ON DATABASE studio_usage IS 'neurwerk-studio-usage-v1';
+              REVOKE ALL ON DATABASE studio_usage FROM PUBLIC;
+              GRANT CONNECT ON DATABASE studio_usage TO studio_usage_collector,studio_usage_reader;
+              {{- end }}
               {{- if $addonName }}
               \getenv addon_name ADDON_DATABASE_NAME
               \getenv addon_password ADDON_DATABASE_PASSWORD
@@ -259,6 +299,16 @@ spec:
               PGPASSWORD="$STUDIO_PASSWORD" PGUSER=studio PGDATABASE=studio \
                 psql --set=ON_ERROR_STOP=1 --command='BEGIN; CREATE TABLE public.__studio_provisioning_verification (id integer); INSERT INTO public.__studio_provisioning_verification VALUES (1); ROLLBACK;' >/dev/null
               {{- end }}
+              {{- if .Values.studio.usageEnabled }}
+              PGDATABASE=studio_usage psql --set=ON_ERROR_STOP=1 <<'SQL'
+              REVOKE ALL ON SCHEMA public FROM PUBLIC;
+              GRANT USAGE, CREATE ON SCHEMA public TO studio_usage_collector;
+              GRANT USAGE ON SCHEMA public TO studio_usage_reader;
+              GRANT SELECT ON ALL TABLES IN SCHEMA public TO studio_usage_reader;
+              ALTER DEFAULT PRIVILEGES FOR ROLE studio_usage_collector IN SCHEMA public
+                GRANT SELECT ON TABLES TO studio_usage_reader;
+              SQL
+              {{- end }}
 
               PGPASSWORD="$AGENTGATEWAY_PASSWORD" PGUSER=agentgateway PGDATABASE=agentgateway \
                 psql --tuples-only --command='SELECT current_user' | grep -qx '[[:space:]]*agentgateway'
@@ -302,6 +352,10 @@ spec:
               {{- if .Values.studio.enabled }}
               verify_isolation studio "$STUDIO_PASSWORD" studio
               {{- end }}
+              {{- if .Values.studio.usageEnabled }}
+              verify_isolation studio_usage_collector "$STUDIO_USAGE_COLLECTOR_PASSWORD" studio_usage
+              verify_isolation studio_usage_reader "$STUDIO_USAGE_READER_PASSWORD" studio_usage
+              {{- end }}
               {{- if $addonName }}
               PGPASSWORD="$ADDON_DATABASE_PASSWORD" PGUSER="$ADDON_DATABASE_NAME" PGDATABASE="$ADDON_DATABASE_NAME" \
                 psql --set=ON_ERROR_STOP=1 --command='BEGIN; CREATE TABLE public.__addon_provisioning_verification (id integer); ROLLBACK;' >/dev/null
@@ -316,6 +370,14 @@ spec:
                 - ALL
             readOnlyRootFilesystem: true
           env:
+            {{- if .Values.studio.usageEnabled }}
+            - name: STUDIO_USAGE_COLLECTOR_PASSWORD
+              valueFrom:
+                secretKeyRef: {name: studio-usage-postgres-values, key: collector-password}
+            - name: STUDIO_USAGE_READER_PASSWORD
+              valueFrom:
+                secretKeyRef: {name: studio-usage-postgres-values, key: reader-password}
+            {{- end }}
             {{- if .Values.apiKeyBridge.enabled }}
             - name: API_KEY_BRIDGE_PASSWORD
               valueFrom:

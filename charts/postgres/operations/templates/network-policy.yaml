@@ -30,6 +30,14 @@ spec:
             matchLabels:
               app.kubernetes.io/name: studio-api
               app.kubernetes.io/instance: frontend-studio-api
+        {{- if .Values.studio.usageEnabled }}
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: frontend-studio}
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: studio-collector
+              app.kubernetes.io/instance: frontend-studio-api
+        {{- end }}
         {{- end }}
         - namespaceSelector:
             matchLabels:

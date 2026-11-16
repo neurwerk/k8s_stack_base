@@ -46,6 +46,7 @@ postgresOperationsAddon:
 # Required roles; matching OpenBao credentials must be synced before reconciliation.
 studio:
   enabled: true
+  usageEnabled: false
 
 apiKeyBridge:
   enabled: true

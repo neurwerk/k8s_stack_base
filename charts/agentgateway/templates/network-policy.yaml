@@ -46,14 +46,20 @@ spec:
           protocol: TCP
     {{- end }}
     - from:
-        # The admin listener is unauthenticated in AgentGateway 1.5.0. Only the
-        # authenticated Studio API may reach it; it is never publicly routed.
+        # Only the authenticated Studio API and private collector reach analytics.
         - namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: frontend-studio
           podSelector:
             matchLabels:
               app.kubernetes.io/name: studio-api
+              app.kubernetes.io/instance: frontend-studio-api
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: frontend-studio
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: studio-collector
               app.kubernetes.io/instance: frontend-studio-api
       ports:
         - port: 15000
