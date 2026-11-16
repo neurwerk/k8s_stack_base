@@ -1,0 +1,99 @@
+{{- if .Values.frontendStudio.usage.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: frontend-studio-mcp-pricing
+  namespace: {{ .Release.Namespace }}
+data:
+  pricing.json: {{ .Values.frontendStudio.usage.mcpPricing | toJson | quote }}
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: frontend-studio-usage-secret
+  namespace: {{ .Release.Namespace }}
+spec:
+  refreshInterval: 1h
+  secretStoreRef: {name: frontend-studio-openbao-secret-store, kind: SecretStore}
+  target: {name: frontend-studio-usage-secret, creationPolicy: Owner, deletionPolicy: Retain}
+  data:
+    - secretKey: collector-password
+      remoteRef: {key: frontend-studio/internal, property: usageCollectorPassword}
+    - secretKey: reader-password
+      remoteRef: {key: frontend-studio/internal, property: usageReaderPassword}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: frontend-studio-usage-collector
+  namespace: {{ .Release.Namespace }}
+spec:
+  schedule: "*/15 * * * *"
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 600
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 2
+  jobTemplate:
+    spec:
+      activeDeadlineSeconds: 840
+      backoffLimit: 0
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: studio-collector
+            app.kubernetes.io/instance: {{ .Release.Name }}
+        spec:
+          automountServiceAccountToken: false
+          enableServiceLinks: false
+          restartPolicy: Never
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            seccompProfile: {type: RuntimeDefault}
+          containers:
+            - {{ include "studio.collectorContainer" . | nindent 14 }}
+          volumes:
+            - name: usage-pricing
+              configMap: {name: frontend-studio-mcp-pricing}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: frontend-studio-collector
+  namespace: {{ .Release.Namespace }}
+spec:
+  podSelector:
+    matchLabels: {app.kubernetes.io/name: studio-collector}
+  policyTypes: [Ingress, Egress]
+  ingress: []
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: kube-system}
+          podSelector:
+            matchLabels: {k8s-app: kube-dns}
+      ports: [{port: 53, protocol: UDP}, {port: 53, protocol: TCP}]
+    - to:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: infra-postgres-operations}
+          podSelector:
+            matchLabels: {app.kubernetes.io/name: postgres-operations}
+      ports: [{port: 9712, protocol: TCP}]
+    - to:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: infra-agentgateway}
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: infra-agentgateway-gateway
+              gateway.networking.k8s.io/gateway-name: infra-agentgateway-gateway
+      ports: [{port: 15000, protocol: TCP}]
+    - to:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: monitor-kube-prometheus-stack}
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus
+              operator.prometheus.io/name: monitor-kube-prometheus-st
+      ports: [{port: 9090, protocol: TCP}]
+{{- end }}

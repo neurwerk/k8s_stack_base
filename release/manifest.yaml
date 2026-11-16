@@ -248,8 +248,8 @@ spec:
     version: 0.0.5
     source: oci://ghcr.io/clickhouse/clickhouse-operator-helm
   - name: openbao-stack-setup
-    version: 0.8.6
-    source: https://redirect.github.com/neurwerk/k8s_stack_tooling/commit/cb95a5a4b5ea2518f7b0373f8822c1e43cc68d01
+    version: 0.8.9
+    source: https://redirect.github.com/neurwerk/k8s_stack_tooling/commit/345d0aff04359fecf08ec9e6a70e2f9bc3fc0311
   - name: gateway-api-experimental
     version: 1.6.0
     source: https://github.com/kubernetes-sigs/gateway-api/releases/tag/v1.6.0
@@ -285,7 +285,7 @@ spec:
     charts:
     - path: charts/agentgateway
       name: infra-agentgateway
-      version: 5.4.0
+      version: 5.4.1
       appVersion: 1.7.0
       dependencyLock:
         digest: sha256:08cd4895c0e3b08ec6974dea5acf5c62b8d1b417aa302f8f6103ad5014b04c87
@@ -511,7 +511,7 @@ spec:
       appVersion: pg18-0.116.0
     - path: charts/postgres/operations
       name: infra-postgres-operations
-      version: 1.4.1
+      version: 1.5.0
       appVersion: pg18-0.116.0
     - path: charts/reloader
       name: infra-reloader
@@ -532,15 +532,15 @@ spec:
       appVersion: v1.20.3
     - path: charts/studio/api
       name: studio-api
-      version: 2.1.2
-      appVersion: 0.25.0
+      version: 2.2.0
+      appVersion: 0.26.0
     - path: charts/studio/shared
       name: studio-shared
       version: 1.0.0
     - path: charts/studio/web
       name: studio
-      version: 1.0.47
-      appVersion: 0.25.0
+      version: 1.0.48
+      appVersion: 0.26.0
     - path: charts/tailscale/access
       name: tailscale-access
       version: 0.1.0
@@ -900,12 +900,17 @@ spec:
       origins:
       - charts/pii-engine-model-sync/values.yaml
       - charts/pii-engine/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-studio-api:0.25.0@sha256:0051c7ab2502b9e87a18b984a3972928dfacb5a43063cb23ca84e0ef9a7a1ae5
+    - reference: ghcr.io/neurwerk/k8s-stack-studio-api:0.26.0@sha256:e4b9abc054bbae303de855863ca4973e8b7b542421858d65b1dfc72309cb6017
       pinned: true
       eligibility: included
       origins:
       - charts/studio/api/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-studio-web:0.25.0@sha256:2510b8a58b67075ff03baf8a64944dfa9fe10af91b7191975da8ed47117ce16d
+    - reference: ghcr.io/neurwerk/k8s-stack-studio-collector:0.26.0@sha256:a2897ef91b8e7dbced969850418f9b7723a1bc4fc8c68ccd5135fd314964e2ec
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/studio/api/values.yaml
+    - reference: ghcr.io/neurwerk/k8s-stack-studio-web:0.26.0@sha256:23b3d9ebb9945183a28ec7c1be6691d281ee4ec42c30dd995e5a625560b1b790
       pinned: true
       eligibility: included
       origins:

@@ -17,6 +17,19 @@ spec:
     metrics:
       attributes:
         add:
+          # Stable, trusted dimensions only: never request IDs, headers or payloads.
+          {{- range $field := list "principal_id" "app_id" "credential_id" "credential_kind" "entry_mode" "policy_revision" }}
+          - name: studio_{{ $field }}
+            expression: >-
+              has(metadata.neurwerk_identity) && has(metadata.neurwerk_identity.{{ $field }})
+              ? metadata.neurwerk_identity.{{ $field }} : ""
+          {{- end }}
+          {{- range $field := list "destination_kind" "destination_id" "provider_id" "binding_id" "protocol_profile" "operation_id" "provider_credential_source" "billing_classification" }}
+          - name: studio_{{ $field }}
+            expression: >-
+              has(metadata.neurwerk_admission) && has(metadata.neurwerk_admission.{{ $field }})
+              ? metadata.neurwerk_admission.{{ $field }} : ""
+          {{- end }}
           # Serialized request size is a stable prompt-complexity proxy across
           # providers whose token usage and cache accounting differ.
           - name: request_size
