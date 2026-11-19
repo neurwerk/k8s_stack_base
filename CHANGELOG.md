@@ -9,6 +9,8 @@ upgrade path.
 
 ## [Unreleased]
 
+## [0.3.40] - 2026-11-19
+
 - warning - this upgrade will reset usage statistics
 
 ## [0.3.39] - 2026-11-12
