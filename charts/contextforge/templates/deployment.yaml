@@ -24,6 +24,10 @@ spec:
         app.kubernetes.io/component: application
     spec:
       automountServiceAccountToken: false
+      {{- with .Values.contextforge.dnsSearches }}
+      dnsConfig:
+        searches: {{ . | toJson }}
+      {{- end }}
       terminationGracePeriodSeconds: 60
       securityContext:
         {{- include "contextforge.podSecurity" . | nindent 8 }}

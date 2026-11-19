@@ -38,6 +38,40 @@ def native_values():
 
 
 class McpCredentialsTests(unittest.TestCase):
+    def test_public_oauth_catalog_requires_explicit_method_and_pkce(self):
+        presets = yaml.safe_load((ROOT / "charts/agentgateway/catalog/presets.yaml").read_text())
+        entry = presets["github"]
+        entry["enabled"] = True
+        oauth = entry["registration"]["oauth"]
+        oauth.update(client_id="example-app", redirect_uri="https://studio.example.com/oauth/callback",
+                     token_endpoint_auth_method="none")
+        del oauth["client_secret_ref"]
+        values = {"mcp-servers": {"enabled": True, "studioSetup": {"enabled": True},
+                                 "catalog": {"custom": [entry]}}}
+        output = render("agentgateway", values)
+        data = resource(output, "ConfigMap", "infra-agentgateway-mcp-catalog")["data"]
+        registration, = json.loads(data["registrations.json"])
+        self.assertEqual(registration["oauth"], oauth)
+        for method in ("client_secret_post", "client_secret_basic", "", 1, True, [], {}):
+            oauth["token_endpoint_auth_method"] = method
+            output = render("agentgateway", values, check=False)
+            self.assertNotEqual(output.returncode, 0)
+            self.assertIn("MCP", output.stderr)
+        oauth.pop("token_endpoint_auth_method")
+        self.assertIn("requires client_secret_ref", render("agentgateway", values, check=False).stderr)
+        oauth["token_endpoint_auth_method"] = "none"
+        oauth["pkce"] = False
+        self.assertIn("requires pkce:true", render("agentgateway", values, check=False).stderr)
+        oauth["pkce"] = True
+        oauth["client_secret_ref"] = {"name": "contextforge-oauth-apps", "key": "github"}
+        self.assertIn("must not configure client_secret_ref", render("agentgateway", values, check=False).stderr)
+        for method in ("client_secret_post", "client_secret_basic"):
+            oauth["token_endpoint_auth_method"] = method
+            output = render("agentgateway", values)
+            data = resource(output, "ConfigMap", "infra-agentgateway-mcp-catalog")["data"]
+            registration, = json.loads(data["registrations.json"])
+            self.assertEqual(registration["oauth"], oauth)
+
     def test_optional_oauth_issuer_is_preserved_exactly_in_native_catalog(self):
         for issuer in (None, "https://identity.example.com/realms/Example/", "https://identity.example.com:8443/realms/Example"):
             with self.subTest(issuer=issuer):

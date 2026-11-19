@@ -46,6 +46,8 @@ contextforge:
 
   # Allow only the client's private Service ranges needed by retained upstreams.
   ssrfAllowedNetworks: []
+  dnsSearches: []
+  extraCaConfigMaps: []
 
   resources:
     requests: {cpu: 250m, memory: 768Mi}
