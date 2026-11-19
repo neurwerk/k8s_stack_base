@@ -28,7 +28,14 @@ class StudioCollectorTests(unittest.TestCase):
         policy = resource(result, "NetworkPolicy", "frontend-studio-collector")["spec"]
         self.assertEqual(policy["ingress"], [])
         ports = {p["port"] for rule in policy["egress"] for p in rule["ports"]}
-        self.assertEqual(ports, {53, 9712, 15000, 9090})
+        self.assertEqual(ports, {53, 9712, 15000, 9200})
+        search = next(rule for rule in policy["egress"] if rule["ports"] == [
+            {"port": 9200, "protocol": "TCP"},
+        ])
+        self.assertEqual(search["to"], [{
+            "namespaceSelector": {"matchLabels": {"kubernetes.io/metadata.name": "monitor-opensearch"}},
+            "podSelector": {"matchLabels": {"app.kubernetes.io/name": "opensearch-v3"}},
+        }])
 
     def test_disabled_and_unpinned_configuration(self):
         result = render("studio/api")

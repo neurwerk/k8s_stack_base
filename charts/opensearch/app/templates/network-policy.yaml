@@ -54,6 +54,12 @@ spec:
           podSelector:
             matchLabels:
               app.kubernetes.io/name: studio-api
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: frontend-studio
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: studio-collector
     # Port 9300: OpenSearch pods only (node-to-node transport)
     - ports:
         - port: 9300

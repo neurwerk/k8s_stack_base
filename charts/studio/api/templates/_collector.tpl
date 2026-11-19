@@ -22,15 +22,21 @@ env:
     value: {{ .Values.frontendStudio.api.usageTimezone | quote }}
   - name: STUDIO_COLLECTOR_AGENTGATEWAY_URL
     value: {{ .Values.frontendStudio.api.agentgatewayAdminUrl | quote }}
-  - name: STUDIO_COLLECTOR_PROMETHEUS_URL
-    value: {{ .Values.frontendStudio.usage.prometheusUrl | quote }}
-  - name: STUDIO_COLLECTOR_PROMETHEUS_UP_SELECTOR
-    value: {{ .Values.frontendStudio.usage.prometheusUpSelector | quote }}
-  - name: STUDIO_COLLECTOR_SCRAPE_SECONDS
-    value: {{ .Values.frontendStudio.usage.scrapeSeconds | quote }}
+  - name: STUDIO_COLLECTOR_OPENSEARCH_URL
+    value: {{ .Values.frontendStudio.api.opensearchUrl | quote }}
+  - name: STUDIO_COLLECTOR_OPENSEARCH_USER
+    value: {{ .Values.frontendStudio.api.opensearchUser | quote }}
+  - name: STUDIO_COLLECTOR_OPENSEARCH_PASSWORD
+    valueFrom:
+      secretKeyRef: {name: frontend-studio-openbao-secret, key: OPENSEARCH_PASSWORD}
+  - name: STUDIO_COLLECTOR_OPENSEARCH_CA_CERT
+    value: {{ .Values.frontendStudio.api.opensearchCaCert | quote }}
   - name: STUDIO_COLLECTOR_PRICING_FILE
     value: /etc/studio-usage/pricing.json
 volumeMounts:
+  - name: opensearch-ca
+    mountPath: /certs
+    readOnly: true
   - name: usage-pricing
     mountPath: /etc/studio-usage
     readOnly: true

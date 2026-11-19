@@ -129,6 +129,8 @@ data:
       reserved: false
       cluster_permissions:
         - "cluster_monitor"
+        - "indices:data/read/scroll"
+        - "indices:data/read/scroll/clear"
       index_permissions:
         - index_patterns:
             - "*"

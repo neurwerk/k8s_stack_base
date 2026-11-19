@@ -199,6 +199,35 @@ end
 -- log; structured fields are used above for classification, not indexed as fields.
 function opensearch_record(tag, timestamp, record)
     local result = {log = type(record.log) == "string" and record.log or ""}
+    -- Only the gateway can supply this bounded, metadata-only usage envelope.
+    -- Preserve its UUID across delivery retries; never index tool payloads.
+    local application = record.application
+    local kubernetes = record.kubernetes
+    if type(kubernetes) == "table"
+        and kubernetes.namespace_name == "infra-agentgateway"
+        and type(kubernetes.pod_name) == "string"
+        and string.match(kubernetes.pod_name, "^infra%-agentgateway%-gateway%-")
+        and kubernetes.container_name == "agentgateway"
+        and type(application) == "table"
+        and type(application.studio_mcp) == "table" then
+        local event = application.studio_mcp
+        local dimensions = {}
+        if type(event.dimensions) == "table" then
+            for _, key in ipairs({"server", "tool", "principal_id", "app_id",
+                "credential_id", "credential_kind", "entry_mode", "policy_revision",
+                "destination_kind", "destination_id", "provider_id", "binding_id",
+                "protocol_profile", "operation_id", "provider_credential_source",
+                "billing_classification"}) do
+                if type(event.dimensions[key]) == "string" then
+                    dimensions[key] = event.dimensions[key]
+                end
+            end
+        end
+        result.studio_mcp = {
+            version = event.version, id = event.id,
+            occurred_at = event.occurred_at, dimensions = dimensions,
+        }
+    end
     if type(record.stream) == "string" then
         result.stream = record.stream
     end
