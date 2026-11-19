@@ -56,6 +56,15 @@ def owned(row, spec, team, owner, description):
 
 
 def native_oauth(spec):
+    oauth = spec["oauth"]
+    method = oauth.get("token_endpoint_auth_method", "client_secret_post")
+    require(method in {"none", "client_secret_post", "client_secret_basic"} and oauth["pkce"] is True,
+            "Invalid OAuth token authentication method or PKCE")
+    if method == "none":
+        require("client_secret_ref" not in oauth, "Public OAuth clients must not reference a secret")
+    else:
+        require(oauth.get("client_secret_ref") == {"name": "contextforge-oauth-apps", "key": spec["id"]},
+                "Invalid OAuth Secret reference")
     return {k: v for k, v in spec["oauth"].items() if k not in {"client_secret_ref", "pkce"}} | {
         "grant_type": "authorization_code"}
 
@@ -77,10 +86,11 @@ def check_gateway(row, spec, team, owner, marker):
     if spec.get("oauth"):
         expected = native_oauth(spec)
         actual = row.get("oauthConfig")
+        public = expected.get("token_endpoint_auth_method") == "none"
         require(row.get("authType") == "oauth" and isinstance(actual, dict)
-                and set(actual) == set(expected) | {"client_secret"}
+                and set(actual) == (set(expected) if public else set(expected) | {"client_secret"})
                 and all(actual.get(k) == v for k, v in expected.items())
-                and isinstance(actual.get("client_secret"), str) and actual["client_secret"],
+                and (public or (isinstance(actual.get("client_secret"), str) and actual["client_secret"])),
                 "Conflicting OAuth app metadata; refusing to rotate or overwrite")
     else:
         require(row.get("authType") in (None, "", "none") and empty(row.get("oauthConfig")),
@@ -172,13 +182,14 @@ def reconcile_one(api, spec, team, owner, studio=None):
                    "transport": spec["transport"], "auth_type": "none", "passthrough_headers": [],
                    "gateway_mode": "cache", "team_id": team, "visibility": spec["visibility"]}
         if spec.get("oauth"):
-            require(spec["oauth"]["client_secret_ref"] == {"name": "contextforge-oauth-apps", "key": spec["id"]}
-                    and spec["oauth"]["pkce"] is True, "Invalid OAuth Secret reference or PKCE")
-            secret = Path("/oauth-apps", spec["id"]).read_text()
-            require(secret.strip() and len(secret) <= 16384 and not any(ord(c) < 32 for c in secret),
-                    "Invalid OAuth app credential; value hidden")
-            payload.update(auth_type="oauth", oauth_config=native_oauth(spec) | {"client_secret": secret})
-            secret = ""
+            oauth = native_oauth(spec)
+            if oauth.get("token_endpoint_auth_method") != "none":
+                secret = Path("/oauth-apps", spec["id"]).read_text()
+                require(secret.strip() and len(secret) <= 16384 and not any(ord(c) < 32 for c in secret),
+                        "Invalid OAuth app credential; value hidden")
+                oauth["client_secret"] = secret
+                secret = ""
+            payload.update(auth_type="oauth", oauth_config=oauth)
         try:
             api.request("POST", "/gateways", payload)
         finally:

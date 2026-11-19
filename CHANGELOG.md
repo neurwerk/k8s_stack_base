@@ -9,6 +9,8 @@ upgrade path.
 
 ## [Unreleased]
 
+- warning - this upgrade will reset usage statistics
+
 ## [0.3.39] - 2026-11-12
 
 - Add exact-model MCP source overrides with compatible PII Engine `0.17.0`, extProc `0.23.0`, and Studio `0.25.0` images.

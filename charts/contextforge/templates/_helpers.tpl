@@ -72,8 +72,13 @@ app.kubernetes.io/part-of: contextforge
       internal = Path('/openbao-ca/ca.crt').read_bytes()
       # Verify both inputs before exposing the combined trust to HTTPX.
       ssl.create_default_context(cadata=internal.decode())
+      extra = b''
+      for path in sorted(Path('/extra-ca').glob('*/ca.crt')):
+          certificate = path.read_bytes()
+          ssl.create_default_context(cadata=certificate.decode())
+          extra += b'\n' + certificate
       bundle = Path('/trust/ca.crt')
-      bundle.write_bytes(public + b'\n' + internal)
+      bundle.write_bytes(public + b'\n' + internal + extra)
       ssl.create_default_context(cafile=str(bundle))
   securityContext:
     {{- include "contextforge.containerSecurity" . | nindent 4 }}
@@ -83,6 +88,9 @@ app.kubernetes.io/part-of: contextforge
   volumeMounts:
     - {name: openbao-ca, mountPath: /openbao-ca, readOnly: true}
     - {name: trust, mountPath: /trust}
+    {{- range $index, $name := .Values.contextforge.extraCaConfigMaps }}
+    - {name: extra-ca-{{ $index }}, mountPath: /extra-ca/{{ $index }}, readOnly: true}
+    {{- end }}
 {{- end -}}
 
 {{- define "contextforge.trustVolumes" -}}
@@ -92,6 +100,12 @@ app.kubernetes.io/part-of: contextforge
     items: [{key: ca.crt, path: ca.crt}]
 - name: trust
   emptyDir: {sizeLimit: 2Mi}
+{{- range $index, $name := .Values.contextforge.extraCaConfigMaps }}
+- name: extra-ca-{{ $index }}
+  configMap:
+    name: {{ $name | quote }}
+    items: [{key: ca.crt, path: ca.crt}]
+{{- end }}
 {{- end -}}
 
 {{- define "contextforge.podSecurity" -}}

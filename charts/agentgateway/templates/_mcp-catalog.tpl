@@ -131,7 +131,7 @@
 {{- $oauth := $registration.oauth -}}
 {{- if not (kindIs "map" $oauth) -}}{{- fail "MCP oauth must be a non-secret map" -}}{{- end -}}
 {{- range $field, $_ := $oauth -}}
-{{- if not (has $field (list "authorization_url" "token_url" "issuer" "client_id" "redirect_uri" "scopes" "client_secret_ref" "pkce")) -}}{{- fail "unsupported MCP oauth field; plaintext secrets are forbidden" -}}{{- end -}}
+{{- if not (has $field (list "authorization_url" "token_url" "issuer" "client_id" "redirect_uri" "scopes" "client_secret_ref" "pkce" "token_endpoint_auth_method")) -}}{{- fail "unsupported MCP oauth field; plaintext secrets are forbidden" -}}{{- end -}}
 {{- end -}}
 {{- $endpoints := list "authorization_url" "token_url" "redirect_uri" -}}
 {{- if hasKey $oauth "issuer" -}}{{- $endpoints = append $endpoints "issuer" -}}{{- end -}}
@@ -143,10 +143,19 @@
 {{- if ne $oauth.pkce true -}}{{- fail "MCP oauth requires pkce:true" -}}{{- end -}}
 {{- if not (kindIs "slice" $oauth.scopes) -}}{{- fail "MCP oauth scopes must be a list" -}}{{- end -}}
 {{- range $scope := $oauth.scopes -}}{{- if or (not (kindIs "string" $scope)) (empty $scope) -}}{{- fail "MCP oauth scopes must be nonempty strings" -}}{{- end -}}{{- end -}}
+{{- $method := "client_secret_post" -}}
+{{- if hasKey $oauth "token_endpoint_auth_method" -}}
+{{- $method = $oauth.token_endpoint_auth_method -}}
+{{- if not (has $method (list "none" "client_secret_post" "client_secret_basic")) -}}{{- fail "unsupported MCP OAuth token_endpoint_auth_method" -}}{{- end -}}
+{{- end -}}
+{{- if eq $method "none" -}}
+{{- if hasKey $oauth "client_secret_ref" -}}{{- fail "public MCP OAuth clients must not configure client_secret_ref" -}}{{- end -}}
+{{- else -}}
 {{- $ref := $oauth.client_secret_ref -}}
 {{- if not (kindIs "map" $ref) -}}{{- fail "MCP oauth requires client_secret_ref with name and key" -}}{{- end -}}
 {{- if or (ne (len $ref) 2) (empty $ref.name) (empty $ref.key) -}}{{- fail "MCP client_secret_ref requires only name and key" -}}{{- end -}}
 {{- if or (not (kindIs "string" $ref.name)) (not (kindIs "string" $ref.key)) (not (regexMatch `^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$` (toString $ref.name))) (not (regexMatch `^[-._a-zA-Z0-9]+$` (toString $ref.key))) -}}{{- fail "MCP client_secret_ref name and key must be valid Secret identifiers" -}}{{- end -}}
 {{- if or (ne $ref.name "contextforge-oauth-apps") (ne $ref.key .name) -}}{{- fail "MCP client_secret_ref must use contextforge-oauth-apps and the selected integration ID" -}}{{- end -}}
+{{- end -}}
 {{- end -}}
 {{- end -}}

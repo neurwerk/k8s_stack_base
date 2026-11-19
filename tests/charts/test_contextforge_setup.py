@@ -238,6 +238,14 @@ class SetupPublicationTests(unittest.TestCase):
         self.assertEqual(output["data"], previous)
 
     def test_fresh_oauth_registration_preserves_exact_realm_issuer_without_updates(self):
+        self.assert_oauth_registration()
+
+    def test_public_and_explicit_confidential_oauth_registration(self):
+        for method in ("none", "client_secret_post", "client_secret_basic"):
+            with self.subTest(method=method):
+                self.assert_oauth_registration(method)
+
+    def assert_oauth_registration(self, method=None):
         issuer = "https://identity.example.com/realms/Example/"
         spec = definition()
         spec["oauth"].update(issuer=issuer, token_url="https://identity.example.com/realms/Example/protocol/openid-connect/token",
@@ -247,6 +255,12 @@ class SetupPublicationTests(unittest.TestCase):
                           "token_url": "https://identity.example.com/realms/Example/protocol/openid-connect/token",
                           "client_id": "example-app", "redirect_uri": "https://studio.example.com/oauth/callback",
                           "scopes": ["openid"], "grant_type": "authorization_code"}
+        public = method == "none"
+        if method is not None:
+            spec["oauth"]["token_endpoint_auth_method"] = method
+            expected_oauth["token_endpoint_auth_method"] = method
+        if public:
+            del spec["oauth"]["client_secret_ref"]
         gateways, servers, writes = [], [], []
 
         def request(actor, method, path, body=None):
@@ -259,7 +273,7 @@ class SetupPublicationTests(unittest.TestCase):
                     # Target GatewayRead masks secrets, including on reruns.
                     gateways.append(common | {"id": "a" * 32, "name": body["name"], "description": body["description"],
                         "url": body["url"], "transport": body["transport"], "status": "active", "gatewayMode": "cache",
-                        "authType": "oauth", "oauthConfig": expected_oauth | {"client_secret": "*****"}})
+                         "authType": "oauth", "oauthConfig": expected_oauth | ({} if public else {"client_secret": "*****"})})
                 elif path == "/servers":
                     self.assertEqual(actor, "studio@example.com")
                     server = body["server"]
@@ -282,16 +296,26 @@ class SetupPublicationTests(unittest.TestCase):
         api = Mock(request=lambda *args: request("admin@example.com", *args))
         service_api = Mock(request=lambda *args: request("studio@example.com", *args))
         studio = (service_api, "studio@example.com")
-        with patch.object(registrations.Path, "read_text", return_value="synthetic-app-secret"):
+        with patch.object(registrations.Path, "read_text", return_value="synthetic-app-secret",
+                          side_effect=AssertionError("Public clients must not read secrets") if public else None):
             result = registrations.reconcile_one(api, spec, "team", "admin@example.com", studio=studio)
         self.assertEqual(writes[0][0], "/gateways")
-        self.assertEqual(writes[0][1]["oauth_config"], expected_oauth | {"client_secret": "synthetic-app-secret"})
+        self.assertEqual(writes[0][1]["oauth_config"], expected_oauth | ({} if public else {"client_secret": "synthetic-app-secret"}))
         self.assertEqual(result["gateway_id"], "a" * 32)
         self.assertEqual(result["server_id"], spec["server_id"])
         self.assertEqual(result["state"], "pending-discovery")
         self.assertEqual(len(writes), 2)
         self.assertEqual(registrations.reconcile_one(api, spec, "team", "admin@example.com", studio=studio), result)
         self.assertEqual(len(writes), 2)
+        if public:
+            gateways[0]["oauthConfig"]["client_secret"] = "*****"
+            with self.assertRaises(registrations.SetupError):
+                registrations.reconcile_one(api, spec, "team", "admin@example.com", studio=studio)
+            del gateways[0]["oauthConfig"]["client_secret"]
+            gateways[0]["oauthConfig"]["token_endpoint_auth_method"] = "client_secret_post"
+            with self.assertRaises(registrations.SetupError):
+                registrations.reconcile_one(api, spec, "team", "admin@example.com", studio=studio)
+            gateways[0]["oauthConfig"]["token_endpoint_auth_method"] = method
         for conflicting_issuer in (None, "", "https://identity.example.com/realms/other"):
             gateways[0]["oauthConfig"]["issuer"] = conflicting_issuer
             with self.assertRaises(registrations.SetupError):
