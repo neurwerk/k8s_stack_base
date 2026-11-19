@@ -44,6 +44,21 @@ fluent-bit:
 
   # Fluent Bit config — input, filter, output piped to OpenSearch
   config:
+    service: |
+      [SERVICE]
+          Daemon Off
+          Flush {{ .Values.flush }}
+          Log_Level {{ .Values.logLevel }}
+          Parsers_File /fluent-bit/etc/parsers.conf
+          Parsers_File /fluent-bit/etc/conf/custom_parsers.conf
+          HTTP_Server On
+          HTTP_Listen 0.0.0.0
+          HTTP_Port {{ .Values.metricsPort }}
+          Health_Check On
+          storage.path /var/log/fluent-bit-storage
+          storage.sync full
+          storage.checksum on
+          storage.backlog.mem_limit 16M
     inputs: |
       [INPUT]
           Name              tail
@@ -51,6 +66,9 @@ fluent-bit:
           Path              /var/log/containers/*.log
           multiline.parser  docker, cri
           DB                /var/log/flb_kube.db
+          DB.Sync           Full
+          storage.type      filesystem
+          Buffer_Max_Size   1M
           Mem_Buf_Limit     50MB
           Skip_Long_Lines   On
           Refresh_Interval  10
@@ -161,6 +179,7 @@ fluent-bit:
           Generate_ID         On
           # Replays replace the same generated ID, avoiding mixed 201/409 retries.
           Write_Operation     index
+          storage.total_limit_size 2G
 
       [OUTPUT]
           Name                prometheus_exporter

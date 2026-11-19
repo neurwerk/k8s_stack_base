@@ -13,6 +13,45 @@ CLASSIFIER = ROOT / "charts/fluent-bit/files/application-errors.lua"
 
 
 class FluentBitApplicationErrorTests(unittest.TestCase):
+    def test_only_gateway_usage_metadata_survives_ingestion(self) -> None:
+        fixture = f"""
+dofile({json.dumps(str(CLASSIFIER))})
+local event = {{
+    version = 1, id = "f572c809-2aa7-4be2-ab29-4a1f2234c88a",
+    occurred_at = "2026-11-19T14:00:00Z",
+    dimensions = {{server = "search", tool = "lookup", principal_id = "person",
+                   app_id = "studio", arguments = {{query = "must not be indexed"}}}},
+    arguments = {{query = "must not be indexed"}},
+}}
+for _, case in ipairs({{
+    {{"infra-agentgateway", "infra-agentgateway-gateway-one", "agentgateway", true}},
+    {{"other", "infra-agentgateway-gateway-one", "agentgateway", false}},
+    {{"infra-agentgateway", "contextforge-providers-one", "agentgateway", false}},
+    {{"infra-agentgateway", "infra-agentgateway-gateway-one", "sidecar", false}},
+}}) do
+    local record = {{
+        log = "original text",
+        application = {{studio_mcp = event, unrelated = {{secret = "not indexed"}},
+                       kubernetes = {{namespace_name = "infra-agentgateway"}}}},
+        kubernetes = {{namespace_name = case[1], pod_name = case[2], container_name = case[3]}},
+    }}
+    local _, _, output = opensearch_record("kube.fixture", 123, record)
+    assert((output.studio_mcp ~= nil) == case[4])
+    assert(output.application == nil and output.unrelated == nil)
+    if case[4] then
+        assert(output.studio_mcp.id == event.id)
+        assert(output.studio_mcp.occurred_at == event.occurred_at)
+        assert(output.studio_mcp.dimensions.server == "search")
+        assert(output.studio_mcp.dimensions.principal_id == "person")
+        assert(output.studio_mcp.arguments == nil)
+        assert(output.studio_mcp.dimensions.arguments == nil)
+    end
+end
+local _, _, missing = opensearch_record("kube.fixture", 123, {{application = {{studio_mcp = event}}}})
+assert(missing.studio_mcp == nil)
+"""
+        subprocess.run(["lua", "-"], input=fixture, text=True, check=True, capture_output=True)
+
     def test_empty_error_fields_do_not_classify_success_or_hide_failure(self) -> None:
         fixture = f"""
 dofile({json.dumps(str(CLASSIFIER))})
