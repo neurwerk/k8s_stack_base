@@ -45,9 +45,21 @@
 {{- end }}
 {{- $resourcePrefixes := dict
       "/access/neurwerk-llm-all-users" (list "model:" "provider:")
+      "/access/neurwerk-llm-default-users" (list "model:" "provider:")
       "/access/neurwerk-mcp-all-users" (list "mcp:")
+      "/access/neurwerk-mcp-default-users" (list "mcp:")
       "/access/neurwerk-mcp-glitchtip-users" (list "mcp:glitchtip:")
       "/access/neurwerk-ai-application-users" (list "application:" "provider:") }}
+{{- $mcpGroups := .Values.authKeycloak.agentgatewayMcpGroups }}
+{{- if not (kindIs "map" $mcpGroups) }}{{ fail "agentgatewayMcpGroups must be a map of group paths to MCP IDs" }}{{ end }}
+{{- range $path, $id := $mcpGroups }}
+{{- if or (not (regexMatch `^/access/neurwerk-mcp-[a-z][a-z0-9-]{0,24}-users$` $path)) (has $path (list "/access/neurwerk-mcp-all-users" "/access/neurwerk-mcp-default-users")) (not (kindIs "string" $id)) }}
+{{- fail "agentgatewayMcpGroups requires individual MCP group paths and string IDs" }}{{ end }}
+{{- if not (regexMatch `^[a-z0-9][a-z0-9-]{0,47}$` $id) }}{{ fail "agentgatewayMcpGroups contains an invalid MCP ID" }}{{ end }}
+{{- if not (has (printf "mcp:%s:invoke" $id) $agentgatewayRoles) }}{{ fail "agentgatewayMcpGroups requires a declared MCP role" }}{{ end }}
+{{- if not (hasKey $accessGroups $path) }}{{ $_ := set $accessGroups $path (dict "realmRoles" list "clientRoles" (dict "agentgateway" list)) }}{{ end }}
+{{- $_ := set $resourcePrefixes $path (list (printf "mcp:%s:" $id)) }}
+{{- end }}
 {{- range $groupName, $groupRoles := .Values.authKeycloak.agentgatewayAccessGroups | default dict }}
 {{- $group := get $accessGroups $groupName }}
 {{- if not (hasKey $resourcePrefixes $groupName) }}{{- fail (printf "AgentGateway grants are only allowed for the standard resource groups, not %q" $groupName) }}{{- end }}
@@ -64,6 +76,28 @@
 {{- $clientRoles := get $group "clientRoles" | default dict }}
 {{- $_ := set $clientRoles "agentgateway" $groupRoles }}
 {{- $_ := set $group "clientRoles" $clientRoles }}
+{{- end }}
+{{- $published := .Values.authKeycloak.agentgatewayPublishedRoles }}
+{{- if not (kindIs "map" $published) }}{{ fail "agentgatewayPublishedRoles must be a map" }}{{ end }}
+{{- range $kind, $roles := $published }}
+{{- if or (not (has $kind (list "llm" "mcp"))) (not (kindIs "slice" $roles)) }}{{ fail "agentgatewayPublishedRoles accepts llm and mcp role lists" }}{{ end }}
+{{- $path := printf "/access/neurwerk-%s-all-users" $kind }}
+{{- range $role := $roles }}
+{{- if not (has $role $agentgatewayRoles) }}{{ fail "published gateway catalog grants an undeclared role" }}{{ end }}
+{{- $allowed := eq $role "llm:invoke" }}
+{{- range get $resourcePrefixes $path }}{{ if hasPrefix . $role }}{{ $allowed = true }}{{ end }}{{ end }}
+{{- if not $allowed }}{{ fail "published gateway catalog contains a cross-resource role" }}{{ end }}
+{{- end }}
+{{- $group := get $accessGroups $path }}
+{{- $_ := set $group.clientRoles "agentgateway" (concat $group.clientRoles.agentgateway $roles | uniq) }}
+{{- end }}
+{{- range $path, $id := $mcpGroups }}
+{{- $roles := list }}
+{{- if has (printf "mcp:%s:invoke" $id) ($published.mcp | default list) }}
+{{- $roles = list "llm:invoke" (printf "mcp:%s:invoke" $id) }}
+{{- end }}
+{{- $group := get $accessGroups $path }}
+{{- $_ := set $group.clientRoles "agentgateway" $roles }}
 {{- end }}
 {{- $accessGroupsJson := $accessGroups | toJson }}
 {{- if gt (len $accessGroupsJson) 120000 }}

@@ -27,4 +27,4 @@ authKeycloak:
     egressCidrs: []
 
 k8sTools:
-  image: ghcr.io/neurwerk/k8s-stack-tooling:0.18.3@sha256:fa30429bb143f0176867741dcf55eae422d69157b5f033e9d007745dd3639d79
+  image: ghcr.io/neurwerk/k8s-stack-tooling:0.18.4@sha256:9284c3cb02abe43c061c226ff1beaab6937a6b807aafbff5282949022ff2b6ef

@@ -23,12 +23,17 @@ authKeycloak:
   agentgatewayClientRoles:
     - llm:invoke
 
-  # /access/neurwerk-llm-all-users accepts llm/model/provider permissions;
-  # /access/neurwerk-mcp-all-users accepts llm/MCP permissions;
+  # Default groups accept explicit llm/model/provider or llm/MCP permissions.
+  # All groups additionally receive every published destination from AgentGateway.
   # /access/neurwerk-mcp-glitchtip-users accepts llm/GlitchTip MCP permissions;
   # /access/neurwerk-ai-application-users accepts llm/application/provider permissions.
-  # All resource groups exist without grants; application admission implies no access.
+  # Application admission implies no invocation access.
   agentgatewayAccessGroups: {}
+  # Supplied by the watched agentgateway-access-catalog ConfigMap.
+  agentgatewayPublishedRoles: {llm: [], mcp: []}
+  # Map /access/neurwerk-mcp-<name>-users to an exact MCP ID.
+  # These groups automatically grant only that published MCP.
+  agentgatewayMcpGroups: {}
 
 openrouterCatalog:
   enabled: true

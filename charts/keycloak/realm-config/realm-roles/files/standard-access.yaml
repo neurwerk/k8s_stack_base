@@ -30,7 +30,11 @@ accessGroups:
     realmRoles: [studio-user]
   /access/neurwerk-llm-all-users:
     realmRoles: []
+  /access/neurwerk-llm-default-users:
+    realmRoles: []
   /access/neurwerk-mcp-all-users:
+    realmRoles: []
+  /access/neurwerk-mcp-default-users:
     realmRoles: []
   /access/neurwerk-mcp-glitchtip-users:
     realmRoles: []

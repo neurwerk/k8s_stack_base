@@ -30,6 +30,10 @@ spec:
       interval: 10m
   valuesFrom:
     - kind: ConfigMap
+      name: agentgateway-access-catalog
+      valuesKey: values.yaml
+      optional: true
+    - kind: ConfigMap
       name: base-shared-oidc-clients-config-map
       valuesKey: values.yaml
     - kind: ConfigMap

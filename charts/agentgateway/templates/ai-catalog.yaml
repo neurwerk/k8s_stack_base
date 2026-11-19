@@ -9,3 +9,30 @@ metadata:
     app.kubernetes.io/part-of: infra-agentgateway
 data:
   catalog.json: {{ include "infra-agentgateway.aiCatalog" . | quote }}
+---
+{{- $catalog := include "infra-agentgateway.aiCatalog" . | fromJson }}
+{{- $permissions := dict "llm" list "mcp" list }}
+{{- range $category := list "self-hosted-api-providers" "external-api-providers" "external-subscription-providers" "mcp-servers" }}
+{{- $kind := ternary "mcp" "llm" (eq $category "mcp-servers") }}
+{{- range index $catalog $category }}
+{{- range .destinations }}
+{{- $_ := set $permissions $kind (concat (get $permissions $kind) .required_permissions) }}
+{{- range .credential_modes }}
+{{- $_ := set $permissions $kind (concat (get $permissions $kind) .required_permissions) }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- $_ := set $permissions $kind (get $permissions $kind | uniq | sortAlpha) }}
+{{- end }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: agentgateway-access-catalog
+  namespace: auth-keycloak
+  labels:
+    reconcile.fluxcd.io/watch: Enabled
+    app.kubernetes.io/name: gateway-catalog
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: infra-agentgateway
+data:
+  values.yaml: {{ dict "authKeycloak" (dict "agentgatewayPublishedRoles" $permissions) | toYaml | quote }}

@@ -5,8 +5,11 @@ from __future__ import annotations
 import json
 import unittest
 
+import yaml
+
 from catalog import catalog
-from helm import env_value, render
+from helm import env_value, render, resource
+from test_agentgateway_inspection import binding_values
 
 CHART = "keycloak/realm-config/realm-roles"
 LLM = "/access/neurwerk-llm-all-users"
@@ -27,7 +30,8 @@ class KeycloakStandardAccessTests(unittest.TestCase):
             for role in role_names.split(",")
         }
         expected.update({name: {"realmRoles": []} for name in (
-            LLM, MCP, APPLICATION, "/access/neurwerk-mcp-glitchtip-users")})
+            LLM, MCP, APPLICATION, "/access/neurwerk-mcp-glitchtip-users",
+            "/access/neurwerk-llm-default-users", "/access/neurwerk-mcp-default-users")})
         for group in expected.values():
             group["clientRoles"] = {"agentgateway": []}
         self.assertEqual(groups, expected)
@@ -138,7 +142,7 @@ class KeycloakStandardAccessTests(unittest.TestCase):
         self.assertEqual(groups.pop(APPLICATION), {
             "realmRoles": [], "clientRoles": {"agentgateway": ["llm:invoke", application, provider]},
         })
-        self.assertEqual(len(groups), 10)
+        self.assertEqual(len(groups), 12)
         self.assertTrue(all(
             group["clientRoles"] == {"agentgateway": []} for group in groups.values()
         ))
@@ -169,6 +173,73 @@ class KeycloakStandardAccessTests(unittest.TestCase):
         values["authKeycloak"]["agentgatewayClientRoles"].append("mcp:other:invoke")
         values["authKeycloak"]["agentgatewayAccessGroups"][group] = ["mcp:other:invoke"]
         self.assertNotEqual(render(CHART, values, check=False).returncode, 0)
+
+    def test_published_catalog_drives_all_and_individual_groups_not_defaults(self) -> None:
+        values = binding_values()
+        default = "/access/neurwerk-mcp-default-users"
+        individual = "/access/neurwerk-mcp-business-users"
+        values["mcp-servers"] = {
+            "enabled": True,
+            "approvedHosts": ["tools.example.test"],
+            "catalog": {"custom": [
+                {"name": name, "enabled": enabled, "host": "tools.example.test"}
+                for name, enabled in (("docs", True), ("records", True), ("disabled", False))
+            ]},
+        }
+        auth = values["authKeycloak"]
+        auth["agentgatewayClientRoles"].extend(
+            f"mcp:{name}:invoke" for name in ("docs", "records", "disabled")
+        )
+        auth["agentgatewayMcpGroups"] = {individual: "records"}
+        auth["agentgatewayAccessGroups"] = {default: ["llm:invoke", "mcp:docs:invoke"]}
+
+        def groups():
+            gateway = render("agentgateway", values)
+            projected = resource(gateway, "ConfigMap", "agentgateway-access-catalog")
+            published = yaml.safe_load(projected["data"]["values.yaml"])["authKeycloak"]
+            auth.update(published)
+            return json.loads(env_value(render(CHART, values), "KC_ACCESS_GROUPS"))
+
+        initial = groups()
+        self.assertEqual(set(initial[MCP]["clientRoles"]["agentgateway"]),
+                         {"llm:invoke", "mcp:docs:invoke", "mcp:records:invoke"})
+        self.assertEqual(initial[individual]["clientRoles"]["agentgateway"],
+                         ["llm:invoke", "mcp:records:invoke"])
+        self.assertNotIn("model:remote/example/model:invoke",
+                         initial[LLM]["clientRoles"]["agentgateway"])
+        self.assertIn("model:example-chat:invoke", initial[LLM]["clientRoles"]["agentgateway"])
+        self.assertIn("provider:openai:global-use", initial[LLM]["clientRoles"]["agentgateway"])
+        self.assertEqual(initial[default]["clientRoles"]["agentgateway"],
+                         ["llm:invoke", "mcp:docs:invoke"])
+        self.assertEqual(initial["/access/neurwerk-platform-admins"]["clientRoles"]["agentgateway"], [])
+
+        values["mcp-servers"]["catalog"]["custom"][1]["enabled"] = False
+        values["external-api-providers"][0]["enabled"] = False
+        updated = groups()
+        self.assertEqual(updated[individual]["clientRoles"]["agentgateway"], [])
+        self.assertNotIn("mcp:records:invoke", updated[MCP]["clientRoles"]["agentgateway"])
+        self.assertNotIn("model:example-chat:invoke", updated[LLM]["clientRoles"]["agentgateway"])
+        self.assertNotIn("provider:openai:global-use", updated[LLM]["clientRoles"]["agentgateway"])
+        self.assertEqual(initial[default], updated[default])
+
+        auth["agentgatewayAccessGroups"][individual] = ["mcp:docs:invoke"]
+        self.assertNotEqual(render(CHART, values, check=False).returncode, 0)
+
+    def test_default_bundles_reject_cross_resource_grants(self) -> None:
+        for group, role in (
+            ("llm", "mcp:docs:invoke"),
+            ("mcp", "model:example:invoke"),
+            ("mcp", "provider:example:global-use"),
+        ):
+            with self.subTest(group=group, role=role):
+                result = render(CHART, {"authKeycloak": {
+                    "agentgatewayClientRoles": ["llm:invoke", role],
+                    "agentgatewayAccessGroups": {
+                        f"/access/neurwerk-{group}-default-users": [role],
+                    },
+                }}, check=False)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("cannot grant cross-resource role", result.stderr)
 
     def test_mapping_overrides_and_unsafe_grants_fail_closed(self) -> None:
         model = "model:example:invoke"
