@@ -68,11 +68,19 @@ class KeycloakDirectoryTests(unittest.TestCase):
             MAPPED,
             PLAIN,
             {**PLAIN, "groupNames": [], "groupMappings": [MAPPING]},
+            {
+                **AD,
+                "directoryGroups": {
+                    "enabled": True, "excludePrefixes": ["Platform_", "Ops*(West)\\"],
+                },
+            },
         ):
             with self.subTest(settings=settings):
                 enabled = settings["enabled"]
                 plain = settings.get("allowInsecureLdap", False)
                 values = {"authKeycloak": {"activeDirectory": settings, "smtp": {"enabled": False}}}
+                if settings.get("directoryGroups", {}).get("enabled"):
+                    values["k8sTools"] = {"image": "ghcr.io/neurwerk/k8s-stack-tooling:0.19.0"}
                 server = render("keycloak/server", values, namespace="auth-keycloak")
                 sts = resource(server, "StatefulSet")
                 pod = sts["spec"]["template"]["spec"]
@@ -144,6 +152,8 @@ class KeycloakDirectoryTests(unittest.TestCase):
                     ("GROUP_MAPPINGS", settings.get("groupMappings", [])),
                     ("CONNECTION_TIMEOUT_MS", settings.get("connectionTimeoutMs", 5000)),
                     ("READ_TIMEOUT_MS", settings.get("readTimeoutMs", 10000)),
+                    ("DIRECTORY_GROUPS_ENABLED", settings.get("directoryGroups", {}).get("enabled", False)),
+                    ("DIRECTORY_GROUPS_EXCLUDE_PREFIXES", settings.get("directoryGroups", {}).get("excludePrefixes", [])),
                 ):
                     self.assertEqual(
                         json.loads(env[f"KC_ACTIVE_DIRECTORY_{suffix}"]["value"]), expected
@@ -212,6 +222,37 @@ class KeycloakDirectoryTests(unittest.TestCase):
                         "k8sTools": {"image": "registry.example/tooling:0.7.0"},
                     },
                 )
+
+    def test_directory_import_requires_a_capable_runtime_and_typed_settings(self):
+        chart = "keycloak/realm-config/active-directory"
+        for access in (AD, MAPPED):
+            for enabled, tag, valid in (
+                (False, "0.18.4", True),
+                (True, "0.18.4", False),
+                (True, "0.19.0", True),
+                (True, "0.19.0@sha256:" + "a" * 64, True),
+            ):
+                with self.subTest(mapped=bool(access.get("groupMappings")), enabled=enabled, tag=tag):
+                    result = render(chart, {
+                        "authKeycloak": {"activeDirectory": {
+                            **access, "directoryGroups": {"enabled": enabled},
+                        }},
+                        "k8sTools": {"image": "ghcr.io/neurwerk/k8s-stack-tooling:" + tag},
+                    }, check=False)
+                    self.assertEqual(result.returncode == 0, valid, result.stderr)
+                    if not valid:
+                        self.assertIn(">=0.19.0", result.stderr)
+        for settings in (
+            {"enabled": "true"},
+            {"enabled": True, "excludePrefixes": "prefix"},
+            {"enabled": True, "excludePrefixes": [""]},
+            {"enabled": True, "unknown": "ignored"},
+        ):
+            with self.subTest(settings=settings), self.assertRaisesRegex(AssertionError, "schema"):
+                render(chart, {
+                    "authKeycloak": {"activeDirectory": {**AD, "directoryGroups": settings}},
+                    "k8sTools": {"image": "ghcr.io/neurwerk/k8s-stack-tooling:0.19.0"},
+                })
 
     def test_ambiguous_mapping_injection_and_unsafe_transport_fail(self):
         for chart in ("server", "realm-config/active-directory"):

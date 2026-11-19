@@ -20,6 +20,11 @@ authKeycloak:
     # Example: {sourceName: AD_Group, targetParent: /access/neurwerk-studio-users}.
     # Tooling >=0.7.2 warns for missing mapped groups and retains them for later discovery.
     groupMappings: []
+    directoryGroups:
+      # Import other groups under /ldap_groups without assigning roles.
+      enabled: false
+      # Literal name prefixes; access-mapped source names are always excluded.
+      excludePrefixes: []
     emailVerified: true
     # Required only for LDAPS; never used for plaintext LDAP.
     caConfigMapName: auth-keycloak-active-directory-ca
@@ -27,4 +32,4 @@ authKeycloak:
     egressCidrs: []
 
 k8sTools:
-  image: ghcr.io/neurwerk/k8s-stack-tooling:0.18.4@sha256:9284c3cb02abe43c061c226ff1beaab6937a6b807aafbff5282949022ff2b6ef
+  image: ghcr.io/neurwerk/k8s-stack-tooling:0.19.0@sha256:92915619aadce1cfb0031578e9ea95a26ad077fd0627b527516e0bca3c11f5db

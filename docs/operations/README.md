@@ -8,6 +8,8 @@ Charts provide reusable defaults, release definitions provide platform settings,
 
 Client configuration owns source selection and readiness gates. Stage required namespaces, values, secret delivery, database provisioning, identity, and certificate resources before their consumers. Follow the selected package's prerequisites rather than treating the infrastructure and application package lists as execution order. The public [example client](https://github.com/neurwerk/k8s_stack_client_example_com) shows client-side Flux composition.
 
+With a compatible Tooling image, `authKeycloak.activeDirectory.directoryGroups.enabled` imports directory groups under `/ldap_groups` without roles. Access-mapped names and `directoryGroups.excludePrefixes` are excluded; applications use the resulting exact paths.
+
 Use the selected release's standalone setup CLI for OpenBao catalog preparation; its revision is independent of the Tooling container image. Follow [OpenBao operations](https://github.com/neurwerk/docs/blob/main/dev/operations/openbao.md) for bootstrap, reconciliation, and credential changes. Reconcile existing installations rather than bootstrapping them again.
 
 ## Adoption and upgrades

@@ -38,10 +38,11 @@
   {{- if eq (empty $ad.groupNames) (empty $ad.groupMappings) -}}
     {{- fail "authKeycloak.activeDirectory requires exactly one non-empty list: groupNames or groupMappings" -}}
   {{- end -}}
-  {{- if or $ad.groupMappings $ldap -}}
+  {{- if or $ad.groupMappings $ldap $ad.directoryGroups.enabled -}}
     {{- /* Staged contract: never let published older Tooling silently ignore new settings. */ -}}
     {{- $image := .Values.k8sTools.image -}}
-    {{- $imageError := "Active Directory groupMappings or plaintext LDAP requires k8sTools.image ghcr.io/neurwerk/k8s-stack-tooling:X.Y.Z >=0.7.0 (optional @sha256:<64 lowercase hex>); publish and verify the runtime before adopting its pin" -}}
+    {{- $minimum := ternary ">=0.19.0" ">=0.7.0" $ad.directoryGroups.enabled -}}
+    {{- $imageError := printf "Active Directory configuration requires k8sTools.image ghcr.io/neurwerk/k8s-stack-tooling:X.Y.Z %s (optional @sha256:<64 lowercase hex>); publish and verify the runtime before adopting its pin" $minimum -}}
     {{- if not (kindIs "string" $image) -}}
       {{- fail $imageError -}}
     {{- end -}}
@@ -49,7 +50,7 @@
       {{- fail $imageError -}}
     {{- end -}}
     {{- $version := trimPrefix "ghcr.io/neurwerk/k8s-stack-tooling:" (first (splitList "@" $image)) -}}
-    {{- if not (semverCompare ">=0.7.0" $version) -}}
+    {{- if not (semverCompare $minimum $version) -}}
       {{- fail $imageError -}}
     {{- end -}}
   {{- end -}}
