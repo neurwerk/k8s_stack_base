@@ -9,6 +9,13 @@ upgrade path.
 
 ## [Unreleased]
 
+## [0.3.42] - 2026-11-19
+
+- Add optional role-free LDAP directory groups.
+- Adopt Studio 0.27.0 with whole-number MCP invocation accounting and explicit tool checks.
+- Upgrade the gateway, Fluent Bit, OpenSearch permissions and Studio images together; the collector now reads OpenSearch events.
+- The one-time cutover resets previous MCP summaries only; LLM history is preserved. Approve this reset and configure client USD pricing before adoption; see [Studio usage cutover](docs/operations/studio-usage.md).
+
 ## [0.3.41] - 2026-11-19
 
 

@@ -1,6 +1,6 @@
-version: 0.3.41
+version: 0.3.42
 releaseDate: '2026-11-19'
-summary: LDAP default and catalog-wide access bundles
+summary: Optional role-free LDAP directory groups and invocation-based MCP usage
 helmOutputs:
   releases/keycloak/server.yaml:
   - kind: Secret
@@ -282,9 +282,10 @@ exceptions:
   reason: The reviewed upstream DocumentDB local image requires passwordless sudo to prepare runtime directories
     before dropping back to UID 1000.
 provenance:
-  previousTag: v0.3.40
-  includedThrough: 4a01062603e7a2352c39ac6ad02c6eaedc38a1b4
+  previousTag: v0.3.41
+  includedThrough: c490988eb1ef4083dc994de582aeeb045860fc5a
   commits:
-  - c8ae85e63811c5c860d24ffc4fa77596ba5b2e71
-  - 4a01062603e7a2352c39ac6ad02c6eaedc38a1b4
-  compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.40...4a01062603e7a2352c39ac6ad02c6eaedc38a1b4
+  - 788bb947eb5844f19ffacd9f736a01d2a206fa63
+  - 722c4df9329dd07b6eaed0ff11990c193690aaec
+  - c490988eb1ef4083dc994de582aeeb045860fc5a
+  compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.41...c490988eb1ef4083dc994de582aeeb045860fc5a
