@@ -285,7 +285,7 @@ spec:
     charts:
     - path: charts/agentgateway
       name: infra-agentgateway
-      version: 5.5.0
+      version: 5.6.0
       appVersion: 1.7.0
       dependencyLock:
         digest: sha256:08cd4895c0e3b08ec6974dea5acf5c62b8d1b417aa302f8f6103ad5014b04c87
@@ -407,16 +407,16 @@ spec:
       appVersion: '1.0'
     - path: charts/keycloak/realm-config/active-directory
       name: keycloak-active-directory
-      version: 1.2.3
+      version: 1.3.0
     - path: charts/keycloak/realm-config/initial-admin
       name: keycloak-oidc-configurations-initial-admin
       version: 1.1.10
     - path: charts/keycloak/realm-config/realm-roles
       name: keycloak-oidc-configurations-realm-roles
-      version: 3.0.2
+      version: 3.1.0
     - path: charts/keycloak/server
       name: keycloak
-      version: 1.1.13
+      version: 1.2.0
       appVersion: 26.7.2
     - path: charts/keycloak-api-key-bridge
       name: auth-keycloak-api-key-bridge
@@ -934,6 +934,11 @@ spec:
       - charts/opensearch/app/values.yaml
       - charts/opensearch/dashboards/values.yaml
       - charts/postgres/documentdb-addon/values.yaml
+    - reference: ghcr.io/neurwerk/k8s-stack-tooling:0.18.4@sha256:9284c3cb02abe43c061c226ff1beaab6937a6b807aafbff5282949022ff2b6ef
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/keycloak/realm-config/active-directory/values.yaml
     - reference: ghcr.io/stakater/reloader:v1.4.21
       pinned: true
       eligibility: included
