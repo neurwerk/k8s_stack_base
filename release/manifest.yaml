@@ -1,11 +1,11 @@
 apiVersion: platform.neurwerk.com/v1alpha1
 kind: PlatformRelease
 metadata:
-  name: v0.3.39
+  name: v0.3.40
 spec:
-  version: 0.3.39
-  releaseDate: '2026-11-12'
-  summary: Model-scoped MCP source policy with compatible Engine, extProc and Studio releases
+  version: 0.3.40
+  releaseDate: '2026-11-19'
+  summary: Studio usage reporting and native MCP public-client OAuth
   trust:
     signerIdentity: platform-release
     algorithm: ssh-ed25519
@@ -285,7 +285,7 @@ spec:
     charts:
     - path: charts/agentgateway
       name: infra-agentgateway
-      version: 5.4.1
+      version: 5.5.0
       appVersion: 1.7.0
       dependencyLock:
         digest: sha256:08cd4895c0e3b08ec6974dea5acf5c62b8d1b417aa302f8f6103ad5014b04c87
@@ -343,7 +343,7 @@ spec:
       version: 1.0.0
     - path: charts/contextforge
       name: contextforge
-      version: 0.5.0
+      version: 0.6.0
       appVersion: 1.1.1
     - path: charts/contextforge/certificates
       name: contextforge-certificates
@@ -1084,9 +1084,19 @@ spec:
       node: 24.20.0
       lua: 5.4.9
   provenance:
-    previousTag: v0.3.38
-    includedThrough: 54e7c22e8e68d05fe155cefa77aaeb80ba828eb0
+    previousTag: v0.3.39
+    includedThrough: 18854329259ebbdee9f9a0a7ef714e22b654b334
     commits:
-    - 3be7904b9dfb0e20570a19e149bc9de35acdb1a7
-    - 54e7c22e8e68d05fe155cefa77aaeb80ba828eb0
-    compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.38...54e7c22e8e68d05fe155cefa77aaeb80ba828eb0
+    - ac32284d97a572d9602ffb484b75528bfcfbbfbd
+    - ce2605a46eabecc35a25a39986a98adfa17061fa
+    - 0f1d45510f1680f1af94863369ba302c395af94a
+    - ba58ae0e6a370af385f5a5b63fbf6ba19d046a0f
+    - 651163ee2def2858a76ac4171d7802ed47091fd4
+    - 6d544b780fb7a2be69f2b0b6619b752fdc85f7d8
+    - 73dea0f96b983a4039a910fabfb63e92de67b744
+    - b4f681d37fa2ef06afb8e90e1228f4cee279efee
+    - be1b6decb904ab93bf62eafedc2588461fb792a9
+    - 25dfe825119d1ba0a08763f9196402be33ec75b8
+    - 844b05e87745d3cde8bb8768d7585276c3799589
+    - 18854329259ebbdee9f9a0a7ef714e22b654b334
+    compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.39...18854329259ebbdee9f9a0a7ef714e22b654b334
