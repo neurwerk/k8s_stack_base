@@ -54,6 +54,8 @@ spec:
           containers:
             - {{ include "studio.collectorContainer" . | nindent 14 }}
           volumes:
+            - name: opensearch-ca
+              configMap: {name: frontend-studio-shared-opensearch-ca}
             - name: usage-pricing
               configMap: {name: frontend-studio-mcp-pricing}
 ---
@@ -90,10 +92,9 @@ spec:
       ports: [{port: 15000, protocol: TCP}]
     - to:
         - namespaceSelector:
-            matchLabels: {kubernetes.io/metadata.name: monitor-kube-prometheus-stack}
+            matchLabels: {kubernetes.io/metadata.name: monitor-opensearch}
           podSelector:
             matchLabels:
-              app.kubernetes.io/name: prometheus
-              operator.prometheus.io/name: monitor-kube-prometheus-st
-      ports: [{port: 9090, protocol: TCP}]
+              app.kubernetes.io/name: opensearch-v3
+      ports: [{port: 9200, protocol: TCP}]
 {{- end }}

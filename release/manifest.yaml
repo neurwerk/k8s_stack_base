@@ -1,11 +1,11 @@
 apiVersion: platform.neurwerk.com/v1alpha1
 kind: PlatformRelease
 metadata:
-  name: v0.3.41
+  name: v0.3.42
 spec:
-  version: 0.3.41
-  releaseDate: '2026-11-19'
-  summary: LDAP default and catalog-wide access bundles
+  version: 0.3.42
+  releaseDate: '2026-11-20'
+  summary: Optional role-free LDAP directory groups, invocation-based MCP usage and standard Docling Serve
   trust:
     signerIdentity: platform-release
     algorithm: ssh-ed25519
@@ -35,8 +35,8 @@ spec:
       chartPrefixes: []
       prerequisites:
       - name: openbao-stack-setup
-        version: 0.8.6
-        source: https://redirect.github.com/neurwerk/k8s_stack_tooling/commit/cb95a5a4b5ea2518f7b0373f8822c1e43cc68d01
+        version: 0.8.11
+        source: https://github.com/neurwerk/k8s_stack_tooling/commit/f23e8caa6452facf8f3cf2c63961772f2684730a
     - path: releases/glitchtip/postgres
       status: included
       reason: Optional dedicated GlitchTip database using the existing operations PostgreSQL; requires
@@ -54,8 +54,8 @@ spec:
         version: 0.18.3
         source: https://redirect.github.com/neurwerk/k8s_stack_tooling/releases/tag/v0.18.3
       - name: openbao-stack-setup
-        version: 0.8.6
-        source: https://redirect.github.com/neurwerk/k8s_stack_tooling/commit/cb95a5a4b5ea2518f7b0373f8822c1e43cc68d01
+        version: 0.8.11
+        source: https://github.com/neurwerk/k8s_stack_tooling/commit/f23e8caa6452facf8f3cf2c63961772f2684730a
     - path: releases/glitchtip/secret-sync/initial-owner
       status: included
       reason: Optional initial local organization-owner credentials for native provisioning; never delivered
@@ -63,8 +63,8 @@ spec:
       chartPrefixes: []
       prerequisites:
       - name: openbao-stack-setup
-        version: 0.8.6
-        source: https://redirect.github.com/neurwerk/k8s_stack_tooling/commit/cb95a5a4b5ea2518f7b0373f8822c1e43cc68d01
+        version: 0.8.11
+        source: https://github.com/neurwerk/k8s_stack_tooling/commit/f23e8caa6452facf8f3cf2c63961772f2684730a
     - path: releases/glitchtip/adapter-access
       status: included
       reason: Optional reader credentials, internal CA distribution and scoped access; import the verified
@@ -72,8 +72,8 @@ spec:
       chartPrefixes: []
       prerequisites:
       - name: openbao-stack-setup
-        version: 0.8.6
-        source: https://redirect.github.com/neurwerk/k8s_stack_tooling/commit/cb95a5a4b5ea2518f7b0373f8822c1e43cc68d01
+        version: 0.8.11
+        source: https://github.com/neurwerk/k8s_stack_tooling/commit/f23e8caa6452facf8f3cf2c63961772f2684730a
     - path: releases/glitchtip/tailscale-access
       status: included
       reason: Optional egress allowance for only the managed GlitchTip UI proxy. Requires the existing
@@ -99,7 +99,7 @@ spec:
         version: 0.25.1
         source: oci://quay.io/jetstack/charts/cert-manager-approver-policy
       - name: cert-manager-approval-policy
-        version: 1.2.9
+        version: 1.2.10
         source: releases/cert-manager/approval-policy.yaml
       - name: trust-manager
         version: 0.24.0
@@ -135,28 +135,40 @@ spec:
       prerequisites:
       - name: inference-runtime-manager
         version: 0.2.0
-        source: https://github.com/neurwerk/k8s_stack_tooling/commit/50b0c29c60482033bc0ceac58ca5a68733e5b075
+        source: https://github.com/neurwerk/k8s_stack_tooling/commit/f23e8caa6452facf8f3cf2c63961772f2684730a
       - name: openbao-stack-setup
-        version: 0.8.6
-        source: https://redirect.github.com/neurwerk/k8s_stack_tooling/commit/cb95a5a4b5ea2518f7b0373f8822c1e43cc68d01
+        version: 0.8.11
+        source: https://github.com/neurwerk/k8s_stack_tooling/commit/f23e8caa6452facf8f3cf2c63961772f2684730a
     - path: releases/docling/secret-sync/internal
       status: included
-      reason: Optional CPU API-key delivery; provision operator credentials before startup, without an
-        external inference token.
+      reason: Optional internal Serve and extProc API-key delivery; preserve existing credentials and
+        provision them before startup.
       chartPrefixes: []
       prerequisites:
       - name: openbao-stack-setup
-        version: 0.8.6
-        source: https://redirect.github.com/neurwerk/k8s_stack_tooling/commit/cb95a5a4b5ea2518f7b0373f8822c1e43cc68d01
+        version: 0.8.11
+        source: https://github.com/neurwerk/k8s_stack_tooling/commit/f23e8caa6452facf8f3cf2c63961772f2684730a
+    - path: releases/docling/secret-sync/external
+      status: included
+      reason: Optional extProc API-key delivery for complete external Serve; preserve the existing key
+        and Secret identities. Install and verify the official GPU runtime before external adoption.
+      chartPrefixes: []
+      prerequisites:
+      - name: inference-runtime-manager
+        version: 0.2.0
+        source: https://github.com/neurwerk/k8s_stack_tooling/commit/f23e8caa6452facf8f3cf2c63961772f2684730a
+      - name: openbao-stack-setup
+        version: 0.8.11
+        source: https://github.com/neurwerk/k8s_stack_tooling/commit/f23e8caa6452facf8f3cf2c63961772f2684730a
     - path: releases/docling/secret-sync
       status: included
-      reason: Optional remote-mode credential delivery; provision the API key and inference token before
-        startup.
+      reason: Optional internal Serve credential composition; includes internal and extProc API-key delivery
+        without an inference token. External clients select the external package instead.
       chartPrefixes: []
       prerequisites:
       - name: openbao-stack-setup
-        version: 0.8.6
-        source: https://redirect.github.com/neurwerk/k8s_stack_tooling/commit/cb95a5a4b5ea2518f7b0373f8822c1e43cc68d01
+        version: 0.8.11
+        source: https://github.com/neurwerk/k8s_stack_tooling/commit/f23e8caa6452facf8f3cf2c63961772f2684730a
     - path: releases/docling/reloader
       status: included
       reason: Optional Docling namespace watch and rotation RBAC; compose only after its namespace exists.
@@ -167,14 +179,17 @@ spec:
       chartPrefixes: []
     - path: releases/docling/app
       status: included
-      reason: Optional CPU or private remote extraction; disabled by default and requires client selection
-        and operator credentials.
+      reason: Optional official Docling Serve 1.38.2 extraction; disabled by default. Select internal
+        CPU or one complete external Serve API, preserving the existing key. Remove old inference modes
+        and aliases. Standard extraction requires extProc 0.24.0 and DoclingDocument 1.10.0; the shared
+        PDF allowance defaults to two pages. External GPU clients select their explicit page allowance
+        and the external credential package after runtime verification.
       chartPrefixes:
       - charts/docling
       prerequisites:
       - name: openbao-stack-setup
-        version: 0.8.6
-        source: https://redirect.github.com/neurwerk/k8s_stack_tooling/commit/cb95a5a4b5ea2518f7b0373f8822c1e43cc68d01
+        version: 0.8.11
+        source: https://github.com/neurwerk/k8s_stack_tooling/commit/f23e8caa6452facf8f3cf2c63961772f2684730a
     - path: releases/namespaces/maintenance
       status: included
       reason: Operator-tested optional maintenance; enable only when selected by the client.
@@ -206,8 +221,8 @@ spec:
       chartPrefixes: []
       prerequisites:
       - name: openbao-stack-setup
-        version: 0.8.6
-        source: https://redirect.github.com/neurwerk/k8s_stack_tooling/commit/cb95a5a4b5ea2518f7b0373f8822c1e43cc68d01
+        version: 0.8.11
+        source: https://github.com/neurwerk/k8s_stack_tooling/commit/f23e8caa6452facf8f3cf2c63961772f2684730a
     - path: releases/tailscale/access
       status: included
       reason: Optional separately owned API TCP transport; disabled and suspended by default pending explicit
@@ -229,8 +244,8 @@ spec:
       chartPrefixes: []
       prerequisites:
       - name: openbao-stack-setup
-        version: 0.8.6
-        source: https://redirect.github.com/neurwerk/k8s_stack_tooling/commit/cb95a5a4b5ea2518f7b0373f8822c1e43cc68d01
+        version: 0.8.11
+        source: https://github.com/neurwerk/k8s_stack_tooling/commit/f23e8caa6452facf8f3cf2c63961772f2684730a
     - path: releases/contextforge/oauth-apps
       status: included
       reason: Provider application credential delivery is selected only with approved registrations; all
@@ -238,8 +253,8 @@ spec:
       chartPrefixes: []
       prerequisites:
       - name: openbao-stack-setup
-        version: 0.8.6
-        source: https://redirect.github.com/neurwerk/k8s_stack_tooling/commit/cb95a5a4b5ea2518f7b0373f8822c1e43cc68d01
+        version: 0.8.11
+        source: https://github.com/neurwerk/k8s_stack_tooling/commit/f23e8caa6452facf8f3cf2c63961772f2684730a
   prerequisites:
   - name: flux
     version: 2.9.4
@@ -248,8 +263,8 @@ spec:
     version: 0.0.5
     source: oci://ghcr.io/clickhouse/clickhouse-operator-helm
   - name: openbao-stack-setup
-    version: 0.8.9
-    source: https://redirect.github.com/neurwerk/k8s_stack_tooling/commit/345d0aff04359fecf08ec9e6a70e2f9bc3fc0311
+    version: 0.8.11
+    source: https://github.com/neurwerk/k8s_stack_tooling/commit/f23e8caa6452facf8f3cf2c63961772f2684730a
   - name: gateway-api-experimental
     version: 1.6.0
     source: https://github.com/kubernetes-sigs/gateway-api/releases/tag/v1.6.0
@@ -285,7 +300,7 @@ spec:
     charts:
     - path: charts/agentgateway
       name: infra-agentgateway
-      version: 5.6.0
+      version: 5.7.0
       appVersion: 1.7.0
       dependencyLock:
         digest: sha256:08cd4895c0e3b08ec6974dea5acf5c62b8d1b417aa302f8f6103ad5014b04c87
@@ -305,11 +320,11 @@ spec:
       appVersion: 0.12.0
     - path: charts/agentgateway-extproc
       name: agentgateway-extproc
-      version: 2.1.2
-      appVersion: 0.23.0
+      version: 2.2.0
+      appVersion: 0.24.0
     - path: charts/cert-manager/approval-policy
       name: infra-cert-manager-approval-policy
-      version: 1.2.9
+      version: 1.2.10
     - path: charts/cert-manager/approver-policy
       name: infra-cert-manager-approver-policy
       version: 1.0.0
@@ -350,8 +365,8 @@ spec:
       version: 0.1.1
     - path: charts/docling
       name: docling
-      version: 0.5.0
-      appVersion: 1.33.0-native.1
+      version: 0.6.0
+      appVersion: 1.38.2
     - path: charts/external-secrets
       name: infra-external-secrets
       version: 1.0.2
@@ -367,7 +382,7 @@ spec:
           sha256: da2d5c126a103b4c1b16a9dc1c168c4332a3687144e88ac070e594f81a0b6578
     - path: charts/fluent-bit
       name: monitor-fluent-bit
-      version: 1.0.14
+      version: 1.0.15
       appVersion: 3.2.8
       dependencyLock:
         digest: sha256:90275c51b97202d8b18e353f33c38e5800924b94be0b21d2adf9a62590334d17
@@ -437,7 +452,7 @@ spec:
           sha256: 5ee4dc1695ec4784544a5d667530ad86bc89743031ec4e900652cb94bbd788aa
     - path: charts/langfuse
       name: monitor-langfuse
-      version: 2.0.40
+      version: 2.0.41
       appVersion: 4.28.1
       dependencyLock:
         digest: sha256:68156b8f74aa153f2e33eb76f6ac11e9277c1a8fe8073c3f37da8834a97292cc
@@ -466,7 +481,7 @@ spec:
           sha256: 646d932f597632a7328bd300994e66c2cabaa1b6763372cbabb559cd84ff3f2f
     - path: charts/opensearch/app
       name: monitor-opensearch
-      version: 1.2.8
+      version: 1.2.9
       appVersion: 3.8.0
       dependencyLock:
         digest: sha256:9c8dd301b564083b467cb09c7cf52f57674aaf46b3ef479f62ebd61e49fc52f3
@@ -532,15 +547,15 @@ spec:
       appVersion: v1.20.3
     - path: charts/studio/api
       name: studio-api
-      version: 2.2.1
-      appVersion: 0.26.1
+      version: 2.3.0
+      appVersion: 0.27.0
     - path: charts/studio/shared
       name: studio-shared
       version: 1.0.0
     - path: charts/studio/web
       name: studio
-      version: 1.0.49
-      appVersion: 0.26.1
+      version: 1.0.50
+      appVersion: 0.27.0
     - path: charts/tailscale/access
       name: tailscale-access
       version: 0.1.0
@@ -846,6 +861,11 @@ spec:
       eligibility: included
       origins:
       - charts/pii-engine/values.yaml
+    - reference: ghcr.io/docling-project/docling-serve-cpu:v1.38.2@sha256:7a480a1604fa3b42efeddc7db9527690d9f9bc903226136013e2bfe6b1a4dfb0
+      pinned: true
+      eligibility: included
+      origins:
+      - charts/docling/values.yaml
     - reference: ghcr.io/documentdb/documentdb/documentdb-local:pg18-0.116.0@sha256:01bb9408393fb6417cc32735f4566dee4b53bbab6df6b70c42797317da631f12
       pinned: true
       eligibility: included
@@ -868,12 +888,7 @@ spec:
       eligibility: included
       origins:
       - charts/kube-prometheus-stack/values.yaml
-    - reference: ghcr.io/neurwerk/docling-serve-cpu:1.33.0-native.1@sha256:c579c4a895af1c57980e02ade72f360873aa8d0058505e3049e0c58c131a7d96
-      pinned: true
-      eligibility: included
-      origins:
-      - charts/docling/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.23.0@sha256:0f92ee40ee2a4304bc3d77f191c8104ba77f3eab3105bba99f7030d7f8cbaa54
+    - reference: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.24.0@sha256:45e88d3069db86e08d612da8218c064bbcb00f9608a97fda0b933e8f5aaad605
       pinned: true
       eligibility: included
       origins:
@@ -900,17 +915,17 @@ spec:
       origins:
       - charts/pii-engine-model-sync/values.yaml
       - charts/pii-engine/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-studio-api:0.26.1@sha256:033e898cbb0c871dd28fef231ea2f87ddb4729fb9420bcd67275c6bdfd8ff647
+    - reference: ghcr.io/neurwerk/k8s-stack-studio-api:0.27.0@sha256:238c4d1555f1dc7f7669c0e6bdf863abf311617b5bab966813edc572b208d0a2
       pinned: true
       eligibility: included
       origins:
       - charts/studio/api/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-studio-collector:0.26.1@sha256:8f85915df08e23b663b457ec79c14858fc973b909d0c96efb2d49094cde9bcde
+    - reference: ghcr.io/neurwerk/k8s-stack-studio-collector:0.27.0@sha256:12410faa68584294b53f5db242974e0bf0a598e41fc1eaa1b10bcf83340224b9
       pinned: true
       eligibility: included
       origins:
       - charts/studio/api/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-studio-web:0.26.1@sha256:28f61bafe81c9ef6913437bdf37b65ee71e7f45e241bd08de78901bd62ee26fe
+    - reference: ghcr.io/neurwerk/k8s-stack-studio-web:0.27.0@sha256:4e855ff51d094c9b9694a43d2c2e6f77bb2d464711b8ee23a1107a19cb106c87
       pinned: true
       eligibility: included
       origins:
@@ -1089,9 +1104,14 @@ spec:
       node: 24.20.0
       lua: 5.4.9
   provenance:
-    previousTag: v0.3.40
-    includedThrough: 4a01062603e7a2352c39ac6ad02c6eaedc38a1b4
+    previousTag: v0.3.41
+    includedThrough: 5df2af79e98ffceaa9e832df8af18cdaf3d43e3c
     commits:
-    - c8ae85e63811c5c860d24ffc4fa77596ba5b2e71
-    - 4a01062603e7a2352c39ac6ad02c6eaedc38a1b4
-    compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.40...4a01062603e7a2352c39ac6ad02c6eaedc38a1b4
+    - 788bb947eb5844f19ffacd9f736a01d2a206fa63
+    - 722c4df9329dd07b6eaed0ff11990c193690aaec
+    - 3c119162374f9d2419c7be886910c42c51bbf65a
+    - c490988eb1ef4083dc994de582aeeb045860fc5a
+    - 5d10b22784684423c8728fa9d4d934021bc245fd
+    - 87bc3811d89d2c87bcacf9d318a931fa553a8008
+    - 5df2af79e98ffceaa9e832df8af18cdaf3d43e3c
+    compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.41...5df2af79e98ffceaa9e832df8af18cdaf3d43e3c

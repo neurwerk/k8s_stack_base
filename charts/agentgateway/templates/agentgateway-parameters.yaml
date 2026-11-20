@@ -49,6 +49,8 @@ spec:
     # agent_llm WARN includes raw malformed provider bodies; request logs stay enabled.
     level: "info,agent_llm=error"
   env:
+    - name: LOG_FORMAT
+      value: json
     - name: AGENTGATEWAY_DATABASE_PASSWORD
       valueFrom:
         secretKeyRef:
@@ -91,10 +93,12 @@ spec:
           add:
             {{- include "infra-agentgateway.aiTelemetry" . | nindent 12 }}
           {{- end }}
-        {{- if .Values.aiGateway.enabled }}
         add:
+          studio_mcp: >-
+            {{- include "infra-agentgateway.mcpUsage" . | nindent 12 }}
+          {{- if .Values.aiGateway.enabled }}
           {{- include "infra-agentgateway.aiTelemetry" . | nindent 10 }}
-        {{- end }}
+          {{- end }}
       {{- if .Values.guardrails.llmPolicyEngine.enabled }}
       http:
         maxBufferSize: {{ if .Values.docling.enabled }}67108864{{ else }}{{ int .Values.guardrails.llmPolicyEngine.maxBufferSize }}{{ end }}

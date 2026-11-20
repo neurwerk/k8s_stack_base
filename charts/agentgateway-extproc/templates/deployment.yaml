@@ -10,7 +10,15 @@
 {{- fail "monitorAgentgatewayExtproc.engine.readinessTimeout must be greater than zero and at most one second" -}}
 {{- end }}
 {{- $docling := .Values.docling -}}
+{{- $externalDocling := and $docling.enabled (eq $docling.mode "external") -}}
 {{- $imageInspection := .Values.monitorAgentgatewayExtproc.imageInspection -}}
+{{- $reloadConfigMaps := list -}}
+{{- if and $imageInspection.enabled $imageInspection.caConfigMap -}}
+{{- $reloadConfigMaps = append $reloadConfigMaps $imageInspection.caConfigMap -}}
+{{- end -}}
+{{- if and $externalDocling $docling.external.caConfigMap -}}
+{{- $reloadConfigMaps = append $reloadConfigMaps $docling.external.caConfigMap -}}
+{{- end -}}
 {{- $reloadSecrets := "monitor-agentgateway-extproc-engine-client-tls" -}}
 {{- if $docling.enabled -}}
 {{- $reloadSecrets = printf "%s,monitor-agentgateway-extproc-docling-secret" $reloadSecrets -}}
@@ -32,8 +40,8 @@ metadata:
   namespace: monitor-agentgateway-extproc
   annotations:
     secret.reloader.stakater.com/reload: {{ $reloadSecrets }}
-    {{- if and $imageInspection.enabled $imageInspection.caConfigMap }}
-    configmap.reloader.stakater.com/reload: {{ $imageInspection.caConfigMap | quote }}
+    {{- if $reloadConfigMaps }}
+    configmap.reloader.stakater.com/reload: {{ join "," (uniq $reloadConfigMaps) | quote }}
     {{- end }}
   labels:
     app.kubernetes.io/name: monitor-agentgateway-extproc
@@ -129,17 +137,24 @@ spec:
             - name: EXTPROC_DOCLING__ENABLED
               value: "true"
             - name: EXTPROC_DOCLING__BASE_URL
-              value: "https://docling.docling.svc"
+              value: {{ ternary (trimSuffix "/" $docling.external.url) "https://docling.docling.svc" $externalDocling | quote }}
+            - name: EXTPROC_DOCLING__ALLOW_HTTP
+              value: {{ and $externalDocling $docling.external.allowHttp | quote }}
+            {{- if $externalDocling }}
+            {{- if $docling.external.caConfigMap }}
+            - name: EXTPROC_DOCLING__CA_CERT
+              value: "/var/run/docling/ca.crt"
+            {{- end }}
+            {{- else }}
             # Reuse only the common internal CA, not the PII client identity.
             - name: EXTPROC_DOCLING__CA_CERT
               value: "/var/run/pii-engine/tls/ca.crt"
+            {{- end }}
             - name: EXTPROC_DOCLING__API_KEY
               valueFrom:
                 secretKeyRef:
                   name: monitor-agentgateway-extproc-docling-secret
                   key: api-key
-            - name: EXTPROC_DOCLING__INFERENCE_MODE
-              value: {{ ternary "cpu" "remote" (has $docling.inference.mode (list "cpu" "internal-standard")) | quote }}
             - name: EXTPROC_DOCLING__TIMEOUT
               value: {{ $docling.syncWaitSeconds | quote }}
             - name: EXTPROC_DOCLING__DOCUMENT_TIMEOUT
@@ -188,6 +203,11 @@ spec:
               subPath: ca.crt
               readOnly: true
             {{- end }}
+            {{- if and $externalDocling $docling.external.caConfigMap }}
+            - name: docling-ca
+              mountPath: /var/run/docling
+              readOnly: true
+            {{- end }}
           readinessProbe:
             httpGet:
               path: /ready
@@ -218,6 +238,13 @@ spec:
         - name: image-inspection-ca
           configMap:
             name: {{ $imageInspection.caConfigMap | quote }}
+            items:
+              - {key: ca.crt, path: ca.crt}
+        {{- end }}
+        {{- if and $externalDocling $docling.external.caConfigMap }}
+        - name: docling-ca
+          configMap:
+            name: {{ $docling.external.caConfigMap | quote }}
             items:
               - {key: ca.crt, path: ca.crt}
         {{- end }}

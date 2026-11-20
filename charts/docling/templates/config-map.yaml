@@ -1,32 +1,5 @@
-{{- if .Values.docling.enabled }}
+{{- if and .Values.docling.enabled (eq .Values.docling.mode "internal") }}
 {{- $docling := .Values.docling }}
-{{- $remote := has $docling.inference.mode (list "remote" "private-vlm") }}
-{{- $modelSpec := dict
-  "name" "Granite-Docling-258M"
-  "default_repo_id" "ibm-granite/granite-docling-258M"
-  "prompt" "Convert this page to docling."
-  "response_format" "doctags"
-  "temperature" 0
-  "max_new_tokens" $docling.inference.maxOutputTokens
-  "stop_strings" (list "</doctag>" "<|end_of_text|>")
-}}
-{{- $engineOptions := dict
-  "engine_type" "api"
-  "url" $docling.inference.url
-  "headers" (dict)
-  "params" (dict "model" $docling.inference.model "skip_special_tokens" false)
-  "timeout" $docling.inference.timeoutSeconds
-  "concurrency" 1
-}}
-{{- $preset := dict
-  "model_spec" $modelSpec
-  "engine_options" $engineOptions
-  "scale" 2.0
-  "force_backend_text" false
-}}
-{{- $imagePreset := deepCopy $preset }}
-{{- $_ := set $imagePreset "scale" 1.0 }}
-{{- $_ := set $imagePreset "max_size" nil }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -43,7 +16,7 @@ data:
     "allowed_vlm_presets" (list)
     "allowed_vlm_engines" (list)
     "allow_custom_vlm_config" false
-    "enable_remote_services" $remote
+    "enable_remote_services" false
     "load_models_at_boot" false
     "eng_kind" "local"
     "eng_loc_num_workers" 1
@@ -78,10 +51,10 @@ data:
     "result_removal_delay" $docling.resultRemovalDelaySeconds
     "max_document_timeout" $docling.documentTimeoutSeconds
     "max_sync_wait" $docling.syncWaitSeconds
-    "queue_max_size" 1
-    "ocr_batch_size" 1
-    "layout_batch_size" 1
-    "table_batch_size" 1
+    "queue_max_size" 100
+    "ocr_batch_size" $docling.batches.ocr
+    "layout_batch_size" $docling.batches.layout
+    "table_batch_size" $docling.batches.table
     "otel_enable_metrics" false
     "otel_enable_traces" false
     "otel_enable_prometheus" false
@@ -89,13 +62,18 @@ data:
     "cors_methods" (list)
     "cors_headers" (list)
   }}
-  {{- if $remote }}
-    {{- $_ := set $settings "custom_vlm_presets" (dict "default" $preset "images" $imagePreset) }}
-    {{- $_ := set $settings "allowed_vlm_presets" (list "images") }}
-    {{- $_ := set $settings "default_vlm_preset" "default" }}
-    {{- $_ := set $settings "allowed_vlm_engines" (list "api") }}
-  {{- else }}
-    {{- $_ := set $settings "default_ocr_preset" "rapidocr" }}
-  {{- end }}
+  {{- $_ := set $settings "batch_polling_interval_seconds" 0.5 }}
+  {{- $_ := set $settings "custom_table_structure_presets" (dict "default" (dict "kind" "docling_tableformer" "mode" "accurate" "do_cell_matching" true)) }}
+  {{- $_ := set $settings "default_table_structure_preset" "default" }}
+  {{- $_ := set $settings "allowed_table_structure_presets" (list "default") }}
+  {{- $_ := set $settings "allowed_table_structure_kinds" (list "docling_tableformer") }}
+  {{- $_ := set $settings "allowed_ocr_presets" (list "default") }}
+  {{- $_ := set $settings "allowed_layout_presets" (list "default") }}
+  {{- $_ := set $settings "custom_ocr_presets" (dict "default" (dict "kind" "rapidocr" "backend" "torch" "model_size" "small" "use_cls" true "lang" (list "ch") "scale" 3.0)) }}
+  {{- $_ := set $settings "default_ocr_kind" "rapidocr" }}
+  {{- $_ := set $settings "allowed_ocr_kinds" (list "rapidocr") }}
+  {{- $_ := set $settings "custom_layout_presets" (dict "default" (dict "kind" "layout_object_detection" "engine_options" (dict "engine_type" "transformers"))) }}
+  {{- $_ := set $settings "default_layout_kind" "layout_object_detection" }}
+  {{- $_ := set $settings "allowed_layout_kinds" (list "layout_object_detection") }}
   settings.json: {{ $settings | toJson | quote }}
 {{- end }}

@@ -1,4 +1,4 @@
-{{- if .Values.docling.enabled }}
+{{- if and .Values.docling.enabled (eq .Values.docling.mode "internal") }}
 apiVersion: policy.cert-manager.io/v1alpha1
 kind: CertificateRequestPolicy
 metadata:

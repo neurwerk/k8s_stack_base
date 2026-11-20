@@ -7,31 +7,20 @@ import sys
 
 
 def main():
-    logging.disable(logging.WARNING)
+    # Upstream error messages can contain inference response bodies.
+    logging.disable(logging.CRITICAL)
     try:
         with open(os.environ["DOCLING_SERVE_CONFIG_FILE"], encoding="utf-8") as source:
             settings = json.load(source)
         api_key = os.environ["DOCLING_SERVE_API_KEY"]
-        credentials = [api_key]
-        if settings["enable_remote_services"]:
-            token = os.environ.pop("DOCLING_INFERENCE_TOKEN")
-            credentials.append(token)
-        for value in credentials:
-            if not value.strip() or "\r" in value or "\n" in value:
-                raise ValueError("invalid credential")
-        if settings["enable_remote_services"]:
-            presets = settings["custom_vlm_presets"]
-            for name in ("default", "images"):
-                presets[name]["engine_options"]["headers"] = {
-                    "Authorization": "Bearer " + token
-                }
-            os.environ["DOCLING_SERVE_CUSTOM_VLM_PRESETS"] = json.dumps(presets)
+        if not api_key.strip() or "\r" in api_key or "\n" in api_key:
+            raise ValueError("invalid credential")
 
         from docling_serve.app import create_app
         import uvicorn
 
         # Upstream configures logging during import. Do not let Uvicorn reset it.
-        logging.disable(logging.WARNING)
+        logging.disable(logging.CRITICAL)
         # A server-wide concurrency cap would reject health probes when busy.
         uvicorn.run(
             create_app, factory=True, host="0.0.0.0", port=5001,

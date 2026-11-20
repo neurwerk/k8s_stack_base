@@ -7,17 +7,17 @@
       "properties": {
         "usage": {
           "type": "object",
-          "required": ["enabled", "collectorImage", "prometheusUrl", "prometheusUpSelector", "scrapeSeconds", "mcpPricing", "resources"],
+          "required": ["enabled", "collectorImage", "mcpPricing", "resources"],
           "properties": {
             "enabled": {"type": "boolean"},
             "collectorImage": {"type": "string"},
-            "prometheusUrl": {"type": "string", "pattern": "^https?://"},
-            "prometheusUpSelector": {"type": "string", "minLength": 1},
-            "scrapeSeconds": {"type": "integer", "minimum": 1, "maximum": 300},
             "mcpPricing": {
               "type": "object",
               "required": ["accounts"],
-              "properties": {"accounts": {"type": "array", "maxItems": 200}}
+              "properties": {
+                "accounts": {"type": "array", "maxItems": 200},
+                "default_rate": {"type": ["number", "null"], "minimum": 0}
+              }
             },
             "resources": {"type": "object"}
           },

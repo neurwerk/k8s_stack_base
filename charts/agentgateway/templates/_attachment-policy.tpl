@@ -74,7 +74,6 @@ the concrete routing branch, never names, groups, URLs or policy route classes. 
 {{- $imageInspection := "document-only" -}}
 {{- $imageTextless := "block" -}}
 {{- $pdfMode := "" -}}
-{{- $pdfFallback := "" -}}
 {{- $pdfMaxPages := 0 -}}
 {{- if $typedVersion -}}
 {{- $attachments := $model.attachments -}}
@@ -112,24 +111,16 @@ the concrete routing branch, never names, groups, URLs or policy route classes. 
 {{- fail (printf "model %q attachments.documents.pdf requires mode" $name) -}}
 {{- end -}}
 {{- range $field, $_ := $pdf -}}
-{{- if not (has $field (list "mode" "fallback" "maxRenderedPages")) -}}
+{{- if not (has $field (list "mode" "maxRenderedPages")) -}}
 {{- fail (printf "model %q attachments.documents.pdf contains unknown field %q" $name $field) -}}
 {{- end -}}
 {{- end -}}
 {{- $pdfMode = $pdf.mode -}}
-{{- if not (and (kindIs "string" $pdfMode) (has $pdfMode (list "block" "extract-text" "render-images" "native-first"))) -}}
-{{- fail (printf "model %q attachments.documents.pdf.mode must be block, extract-text, render-images, or native-first" $name) -}}
-{{- end -}}
-{{- if eq $pdfMode "native-first" -}}
-{{- if not (and (hasKey $pdf "fallback") (kindIs "string" $pdf.fallback) (has $pdf.fallback (list "extract-text" "render-images"))) -}}
-{{- fail (printf "model %q attachments.documents.pdf native-first requires explicit fallback extract-text or render-images" $name) -}}
-{{- end -}}
-{{- $pdfFallback = $pdf.fallback -}}
-{{- else if hasKey $pdf "fallback" -}}
-{{- fail (printf "model %q attachments.documents.pdf.fallback is only allowed with native-first" $name) -}}
+{{- if not (and (kindIs "string" $pdfMode) (has $pdfMode (list "block" "extract-text" "render-images"))) -}}
+{{- fail (printf "model %q attachments.documents.pdf.mode must be block, extract-text, or render-images" $name) -}}
 {{- end -}}
 {{- if hasKey $pdf "maxRenderedPages" -}}
-{{- if not (and (or (eq $pdfMode "render-images") (eq $pdfFallback "render-images")) (regexMatch `^[1-9][0-9]*$` (toJson $pdf.maxRenderedPages)) (le (int $pdf.maxRenderedPages) 20)) -}}
+{{- if not (and (eq $pdfMode "render-images") (regexMatch `^[1-9][0-9]*$` (toJson $pdf.maxRenderedPages)) (le (int $pdf.maxRenderedPages) 20)) -}}
 {{- fail (printf "model %q attachments.documents.pdf.maxRenderedPages must be an integer from 1 to 20 with image rendering" $name) -}}
 {{- end -}}
 {{- $pdfMaxPages = int $pdf.maxRenderedPages -}}
@@ -201,16 +192,12 @@ the concrete routing branch, never names, groups, URLs or policy route classes. 
 {{- end -}}
 {{- $local := and (eq (toJson $model.local) "true") (not $model.piiReroute) (eq (toJson $backend.enabled) "true") (kindIs "string" $backend.host) (not (empty $backend.host)) (kindIs "string" $model.model) (not (empty $model.model)) -}}
 {{- $images := and $local (eq (toJson $model.supportsImages) "true") -}}
-{{- if and (or (eq $pdfMode "render-images") (eq $pdfFallback "render-images")) (not (and (eq $documentMode "extract-text") (eq $imageMode "forward-normalized") (eq $forward "pii-unchecked") $images (not $pii))) -}}
+{{- if and (eq $pdfMode "render-images") (not (and (eq $documentMode "extract-text") (eq $imageMode "forward-normalized") (eq $forward "pii-unchecked") $images (not $pii))) -}}
 {{- fail (printf "model %q PDF %s requires default extract-text and unchecked normalized images on a concrete local vision model with PII disabled" $name $pdfMode) -}}
 {{- end -}}
 {{- if ne $pdfMode "" -}}
 {{- if not (hasKey $maps "pdf_modes") }}{{ $_ := set $maps "pdf_modes" (dict) }}{{ end -}}
 {{- $_ := set $maps.pdf_modes $name $pdfMode -}}
-{{- end -}}
-{{- if ne $pdfFallback "" -}}
-{{- if not (hasKey $maps "pdf_fallbacks") }}{{ $_ := set $maps "pdf_fallbacks" (dict) }}{{ end -}}
-{{- $_ := set $maps.pdf_fallbacks $name $pdfFallback -}}
 {{- end -}}
 {{- if gt $pdfMaxPages 0 -}}
 {{- if not (hasKey $maps "pdf_max_rendered_pages") }}{{ $_ := set $maps "pdf_max_rendered_pages" (dict) }}{{ end -}}
@@ -222,18 +209,18 @@ the concrete routing branch, never names, groups, URLs or policy route classes. 
 {{- if and (not $typedVersion) (ne $forward "none") (not $processing) -}}
 {{- fail (printf "model %q image forwarding requires attachmentMode process or extract" $name) -}}
 {{- end -}}
-{{- if and (eq $version "2") (ne $forward "none") (not (and $.Values.docling.enabled (has $.Values.docling.inference.mode (list "private-vlm" "remote")))) -}}
-{{- fail (printf "model %q image forwarding requires enabled Docling private-vlm or remote mode" $name) -}}
+{{- if and (eq $version "2") (ne $forward "none") (not $.Values.docling.enabled) -}}
+{{- fail (printf "model %q image forwarding requires enabled Docling" $name) -}}
 {{- end -}}
-{{- if and (eq $version "3") (ne $forward "none") (not (and $.Values.docling.enabled (has $.Values.docling.inference.mode (list "internal-standard" "cpu" "private-vlm" "remote")))) -}}
-{{- fail (printf "model %q image forwarding requires enabled Docling internal-standard/cpu or private-vlm/remote mode" $name) -}}
+{{- if and (eq $version "3") (ne $forward "none") (not $.Values.docling.enabled) -}}
+{{- fail (printf "model %q image forwarding requires enabled Docling" $name) -}}
 {{- end -}}
-{{- $needsExtraction := or (eq $documentMode "extract-text") (has $pdfMode (list "extract-text" "native-first")) (eq $imageMode "extract-text") (and (eq $imageMode "forward-normalized") (ne $imagePolicy "unchecked")) -}}
-{{- if and $version41 (eq $imageInspection "document-and-vision") (not (and $.Values.docling.enabled (has $.Values.docling.inference.mode (list "private-vlm" "remote")))) -}}
-{{- fail (printf "model %q document-and-vision inspection requires enabled Docling private-vlm or remote mode" $name) -}}
+{{- $needsExtraction := or (eq $documentMode "extract-text") (eq $pdfMode "extract-text") (eq $imageMode "extract-text") (and (eq $imageMode "forward-normalized") (ne $imagePolicy "unchecked")) -}}
+{{- if and $version41 (eq $imageInspection "document-and-vision") (not $.Values.docling.enabled) -}}
+{{- fail (printf "model %q document-and-vision inspection requires enabled Docling" $name) -}}
 {{- end -}}
-{{- if and $typedVersion $needsExtraction (not (and $.Values.docling.enabled (has $.Values.docling.inference.mode (list "internal-standard" "cpu" "private-vlm" "remote")))) -}}
-{{- fail (printf "model %q attachment extraction requires enabled Docling internal-standard/cpu or private-vlm/remote mode" $name) -}}
+{{- if and $typedVersion $needsExtraction (not $.Values.docling.enabled) -}}
+{{- fail (printf "model %q attachment extraction requires enabled Docling" $name) -}}
 {{- end -}}
 {{- if and $version41 (eq $imageTextless "allow-if-inspected") (not (and (eq $imageInspection "document-and-vision") (eq $imageMode "forward-normalized") (has $imagePolicy (list "enforce" "strict")))) -}}
 {{- fail (printf "model %q allow-if-inspected requires document-and-vision inspection and checked forward-normalized image delivery" $name) -}}

@@ -177,10 +177,8 @@ external-subscription-providers: []
 # different flag or time budget in product values. Higher budgets may reach 3660s.
 docling:
   enabled: false
+  mode: internal
   syncWaitSeconds: 360
-  inference:
-    # Shared with Docling: internal-standard (cpu) or private-vlm (remote).
-    mode: remote
 
 # ── Guardrails ────────────────────────────────────────────────────────────────
 # All guardrails are handled by the extProc LLM Policy Engine
@@ -222,8 +220,8 @@ guardrails:
     # contentTracingEnabled explicitly; tracing may retain request content.
     # Local and rerouted models require llamacpp.enabled. Attachment modes must
     # match the selected policy version and deployed extProc. No attachment mode
-    # means block; passthrough requires PII disabled. Typed policies use
-    # attachments.documents and attachments.images. Helm replaces the whole list.
+    # means block. Typed policies use attachments.documents and attachments.images.
+    # Helm replaces the whole list.
     models: []
 
 # The client supplies the reviewed OpenRouter catalog.
@@ -231,7 +229,7 @@ openrouterCatalog:
   enabled: false
   excludedModels: []
   grantToAccessGroups: false
-  # Catalog rows keep PII enabled; passthrough requires a client model override.
+  # Catalog rows keep PII enabled.
   models: []
 
 # ── Subchart values (agentgateway Helm chart) ────────────────────────────────

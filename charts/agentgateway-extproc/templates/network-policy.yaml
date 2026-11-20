@@ -68,6 +68,15 @@ spec:
           protocol: TCP
     {{- end }}
     {{- if .Values.docling.enabled }}
+    {{- if eq .Values.docling.mode "external" }}
+    - to:
+        {{- range .Values.docling.external.cidrs }}
+        - ipBlock: {cidr: {{ . | quote }}}
+        {{- end }}
+      ports:
+        - port: {{ .Values.docling.external.port }}
+          protocol: TCP
+    {{- else }}
     - to:
         - namespaceSelector:
             matchLabels:
@@ -79,6 +88,7 @@ spec:
       ports:
         - port: 5001
           protocol: TCP
+    {{- end }}
     {{- end }}
     - to:
         - namespaceSelector:

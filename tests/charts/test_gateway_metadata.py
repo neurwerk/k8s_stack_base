@@ -159,7 +159,7 @@ class GatewayMetadataTests(unittest.TestCase):
         values["external-api-providers"][0]["models"][0]["attachments"] = {
             "documents": {"mode": "extract-text"}, "images": {"mode": "extract-text"},
         }
-        values["docling"] = {"enabled": True, "inference": {"mode": "cpu"}}
+        values["docling"] = {"enabled": True, "mode": "internal"}
         result = metadata(render("agentgateway", values))["models"][0]
         self.assertEqual(result["capabilities"], row["capabilities"])
         self.assertEqual(result["gateway_restrictions"]["blocked_capabilities"], ["image_input", "document_input"])

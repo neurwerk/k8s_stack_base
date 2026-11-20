@@ -448,7 +448,7 @@ class GroupedGatewayTests(unittest.TestCase):
                 values["self-hosted-api-providers"] = [binding]
                 binding.pop("providerId")
                 binding["credentialSources"] = ["none"]
-                values["docling"] = {"enabled": True, "inference": {"mode": "cpu"}}
+                values["docling"] = {"enabled": True, "mode": "internal"}
                 binding["models"] = [
                     {"name": f"remote/openrouter/vendor-name/model-family-2026-{index:03}",
                      "upstreamModel": f"vendor-name/model-family-2026-{index:03}"}
@@ -458,13 +458,13 @@ class GroupedGatewayTests(unittest.TestCase):
                 if override:
                     selected.update(piiEnabled=False, supportsImages=True, attachments={
                         "documents": {"mode": "extract-text", "pdf": {
-                            "mode": "native-first", "fallback": "render-images", "maxRenderedPages": 10}},
+                            "mode": "render-images", "maxRenderedPages": 10}},
                         "images": {"mode": "forward-normalized", "policy": "unchecked"},
                     })
                     binding["models"][1]["attachments"] = {
                         "documents": {"mode": "block", "pdf": {"mode": "block"}}}
                     binding["models"][2]["attachments"] = {"documents": {
-                        "mode": "block", "pdf": {"mode": "native-first", "fallback": "extract-text"}}}
+                        "mode": "block", "pdf": {"mode": "extract-text"}}}
                 values["authKeycloak"]["agentgatewayClientRoles"] = ["llm:invoke", *[
                     f"model:{model['name']}:invoke" for model in binding["models"]]]
                 rendered = render("agentgateway", values)
@@ -474,22 +474,18 @@ class GroupedGatewayTests(unittest.TestCase):
                     self.assertIn(".with(rows,", expression)
                     self.assertLessEqual(len(expression), 16384)
                     if override:
-                        expected = json.dumps({selected["name"]: "native-first",
+                        expected = json.dumps({selected["name"]: "render-images",
                                                binding["models"][1]["name"]: "block",
-                                               binding["models"][2]["name"]: "native-first"}, separators=(",", ":"))
+                                               binding["models"][2]["name"]: "extract-text"}, separators=(",", ":"))
                         self.assertIn('"pdf_modes": ' + expected, expression)
                         self.assertNotIn('"pdf_modes": rows.mapValues', expression)
-                        expected_fallbacks = json.dumps({selected["name"]: "render-images",
-                                                         binding["models"][2]["name"]: "extract-text"}, separators=(",", ":"))
-                        self.assertIn('"pdf_fallbacks": ' + expected_fallbacks, expression)
-                        self.assertNotIn('"pdf_fallbacks": rows.mapValues', expression)
                         expected_limit = json.dumps({selected["name"]: 10}, separators=(",", ":"))
                         self.assertIn('"pdf_max_rendered_pages": ' + expected_limit, expression)
                         self.assertNotIn('"pdf_max_rendered_pages": rows.mapValues', expression)
                     else:
                         self.assertNotIn('"pdf_modes"', expression)
-                        self.assertNotIn('"pdf_fallbacks"', expression)
                         self.assertNotIn('"pdf_max_rendered_pages"', expression)
+                    self.assertNotIn('"pdf_fallbacks"', expression)
 
     def test_one_hundred_models_keep_native_dispatch_within_expression_limits(self):
         values = capacity_values(1)

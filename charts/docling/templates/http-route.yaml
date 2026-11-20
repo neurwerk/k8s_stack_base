@@ -1,0 +1,37 @@
+{{- if and .Values.docling.enabled .Values.docling.ingress.enabled }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: docling-api
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "docling.labels" . | nindent 4 }}
+spec:
+  parentRefs:
+    - name: docling-gateway
+      namespace: {{ .Release.Namespace }}
+      sectionName: websecure
+  hostnames:
+    - {{ .Values.docling.ingress.host | quote }}
+  rules:
+    # Serve validates the caller's X-Api-Key on every exposed endpoint.
+    - matches:
+        {{- range list "/v1/convert/file" "/v1/convert/source" "/v1/convert/file/async" "/v1/convert/source/async" }}
+        - method: POST
+          path:
+            type: Exact
+            value: {{ . }}
+        {{- end }}
+        {{- range list "/v1/status/poll" "/v1/result" }}
+        - method: GET
+          path:
+            type: PathPrefix
+            value: {{ . }}
+        {{- end }}
+      timeouts:
+        request: {{ printf "%ds" (int .Values.docling.syncWaitSeconds) }}
+        backendRequest: {{ printf "%ds" (int .Values.docling.syncWaitSeconds) }}
+      backendRefs:
+        - name: docling-external
+          port: {{ .Values.docling.external.port }}
+{{- end }}

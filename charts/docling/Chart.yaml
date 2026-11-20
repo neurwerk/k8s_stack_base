@@ -1,11 +1,15 @@
 apiVersion: v2
 name: docling
-description: Private upstream document conversion with explicit CPU or remote inference
+description: Official Docling Serve with internal CPU or external service selection
 type: application
-version: 0.5.0
-appVersion: "1.33.0-native.1"
+version: 0.6.0
+appVersion: "1.38.2"
 annotations:
   source.repository: https://github.com/docling-project/docling-serve
-  source.commit: 27fa2aa9638e449d7fcd4364ffcde8d9a47bc4eb
-  jobkit.source.repository: https://github.com/neurwerk/external-docling-jobkit
-  jobkit.source.commit: 7f8dbd9150a9283a9b95626b4b15c4b9a6f466b6
+  source.commit: 9c058dbb58f61021e3a16e37edb8a7527b2cb2d4
+  jobkit.source.repository: https://github.com/docling-project/docling-jobkit
+  jobkit.source.commit: 207d3c45d967f3db263b99d7a76652923bfeb5bc
+  jobkit.version: "3.9.1"
+  docling-slim.version: "2.142.1"
+  docling-core.version: "2.104.0"
+  docling-document.schema-version: "1.10.0"
