@@ -21,7 +21,7 @@ monitorAgentgatewayExtproc:
     # Covers dependency failures and response failures after headers were sent.
     enabled: true
 
-  extprocImage: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.23.0@sha256:0f92ee40ee2a4304bc3d77f191c8104ba77f3eab3105bba99f7030d7f8cbaa54
+  extprocImage: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.24.0@sha256:45e88d3069db86e08d612da8218c064bbcb00f9608a97fda0b933e8f5aaad605
 
   # Docling requires exactly two fixed replicas (no HPA while enabled).
   replicas: 2
@@ -126,10 +126,16 @@ monitorAgentgatewayExtproc:
 # Never override these independently in product values.
 docling:
   enabled: false
-  inference:
-    # Preferred names: internal-standard / private-vlm; cpu / remote are aliases.
-    # Templates retain cpu / remote environment values; 0.9.0 accepts both pairs.
-    mode: remote
+  mode: internal
+  external:
+    # Complete private Docling Serve origin. HTTPS verification remains enabled.
+    url: ""
+    allowHttp: false
+    # Explicit RFC1918 IPv4 destinations; DNS alone is not an egress allowlist.
+    cidrs: []
+    port: 443
+    # Optional namespace-local public CA bundle, with key ca.crt.
+    caConfigMap: ""
   documentTimeoutSeconds: 300
   # Whole document batch budget, not a separate timeout for every file.
   syncWaitSeconds: 360
@@ -140,4 +146,4 @@ documentAttachments:
   fileBytes: 20971520
   totalBytes: 41943040
   count: 5
-  pages: 200
+  pages: 2

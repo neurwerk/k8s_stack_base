@@ -13,6 +13,10 @@ spec:
   upgrade:
     strategy: {name: RetryOnFailure, retryInterval: 1m}
   dependsOn:
+    - name: traefik
+      namespace: kube-system
+    - name: cert-manager-issuers
+      namespace: infra-cert-manager
     - name: cert-manager-internal-issuer
       namespace: infra-cert-manager
     - name: reloader

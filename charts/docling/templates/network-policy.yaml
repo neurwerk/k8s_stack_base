@@ -1,4 +1,4 @@
-{{- if .Values.docling.enabled }}
+{{- if and .Values.docling.enabled (eq .Values.docling.mode "internal") }}
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -29,13 +29,6 @@ spec:
           podSelector:
             matchLabels: {k8s-app: kube-dns}
       ports: [{port: 53, protocol: UDP}, {port: 53, protocol: TCP}]
-    {{- if has .Values.docling.inference.mode (list "remote" "private-vlm") }}
-    - to:
-        {{- range .Values.docling.inference.cidrs }}
-        - ipBlock: {cidr: {{ . | quote }}}
-        {{- end }}
-      ports: [{port: {{ .Values.docling.inference.port }}, protocol: TCP}]
-    {{- end }}
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy

@@ -36,6 +36,10 @@ monitorLangfuseWrapper:
   hostname: ""
 docling:
   enabled: false
+  mode: internal
+  ingress:
+    enabled: false
+    host: ""
 contextforge:
   enabled: true
   tls:

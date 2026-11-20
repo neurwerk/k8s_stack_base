@@ -9,12 +9,16 @@ upgrade path.
 
 ## [Unreleased]
 
-## [0.3.42] - 2026-11-19
+## [0.3.42] - 2026-11-20
 
 - Add optional role-free LDAP directory groups.
 - Adopt Studio 0.27.0 with whole-number MCP invocation accounting and explicit tool checks.
 - Upgrade the gateway, Fluent Bit, OpenSearch permissions and Studio images together; the collector now reads OpenSearch events.
 - The one-time cutover resets previous MCP summaries only; LLM history is preserved. Approve this reset and configure client USD pricing before adoption; see [Studio usage cutover](docs/operations/studio-usage.md).
+- Use official Docling Serve with internal CPU processing or a complete external GPU service for layout, OCR and tables.
+- Adopt extProc 0.24.0 for standard conversion and the Langfuse rejection-retention worker.
+- Default document extraction to two pages with client-configurable limits, and preserve canonical table cells and source formula text.
+- Add optional client-configurable HTTPS conversion access with Serve's fixed API key; retire the custom model-server and `native-first` paths. Follow the [Docling migration notes](release/migrations/v0.3.42.md).
 
 ## [0.3.41] - 2026-11-19
 

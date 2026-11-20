@@ -7,6 +7,12 @@
 {{- if not (kindIs "bool" .Values.docling.enabled) -}}
   {{- fail "docling.enabled must be boolean" -}}
 {{- end -}}
+{{- if hasKey .Values.docling "inference" -}}
+  {{- fail "docling.inference is no longer supported; use docling.mode" -}}
+{{- end -}}
+{{- if not (and (kindIs "string" .Values.docling.mode) (has .Values.docling.mode (list "internal" "external"))) -}}
+  {{- fail "docling.mode must be internal or external" -}}
+{{- end -}}
 {{- if .Values.docling.enabled -}}
 {{- $wait := .Values.docling.syncWaitSeconds -}}
 {{- if or (not (regexMatch `^[1-9][0-9]*$` (toJson $wait))) (gt (float64 $wait) 3660.0) -}}

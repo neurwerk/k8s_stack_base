@@ -47,12 +47,8 @@ k8sTools:
   image: ghcr.io/neurwerk/k8s-stack-tooling:0.18.3@sha256:fa30429bb143f0176867741dcf55eae422d69157b5f033e9d007745dd3639d79
 docling:
   enabled: true
+  mode: internal
   apiKeySecretRef: {name: docling-api, key: api-key}
-  inference:
-    url: https://inference.example.test/v1/chat/completions
-    model: granite-docling
-    tokenSecretRef: {name: docling-inference, key: token}
-    cidrs: [10.20.30.40/32]
 tailscale:
   enabled: true
   api:

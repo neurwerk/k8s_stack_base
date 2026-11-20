@@ -323,7 +323,7 @@ class ModelAttachmentIsolationTests(unittest.TestCase):
         binding["models"].append({"name": "local-text", "upstreamModel": "local-text",
                                   "attachments": {"documents": {"mode": "extract-text"}}})
         values["authKeycloak"]["agentgatewayClientRoles"].append("model:local-text:invoke")
-        values["docling"] = {"enabled": True, "inference": {"mode": "cpu"}}
+        values["docling"] = {"enabled": True, "mode": "internal"}
         return values, binding, model
 
     def test_pdf_render_override_preserves_default_and_sibling_extraction(self):
@@ -376,56 +376,43 @@ class ModelAttachmentIsolationTests(unittest.TestCase):
                 self.assertNotEqual(failed.returncode, 0)
                 self.assertIn("PDF render-images requires", failed.stderr)
 
-    def test_native_first_pdf_limit_is_bounded_and_model_scoped(self):
+    def test_rendered_pdf_limit_is_bounded_and_model_scoped(self):
         for limit in (None, 1, 10, 20):
             with self.subTest(limit=limit):
                 values, _, model = self.pdf_values()
                 pdf = model["attachments"]["documents"]["pdf"]
-                pdf["mode"] = "native-first"
-                pdf["fallback"] = "render-images"
                 if limit is not None:
                     pdf["maxRenderedPages"] = limit
                 rendered = render("agentgateway", values)
                 traffic = resource(rendered, "AgentgatewayPolicy", "ai-local-api-processing")["spec"]["traffic"]
                 expression = traffic["extProc"]["conditional"][0]["policy"]["metadataContext"]["neurwerk.destination_policy"]["destination_policy"]
                 policy = json.loads(expression.split(".merge(", 1)[0])
-                self.assertEqual(policy["pdf_modes"], {"local-chat": "native-first"})
-                self.assertEqual(policy["pdf_fallbacks"], {"local-chat": "render-images"})
+                self.assertEqual(policy["pdf_modes"], {"local-chat": "render-images"})
                 self.assertEqual(set(policy["document_modes"].values()), {"extract-text"})
                 if limit is None:
                     self.assertNotIn("pdf_max_rendered_pages", policy)
                 else:
                     self.assertEqual(policy["pdf_max_rendered_pages"], {"local-chat": limit})
-        for mode, limit in [("native-first", limit) for limit in (0, 21, "10", 1.5, True)] + [
+        for mode, limit in [("render-images", limit) for limit in (0, 21, "10", 1.5, True)] + [
             ("block", 10), ("extract-text", 10),
         ]:
             with self.subTest(mode=mode, limit=limit):
                 values, _, model = self.pdf_values()
                 model["attachments"]["documents"]["pdf"] = {"mode": mode, "maxRenderedPages": limit}
-                if mode == "native-first":
-                    model["attachments"]["documents"]["pdf"]["fallback"] = "render-images"
                 failed = render("agentgateway", values, check=False)
                 self.assertNotEqual(failed.returncode, 0)
                 self.assertIn("maxRenderedPages must be an integer", failed.stderr)
-        values, _, model = self.pdf_values()
-        model["attachments"]["documents"]["pdf"]["mode"] = "native-first"
-        model["attachments"]["documents"]["pdf"]["fallback"] = "render-images"
-        model["attachments"]["images"]["policy"] = "enforce"
-        failed = render("agentgateway", values, check=False)
-        self.assertNotEqual(failed.returncode, 0)
-        self.assertIn("PDF native-first requires", failed.stderr)
 
-    def test_native_first_extraction_fallback_keeps_checked_nonvision_routes(self):
+    def test_pdf_extraction_keeps_checked_nonvision_routes(self):
         for enabled in (False, True):
             with self.subTest(docling=enabled):
                 values = binding_values()
                 model = values["external-api-providers"][0]["models"][0]
                 model.update(piiEnabled=True, supportsImages=False, attachments={
-                    "documents": {"mode": "block", "pdf": {
-                        "mode": "native-first", "fallback": "extract-text"}},
+                    "documents": {"mode": "block", "pdf": {"mode": "extract-text"}},
                     "images": {"mode": "block"},
                 })
-                values["docling"] = {"enabled": enabled, "inference": {"mode": "cpu"}}
+                values["docling"] = {"enabled": enabled, "mode": "internal"}
                 rendered = render("agentgateway", values, check=False)
                 if not enabled:
                     self.assertNotEqual(rendered.returncode, 0)
@@ -435,18 +422,18 @@ class ModelAttachmentIsolationTests(unittest.TestCase):
                 traffic = resource(rendered, "AgentgatewayPolicy", "ai-openai-api-processing")["spec"]["traffic"]
                 expression = traffic["extProc"]["conditional"][0]["policy"]["metadataContext"]["neurwerk.destination_policy"]["destination_policy"]
                 policy = json.loads(expression.split(".merge(", 1)[0])
-                self.assertEqual(policy["pdf_fallbacks"], {"example-chat": "extract-text"})
+                self.assertEqual(policy["pdf_modes"], {"example-chat": "extract-text"})
+                self.assertNotIn("pdf_fallbacks", policy)
                 self.assertEqual(policy["document_modes"], {"example-chat": "block"})
                 self.assertEqual(policy["image_forwarding"], {"example-chat": "none"})
                 self.assertNotIn("pdf_max_rendered_pages", policy)
 
-    def test_native_first_requires_explicit_valid_fallback(self):
+    def test_retired_native_first_and_fallback_are_rejected(self):
         overrides = [
             {"mode": "native-first"},
-            *[{"mode": "native-first", "fallback": value} for value in (None, True, "unknown")],
-            {"mode": "extract-text", "fallback": "extract-text"},
-            {"mode": "render-images", "fallback": "render-images"},
-            {"mode": "native-first", "fallback": "extract-text", "maxRenderedPages": 10},
+            *[{"mode": mode, "fallback": value}
+              for mode in ("native-first", "block", "extract-text", "render-images")
+              for value in (None, "", True, "extract-text", "render-images")],
         ]
         for pdf in overrides:
             with self.subTest(pdf=pdf):
@@ -463,7 +450,7 @@ class ModelAttachmentIsolationTests(unittest.TestCase):
                     values = binding_values()
                     model = values["self-hosted-api-providers"][0]["models"][0]
                     model["attachments"] = {"documents": {"mode": "block", "pdf": {"mode": mode}}}
-                    values["docling"] = {"enabled": enabled, "inference": {"mode": "cpu"}}
+                    values["docling"] = {"enabled": enabled, "mode": "internal"}
                     rendered = render("agentgateway", values, check=False)
                     if mode == "extract-text" and not enabled:
                         self.assertNotEqual(rendered.returncode, 0)
@@ -482,7 +469,7 @@ class ModelAttachmentIsolationTests(unittest.TestCase):
              "attachments": {"images": {"mode": "forward-normalized"}}},
         ]
         values["authKeycloak"]["agentgatewayClientRoles"].append("model:image-model:invoke")
-        values["docling"] = {"enabled": True, "inference": {"mode": "cpu"}}
+        values["docling"] = {"enabled": True, "mode": "internal"}
         return values, binding
 
     def test_model_overrides_preserve_sibling_policies_in_both_orders(self):

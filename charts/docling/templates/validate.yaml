@@ -3,106 +3,73 @@
   {{- fail "docling.enabled must be boolean" -}}
 {{- end -}}
 
-{{- $inference := $docling.inference -}}
-{{- if not (and (kindIs "string" $inference.mode) (has $inference.mode (list "cpu" "remote" "internal-standard" "private-vlm"))) -}}
-  {{- fail "docling.inference.mode must be internal-standard or private-vlm (aliases: cpu or remote)" -}}
+{{- if hasKey $docling "inference" -}}
+  {{- fail "docling.inference is no longer supported; use docling.mode" -}}
 {{- end -}}
-{{- $remote := has $inference.mode (list "remote" "private-vlm") -}}
-{{- if $docling.enabled -}}
+{{- if not (and (kindIs "string" $docling.mode) (has $docling.mode (list "internal" "external"))) -}}
+  {{- fail "docling.mode must be internal or external" -}}
+{{- end -}}
+{{- if and $docling.enabled $docling.ingress.enabled -}}
+{{- if ne $docling.mode "external" -}}
+  {{- fail "docling.ingress currently requires docling.mode=external" -}}
+{{- end -}}
+{{- $host := $docling.ingress.host -}}
+{{- if or (gt (len $host) 253) (eq $host "place.holder") (not (regexMatch `^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$` $host)) -}}
+  {{- fail "docling.ingress.host must be a DNS hostname" -}}
+{{- end -}}
+{{- range splitList "." $host -}}
+  {{- if gt (len .) 63 -}}{{- fail "docling.ingress.host labels must be at most 63 characters" -}}{{- end -}}
+{{- end -}}
+{{- $external := $docling.external -}}
+{{- if not (regexMatch `^http://[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+(:[1-9][0-9]{0,4})?/?$` $external.url) -}}
+  {{- fail "docling.ingress requires an external HTTP IPv4 origin" -}}
+{{- end -}}
+{{- if ne $external.allowHttp true -}}
+  {{- fail "HTTP Docling requires docling.external.allowHttp=true" -}}
+{{- end -}}
+{{- $url := urlParse $external.url -}}
+{{- $ip := first (splitList ":" $url.host) -}}
+{{- $port := "80" -}}
+{{- if contains ":" $url.host -}}{{- $port = last (splitList ":" $url.host) -}}{{- end -}}
+{{- if or (ne (int $port) (int $external.port)) (gt (int $port) 65535) -}}
+  {{- fail "docling.external.port must match the URL port" -}}
+{{- end -}}
+{{- $octets := splitList "." $ip -}}
+{{- range $octets -}}
+  {{- if or (gt (int .) 255) (ne (toString (int .)) .) -}}
+    {{- fail "docling.ingress requires a valid private IPv4 address" -}}
+  {{- end -}}
+{{- end -}}
+{{- $first := int (index $octets 0) -}}
+{{- $second := int (index $octets 1) -}}
+{{- if not (or (eq $first 10) (and (eq $first 172) (ge $second 16) (le $second 31)) (and (eq $first 192) (eq $second 168))) -}}
+  {{- fail "docling.ingress backend must be RFC1918 IPv4" -}}
+{{- end -}}
+{{- if not (and (eq (len $external.cidrs) 1) (has (printf "%s/32" $ip) $external.cidrs)) -}}
+  {{- fail "docling.ingress requires the external backend's exact /32 CIDR" -}}
+{{- end -}}
+{{- if or (not (regexMatch `^[1-9][0-9]*$` (toJson $docling.syncWaitSeconds))) (gt (int $docling.syncWaitSeconds) 3660) -}}
+  {{- fail "docling.syncWaitSeconds must be positive integer seconds at most 3660" -}}
+{{- end -}}
+{{- end -}}
+{{- if and $docling.enabled (eq $docling.mode "internal") -}}
 {{- $attachments := .Values.documentAttachments -}}
-
-{{/* Inference endpoint and model. */}}
-{{- if $remote -}}
-{{- if not (kindIs "bool" $inference.allowHttp) -}}
-  {{- fail "docling.inference.allowHttp must be boolean" -}}
-{{- end -}}
-{{- $endpointPattern := `^https?://[a-zA-Z0-9]([a-zA-Z0-9.-]*[a-zA-Z0-9])?(:[1-9][0-9]{0,4})?/v1/chat/completions$` -}}
-{{- if not (regexMatch $endpointPattern $inference.url) -}}
-  {{- fail "docling.inference.url must be a full HTTP(S) /v1/chat/completions URL without userinfo, query or fragment" -}}
-{{- end -}}
-{{- $url := urlParse $inference.url -}}
-{{- if and (eq $url.scheme "http") (not $inference.allowHttp) -}}
-  {{- fail "HTTP inference requires docling.inference.allowHttp=true; HTTPS is the default" -}}
-{{- end -}}
-{{- if not (regexMatch `^[1-9][0-9]*$` (toJson $inference.port)) -}}
-  {{- fail "docling.inference.port must be an integer" -}}
-{{- end -}}
-{{- $urlPort := "443" -}}
-{{- if eq $url.scheme "http" -}}
-  {{- $urlPort = "80" -}}
-{{- end -}}
-{{- if contains ":" $url.host -}}
-  {{- $urlPort = last (splitList ":" $url.host) -}}
-{{- end -}}
-{{- if or (ne (int $urlPort) (int $inference.port)) (gt (int $urlPort) 65535) -}}
-  {{- fail "docling.inference.port must match the URL port" -}}
-{{- end -}}
-{{- if or
-    (not (kindIs "string" $inference.model))
-    (not (regexMatch `^[^\s]+$` $inference.model))
--}}
-  {{- fail "docling.inference.model must be a nonempty alias without whitespace" -}}
-{{- end -}}
+{{- range $stage := list "ocr" "layout" "table" -}}
+  {{- if not (regexMatch `^[1-9][0-9]*$` (toJson (index $docling.batches $stage))) -}}
+    {{- fail (printf "docling.batches.%s must be a positive integer" $stage) -}}
+  {{- end -}}
 {{- end -}}
 
-{{/* Separate credentials for callers and the inference server. */}}
-{{- $refs := list $docling.apiKeySecretRef -}}
-{{- if $remote -}}
-  {{- $refs = append $refs $inference.tokenSecretRef -}}
-{{- end -}}
-{{- range $ref := $refs -}}
+{{/* Existing service API credential, delivered only for the internal server. */}}
+{{- with $docling.apiKeySecretRef -}}
   {{- if or
-      (not (regexMatch `^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$` $ref.name))
-      (not (regexMatch `^[a-zA-Z0-9._-]+$` $ref.key))
+      (not (regexMatch `^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$` .name))
+      (not (regexMatch `^[a-zA-Z0-9._-]+$` .key))
   -}}
-    {{- fail "docling requires existing Secret name/key references for the selected mode" -}}
+    {{- fail "internal docling requires an existing API Secret name/key reference" -}}
   {{- end -}}
-{{- end -}}
-{{- if and $remote (eq (toJson $docling.apiKeySecretRef) (toJson $inference.tokenSecretRef)) -}}
-  {{- fail "docling API and inference credentials must be separate references" -}}
-{{- end -}}
-
-{{/* Egress must remain within RFC1918 networks. */}}
-{{- if $remote -}}
-{{- if not $inference.cidrs -}}
-  {{- fail "docling.inference.cidrs requires private inference destinations" -}}
-{{- end -}}
-{{- range $cidr := $inference.cidrs -}}
-  {{- if not (regexMatch `^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+/[0-9]+$` $cidr) -}}
-    {{- fail "docling inference CIDRs must be RFC1918 IPv4" -}}
-  {{- end -}}
-  {{- $parts := splitList "/" $cidr -}}
-  {{- $octets := splitList "." (first $parts) -}}
-  {{- $prefix := int (last $parts) -}}
-  {{- range $octet := $octets -}}
-    {{- if or (gt (int $octet) 255) (ne (toString (int $octet)) $octet) -}}
-      {{- fail "invalid docling IPv4 CIDR" -}}
-    {{- end -}}
-  {{- end -}}
-  {{- $firstOctet := int (index $octets 0) -}}
-  {{- $secondOctet := int (index $octets 1) -}}
-  {{- $in10Range := and (eq $firstOctet 10) (ge $prefix 8) -}}
-  {{- $in172Range := and
-      (eq $firstOctet 172) (ge $secondOctet 16) (le $secondOctet 31) (ge $prefix 12)
-  -}}
-  {{- $in192Range := and (eq $firstOctet 192) (eq $secondOctet 168) (ge $prefix 16) -}}
-  {{- if not (and (le $prefix 32) (or $in10Range $in172Range $in192Range)) -}}
-    {{- fail "docling inference CIDRs must stay within RFC1918 ranges" -}}
-  {{- end -}}
-{{- end -}}
-
-{{- if not (regexMatch `^[1-9][0-9]*$` (toJson $inference.timeoutSeconds)) -}}
-  {{- fail "docling inference timeout must be positive integer seconds" -}}
-{{- end -}}
-{{- if or
-    (not (regexMatch `^[1-9][0-9]*$` (toJson $inference.maxOutputTokens)))
-    (gt (int $inference.maxOutputTokens) 8192)
--}}
-  {{- fail "docling inference maxOutputTokens must be a positive integer at most 8192" -}}
-{{- end -}}
-{{- if gt (int $inference.timeoutSeconds) (int $docling.documentTimeoutSeconds) -}}
-  {{- fail "docling inference timeout must not exceed the document timeout" -}}
-{{- end -}}
+{{- else -}}
+  {{- fail "internal docling requires an existing API Secret name/key reference" -}}
 {{- end -}}
 
 {{/* Attachment and time limits. */}}

@@ -390,6 +390,9 @@ spec:
 {{- if and .Values.aiGateway.enabled .Values.aiGateway.proxy.enabled -}}
 {{- $publicPolicies = append $publicPolicies (dict "name" "cert-manager-public-agentgateway-proxy" "namespace" "infra-agentgateway" "hostname" .Values.aiGateway.proxy.hostname) -}}
 {{- end -}}
+{{- if and .Values.docling.enabled (eq .Values.docling.mode "external") .Values.docling.ingress.enabled -}}
+{{- $publicPolicies = append $publicPolicies (dict "name" "cert-manager-public-docling" "namespace" "docling" "hostname" .Values.docling.ingress.host) -}}
+{{- end -}}
 {{- $publicIssuers := list
   (dict "name" "staging" "issuer" "letsencrypt-staging-cluster-issuer")
   (dict "name" "production" "issuer" "letsencrypt-production-cluster-issuer")

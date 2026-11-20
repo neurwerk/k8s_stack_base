@@ -9,8 +9,62 @@
 {{- if not (kindIs "bool" $docling.enabled) -}}
   {{- fail "docling.enabled must be boolean" -}}
 {{- end -}}
-{{- if not (and (kindIs "string" $docling.inference.mode) (has $docling.inference.mode (list "cpu" "remote" "internal-standard" "private-vlm"))) -}}
-  {{- fail "docling.inference.mode must be internal-standard or private-vlm (aliases: cpu or remote)" -}}
+{{- if hasKey $docling "inference" -}}
+  {{- fail "docling.inference is no longer supported; use docling.mode" -}}
+{{- end -}}
+{{- if not (and (kindIs "string" $docling.mode) (has $docling.mode (list "internal" "external"))) -}}
+  {{- fail "docling.mode must be internal or external" -}}
+{{- end -}}
+{{- if and $docling.enabled (eq $docling.mode "external") -}}
+{{- $external := $docling.external -}}
+{{- if not (kindIs "bool" $external.allowHttp) -}}
+  {{- fail "docling.external.allowHttp must be boolean" -}}
+{{- end -}}
+{{- $endpointPattern := `^https?://[a-zA-Z0-9]([a-zA-Z0-9.-]*[a-zA-Z0-9])?(:[1-9][0-9]{0,4})?/?$` -}}
+{{- if not (and (kindIs "string" $external.url) (regexMatch $endpointPattern $external.url)) -}}
+  {{- fail "docling.external.url must be an HTTP(S) origin without userinfo, path, query or fragment" -}}
+{{- end -}}
+{{- $url := urlParse $external.url -}}
+{{- if and (eq $url.scheme "http") (not $external.allowHttp) -}}
+  {{- fail "HTTP Docling requires docling.external.allowHttp=true; HTTPS is the default" -}}
+{{- end -}}
+{{- if not (regexMatch `^[1-9][0-9]*$` (toJson $external.port)) -}}
+  {{- fail "docling.external.port must be an integer" -}}
+{{- end -}}
+{{- $urlPort := ternary "80" "443" (eq $url.scheme "http") -}}
+{{- if contains ":" $url.host -}}
+  {{- $urlPort = last (splitList ":" $url.host) -}}
+{{- end -}}
+{{- if or (ne (int $urlPort) (int $external.port)) (gt (int $urlPort) 65535) -}}
+  {{- fail "docling.external.port must match the URL port" -}}
+{{- end -}}
+{{- if or (not (kindIs "string" $external.caConfigMap)) (and $external.caConfigMap (not (regexMatch `^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$` $external.caConfigMap))) -}}
+  {{- fail "docling.external.caConfigMap must be empty or a valid ConfigMap name" -}}
+{{- end -}}
+{{- if not (and (kindIs "slice" $external.cidrs) $external.cidrs) -}}
+  {{- fail "docling.external.cidrs requires private Docling destinations" -}}
+{{- end -}}
+{{- range $cidr := $external.cidrs -}}
+  {{- if not (and (kindIs "string" $cidr) (regexMatch `^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+/[0-9]+$` $cidr)) -}}
+    {{- fail "Docling CIDRs must be RFC1918 IPv4" -}}
+  {{- end -}}
+  {{- $parts := splitList "/" $cidr -}}
+  {{- $octets := splitList "." (first $parts) -}}
+  {{- $prefix := int (last $parts) -}}
+  {{- range $octet := $octets -}}
+    {{- if or (gt (int $octet) 255) (ne (toString (int $octet)) $octet) -}}
+      {{- fail "invalid Docling IPv4 CIDR" -}}
+    {{- end -}}
+  {{- end -}}
+  {{- $firstOctet := int (index $octets 0) -}}
+  {{- $secondOctet := int (index $octets 1) -}}
+  {{- $in10Range := and (eq $firstOctet 10) (ge $prefix 8) -}}
+  {{- $in172Range := and (eq $firstOctet 172) (ge $secondOctet 16) (le $secondOctet 31) (ge $prefix 12) -}}
+  {{- $in192Range := and (eq $firstOctet 192) (eq $secondOctet 168) (ge $prefix 16) -}}
+  {{- if not (and (le $prefix 32) (or $in10Range $in172Range $in192Range)) -}}
+    {{- fail "Docling CIDRs must stay within RFC1918 ranges" -}}
+  {{- end -}}
+{{- end -}}
 {{- end -}}
 {{- $inspection := .Values.monitorAgentgatewayExtproc.imageInspection -}}
 {{- if not (kindIs "bool" $inspection.enabled) -}}
