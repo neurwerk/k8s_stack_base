@@ -1,11 +1,11 @@
 apiVersion: platform.neurwerk.com/v1alpha1
 kind: PlatformRelease
 metadata:
-  name: v0.3.42
+  name: v0.3.43
 spec:
-  version: 0.3.42
-  releaseDate: '2026-11-20'
-  summary: Optional role-free LDAP directory groups, invocation-based MCP usage and standard Docling Serve
+  version: 0.3.43
+  releaseDate: '2026-11-23'
+  summary: Compatible Docling schema negotiation and mandatory partial-extraction warnings
   trust:
     signerIdentity: platform-release
     algorithm: ssh-ed25519
@@ -1104,14 +1104,8 @@ spec:
       node: 24.20.0
       lua: 5.4.9
   provenance:
-    previousTag: v0.3.41
-    includedThrough: 5df2af79e98ffceaa9e832df8af18cdaf3d43e3c
+    previousTag: v0.3.42
+    includedThrough: 170794671ed7f10c5221a12d4c34ccd6fb806ffd
     commits:
-    - 788bb947eb5844f19ffacd9f736a01d2a206fa63
-    - 722c4df9329dd07b6eaed0ff11990c193690aaec
-    - 3c119162374f9d2419c7be886910c42c51bbf65a
-    - c490988eb1ef4083dc994de582aeeb045860fc5a
-    - 5d10b22784684423c8728fa9d4d934021bc245fd
-    - 87bc3811d89d2c87bcacf9d318a931fa553a8008
-    - 5df2af79e98ffceaa9e832df8af18cdaf3d43e3c
-    compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.41...5df2af79e98ffceaa9e832df8af18cdaf3d43e3c
+    - 170794671ed7f10c5221a12d4c34ccd6fb806ffd
+    compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.42...170794671ed7f10c5221a12d4c34ccd6fb806ffd
