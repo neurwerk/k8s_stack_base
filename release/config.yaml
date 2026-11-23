@@ -182,7 +182,7 @@ packages:
     status: included
     reason: Optional official Docling Serve 1.38.2 extraction; disabled by default. Select internal CPU
       or one complete external Serve API, preserving the existing key. Remove old inference modes and
-      aliases. Standard extraction requires extProc 0.24.0 and DoclingDocument 1.10.0; the shared PDF
+      aliases. Standard extraction uses extProc 0.25.0 with official DoclingDocument 1.10.0 negotiation; the shared PDF
       allowance defaults to two pages. External GPU clients select their explicit page allowance and
       the external credential package after runtime verification.
     chartPrefixes:

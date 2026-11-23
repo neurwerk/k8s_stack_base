@@ -9,6 +9,9 @@ upgrade path.
 
 ## [Unreleased]
 
+- Adopt extProc 0.25.0 with official Docling schema negotiation and visible partial-extraction warnings, including when optional notices are disabled.
+- Accept valid nonempty partial PDF page subsets; reject partial extraction for structured or tool-enabled requests. Follow the [adoption notes](release/migrations/v0.3.43.md).
+
 ## [0.3.42] - 2026-11-20
 
 - Add optional role-free LDAP directory groups.
