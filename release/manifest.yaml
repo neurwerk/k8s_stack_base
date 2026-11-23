@@ -1,11 +1,11 @@
 apiVersion: platform.neurwerk.com/v1alpha1
 kind: PlatformRelease
 metadata:
-  name: v0.3.42
+  name: v0.3.43
 spec:
-  version: 0.3.42
-  releaseDate: '2026-11-20'
-  summary: Optional role-free LDAP directory groups, invocation-based MCP usage and standard Docling Serve
+  version: 0.3.43
+  releaseDate: '2026-11-23'
+  summary: Compatible Docling schema negotiation and mandatory partial-extraction warnings
   trust:
     signerIdentity: platform-release
     algorithm: ssh-ed25519
@@ -181,9 +181,9 @@ spec:
       status: included
       reason: Optional official Docling Serve 1.38.2 extraction; disabled by default. Select internal
         CPU or one complete external Serve API, preserving the existing key. Remove old inference modes
-        and aliases. Standard extraction requires extProc 0.24.0 and DoclingDocument 1.10.0; the shared
-        PDF allowance defaults to two pages. External GPU clients select their explicit page allowance
-        and the external credential package after runtime verification.
+        and aliases. Standard extraction uses extProc 0.25.0 with official DoclingDocument 1.10.0 negotiation;
+        the shared PDF allowance defaults to two pages. External GPU clients select their explicit page
+        allowance and the external credential package after runtime verification.
       chartPrefixes:
       - charts/docling
       prerequisites:
@@ -320,8 +320,8 @@ spec:
       appVersion: 0.12.0
     - path: charts/agentgateway-extproc
       name: agentgateway-extproc
-      version: 2.2.0
-      appVersion: 0.24.0
+      version: 2.3.0
+      appVersion: 0.25.0
     - path: charts/cert-manager/approval-policy
       name: infra-cert-manager-approval-policy
       version: 1.2.10
@@ -452,7 +452,7 @@ spec:
           sha256: 5ee4dc1695ec4784544a5d667530ad86bc89743031ec4e900652cb94bbd788aa
     - path: charts/langfuse
       name: monitor-langfuse
-      version: 2.0.41
+      version: 2.0.42
       appVersion: 4.28.1
       dependencyLock:
         digest: sha256:68156b8f74aa153f2e33eb76f6ac11e9277c1a8fe8073c3f37da8834a97292cc
@@ -888,7 +888,7 @@ spec:
       eligibility: included
       origins:
       - charts/kube-prometheus-stack/values.yaml
-    - reference: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.24.0@sha256:45e88d3069db86e08d612da8218c064bbcb00f9608a97fda0b933e8f5aaad605
+    - reference: ghcr.io/neurwerk/k8s-stack-agentgateway-extproc:0.25.0@sha256:e8d95f365f6cd9b5650f4987633327be48542e0c8af7ba56f40bddcbfe724167
       pinned: true
       eligibility: included
       origins:
@@ -1104,14 +1104,8 @@ spec:
       node: 24.20.0
       lua: 5.4.9
   provenance:
-    previousTag: v0.3.41
-    includedThrough: 5df2af79e98ffceaa9e832df8af18cdaf3d43e3c
+    previousTag: v0.3.42
+    includedThrough: 170794671ed7f10c5221a12d4c34ccd6fb806ffd
     commits:
-    - 788bb947eb5844f19ffacd9f736a01d2a206fa63
-    - 722c4df9329dd07b6eaed0ff11990c193690aaec
-    - 3c119162374f9d2419c7be886910c42c51bbf65a
-    - c490988eb1ef4083dc994de582aeeb045860fc5a
-    - 5d10b22784684423c8728fa9d4d934021bc245fd
-    - 87bc3811d89d2c87bcacf9d318a931fa553a8008
-    - 5df2af79e98ffceaa9e832df8af18cdaf3d43e3c
-    compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.41...5df2af79e98ffceaa9e832df8af18cdaf3d43e3c
+    - 170794671ed7f10c5221a12d4c34ccd6fb806ffd
+    compareUrl: https://github.com/neurwerk/k8s_stack_base/compare/v0.3.42...170794671ed7f10c5221a12d4c34ccd6fb806ffd
