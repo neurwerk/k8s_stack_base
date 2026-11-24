@@ -358,7 +358,7 @@ spec:
       version: 1.0.0
     - path: charts/contextforge
       name: contextforge
-      version: 0.6.0
+      version: 0.6.1
       appVersion: 1.1.1
     - path: charts/contextforge/certificates
       name: contextforge-certificates

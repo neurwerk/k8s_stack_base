@@ -50,8 +50,8 @@ contextforge:
   extraCaConfigMaps: []
 
   resources:
-    requests: {cpu: 250m, memory: 768Mi}
-    limits: {cpu: "1", memory: 1Gi}
+    requests: {cpu: "1", memory: 768Mi}
+    limits: {cpu: "2", memory: 1Gi}
   migration:
     activeDeadlineSeconds: 300
     resources:
