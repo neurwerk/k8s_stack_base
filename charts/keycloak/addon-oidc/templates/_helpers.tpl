@@ -1,6 +1,8 @@
 {{- define "addon-oidc.validateAccess" -}}
 {{- $a := .Values.authentication -}}
 {{- $approval := .Values.clientApproval -}}
+{{- if ne ($a.clientType | default "confidential") ($approval.clientType | default "confidential") }}{{ fail "clientApproval must explicitly approve the authentication clientType" }}{{ end -}}
+{{- if and (eq ($a.clientType | default "confidential") "public") (not (empty .Values.clientSecret.name)) }}{{ fail "public authentication must not supply clientSecret.name" }}{{ end -}}
 {{- $reserved := list "agentgateway" "studio" "keycloak-api-key-bridge" "account" "account-console" "admin-cli" "broker" "realm-management" "security-admin-console" -}}
 {{- if or (has $a.clientId $reserved) (and (not (empty .Values.authKeycloak.studioClientId)) (eq $a.clientId .Values.authKeycloak.studioClientId)) }}{{ fail "reserved authentication client ID" }}{{ end -}}
 {{- if ne .Release.Namespace "auth-keycloak" }}{{ fail "addon-oidc must run in auth-keycloak" }}{{ end -}}
@@ -44,6 +46,7 @@
 {{- if not (regexMatch "^ghcr.io/neurwerk/k8s-stack-tooling:[0-9]+\\.[0-9]+\\.[0-9]+@sha256:[a-f0-9]{64}$" $image) }}{{ fail "enable only with an explicitly published immutable tooling image" }}{{ end -}}
 {{- $version := index (splitList "@" (trimPrefix "ghcr.io/neurwerk/k8s-stack-tooling:" $image)) 0 -}}
 {{- if not (semverCompare ">=0.11.1" $version) }}{{ fail "addon-oidc requires tooling >=0.11.1" }}{{ end -}}
+{{- if and (eq (.Values.authentication.clientType | default "confidential") "public") (not (semverCompare ">=0.20.0" $version)) }}{{ fail "public authentication requires tooling >=0.20.0 with mandatory PKCE S256" }}{{ end -}}
 {{- if and (hasKey .Values.authentication "postLogoutRedirectUris") (not (semverCompare ">=0.13.6" $version)) }}{{ fail "explicit postLogoutRedirectUris require tooling >=0.13.6" }}{{ end -}}
 {{- end -}}
 

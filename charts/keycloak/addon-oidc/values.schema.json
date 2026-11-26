@@ -17,6 +17,7 @@
       "required": ["clientId", "redirectUris", "webOrigins", "realmRoles", "roleClaim", "audiences", "refreshTokenRotation", "mode", "userTokenForwarding", "gatewayPermissions"],
       "properties": {
         "clientId": {"type": "string", "pattern": "^([a-z][a-z0-9-]*)?$"},
+        "clientType": {"enum": ["confidential", "public"]},
         "redirectUris": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^https://[^/@?#\\s*\\\\]+[^#\\s*\\\\]*$"}},
         "webOrigins": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^https://[^/@?#\\s*\\\\]+$"}},
         "postLogoutRedirectUris": {"$ref": "#/definitions/postLogoutRedirectUris"},
@@ -34,6 +35,7 @@
       "required": ["clientId", "redirectUris", "webOrigins", "realmRoles", "audiences", "gatewayPermissions"],
       "properties": {
         "clientId": {"type": "string", "pattern": "^([a-z][a-z0-9-]*)?$"},
+        "clientType": {"enum": ["confidential", "public"]},
         "redirectUris": {"$ref": "#/properties/authentication/properties/redirectUris"},
         "webOrigins": {"$ref": "#/properties/authentication/properties/webOrigins"},
         "postLogoutRedirectUris": {"$ref": "#/definitions/postLogoutRedirectUris"},

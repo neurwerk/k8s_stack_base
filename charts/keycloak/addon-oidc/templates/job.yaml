@@ -51,11 +51,17 @@ spec:
                   key: adminPassword
             - name: KC_REALM
               value: {{ required "authKeycloak.realm is required" .Values.authKeycloak.realm | quote }}
+            - name: KC_CLIENT_TYPE
+              value: {{ .Values.authentication.clientType | default "confidential" | quote }}
+            - name: KC_APPROVED_CLIENT_TYPE
+              value: {{ .Values.clientApproval.clientType | default "confidential" | quote }}
+            {{- if ne (.Values.authentication.clientType | default "confidential") "public" }}
             - name: KC_CLIENT_SECRET
               valueFrom:
                 secretKeyRef:
                   name: {{ required "clientSecret.name is required" .Values.clientSecret.name | quote }}
                   key: {{ .Values.clientSecret.key | quote }}
+            {{- end }}
             - name: KC_CLIENT_ID
               value: {{ .Values.authentication.clientId | quote }}
             - name: KC_REDIRECT_URIS
