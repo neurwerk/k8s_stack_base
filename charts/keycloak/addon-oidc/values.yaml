@@ -7,6 +7,7 @@ authKeycloak:
   adminUser: ""
 authentication:
   clientId: ""
+  clientType: confidential
   redirectUris: []
   webOrigins: []
   # Optional nonempty exact HTTPS URLs; omission preserves webOrigins fallback.
@@ -23,6 +24,7 @@ authentication:
 # Scope permits claims for roles users already have; it never assigns user roles.
 clientApproval:
   clientId: ""
+  clientType: confidential
   redirectUris: []
   webOrigins: []
   # Optional trusted allowlist for authentication.postLogoutRedirectUris.
