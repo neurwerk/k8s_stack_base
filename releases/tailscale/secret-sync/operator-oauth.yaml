@@ -1,3 +1,25 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: tailscale-external-secrets
+  namespace: tailscale
+rules:
+  - apiGroups: [""]
+    resources: ["serviceaccounts/token"]
+    resourceNames: ["tailscale-external-secrets"]
+    verbs: ["create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: tailscale-external-secrets
+  namespace: tailscale
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: tailscale-external-secrets}
+subjects:
+  - kind: ServiceAccount
+    name: infra-external-secrets
+    namespace: infra-external-secrets
+---
 apiVersion: v1
 kind: ServiceAccount
 metadata:

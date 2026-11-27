@@ -125,7 +125,8 @@ class TailscaleTests(unittest.TestCase):
     def test_secret_delivery_requests_only_approved_fields(self):
         docs = package("releases/tailscale/secret-sync")
         self.assertCountEqual(
-            [doc["kind"] for doc in docs], ["ServiceAccount", "SecretStore", "ExternalSecret"]
+            [doc["kind"] for doc in docs],
+            ["ServiceAccount", "SecretStore", "ExternalSecret", "Role", "RoleBinding"],
         )
         account = next(doc for doc in docs if doc["kind"] == "ServiceAccount")
         self.assertEqual(account["metadata"]["name"], "tailscale-external-secrets")

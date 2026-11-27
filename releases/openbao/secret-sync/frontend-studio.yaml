@@ -1,3 +1,25 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: frontend-studio-external-secrets
+  namespace: frontend-studio
+rules:
+  - apiGroups: [""]
+    resources: ["serviceaccounts/token"]
+    resourceNames: ["frontend-studio-external-secrets"]
+    verbs: ["create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: frontend-studio-external-secrets
+  namespace: frontend-studio
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: frontend-studio-external-secrets}
+subjects:
+  - kind: ServiceAccount
+    name: infra-external-secrets
+    namespace: infra-external-secrets
+---
 apiVersion: v1
 kind: ServiceAccount
 metadata:

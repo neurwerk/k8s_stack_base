@@ -1,3 +1,28 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: monitor-kube-prometheus-stack-external-secrets
+  namespace: monitor-kube-prometheus-stack
+rules:
+  - apiGroups: [""]
+    resources: ["serviceaccounts/token"]
+    resourceNames: ["monitor-kube-prometheus-stack-external-secrets"]
+    verbs: ["create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: monitor-kube-prometheus-stack-external-secrets
+  namespace: monitor-kube-prometheus-stack
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: monitor-kube-prometheus-stack-external-secrets
+subjects:
+  - kind: ServiceAccount
+    name: infra-external-secrets
+    namespace: infra-external-secrets
+---
 apiVersion: v1
 kind: ServiceAccount
 metadata:

@@ -7,6 +7,8 @@ external-secrets:
   bitwarden-sdk-server:
     enabled: false
   systemAuthDelegator: false
+  rbac:
+    serviceAccountTokenCreate: false
   leaderElect: false
   openshiftFinalizers: false
   # Reduce provider logins from standalone store checks; failures may take up to
