@@ -439,7 +439,7 @@ spec:
       appVersion: 0.12.1
     - path: charts/kube-prometheus-stack
       name: monitor-kube-prometheus-stack
-      version: 2.0.0
+      version: 2.0.1
       appVersion: 0.94.2
       dependencyLock:
         digest: sha256:f43da17012d72c38c668f885c0be2937b93637e7aea26dc2d20796e11d284b0c
