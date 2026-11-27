@@ -22,7 +22,7 @@
         "operatorConfig": {
           "type": "object", "additionalProperties": false,
           "properties": {
-            "image": {"const": {"repository": "ghcr.io/tailscale/k8s-operator", "tag": "v1.104.2@sha256:9cddfcbe75a7eab2b46d610966d519a28699a5e38235a2cb3aec960487c4aa48", "digest": "", "pullPolicy": "IfNotPresent"}},
+            "image": {"const": {"repository": "ghcr.io/tailscale/k8s-operator", "tag": "v1.104.7@sha256:51ba104ff02afcc39f93189415c8b2f44fb6037e8592d626bfa52c3c8afc02f6", "digest": "", "pullPolicy": "IfNotPresent"}},
             "hostname": {"type": "string", "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$", "maxLength": 63},
             "defaultTags": {"type": "array", "minItems": 1, "items": {"type": "string", "pattern": "^tag:[a-zA-Z0-9-]+$"}},
             "logging": {"enum": ["info", "debug", "dev"]},
@@ -44,7 +44,7 @@
         "proxyConfig": {
           "type": "object", "additionalProperties": false,
           "properties": {
-            "image": {"const": {"repository": "ghcr.io/tailscale/tailscale", "tag": "v1.104.2@sha256:b11583ad2e93e4671128538c88cf11f460444a5d7e449311dd1933a400ab849d", "digest": ""}},
+            "image": {"const": {"repository": "ghcr.io/tailscale/tailscale", "tag": "v1.104.7@sha256:72c1e19e0aedca96b8533bbb0b4368564410ff20b17e53b804eb6c1f04a31be4", "digest": ""}},
             "defaultTags": {"type": "string", "pattern": "^tag:[a-zA-Z0-9-]+(,tag:[a-zA-Z0-9-]+)*$"},
             "firewallMode": {"const": "auto"},
             "defaultProxyClass": {"const": ""}

@@ -212,7 +212,7 @@ spec:
       - charts/tailscale/operator
       prerequisites:
       - name: tailscale-operator
-        version: 1.104.2
+        version: 1.104.7
         source: https://pkgs.tailscale.com/helmcharts
     - path: releases/tailscale/secret-sync
       status: included
@@ -558,21 +558,21 @@ spec:
       appVersion: 0.27.0
     - path: charts/tailscale/access
       name: tailscale-access
-      version: 0.1.0
-      appVersion: v1.104.2
+      version: 0.1.1
+      appVersion: v1.104.7
     - path: charts/tailscale/operator
       name: tailscale-operator
-      version: 0.1.0
-      appVersion: v1.104.2
+      version: 0.1.1
+      appVersion: v1.104.7
       dependencyLock:
-        digest: sha256:5bd4b9e4a1fdc8a013b67f95c602732cace42744da39449b4b5af2666f381b25
+        digest: sha256:8ec7096f6ae01854814963c02a5d039942c31f524e16a1d53115613d2d5c4381
         dependencies:
         - name: tailscale-operator
           repository: https://pkgs.tailscale.com/helmcharts
-          version: 1.104.2
+          version: 1.104.7
         archives:
-        - path: charts/tailscale/operator/charts/tailscale-operator-1.104.2-1792591623-cf215d52f3a20fae4c77b14a191957ccb12e46b0f2ff2263c6f51c8a472cd505.tgz
-          sha256: cf215d52f3a20fae4c77b14a191957ccb12e46b0f2ff2263c6f51c8a472cd505
+        - path: charts/tailscale/operator/charts/tailscale-operator-1.104.7-1794525520-55d1df3c16b2ac1871908b78f37b4c341b963b3bb626ab1c18ed48b69620ef8b.tgz
+          sha256: 55d1df3c16b2ac1871908b78f37b4c341b963b3bb626ab1c18ed48b69620ef8b
     - path: charts/traefik
       name: traefik
       version: 1.1.1
@@ -959,12 +959,12 @@ spec:
       eligibility: included
       origins:
       - charts/reloader/values.yaml
-    - reference: ghcr.io/tailscale/k8s-operator:v1.104.2@sha256:9cddfcbe75a7eab2b46d610966d519a28699a5e38235a2cb3aec960487c4aa48
+    - reference: ghcr.io/tailscale/k8s-operator:v1.104.7@sha256:51ba104ff02afcc39f93189415c8b2f44fb6037e8592d626bfa52c3c8afc02f6
       pinned: true
       eligibility: included
       origins:
       - charts/tailscale/operator/values.yaml
-    - reference: ghcr.io/tailscale/tailscale:v1.104.2@sha256:b11583ad2e93e4671128538c88cf11f460444a5d7e449311dd1933a400ab849d
+    - reference: ghcr.io/tailscale/tailscale:v1.104.7@sha256:72c1e19e0aedca96b8533bbb0b4368564410ff20b17e53b804eb6c1f04a31be4
       pinned: true
       eligibility: included
       origins:
