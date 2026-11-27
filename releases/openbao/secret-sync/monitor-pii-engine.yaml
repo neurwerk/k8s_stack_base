@@ -1,3 +1,25 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: monitor-pii-engine-external-secrets
+  namespace: monitor-pii-engine
+rules:
+  - apiGroups: [""]
+    resources: ["serviceaccounts/token"]
+    resourceNames: ["monitor-pii-engine-external-secrets"]
+    verbs: ["create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: monitor-pii-engine-external-secrets
+  namespace: monitor-pii-engine
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: monitor-pii-engine-external-secrets}
+subjects:
+  - kind: ServiceAccount
+    name: infra-external-secrets
+    namespace: infra-external-secrets
+---
 apiVersion: v1
 kind: ServiceAccount
 metadata:

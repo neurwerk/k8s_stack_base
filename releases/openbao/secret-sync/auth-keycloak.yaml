@@ -1,3 +1,25 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: auth-keycloak-external-secrets
+  namespace: auth-keycloak
+rules:
+  - apiGroups: [""]
+    resources: ["serviceaccounts/token"]
+    resourceNames: ["auth-keycloak-external-secrets"]
+    verbs: ["create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: auth-keycloak-external-secrets
+  namespace: auth-keycloak
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: auth-keycloak-external-secrets}
+subjects:
+  - kind: ServiceAccount
+    name: infra-external-secrets
+    namespace: infra-external-secrets
+---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
