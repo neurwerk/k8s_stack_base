@@ -213,7 +213,7 @@ packages:
     - charts/tailscale/operator
     prerequisites:
     - name: tailscale-operator
-      version: 1.104.2
+      version: 1.104.7
       source: https://pkgs.tailscale.com/helmcharts
   - path: releases/tailscale/secret-sync
     status: included
