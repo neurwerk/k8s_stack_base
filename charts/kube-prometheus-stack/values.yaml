@@ -176,6 +176,8 @@ kube-prometheus-stack:
   # ── kube-state-metrics (dependency subchart) ───────────────────────────────
   kube-state-metrics:
     enabled: true
+    collectorsExclude:
+      - secrets
     image:
       registry: registry.k8s.io
       repository: kube-state-metrics/kube-state-metrics
